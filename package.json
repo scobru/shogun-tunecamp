@@ -1,0 +1,40 @@
+{
+  "name": "shogun-faircamp",
+  "version": "0.1.0",
+  "description": "A static site generator for musicians and labels - JavaScript implementation inspired by Faircamp",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "shogun-faircamp": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "music",
+    "static-site-generator",
+    "bandcamp",
+    "artist",
+    "album",
+    "audio"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "music-metadata": "^8.1.4",
+    "handlebars": "^4.7.8",
+    "fs-extra": "^11.2.0",
+    "yaml": "^2.3.4",
+    "commander": "^11.1.0",
+    "glob": "^10.3.10",
+    "chalk": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/fs-extra": "^11.0.4",
+    "typescript": "^5.3.3"
+  }
+}
