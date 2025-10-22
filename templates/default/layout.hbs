@@ -7,14 +7,14 @@
   {{#if catalog.description}}
   <meta name="description" content="{{catalog.description}}">
   {{/if}}
-  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="{{assetPath "assets/style.css"}}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <header class="site-header">
     <div class="container">
       <h1 class="site-title">
-        <a href="/index.html">{{catalog.title}}</a>
+        <a href="{{path "index.html"}}">{{catalog.title}}</a>
       </h1>
       {{#if catalog.description}}
       <p class="site-description">{{catalog.description}}</p>
@@ -48,7 +48,7 @@
     </div>
   </footer>
 
-  <script src="/assets/player.js"></script>
+  <script src="{{assetPath "assets/player.js"}}"></script>
 </body>
 </html>
 

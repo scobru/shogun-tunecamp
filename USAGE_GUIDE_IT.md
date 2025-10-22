@@ -1,59 +1,59 @@
-# Guida all'uso - Shogun Faircamp
+# Usage Guide - Selfcamp
 
-Un generatore di siti statici per musicisti e etichette musicali, scritto in JavaScript/TypeScript.
+A static site generator for musicians and music labels, written in JavaScript/TypeScript.
 
-## 🎯 Cosa è Shogun Faircamp?
+## 🎯 What is Selfcamp?
 
-Shogun Faircamp è l'equivalente JavaScript di [Faircamp](https://simonrepp.com/faircamp/) - permette di creare siti web statici belli e veloci per presentare la tua musica senza bisogno di database o hosting complesso.
+Selfcamp is the JavaScript equivalent of [Faircamp](https://simonrepp.com/faircamp/) - it allows you to create beautiful and fast static websites to showcase your music without the need for databases or complex hosting.
 
-## ✨ Caratteristiche Principali
+## ✨ Key Features
 
-- 🎵 **Audio-first**: Legge automaticamente i metadati dai tuoi file audio
-- 📦 **Zero database**: Genera HTML statico puro
-- 🎨 **Personalizzabile**: Sistema di temi basato su Handlebars
-- 🚀 **Veloce**: Siti statici che si caricano istantaneamente
-- 📱 **Responsive**: Ottimizzato per mobile
-- 🔊 **Player integrato**: Player audio HTML5 moderno
-- 💿 **Multi-formato**: Supporto per MP3, FLAC, OGG, WAV, M4A, OPUS
-- 🏷️ **Metadati flessibili**: File di configurazione YAML
+- 🎵 **Audio-first**: Automatically reads metadata from your audio files
+- 📦 **Zero database**: Pure static HTML generation
+- 🎨 **Customizable**: Handlebars-based theming system
+- 🚀 **Fast**: Static sites that load instantly
+- 📱 **Responsive**: Mobile-optimized
+- 🔊 **Built-in player**: Modern HTML5 audio player
+- 💿 **Multi-format**: Support for MP3, FLAC, OGG, WAV, M4A, OPUS
+- 🏷️ **Flexible metadata**: YAML-based configuration files
 
 ## 🚀 Quick Start
 
-### 1. Installazione Dipendenze
+### 1. Install Dependencies
 
 ```bash
-cd shogun-faircamp
+cd selfcamp
 yarn install
 yarn build
 ```
 
-### 2. Prova con l'Esempio
+### 2. Try with the Example
 
 ```bash
-# Genera il sito dall'esempio
+# Generate the site from the example
 node dist/cli.js build ./examples/artist-free -o ./output
 
-# Avvia il server locale
+# Start the local server
 node dist/cli.js serve ./output --port 3000
 ```
 
-Apri http://localhost:3000 nel browser!
+Open http://localhost:3000 in your browser!
 
-### 3. Crea il Tuo Catalogo
+### 3. Create Your Catalog
 
 ```bash
-# Inizializza un nuovo catalogo
-node dist/cli.js init ./mia-musica
+# Initialize a new catalog
+node dist/cli.js init ./my-music
 ```
 
-Questo crea:
+This creates:
 
 ```
-mia-musica/
-├── catalog.yaml      # Configurazione del catalogo
-├── artist.yaml       # Info sull'artista
-├── releases/         # Le tue release musicali
-│   └── album-esempio/
+my-music/
+├── catalog.yaml      # Catalog configuration
+├── artist.yaml       # Artist information
+├── releases/         # Your music releases
+│   └── example-album/
 │       ├── release.yaml
 │       └── tracks/
 └── README.md

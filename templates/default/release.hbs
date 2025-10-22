@@ -1,13 +1,13 @@
 <div class="container">
   <nav class="breadcrumb">
-    <a href="{{backUrl}}">← Back to catalog</a>
+    <a href="{{path backUrl}}">← Back to catalog</a>
   </nav>
 
   <article class="release-detail">
     <header class="release-header">
       {{#if release.coverUrl}}
       <div class="release-cover-large">
-        <img src="{{release.coverUrl}}" alt="{{release.config.title}}">
+        <img src="{{path release.coverUrl}}" alt="{{release.config.title}}">
       </div>
       {{/if}}
       
@@ -109,7 +109,7 @@
       
       <ol class="track-list">
         {{#each release.tracks}}
-        <li class="track-item" data-src="{{url}}" data-index="{{@index}}">
+        <li class="track-item" data-src="{{releasePath url}}" data-index="{{@index}}">
           <div class="track-number">{{@index}}</div>
           <div class="track-info">
             <div class="track-title">{{title}}</div>
@@ -126,7 +126,7 @@
             </button>
             {{#if ../release.config.download}}
             {{#if (eq ../release.config.download "free")}}
-            <a href="{{url}}" download class="track-download-btn">
+            <a href="{{releasePath url}}" download class="track-download-btn">
               <i class="fas fa-download"></i>
             </a>
             {{/if}}
@@ -144,7 +144,7 @@
   window.tracks = [
     {{#each release.tracks}}
     {
-      url: '{{url}}',
+      url: '{{releasePath url}}',
       title: '{{title}}',
       artist: '{{#if artist}}{{artist}}{{else}}{{../artist.name}}{{/if}}',
       duration: {{#if duration}}{{duration}}{{else}}0{{/if}}

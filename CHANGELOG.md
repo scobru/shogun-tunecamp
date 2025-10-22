@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2024-10-21
 
 ### Added
-- Initial release of Shogun Faircamp
+- Initial release of Tunecamp (formerly Tunecamp)
 - Static site generation for music catalogs
 - YAML-based configuration files
 - Audio metadata extraction from files
@@ -51,9 +51,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Asset path issues on deployment**: Fixed hardcoded absolute paths that prevented styles and scripts from loading when deployed to subdirectories (e.g., GitHub Pages). Added `basePath` configuration option to support deployments in subdirectories.
+
+### Added
+- `basePath` configuration option in `catalog.yaml` to specify the base path for deployment
+- `--basePath` CLI flag to override the base path at build time
+- `path` Handlebars helper to automatically prepend the base path to asset URLs
+- Comprehensive deployment documentation with platform-specific examples
+
+### Changed
+- Updated all asset references in templates to use the new `path` helper
+- Modified site generator to pass `basePath` to all templates
+- Updated `init` command to include `basePath` in the generated catalog.yaml template
+
+### Added
+- **Multiple Theme Support**: Added 3 new themes in addition to the default theme
+  - `minimal` - Clean light theme with white background
+  - `dark` - Aggressive dark theme with red accents (perfect for rock/metal)
+  - `retro` - 80s-inspired theme with neon colors and animations (perfect for synthwave/vaporwave)
+- Theme selection via `catalog.yaml` configuration or `--theme` CLI option
+- Comprehensive theme documentation in `docs/THEMES.md`
+- Theme examples and usage guides in README.md and QUICKSTART.md
+
 ### Planned
 - Automated testing suite
-- Additional themes
+- Even more themes (contributions welcome!)
 - Playlist export (M3U, PLS)
 - RSS feed generation
 - Search functionality
@@ -69,5 +92,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[0.1.0]: https://github.com/yourusername/shogun-faircamp/releases/tag/v0.1.0
+[0.1.0]: https://github.com/yourusername/Tunecamp/releases/tag/v0.1.0
 

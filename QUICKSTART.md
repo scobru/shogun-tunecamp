@@ -1,11 +1,11 @@
 # Quick Start Guide
 
-Get up and running with Shogun Faircamp in 5 minutes!
+Get up and running with Selfcamp in 5 minutes!
 
 ## Installation
 
 ```bash
-cd shogun-faircamp
+cd selfcamp
 yarn install
 yarn build
 ```
@@ -61,6 +61,7 @@ Edit `catalog.yaml`:
 title: "My Music"
 description: "My awesome music collection"
 url: "https://mymusic.com"
+theme: "default"  # Options: default, minimal, dark, retro
 ```
 
 Edit `artist.yaml`:
@@ -172,6 +173,27 @@ download: "none"
 3. **Track Order**: Files are sorted alphabetically, use numbers: `01-`, `02-`, etc.
 4. **Genres**: Add multiple genres as a YAML array
 5. **Credits**: Add credits to your releases for collaborators
+
+## Changing Themes
+
+Selfcamp comes with 4 built-in themes:
+
+- **default** - Modern dark theme with purple/blue gradients
+- **minimal** - Clean light theme
+- **dark** - Aggressive dark theme with red accents (great for rock/metal)
+- **retro** - 80s-inspired with neon colors (perfect for synthwave)
+
+Change the theme in `catalog.yaml`:
+```yaml
+theme: "retro"
+```
+
+Or specify it when building:
+```bash
+node dist/cli.js build ./my-music -o ./public --theme retro
+```
+
+See [Theme Documentation](docs/THEMES.md) for details on creating custom themes.
 
 ## Next Steps
 

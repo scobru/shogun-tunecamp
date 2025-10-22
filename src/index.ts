@@ -7,7 +7,7 @@ import { CatalogParser } from './parser/catalogParser.js';
 import { SiteGenerator } from './generator/siteGenerator.js';
 import { BuildOptions } from './types/index.js';
 
-export class ShogunFaircamp {
+export class Selfcamp {
   private options: BuildOptions;
   
   constructor(options: BuildOptions) {

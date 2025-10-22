@@ -1,0 +1,25 @@
+title: "Debut Album"
+date: "2024-01-15"
+description: "My first full-length album exploring themes of digital consciousness and analog warmth."
+download: "free"
+cover: "image.jpg"
+genres:
+  - "Electronic"
+  - "Ambient"
+  - "Experimental"
+credits:
+  - role: "Produced by"
+    name: "Electronic Artist"
+  - role: "Mastered by"
+    name: "Mastering Engineer"
+  - role: "Artwork by"
+    name: "Visual Artist"
+
+tracks:
+  - file: "test.mp3"
+    title: "Custom Title"
+    description: "Track notes"
+  - file: "test2.mp3"
+    title: "Custom Title 2"
+    description: "Track notes 2"
+

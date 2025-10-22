@@ -1,4 +1,4 @@
-# Shogun Faircamp
+# ⛺ Tunecamp
 
 A modern static site generator for musicians and music labels, written in JavaScript/TypeScript.
 
@@ -20,9 +20,9 @@ Inspired by [Faircamp](https://simonrepp.com/faircamp/), this tool helps you cre
 ### Installation
 
 ```bash
-npm install -g shogun-faircamp
+npm install -g tunecamp
 # or
-yarn global add shogun-faircamp
+yarn global add tunecamp
 ```
 
 ### Basic Usage
@@ -73,12 +73,58 @@ price: 10.00
 3. **Generate your site:**
 
 ```bash
-shogun-faircamp build ./my-music --output ./public
+tunecamp build ./my-music --output ./public
 ```
 
 4. **Deploy:**
 
 Upload the `public` folder to any static hosting service (Netlify, Vercel, GitHub Pages, etc.)
+
+## Deployment
+
+### Deploying to Different Platforms
+
+The `basePath` configuration is essential for correct asset loading when your site is deployed.
+
+#### Root Domain Deployment
+
+For deployments at the root of a domain (e.g., `mymusic.com`):
+
+```yaml
+# catalog.yaml
+basePath: ""  # or omit the field
+```
+
+#### Subdirectory Deployment
+
+For deployments in a subdirectory (e.g., GitHub Pages at `username.github.io/my-music`):
+
+```yaml
+# catalog.yaml
+basePath: "/my-music"
+```
+
+#### Platform-Specific Examples
+
+**GitHub Pages (Project Site)**
+```yaml
+basePath: "/repository-name"
+```
+
+**Netlify/Vercel (Custom Domain)**
+```yaml
+basePath: ""
+```
+
+**Netlify/Vercel (Subdirectory)**
+```yaml
+basePath: "/subfolder"
+```
+
+You can also override the `basePath` at build time:
+```bash
+tunecamp build ./my-music --output ./public --basePath /my-music
+```
 
 ## Configuration Files
 
@@ -90,9 +136,12 @@ Global catalog configuration:
 title: "Catalog Title"
 description: "Catalog description"
 url: "https://yoursite.com"
+basePath: "" # Base path for deployment (empty for root, "/repo-name" for subdirectory)
 theme: "default" # or custom theme name
 language: "en"
 ```
+
+**Important**: The `basePath` option is crucial when deploying to subdirectories (e.g., GitHub Pages). If your site will be at `username.github.io/my-music/`, set `basePath: "/my-music"`.
 
 ### artist.yaml
 
@@ -143,16 +192,19 @@ tracks:
 
 ```bash
 # Build a catalog
-shogun-faircamp build <input-dir> --output <output-dir>
+tunecamp build <input-dir> --output <output-dir>
+
+# Build with custom base path (overrides catalog.yaml)
+tunecamp build <input-dir> --output <output-dir> --basePath /my-music
 
 # Watch for changes and rebuild
-shogun-faircamp watch <input-dir> --output <output-dir>
+tunecamp watch <input-dir> --output <output-dir>
 
 # Serve locally
-shogun-faircamp serve <output-dir> --port 3000
+tunecamp serve <output-dir> --port 3000
 
 # Initialize a new catalog
-shogun-faircamp init <directory>
+tunecamp init <directory>
 ```
 
 ## Development Modes
@@ -191,20 +243,48 @@ Requires download codes for access.
 - M4A/AAC
 - OPUS
 
-## Theming
+## Themes
 
-Create custom themes by providing your own Handlebars templates:
+tunecamp includes 4 ready-to-use themes:
+
+### Available Themes
+
+1. **default** - Modern dark theme with purple/blue gradients
+2. **minimal** - Clean light theme with lots of white space
+3. **dark** - Aggressive dark theme with red accents (perfect for rock/metal)
+4. **retro** - 80s-inspired theme with neon colors (perfect for synthwave/vaporwave)
+
+### Using a Theme
+
+Specify the theme in your `catalog.yaml`:
+
+```yaml
+catalog:
+  title: "My Music"
+  theme: "retro"  # Change to: default, minimal, dark, or retro
+```
+
+Or use the `--theme` option when building:
+
+```bash
+tunecamp build ./my-music --output ./public --theme dark
+```
+
+### Creating Custom Themes
+
+Create your own theme by adding a folder in the `templates/` directory:
 
 ```
-my-theme/
+templates/my-theme/
 ├── layout.hbs
 ├── index.hbs
 ├── release.hbs
-├── track.hbs
 └── assets/
     ├── style.css
     └── player.js
 ```
+
+For detailed information about themes, see [Theme Documentation](./docs/THEMES.md).
 
 ## Examples
 
@@ -216,12 +296,12 @@ Check the `/examples` directory for complete catalog examples:
 
 ## API Usage
 
-You can also use Shogun Faircamp programmatically:
+You can also use tunecamp programmatically:
 
 ```javascript
-import { ShogunFaircamp } from "shogun-faircamp";
+import { tunecamp } from "tunecamp";
 
-const generator = new ShogunFaircamp({
+const generator = new tunecamp({
   inputDir: "./my-music",
   outputDir: "./public",
   theme: "default",
@@ -245,5 +325,9 @@ Inspired by [Faircamp](https://simonrepp.com/faircamp/) by Simon Repp.
 ## Links
 
 - [Documentation](./docs)
+  - [Deployment Guide](./docs/DEPLOYMENT.md)
+  - [API Documentation](./docs/API.md)
+  - [Theme Documentation](./docs/THEMES.md)
+  - [Theme Showcase](./docs/THEME_SHOWCASE.md)
 - [Examples](./examples)
-- [Themes](./themes)
+- [Changelog](./CHANGELOG.md)

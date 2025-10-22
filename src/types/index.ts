@@ -6,6 +6,7 @@ export interface CatalogConfig {
   title: string;
   description?: string;
   url?: string;
+  basePath?: string; // Base path for deployment (e.g., "" for root, "/repo-name" for subdirectory)
   theme?: string;
   language?: string;
   metadata?: Record<string, any>;
@@ -83,6 +84,7 @@ export interface BuildOptions {
   inputDir: string;
   outputDir: string;
   theme?: string;
+  basePath?: string; // Override basePath from config
   verbose?: boolean;
 }
 

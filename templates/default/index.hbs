@@ -22,10 +22,10 @@
     <div class="releases-grid">
       {{#each releases}}
       <article class="release-card">
-        <a href="{{url}}" class="release-link">
+        <a href="{{path url}}" class="release-link">
           {{#if coverUrl}}
           <div class="release-cover">
-            <img src="{{coverUrl}}" alt="{{config.title}}" loading="lazy">
+            <img src="{{path coverUrl}}" alt="{{config.title}}" loading="lazy">
           </div>
           {{else}}
           <div class="release-cover release-cover-placeholder">

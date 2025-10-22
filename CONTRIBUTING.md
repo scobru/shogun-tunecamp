@@ -1,6 +1,6 @@
-# Contributing to Shogun Faircamp
+# Contributing to Tunecamp
 
-Thank you for your interest in contributing to Shogun Faircamp! This document provides guidelines for contributing to the project.
+Thank you for your interest in contributing to Tunecamp! This document provides guidelines for contributing to the project.
 
 ## Development Setup
 

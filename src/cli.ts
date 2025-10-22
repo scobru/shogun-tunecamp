@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Command-line interface for Shogun Faircamp
+ * Command-line interface for Selfcamp
  */
 
 import { Command } from 'commander';
-import { ShogunFaircamp } from './index.js';
+import { Selfcamp } from './index.js';
 import fs from 'fs-extra';
 import path from 'path';
 import chalk from 'chalk';
@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
 const program = new Command();
 
 program
-  .name('shogun-faircamp')
+  .name('selfcamp')
   .description('Static site generator for musicians and labels')
   .version('0.1.0');
 
@@ -27,13 +27,15 @@ program
   .argument('<input>', 'Input directory containing catalog')
   .option('-o, --output <dir>', 'Output directory', './public')
   .option('-t, --theme <name>', 'Theme name', 'default')
+  .option('-b, --basePath <path>', 'Base path for deployment (overrides catalog.yaml)')
   .option('-v, --verbose', 'Verbose output', false)
   .action(async (input: string, options: any) => {
     try {
-      const generator = new ShogunFaircamp({
+      const generator = new Selfcamp({
         inputDir: path.resolve(input),
         outputDir: path.resolve(options.output),
         theme: options.theme,
+        basePath: options.basePath,
         verbose: options.verbose,
       });
       
@@ -66,7 +68,7 @@ program
       console.log(chalk.blue(`\nNext steps:`));
       console.log(`  cd ${directory}`);
       console.log(`  # Add your music files to releases/`);
-      console.log(`  shogun-faircamp build . -o public`);
+      console.log(`  selfcamp build . -o public`);
     } catch (error) {
       console.error(chalk.red('Error:'), error);
       process.exit(1);
@@ -131,6 +133,7 @@ async function initializeCatalog(targetDir: string): Promise<void> {
   const catalogYaml = `title: "My Music Catalog"
 description: "Independent music releases"
 url: "https://example.com"
+basePath: "" # Leave empty for root deployment, use "/repo-name" for subdirectories
 theme: "default"
 language: "en"
 `;
@@ -178,12 +181,12 @@ This is your Shogun Faircamp catalog.
 1. Add your music files to \`releases/your-album-name/tracks/\`
 2. Add cover art (cover.jpg, cover.png, etc.)
 3. Configure \`release.yaml\` for each album
-4. Build: \`shogun-faircamp build . -o public\`
+4. Build: \`selfcamp build . -o public\`
 5. Deploy the \`public\` folder
 
 ## Documentation
 
-See https://github.com/yourusername/shogun-faircamp for full documentation.
+See https://github.com/yourusername/selfcamp for full documentation.
 `;
   await fs.writeFile(path.join(targetDir, 'README.md'), readme);
 }

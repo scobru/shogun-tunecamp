@@ -1,11 +1,11 @@
 {
-  "name": "shogun-faircamp",
+  "name": "selfcamp",
   "version": "0.1.0",
   "description": "A static site generator for musicians and labels - JavaScript implementation inspired by Faircamp",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "shogun-faircamp": "./dist/cli.js"
+    "selfcamp": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc",

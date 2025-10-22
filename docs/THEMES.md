@@ -1,259 +1,151 @@
-# Creating Custom Themes
+# Themes / Temi Grafici
 
-Shogun Faircamp uses Handlebars templates for theming, making it easy to create custom designs.
+Shogun Faircamp supporta diversi temi grafici per personalizzare l'aspetto del tuo sito musicale.
 
-## Theme Structure
+## Temi Disponibili
 
-A theme is a directory containing:
+### 1. **default** (Tema Predefinito)
+Un tema scuro e moderno con gradienti viola e blu. Perfetto per un look professionale e contemporaneo.
 
-```
-my-theme/
-├── layout.hbs       # Main layout (required)
-├── index.hbs        # Homepage template (required)
-├── release.hbs      # Release page template (required)
-└── assets/
-    ├── style.css    # Styles
-    ├── player.js    # Audio player (optional)
-    └── ...          # Other assets
-```
+**Caratteristiche:**
+- Colori: Indigo (#6366f1) e viola (#8b5cf6)
+- Sfondo scuro con superfici grigio scuro
+- Design pulito e moderno con bordi arrotondati
+- Effetti hover con ombre luminose
 
-## Template Files
+### 2. **minimal** (Minimalista)
+Un tema chiaro e pulito con molto spazio bianco. Ideale per chi preferisce un approccio minimalista ed elegante.
 
-### layout.hbs
+**Caratteristiche:**
+- Colori: Blu (#2563eb) su sfondo bianco
+- Design leggero con bordi sottili
+- Tipografia raffinata con font sans-serif
+- Estetica pulita e spaziosa
 
-The main layout wraps all pages. Must include `{{{content}}}` placeholder.
+### 3. **dark** (Scuro Aggressivo)
+Un tema scuro intenso con accenti rossi vibranti. Perfetto per generi musicali come rock, metal, electronic.
 
-```handlebars
-<!DOCTYPE html>
-<html>
-<head>
-  <title>{{catalog.title}}</title>
-  <link rel="stylesheet" href="/assets/style.css">
-</head>
-<body>
-  <header>
-    <h1>{{catalog.title}}</h1>
-  </header>
-  
-  <main>
-    {{{content}}}
-  </main>
-  
-  <footer>
-    <!-- Footer content -->
-  </footer>
-</body>
-</html>
-```
+**Caratteristiche:**
+- Colori: Rosso (#ef4444) su sfondo nero assoluto
+- Design audace con bordi quadrati
+- Tipografia bold e uppercase
+- Effetti glow e ombre rosse intense
 
-### index.hbs
+### 4. **retro** (Anni '80)
+Un tema ispirato agli anni '80 con colori neon e effetti nostalgici. Ideale per synthwave, vaporwave, e musica elettronica retro.
 
-Homepage showing all releases:
+**Caratteristiche:**
+- Colori: Rosa neon (#ff1493), ciano (#00ffff), giallo (#ffff00)
+- Sfondo viola scuro con effetti scanline
+- Font monospace (Courier)
+- Effetti neon glow e animazioni luminose
+- Ombre colorate e bordi multipli
 
-```handlebars
-<div class="releases">
-  {{#each releases}}
-  <article class="release">
-    <a href="{{url}}">
-      <img src="{{coverUrl}}" alt="{{config.title}}">
-      <h2>{{config.title}}</h2>
-      <p>{{formatDate config.date}}</p>
-    </a>
-  </article>
-  {{/each}}
-</div>
-```
+## Come Usare un Tema
 
-### release.hbs
+### Metodo 1: Configurazione nel catalog.yaml
 
-Individual release page:
+Aggiungi il campo `theme` nella sezione `catalog` del tuo file `catalog.yaml`:
 
-```handlebars
-<article class="release-detail">
-  <h1>{{release.config.title}}</h1>
-  
-  {{#if release.coverUrl}}
-  <img src="{{release.coverUrl}}" alt="{{release.config.title}}">
-  {{/if}}
-  
-  <ol class="tracklist">
-    {{#each release.tracks}}
-    <li>
-      <span>{{title}}</span>
-      <span>{{formatDuration duration}}</span>
-    </li>
-    {{/each}}
-  </ol>
-</article>
-```
-
-## Available Data
-
-### Catalog Data
-- `catalog.title`
-- `catalog.description`
-- `catalog.url`
-- `catalog.language`
-
-### Artist Data
-- `artist.name`
-- `artist.bio`
-- `artist.photo`
-- `artist.links[]`
-
-### Release Data
-- `release.config.title`
-- `release.config.date`
-- `release.config.description`
-- `release.config.genres[]`
-- `release.config.download`
-- `release.config.price`
-- `release.coverUrl`
-- `release.tracks[]`
-
-### Track Data
-- `track.title`
-- `track.artist`
-- `track.duration`
-- `track.filename`
-- `track.url`
-
-## Template Helpers
-
-Built-in Handlebars helpers:
-
-### formatDuration
-```handlebars
-{{formatDuration seconds}}
-<!-- Output: 3:45 -->
-```
-
-### formatDate
-```handlebars
-{{formatDate "2024-01-15"}}
-<!-- Output: January 15, 2024 -->
-```
-
-### formatAudioFormat
-```handlebars
-{{formatAudioFormat "track.mp3"}}
-<!-- Output: MP3 -->
-```
-
-### eq (equals)
-```handlebars
-{{#if (eq download "free")}}
-  Free Download
-{{/if}}
-```
-
-### join
-```handlebars
-{{join genres ", "}}
-<!-- Output: Electronic, Ambient -->
-```
-
-## Using Your Theme
-
-### Option 1: Command Line
-```bash
-shogun-faircamp build ./catalog -o ./public --theme my-theme
-```
-
-### Option 2: Catalog Config
 ```yaml
-# catalog.yaml
-theme: "my-theme"
+catalog:
+  title: "My Music Label"
+  description: "Independent music for free souls"
+  language: "en"
+  theme: "dark"  # Cambia questo per scegliere il tema
+  basePath: ""
+
+artist:
+  name: "Artist Name"
+  bio: "Bio goes here"
 ```
 
-### Option 3: Programmatic
-```javascript
-const generator = new ShogunFaircamp({
-  inputDir: './catalog',
-  outputDir: './public',
-  theme: 'my-theme'
-});
+### Metodo 2: Opzione da riga di comando
+
+Puoi specificare il tema quando generi il sito:
+
+```bash
+shogun-faircamp build --theme retro
 ```
 
-## Theme Location
+**Nota:** L'opzione da riga di comando ha precedenza sulla configurazione nel `catalog.yaml`.
 
-Place custom themes in:
-- `./templates/my-theme/` (in the project directory)
-- Or specify absolute path
+## Personalizzazione
 
-## Styling Tips
+Se vuoi creare il tuo tema personalizzato:
 
-### CSS Variables
-Use CSS custom properties for easy customization:
+1. Crea una nuova cartella in `templates/` con il nome del tuo tema (es. `templates/mytheme/`)
+
+2. Aggiungi i file necessari:
+   ```
+   templates/mytheme/
+   ├── layout.hbs       # Template principale
+   ├── index.hbs        # Pagina index
+   ├── release.hbs      # Pagina dettaglio release
+   └── assets/
+       ├── style.css    # Stili CSS
+       └── player.js    # Player audio
+   ```
+
+3. Copia i file da uno dei temi esistenti come base e personalizza i colori e lo stile nel file `style.css`
+
+4. Usa il tuo tema specificando il nome della cartella:
+   ```yaml
+   catalog:
+     theme: "mytheme"
+   ```
+
+## Variabili CSS
+
+Ogni tema utilizza variabili CSS (CSS custom properties) per i colori principali. Puoi modificare facilmente i colori editando le variabili `:root` nel file `style.css`:
 
 ```css
 :root {
   --primary-color: #6366f1;
+  --secondary-color: #8b5cf6;
   --bg-color: #0f172a;
+  --surface-color: #1e293b;
   --text-color: #f1f5f9;
+  --text-muted: #94a3b8;
+  --border-color: #334155;
+  --success-color: #10b981;
 }
 ```
 
-### Responsive Design
-Always include viewport meta:
+## Anteprima dei Temi
 
-```html
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+Per vedere come appare il tuo sito con diversi temi, genera il sito più volte con temi diversi:
+
+```bash
+# Genera con tema default
+shogun-faircamp build
+
+# Genera con tema minimal
+shogun-faircamp build --theme minimal --output ./output-minimal
+
+# Genera con tema dark
+shogun-faircamp build --theme dark --output ./output-dark
+
+# Genera con tema retro
+shogun-faircamp build --theme retro --output ./output-retro
 ```
 
-Use media queries:
+Poi apri i file `index.html` nelle rispettive cartelle di output per confrontare i temi.
 
-```css
-@media (max-width: 768px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-}
-```
+## Suggerimenti per Genere Musicale
 
-## Audio Player
+**Consigliati per genere:**
+- **Rock/Metal/Punk:** `dark`
+- **Electronic/Synthwave/Vaporwave:** `retro`
+- **Classical/Jazz/Acoustic:** `minimal`
+- **Pop/Indie/Alternative:** `default`
 
-You can customize or replace the default player. The player receives:
+## Supporto Browser
 
-```javascript
-window.tracks = [
-  {
-    url: 'track.mp3',
-    title: 'Track Title',
-    artist: 'Artist Name',
-    duration: 225
-  }
-];
-```
+Tutti i temi sono ottimizzati per i browser moderni e sono completamente responsive su dispositivi mobili.
 
-## Examples
-
-Check the `templates/` directory for:
-- `default` - Dark theme with modern design
-- More themes coming soon!
-
-## Sharing Themes
-
-To share your theme:
-
-1. Create a repository
-2. Include all template files
-3. Add a README with screenshots
-4. Submit to the Shogun Faircamp themes gallery
-
-## Best Practices
-
-- Keep templates simple and readable
-- Use semantic HTML
-- Ensure accessibility (ARIA labels, alt text)
-- Test on multiple screen sizes
-- Optimize images and assets
-- Include fallbacks for missing data
-- Document custom configuration options
-
-## Need Help?
-
-- Check existing themes for examples
-- Open an issue for questions
-- Join the community discussions
-
+**Browser supportati:**
+- Chrome/Edge (versioni recenti)
+- Firefox (versioni recenti)
+- Safari (versioni recenti)
+- Opera (versioni recenti)

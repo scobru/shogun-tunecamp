@@ -81,7 +81,10 @@ export class SiteGenerator {
   }
 
   private async generateIndexPage(): Promise<void> {
+    const basePath = this.options.basePath || this.catalog.config.basePath || "";
+    
     const data = {
+      basePath,
       catalog: this.catalog.config,
       artist: this.catalog.artist,
       releases: this.catalog.releases.map((release) => ({
@@ -114,7 +117,10 @@ export class SiteGenerator {
     );
     await ensureDir(releaseOutputDir);
 
+    const basePath = this.options.basePath || this.catalog.config.basePath || "";
+
     const data = {
+      basePath,
       catalog: this.catalog.config,
       artist: this.catalog.artist,
       release: {
