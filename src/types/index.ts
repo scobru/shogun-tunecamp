@@ -45,9 +45,15 @@ export interface ArtistLink {
   [platform: string]: string;
 }
 
-export type DownloadMode = 'free' | 'paycurtain' | 'none';
+export type DownloadMode = 'free' | 'paycurtain' | 'codes' | 'none';
 
 export type LicenseType = 'copyright' | 'cc-by' | 'cc-by-sa' | 'cc-by-nc' | 'cc-by-nc-sa' | 'cc-by-nc-nd' | 'cc-by-nd' | 'public-domain';
+
+export interface UnlockCodesConfig {
+  enabled: boolean;
+  namespace?: string; // GunDB namespace (default: 'tunecamp')
+  peers?: string[]; // Custom GunDB peers (optional)
+}
 
 export interface ReleaseConfig {
   title: string;
@@ -55,6 +61,7 @@ export interface ReleaseConfig {
   description?: string;
   cover?: string;
   download?: DownloadMode;
+  unlockCodes?: UnlockCodesConfig; // For 'codes' download mode
   price?: number;
   paypalLink?: string;
   stripeLink?: string;
