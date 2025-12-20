@@ -6,6 +6,7 @@ import { TemplateEngine } from "./templateEngine.js";
 import { FeedGenerator } from "./feedGenerator.js";
 import { EmbedGenerator } from "./embedGenerator.js";
 import { PodcastFeedGenerator } from "./podcastFeedGenerator.js";
+import { ProceduralCoverGenerator } from "./proceduralCoverGenerator.js";
 import {
   copyFile,
   ensureDir,
@@ -68,6 +69,9 @@ export class SiteGenerator {
 
     // Generate M3U playlists
     await this.generateM3uPlaylists();
+
+    // Generate procedural covers for releases without cover art
+    await this.generateProceduralCovers();
 
     // Copy media files
     await this.copyMediaFiles();
@@ -455,5 +459,38 @@ export class SiteGenerator {
     const podcastFeed = podcastGenerator.generatePodcastFeed();
     await writeFile(path.join(this.options.outputDir, "podcast.xml"), podcastFeed);
     console.log("  🎙️ Generated podcast.xml");
+  }
+
+  /**
+   * Generate procedural SVG covers for releases without cover art
+   */
+  private async generateProceduralCovers(): Promise<void> {
+    const coverGenerator = new ProceduralCoverGenerator();
+    const artistName = this.catalog.artist?.name || "Unknown Artist";
+    let generatedCount = 0;
+
+    for (const release of this.catalog.releases) {
+      // Only generate if no cover exists
+      if (!release.coverPath) {
+        const releaseDir = path.join(this.options.outputDir, "releases", release.slug);
+
+        // Generate procedural cover
+        const svg = coverGenerator.generateCover(
+          release.config.title,
+          artistName,
+          release.config.date,
+          release.config.genres
+        );
+
+        // Save as SVG
+        const coverPath = path.join(releaseDir, "cover-procedural.svg");
+        await writeFile(coverPath, svg);
+        generatedCount++;
+      }
+    }
+
+    if (generatedCount > 0) {
+      console.log(`  🎨 Generated ${generatedCount} procedural cover(s)`);
+    }
   }
 }
