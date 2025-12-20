@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="{{catalog.language}}">
+<html lang="{{catalog.language}}" data-theme="dark">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,15 +8,35 @@
   {{#if catalog.description}}
   <meta name="description" content="{{catalog.description}}">
   {{/if}}
-  <link rel="stylesheet" href="{{assetPath "assets/style.css"}}">
+  <!-- RSS/Atom Feeds -->
+  <link rel="alternate" type="application/rss+xml" title="{{catalog.title}} RSS Feed" href="{{assetPath 'feed.xml'}}">
+  <link rel="alternate" type="application/atom+xml" title="{{catalog.title}} Atom Feed" href="{{assetPath 'atom.xml'}}">
+  <link rel="stylesheet" href="{{assetPath " assets/style.css"}}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    // Initialize theme from localStorage or system preference
+    (function () {
+      const saved = localStorage.getItem('theme');
+      if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+      } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
 </head>
+
 <body>
   <header class="site-header">
     <div class="container">
-      <h1 class="site-title">
-        <a href="{{path "index.html"}}">{{catalog.title}}</a>
-      </h1>
+      <div class="header-row">
+        <h1 class="site-title">
+          <a href="{{path " index.html"}}">{{catalog.title}}</a>
+        </h1>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+          <i class="fas fa-moon" id="themeIcon"></i>
+        </button>
+      </div>
       {{#if catalog.description}}
       <p class="site-description">{{catalog.description}}</p>
       {{/if}}
@@ -30,34 +51,56 @@
     <div class="container">
       <p>
         {{#if artist}}
-        &copy; {{artist.name}} - 
+        &copy; {{artist.name}} -
         {{/if}}
         Powered by <a href="https://github.com/scobru/tunecamp" target="_blank">Tunecamp</a>
       </p>
       {{#if artist.links}}
       <div class="social-links">
         {{#each artist.links}}
-          {{#each this}}
-            <a href="{{this}}" target="_blank" rel="noopener" class="social-link">
-              <i class="fab fa-{{@key}}"></i>
-            </a>
-          {{/each}}
+        {{#each this}}
+        <a href="{{this}}" target="_blank" rel="noopener" class="social-link">
+          <i class="fab fa-{{@key}}"></i>
+        </a>
+        {{/each}}
         {{/each}}
       </div>
       {{/if}}
     </div>
   </footer>
 
-  <script src="{{assetPath "assets/player.js"}}"></script>
-    <footer class="tunecamp-footer">
-      <div class="footer-content">
-        <span>Built with</span>
-        <a href="https://github.com/scobru/tunecamp" target="_blank" class="tunecamp-link">
-          <img src="{{#if backUrl}}{{path '../../logo.svg'}}{{else}}{{path 'logo.svg'}}{{/if}}" alt="Tunecamp" class="footer-logo">
-          <span>Tunecamp</span>
-        </a>
-      </div>
-    </footer>
-  </body>
-</html>
+  <script src="{{assetPath " assets/player.js"}}"></script>
+  <script>
+    // Theme toggle functionality
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
 
+    function updateIcon() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      themeIcon.className = isDark ? 'fas fa-moon' : 'fas fa-sun';
+    }
+
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateIcon();
+    });
+
+    updateIcon();
+  </script>
+
+  <footer class="tunecamp-footer">
+    <div class="footer-content">
+      <span>Built with</span>
+      <a href="https://github.com/scobru/tunecamp" target="_blank" class="tunecamp-link">
+        <img src="{{#if backUrl}}{{path '../../logo.svg'}}{{else}}{{path 'logo.svg'}}{{/if}}" alt="Tunecamp"
+          class="footer-logo">
+        <span>Tunecamp</span>
+      </a>
+    </div>
+  </footer>
+</body>
+
+</html>

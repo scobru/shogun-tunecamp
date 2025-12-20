@@ -1,6 +1,8 @@
 /* Shogun Faircamp - Default Theme */
 
-:root {
+/* Dark Theme (default) */
+:root,
+[data-theme="dark"] {
   --primary-color: #6366f1;
   --secondary-color: #8b5cf6;
   --bg-color: #0f172a;
@@ -10,6 +12,19 @@
   --border-color: #334155;
   --success-color: #10b981;
   --warning-color: #f59e0b;
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  --primary-color: #4f46e5;
+  --secondary-color: #7c3aed;
+  --bg-color: #f8fafc;
+  --surface-color: #ffffff;
+  --text-color: #1e293b;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --success-color: #059669;
+  --warning-color: #d97706;
 }
 
 * {
@@ -23,6 +38,7 @@ body {
   background: var(--bg-color);
   color: var(--text-color);
   line-height: 1.6;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .container {
@@ -37,6 +53,13 @@ body {
   border-bottom: 2px solid var(--border-color);
   padding: 2rem 0;
   margin-bottom: 3rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .site-title {
@@ -51,6 +74,27 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+  background: var(--border-color);
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: var(--text-color);
+  transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+  background: var(--primary-color);
+  transform: scale(1.1);
 }
 
 .site-description {
@@ -93,11 +137,82 @@ body {
   margin-bottom: 2rem;
 }
 
+/* Search and Filter Controls */
+.releases-controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search-box {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.search-box i {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.search-box input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-color);
+  font-size: 1rem;
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.search-box input::placeholder {
+  color: var(--text-muted);
+}
+
+.filter-controls {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.filter-select {
+  padding: 0.75rem 1rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-color);
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-width: 140px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.no-results {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
 .releases-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 2rem;
 }
+
 
 .release-card {
   background: var(--surface-color);

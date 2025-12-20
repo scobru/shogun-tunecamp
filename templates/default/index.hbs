@@ -18,10 +18,35 @@
   <section class="releases-section">
     <h2>Releases</h2>
     
+    <!-- Search and Filter Controls -->
+    <div class="releases-controls">
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" id="searchInput" placeholder="Search releases..." autocomplete="off">
+      </div>
+      
+      <div class="filter-controls">
+        <select id="genreFilter" class="filter-select">
+          <option value="">All Genres</option>
+        </select>
+        
+        <select id="sortBy" class="filter-select">
+          <option value="date-desc">Newest First</option>
+          <option value="date-asc">Oldest First</option>
+          <option value="title-asc">Title A-Z</option>
+          <option value="title-desc">Title Z-A</option>
+        </select>
+      </div>
+    </div>
+    
     {{#if releases}}
-    <div class="releases-grid">
+    <div class="releases-grid" id="releasesGrid">
       {{#each releases}}
-      <article class="release-card">
+      <article class="release-card" 
+               data-title="{{config.title}}" 
+               data-date="{{config.date}}"
+               data-genres="{{#if config.genres}}{{join config.genres ","}}{{/if}}"
+               data-description="{{config.description}}">
         <a href="{{path url}}" class="release-link">
           {{#if coverUrl}}
           <div class="release-cover">
@@ -65,9 +90,99 @@
       </article>
       {{/each}}
     </div>
+    
+    <p class="no-results" id="noResults" style="display: none;">No releases match your search.</p>
     {{else}}
     <p class="no-releases">No releases yet. Check back soon!</p>
     {{/if}}
   </section>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('searchInput');
+  const genreFilter = document.getElementById('genreFilter');
+  const sortBy = document.getElementById('sortBy');
+  const releasesGrid = document.getElementById('releasesGrid');
+  const noResults = document.getElementById('noResults');
+  
+  if (!releasesGrid) return;
+  
+  const releaseCards = Array.from(releasesGrid.querySelectorAll('.release-card'));
+  
+  // Populate genre filter
+  const allGenres = new Set();
+  releaseCards.forEach(card => {
+    const genres = card.dataset.genres;
+    if (genres) {
+      genres.split(',').forEach(g => allGenres.add(g.trim()));
+    }
+  });
+  
+  Array.from(allGenres).sort().forEach(genre => {
+    const option = document.createElement('option');
+    option.value = genre;
+    option.textContent = genre;
+    genreFilter.appendChild(option);
+  });
+  
+  function filterAndSort() {
+    const searchTerm = searchInput.value.toLowerCase();
+    const selectedGenre = genreFilter.value;
+    const sortValue = sortBy.value;
+    
+    // Filter
+    let visibleCards = releaseCards.filter(card => {
+      const title = (card.dataset.title || '').toLowerCase();
+      const description = (card.dataset.description || '').toLowerCase();
+      const genres = card.dataset.genres || '';
+      
+      const matchesSearch = !searchTerm || 
+        title.includes(searchTerm) || 
+        description.includes(searchTerm);
+      
+      const matchesGenre = !selectedGenre || 
+        genres.split(',').map(g => g.trim()).includes(selectedGenre);
+      
+      return matchesSearch && matchesGenre;
+    });
+    
+    // Sort
+    visibleCards.sort((a, b) => {
+      switch (sortValue) {
+        case 'date-desc':
+          return new Date(b.dataset.date) - new Date(a.dataset.date);
+        case 'date-asc':
+          return new Date(a.dataset.date) - new Date(b.dataset.date);
+        case 'title-asc':
+          return (a.dataset.title || '').localeCompare(b.dataset.title || '');
+        case 'title-desc':
+          return (b.dataset.title || '').localeCompare(a.dataset.title || '');
+        default:
+          return 0;
+      }
+    });
+    
+    // Apply visibility and order
+    releaseCards.forEach(card => {
+      card.style.display = 'none';
+      card.style.order = '';
+    });
+    
+    visibleCards.forEach((card, index) => {
+      card.style.display = '';
+      card.style.order = index;
+    });
+    
+    // Show/hide no results message
+    if (noResults) {
+      noResults.style.display = visibleCards.length === 0 ? 'block' : 'none';
+    }
+  }
+  
+  searchInput.addEventListener('input', filterAndSort);
+  genreFilter.addEventListener('change', filterAndSort);
+  sortBy.addEventListener('change', filterAndSort);
+});
+</script>
 

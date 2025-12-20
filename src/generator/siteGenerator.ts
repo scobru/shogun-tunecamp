@@ -1,8 +1,11 @@
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
-import { Catalog, BuildOptions } from "../types/index.js";
+import { Catalog, BuildOptions, Release, ArtistConfig } from "../types/index.js";
 import { TemplateEngine } from "./templateEngine.js";
+import { FeedGenerator } from "./feedGenerator.js";
+import { EmbedGenerator } from "./embedGenerator.js";
+import { PodcastFeedGenerator } from "./podcastFeedGenerator.js";
 import {
   copyFile,
   ensureDir,
@@ -47,6 +50,25 @@ export class SiteGenerator {
     await this.generateIndexPage();
     await this.generateReleasesPages();
 
+    // Generate artist pages if label mode
+    if (this.catalog.config.labelMode && this.catalog.artists) {
+      await this.generateArtistPages();
+    }
+
+    // Generate embed pages for each release
+    await this.generateEmbedPages();
+
+    // Generate feeds (RSS/Atom)
+    await this.generateFeeds();
+
+    // Generate podcast feed if enabled
+    if (this.catalog.config.podcast?.enabled) {
+      await this.generatePodcastFeed();
+    }
+
+    // Generate M3U playlists
+    await this.generateM3uPlaylists();
+
     // Copy media files
     await this.copyMediaFiles();
 
@@ -82,18 +104,20 @@ export class SiteGenerator {
 
   private async generateIndexPage(): Promise<void> {
     const basePath = this.options.basePath || this.catalog.config.basePath || "";
-    
+
     const data = {
       basePath,
       catalog: this.catalog.config,
       artist: this.catalog.artist,
-      releases: this.catalog.releases.map((release) => ({
-        ...release,
-        url: `releases/${release.slug}/index.html`,
-        coverUrl: release.coverPath
-          ? `releases/${release.slug}/${path.basename(release.coverPath)}`
-          : null,
-      })),
+      releases: this.catalog.releases
+        .filter((release) => !release.config.unlisted) // Filter out unlisted releases
+        .map((release) => ({
+          ...release,
+          url: `releases/${release.slug}/index.html`,
+          coverUrl: release.coverPath
+            ? `releases/${release.slug}/${path.basename(release.coverPath)}`
+            : null,
+        })),
     };
 
     const html = this.templateEngine.renderWithLayout("index", data);
@@ -194,5 +218,242 @@ export class SiteGenerator {
     }
 
     console.log("  🎵 Copied media files");
+  }
+
+  /**
+   * Generate RSS and Atom feeds
+   */
+  private async generateFeeds(): Promise<void> {
+    const siteUrl = this.catalog.config.url || "https://example.com";
+    const basePath = this.options.basePath || this.catalog.config.basePath || "";
+
+    const feedGenerator = new FeedGenerator(this.catalog, {
+      siteUrl,
+      basePath,
+    });
+
+    // Generate RSS feed
+    const rssFeed = feedGenerator.generateRssFeed();
+    await writeFile(path.join(this.options.outputDir, "feed.xml"), rssFeed);
+    console.log("  📡 Generated feed.xml (RSS)");
+
+    // Generate Atom feed
+    const atomFeed = feedGenerator.generateAtomFeed();
+    await writeFile(path.join(this.options.outputDir, "atom.xml"), atomFeed);
+    console.log("  📡 Generated atom.xml (Atom)");
+  }
+
+  /**
+   * Generate M3U playlists for releases and catalog
+   */
+  private async generateM3uPlaylists(): Promise<void> {
+    const siteUrl = this.catalog.config.url || "";
+    const basePath = this.options.basePath || this.catalog.config.basePath || "";
+
+    // Generate playlist for each release
+    for (const release of this.catalog.releases) {
+      const m3u = this.generateReleaseM3u(release, siteUrl, basePath);
+      const releaseDir = path.join(this.options.outputDir, "releases", release.slug);
+      await writeFile(path.join(releaseDir, "playlist.m3u"), m3u);
+    }
+    console.log("  🎶 Generated release playlists (M3U)");
+
+    // Generate catalog-wide playlist
+    const catalogM3u = this.generateCatalogM3u(siteUrl, basePath);
+    await writeFile(path.join(this.options.outputDir, "catalog.m3u"), catalogM3u);
+    console.log("  🎶 Generated catalog.m3u");
+  }
+
+  /**
+   * Generate M3U playlist for a single release
+   */
+  private generateReleaseM3u(release: Release, siteUrl: string, basePath: string): string {
+    const lines = ["#EXTM3U"];
+    const artistName = this.catalog.artist?.name || "Unknown Artist";
+
+    for (const track of release.tracks) {
+      const duration = track.duration ? Math.round(track.duration) : -1;
+      const trackUrl = siteUrl
+        ? `${siteUrl.replace(/\/$/, "")}${basePath}/releases/${release.slug}/${path.basename(track.file)}`
+        : path.basename(track.file);
+
+      lines.push(`#EXTINF:${duration},${artistName} - ${track.title}`);
+      lines.push(trackUrl);
+    }
+
+    return lines.join("\n");
+  }
+
+  /**
+   * Generate M3U playlist for entire catalog
+   */
+  private generateCatalogM3u(siteUrl: string, basePath: string): string {
+    const lines = ["#EXTM3U"];
+    const artistName = this.catalog.artist?.name || "Unknown Artist";
+
+    // Sort releases by date (newest first)
+    const sortedReleases = [...this.catalog.releases].sort(
+      (a, b) => new Date(b.config.date).getTime() - new Date(a.config.date).getTime()
+    );
+
+    for (const release of sortedReleases) {
+      // Skip unlisted releases from catalog playlist
+      if ((release.config as any).unlisted) continue;
+
+      for (const track of release.tracks) {
+        const duration = track.duration ? Math.round(track.duration) : -1;
+        const trackUrl = siteUrl
+          ? `${siteUrl.replace(/\/$/, "")}${basePath}/releases/${release.slug}/${path.basename(track.file)}`
+          : `releases/${release.slug}/${path.basename(track.file)}`;
+
+        lines.push(`#EXTINF:${duration},${artistName} - ${track.title}`);
+        lines.push(trackUrl);
+      }
+    }
+
+    return lines.join("\n");
+  }
+
+  /**
+   * Generate artist pages for label mode
+   */
+  private async generateArtistPages(): Promise<void> {
+    if (!this.catalog.artists) return;
+
+    const basePath = this.options.basePath || this.catalog.config.basePath || "";
+
+    for (const artist of this.catalog.artists) {
+      const artistSlug = artist.slug || artist.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const artistDir = path.join(this.options.outputDir, "artists", artistSlug);
+      await ensureDir(artistDir);
+
+      // Get releases for this artist
+      const artistReleases = this.catalog.releases.filter(
+        (release) => release.config.artistSlug === artistSlug && !release.config.unlisted
+      );
+
+      const data = {
+        basePath,
+        catalog: this.catalog.config,
+        artist,
+        releases: artistReleases.map((release) => ({
+          ...release,
+          url: `../../releases/${release.slug}/index.html`,
+          coverUrl: release.coverPath
+            ? `../../releases/${release.slug}/${path.basename(release.coverPath)}`
+            : null,
+        })),
+        backUrl: "../../index.html",
+      };
+
+      // Try to use artist template, fall back to index
+      const templateName = this.templateEngine.hasTemplate("artist") ? "artist" : "index";
+      const html = this.templateEngine.renderWithLayout(templateName, data, artist.name);
+      await writeFile(path.join(artistDir, "index.html"), html);
+      console.log(`  👤 Generated artists/${artistSlug}/index.html`);
+    }
+  }
+
+  /**
+   * Generate embed pages for each release
+   */
+  private async generateEmbedPages(): Promise<void> {
+    const siteUrl = this.catalog.config.url || "";
+    const basePath = this.options.basePath || this.catalog.config.basePath || "";
+
+    const embedGenerator = new EmbedGenerator(this.catalog, { siteUrl, basePath });
+
+    for (const release of this.catalog.releases) {
+      const releaseDir = path.join(this.options.outputDir, "releases", release.slug);
+
+      // Generate embed.html (standalone embed page)
+      const embedHtml = this.generateEmbedHtmlPage(release, embedGenerator);
+      await writeFile(path.join(releaseDir, "embed.html"), embedHtml);
+
+      // Generate embed-code.txt (copyable embed code)
+      const embedCode = embedGenerator.generateReleaseEmbed(release);
+      await writeFile(path.join(releaseDir, "embed-code.txt"), embedCode);
+
+      // Generate compact embed code
+      const compactEmbed = embedGenerator.generateCompactEmbed(release);
+      await writeFile(path.join(releaseDir, "embed-compact.txt"), compactEmbed);
+    }
+    console.log("  📦 Generated embed pages");
+  }
+
+  /**
+   * Generate standalone embed HTML page
+   */
+  private generateEmbedHtmlPage(release: Release, embedGenerator: EmbedGenerator): string {
+    const siteUrl = this.catalog.config.url || "";
+    const basePath = this.options.basePath || this.catalog.config.basePath || "";
+    const coverUrl = release.coverPath ? path.basename(release.coverPath) : null;
+    const artistName = this.catalog.artist?.name || "Unknown Artist";
+    const firstTrackUrl = release.tracks.length > 0 ? path.basename(release.tracks[0].file) : null;
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${release.config.title} - Embed</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1e293b; }
+    .embed-container { max-width: 400px; margin: 0 auto; }
+    .cover { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    .cover-placeholder { width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 4rem; color: rgba(255,255,255,0.3); }
+    .info { padding: 1rem; }
+    .title { font-size: 1.1rem; font-weight: 600; color: #f1f5f9; margin-bottom: 0.25rem; }
+    .artist { font-size: 0.9rem; color: #94a3b8; }
+    .tracks { font-size: 0.8rem; color: #64748b; margin-top: 0.5rem; }
+    audio { width: 100%; height: 40px; }
+    .footer { padding: 0.5rem 1rem; background: #0f172a; font-size: 0.7rem; color: #64748b; text-align: right; }
+    .footer a { color: #6366f1; text-decoration: none; }
+    .link { display: block; text-decoration: none; color: inherit; }
+  </style>
+</head>
+<body>
+  <div class="embed-container">
+    <a href="index.html" class="link" target="_top">
+      ${coverUrl ? `<img src="${coverUrl}" alt="${release.config.title}" class="cover">` : '<div class="cover-placeholder">♪</div>'}
+      <div class="info">
+        <div class="title">${release.config.title}</div>
+        <div class="artist">${artistName}</div>
+        <div class="tracks">${release.tracks.length} track${release.tracks.length !== 1 ? 's' : ''}</div>
+      </div>
+    </a>
+    ${firstTrackUrl ? `<audio controls preload="none"><source src="${firstTrackUrl}" type="audio/mpeg">Your browser does not support audio.</audio>` : ''}
+    <div class="footer">
+      Powered by <a href="https://github.com/scobru/tunecamp" target="_blank">Tunecamp</a>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  /**
+   * Generate podcast RSS feed
+   */
+  private async generatePodcastFeed(): Promise<void> {
+    const siteUrl = this.catalog.config.url || "https://example.com";
+    const basePath = this.options.basePath || this.catalog.config.basePath || "";
+    const podcastConfig = this.catalog.config.podcast || {};
+
+    const podcastGenerator = new PodcastFeedGenerator(this.catalog, {
+      siteUrl,
+      basePath,
+      podcastTitle: podcastConfig.title,
+      podcastDescription: podcastConfig.description,
+      podcastAuthor: podcastConfig.author || this.catalog.artist?.name,
+      podcastEmail: podcastConfig.email,
+      podcastCategory: podcastConfig.category,
+      podcastImage: podcastConfig.image,
+      explicit: podcastConfig.explicit,
+    });
+
+    const podcastFeed = podcastGenerator.generatePodcastFeed();
+    await writeFile(path.join(this.options.outputDir, "podcast.xml"), podcastFeed);
+    console.log("  🎙️ Generated podcast.xml");
   }
 }

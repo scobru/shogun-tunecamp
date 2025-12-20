@@ -9,7 +9,20 @@ export interface CatalogConfig {
   basePath?: string; // Base path for deployment (e.g., "" for root, "/repo-name" for subdirectory)
   theme?: string;
   language?: string;
+  labelMode?: boolean; // Enable multi-artist label mode
+  podcast?: PodcastConfig; // Podcast feed configuration
   metadata?: Record<string, any>;
+}
+
+export interface PodcastConfig {
+  enabled?: boolean;
+  title?: string;
+  description?: string;
+  author?: string;
+  email?: string;
+  category?: string;
+  image?: string;
+  explicit?: boolean;
 }
 
 export interface ArtistConfig {
@@ -18,6 +31,7 @@ export interface ArtistConfig {
   photo?: string;
   links?: ArtistLink[];
   donationLinks?: DonationLink[];
+  slug?: string; // For label mode: artist page URL slug
   metadata?: Record<string, any>;
 }
 
@@ -47,6 +61,8 @@ export interface ReleaseConfig {
   license?: LicenseType;
   genres?: string[];
   credits?: Credit[];
+  unlisted?: boolean; // If true, release is hidden from index but accessible via direct link
+  artistSlug?: string; // For label mode: associate release with an artist
   metadata?: Record<string, any>;
 }
 
@@ -88,7 +104,8 @@ export interface Release {
 
 export interface Catalog {
   config: CatalogConfig;
-  artist?: ArtistConfig;
+  artist?: ArtistConfig; // Single artist (non-label mode)
+  artists?: ArtistConfig[]; // Multiple artists (label mode)
   releases: Release[];
 }
 
