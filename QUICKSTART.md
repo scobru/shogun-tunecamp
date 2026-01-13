@@ -61,7 +61,7 @@ Edit `catalog.yaml`:
 title: "My Music"
 description: "My awesome music collection"
 url: "https://mymusic.com"
-theme: "default"  # Options: default, minimal, dark, retro
+theme: "default"  # Options: default, minimal, dark, retro, translucent
 ```
 
 Edit `artist.yaml`:
@@ -182,6 +182,7 @@ Tunecamp comes with 5 built-in themes:
 - **minimal** - Clean light theme
 - **dark** - Aggressive dark theme with red accents (great for rock/metal)
 - **retro** - 80s-inspired with neon colors (perfect for synthwave)
+- **translucent** - Glassmorphism theme with blur effects and transparency (perfect for ambient/electronic)
 
 Change the theme in `catalog.yaml`:
 ```yaml

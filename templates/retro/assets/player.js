@@ -1,4 +1,4 @@
-// Shogun Faircamp Audio Player
+// Tunecamp Audio Player
 
 class AudioPlayer {
   constructor() {

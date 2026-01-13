@@ -298,7 +298,7 @@ npx ts-node src/tools/generate-codes.ts <release-slug> --count 20
 
 ## Themes
 
-tunecamp includes 4 ready-to-use themes:
+tunecamp includes 5 ready-to-use themes:
 
 ### Available Themes
 
@@ -360,6 +360,13 @@ Each release gets embeddable HTML widgets that you can use on other websites:
 - **Iframe embed**: Standalone embed page for iframe embedding
 
 Access embed codes at: `releases/<release-slug>/embed-code.txt`
+
+**Share & Embed Section**: Each release page includes a "Share & Embed" section at the top with:
+- **Catalog link**: Quick navigation back to the main catalog
+- **RSS/Atom feeds**: Direct links to `feed.xml` (RSS 2.0) and `atom.xml` for feed readers
+- **Copy link**: One-click button to copy the release URL to clipboard
+- **Embed code**: Modal viewer with tabs for full and compact embed codes, with copy functionality
+- All embed codes are accessible directly from the page without needing to navigate to text files
 
 ### RSS/Atom Feeds
 

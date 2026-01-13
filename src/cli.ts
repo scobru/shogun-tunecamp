@@ -181,7 +181,7 @@ This is your Tunecamp catalog.
 1. Add your music files to \`releases/your-album-name/tracks/\`
 2. Add cover art (cover.jpg, cover.png, etc.)
 3. Configure \`release.yaml\` for each album
-4. Build: \`selfcamp build . -o public\`
+4. Build: \`tunecamp build . -o public\`
 5. Deploy the \`public\` folder
 
 ## Documentation
