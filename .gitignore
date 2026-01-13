@@ -43,7 +43,7 @@ build/
 tmp/
 temp/
 *.tmp
-
+*.wav
 # GunDB keypairs (keep secure!)
 gundb-keypair.json
 *-keypair.json
