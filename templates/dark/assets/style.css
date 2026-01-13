@@ -57,6 +57,38 @@ body {
   background-clip: text;
 }
 
+/* Header Image (Bandcamp-style) */
+.site-header-image {
+  margin-bottom: 1.5rem;
+  width: 100%;
+  text-align: center;
+}
+
+.site-header-image a {
+  display: block;
+  text-decoration: none;
+  width: 100%;
+}
+
+.header-image {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: 400px;
+  min-height: 200px;
+  display: block;
+  margin: 0 auto;
+  object-fit: contain;
+  object-position: center;
+}
+
+@media (max-width: 768px) {
+  .header-image {
+    max-height: 250px;
+    min-height: 120px;
+  }
+}
+
 .site-description {
   color: var(--text-muted);
   font-size: 1.1rem;

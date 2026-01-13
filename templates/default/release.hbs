@@ -3,6 +3,52 @@
     <a href="{{path backUrl}}">← Back to catalog</a>
   </nav>
 
+  <!-- Share & Embed Section -->
+  <section class="release-share-section">
+    <div class="share-actions">
+      <h3>Share & Embed</h3>
+      <div class="share-buttons">
+        <a href="{{path backUrl}}" class="share-btn" title="View Catalog">
+          <i class="fas fa-list"></i> Catalog
+        </a>
+        <a href="{{assetPath 'feed.xml'}}" class="share-btn" title="RSS Feed" target="_blank">
+          <i class="fas fa-rss"></i> RSS Feed
+        </a>
+        <a href="{{assetPath 'atom.xml'}}" class="share-btn" title="Atom Feed" target="_blank">
+          <i class="fas fa-rss-square"></i> Atom Feed
+        </a>
+        <button class="share-btn" onclick="copyShareLink()" title="Copy Share Link">
+          <i class="fas fa-link"></i> Copy Link
+        </button>
+        <button class="share-btn" onclick="showEmbedCode()" title="Show Embed Code">
+          <i class="fas fa-code"></i> Embed Code
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Embed Code Modal -->
+  <div id="embedModal" class="embed-modal" style="display: none;">
+    <div class="embed-modal-content">
+      <div class="embed-modal-header">
+        <h3>Embed Code</h3>
+        <button class="embed-modal-close" onclick="closeEmbedModal()">&times;</button>
+      </div>
+      <div class="embed-modal-body">
+        <div class="embed-tabs">
+          <button class="embed-tab active" onclick="switchEmbedTab('full')">Full Embed</button>
+          <button class="embed-tab" onclick="switchEmbedTab('compact')">Compact</button>
+        </div>
+        <div id="embedCodeContent" class="embed-code-content">
+          <textarea id="embedCodeText" readonly class="embed-code-text"></textarea>
+          <button class="btn btn-primary" onclick="copyEmbedCode()">
+            <i class="fas fa-copy"></i> Copy Code
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <article class="release-detail">
     <header class="release-header">
       {{#if release.coverUrl}}
@@ -350,15 +396,88 @@
 </div>
 
 <script>
+  // Share & Embed functionality
+  function copyShareLink() {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      alert('Link copied to clipboard!');
+    }).catch(() => {
+      // Fallback for older browsers
+      const textarea = document.createElement('textarea');
+      textarea.value = url;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      alert('Link copied to clipboard!');
+    });
+  }
+
+  function showEmbedCode() {
+    const modal = document.getElementById('embedModal');
+    const embedCodeText = document.getElementById('embedCodeText');
+    
+    // Load full embed code by default
+    fetch('{{path embedCodePath}}')
+      .then(response => response.text())
+      .then(text => {
+        embedCodeText.value = text.trim();
+        modal.style.display = 'flex';
+      })
+      .catch(err => {
+        console.error('Error loading embed code:', err);
+        alert('Error loading embed code');
+      });
+  }
+
+  function switchEmbedTab(type) {
+    const tabs = document.querySelectorAll('.embed-tab');
+    tabs.forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    const embedCodeText = document.getElementById('embedCodeText');
+    const file = type === 'full' ? '{{embedCodePath}}' : '{{embedCompactPath}}';
+    
+    fetch('{{path ""}}' + file)
+      .then(response => response.text())
+      .then(text => {
+        embedCodeText.value = text.trim();
+      })
+      .catch(err => {
+        console.error('Error loading embed code:', err);
+      });
+  }
+
+  function copyEmbedCode() {
+    const embedCodeText = document.getElementById('embedCodeText');
+    embedCodeText.select();
+    document.execCommand('copy');
+    alert('Embed code copied to clipboard!');
+  }
+
+  function closeEmbedModal() {
+    document.getElementById('embedModal').style.display = 'none';
+  }
+
+  // Close modal when clicking outside
+  window.onclick = function(event) {
+    const modal = document.getElementById('embedModal');
+    if (event.target === modal) {
+      modal.style.display = 'none';
+    }
+  }
+</script>
+
+<script>
   // Initialize player with tracks
   window.tracks = [
-    {{ #each release.tracks }}
+    {{#each release.tracks}}
     {
       url: '{{releasePath url}}',
       title: '{{title}}',
       artist: '{{#if artist}}{{artist}}{{else}}{{../artist.name}}{{/if}}',
-      duration: {{ #if duration }}{{ duration }}{{ else}}0{{/if}}
-    }{ { #unless @last } }, { {/unless } }
-  { {/each } }
+      duration: {{#if duration}}{{duration}}{{else}}0{{/if}}
+    }{{#unless @last}},{{/unless}}
+    {{/each}}
   ];
 </script>

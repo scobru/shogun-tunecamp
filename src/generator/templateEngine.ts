@@ -44,6 +44,16 @@ export class TemplateEngine {
       return array ? array.join(separator) : "";
     });
 
+    // String startsWith helper
+    Handlebars.registerHelper("startsWith", (str: string, prefix: string) => {
+      return str && typeof str === 'string' && str.startsWith(prefix);
+    });
+
+    // Logical OR helper
+    Handlebars.registerHelper("or", (a: any, b: any) => {
+      return a || b;
+    });
+
     // Path helper - prepends basePath to URLs
     Handlebars.registerHelper("path", function(this: any, url: string) {
       const basePath = this.basePath || "";

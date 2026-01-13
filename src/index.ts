@@ -1,5 +1,5 @@
 /**
- * Shogun Faircamp - Static Site Generator for Musicians
+ * Tunecamp - Static Site Generator for Musicians
  * Main entry point for programmatic usage
  */
 
@@ -7,7 +7,7 @@ import { CatalogParser } from './parser/catalogParser.js';
 import { SiteGenerator } from './generator/siteGenerator.js';
 import { BuildOptions } from './types/index.js';
 
-export class Selfcamp {
+export class Tunecamp {
   private options: BuildOptions;
   
   constructor(options: BuildOptions) {
@@ -15,8 +15,8 @@ export class Selfcamp {
   }
   
   async build(): Promise<void> {
-    console.log('🎵 Shogun Faircamp - Static Site Generator');
-    console.log('===========================================\n');
+    console.log('🎵 Tunecamp - Static Site Generator');
+    console.log('====================================\n');
     
     try {
       // Parse catalog

@@ -16,6 +16,13 @@ Inspired by [Faircamp](https://simonrepp.com/faircamp/), this tool helps you cre
 - 🔊 **Built-in player**: Modern HTML5 audio player
 - 💿 **Multi-format**: Support for MP3, FLAC, OGG, WAV, and more
 - 🏷️ **Flexible metadata**: YAML-based configuration files
+- 📡 **RSS/Atom feeds**: Automatic feed generation for releases
+- 🎙️ **Podcast support**: Generate podcast RSS feeds
+- 📦 **Embed widgets**: Embeddable HTML widgets for releases
+- 🎶 **M3U playlists**: Automatic playlist generation
+- 🎨 **Procedural covers**: Auto-generate cover art if missing
+- 🔐 **Unlock codes**: Decentralized download protection via GunDB
+- 🏢 **Label mode**: Multi-artist catalog support
 
 ## Quick Start
 
@@ -75,11 +82,12 @@ donationLinks:
 title: "My First Album"
 date: "2024-01-15"
 description: "An amazing debut album"
-download: free # Options: free, paycurtain, none
+download: free # Options: free, paycurtain, codes, none
 price: 10.00
 paypalLink: "https://paypal.me/artistname/10"
 stripeLink: "https://buy.stripe.com/..."
 license: "cc-by" # Options: copyright, cc-by, cc-by-sa, cc-by-nc, cc-by-nc-sa, cc-by-nc-nd, cc-by-nd, public-domain
+unlisted: false # Set to true to hide from index but keep accessible via direct link
 ```
 
 3. **Generate your site:**
@@ -151,6 +159,19 @@ url: "https://yoursite.com"
 basePath: "" # Base path for deployment (empty for root, "/repo-name" for subdirectory)
 theme: "default" # or custom theme name
 language: "en"
+headerImage: "header.png" # Optional: Image to replace title in header (Bandcamp-style)
+customFont: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" # Optional: Custom font URL (Google Fonts, etc.) or local file path
+customCSS: "custom.css" # Optional: Custom CSS file path (relative to input directory) or external URL
+labelMode: false # Set to true for multi-artist label catalogs
+podcast: # Optional podcast feed configuration
+  enabled: true
+  title: "My Podcast"
+  description: "Podcast description"
+  author: "Artist Name"
+  email: "email@example.com"
+  category: "Music"
+  image: "podcast-cover.jpg"
+  explicit: false
 ```
 
 **Important**: The `basePath` option is crucial when deploying to subdirectories (e.g., GitHub Pages). If your site will be at `username.github.io/my-music/`, set `basePath: "/my-music"`.
@@ -178,8 +199,8 @@ Individual release configuration:
 title: "Album Title"
 date: "2024-01-15"
 description: "Album description"
-cover: "cover.jpg" # Optional, auto-detected
-download: "free" # free, paycurtain, none
+cover: "cover.jpg" # Optional, auto-detected (procedural cover generated if missing)
+download: "free" # free, paycurtain, codes, none
 price: 10.00 # For paycurtain mode
 paypalLink: "https://paypal.me/artistname/10" # Optional PayPal link
 stripeLink: "https://buy.stripe.com/..." # Optional Stripe link
@@ -190,6 +211,13 @@ genres:
 credits:
   - role: "Producer"
     name: "Producer Name"
+unlisted: false # Set to true to hide from index/feeds but keep accessible via direct link
+artistSlug: "artist-name" # For label mode: associate release with an artist
+unlockCodes: # For download: codes mode
+  enabled: true
+  namespace: tunecamp
+  peers: # Optional custom GunDB peers
+    - "https://your-relay.com/gun"
 ```
 
 ### track.yaml
@@ -212,8 +240,8 @@ tunecamp build <input-dir> --output <output-dir>
 # Build with custom base path (overrides catalog.yaml)
 tunecamp build <input-dir> --output <output-dir> --basePath /my-music
 
-# Watch for changes and rebuild
-tunecamp watch <input-dir> --output <output-dir>
+# Build with custom theme (overrides catalog.yaml)
+tunecamp build <input-dir> --output <output-dir> --theme dark
 
 # Serve locally
 tunecamp serve <output-dir> --port 3000
@@ -242,6 +270,22 @@ stripeLink: "https://buy.stripe.com/..."
 ```
 
 Pay-what-you-want with suggested price. Users can download for free, but are encouraged to support the artist. This is an honor system - all files are technically downloadable.
+
+### Unlock Codes (Decentralized Protection)
+
+```yaml
+download: codes
+unlockCodes:
+  enabled: true
+  namespace: tunecamp  # Optional, default: tunecamp
+```
+
+Protect downloads with unlock codes validated via GunDB (decentralized, no backend required). See [Unlock Codes Guide](./docs/unlock-codes-guida.md) for details.
+
+Generate codes using:
+```bash
+npx ts-node src/tools/generate-codes.ts <release-slug> --count 20
+```
 
 ## Supported Audio Formats
 
@@ -296,6 +340,44 @@ templates/my-theme/
 
 For detailed information about themes, see [Theme Documentation](./docs/THEMES.md).
 
+## Generated Files
+
+When you build a catalog, Tunecamp automatically generates:
+
+- **HTML pages**: `index.html` and release pages
+- **RSS/Atom feeds**: `feed.xml` (RSS 2.0) and `atom.xml`
+- **Podcast feed**: `podcast.xml` (if enabled in config)
+- **M3U playlists**: `playlist.m3u` for each release and `catalog.m3u` for the entire catalog
+- **Embed widgets**: `embed.html`, `embed-code.txt`, and `embed-compact.txt` for each release
+- **Procedural covers**: Auto-generated SVG covers if release has no cover art
+
+### Embed Widgets
+
+Each release gets embeddable HTML widgets that you can use on other websites:
+
+- **Full embed**: Complete widget with cover, info, and audio player
+- **Compact embed**: Smaller inline widget
+- **Iframe embed**: Standalone embed page for iframe embedding
+
+Access embed codes at: `releases/<release-slug>/embed-code.txt`
+
+### RSS/Atom Feeds
+
+Automatic feed generation for:
+- RSS 2.0 feed at `feed.xml`
+- Atom feed at `atom.xml`
+- Podcast RSS feed at `podcast.xml` (if enabled)
+
+All feeds include proper metadata, cover images, and track information.
+
+### M3U Playlists
+
+Playlists are generated for:
+- Each individual release: `releases/<release-slug>/playlist.m3u`
+- Entire catalog: `catalog.m3u`
+
+Playlists include track metadata (duration, artist, title) and can be opened in any music player.
+
 ## Examples
 
 Check the `/examples` directory for complete catalog examples:
@@ -332,12 +414,95 @@ MIT License - see LICENSE file for details
 
 Inspired by [Faircamp](https://simonrepp.com/faircamp/) by Simon Repp.
 
+## Advanced Features
+
+### Label Mode (Multi-Artist)
+
+Enable label mode to create catalogs with multiple artists:
+
+```yaml
+# catalog.yaml
+labelMode: true
+```
+
+Create `artists/` directory with artist YAML files. Each release can be associated with an artist using `artistSlug` in `release.yaml`.
+
+### Unlisted Releases
+
+Hide releases from the main index and feeds while keeping them accessible via direct link:
+
+```yaml
+# release.yaml
+unlisted: true
+```
+
+Useful for:
+- Work-in-progress releases
+- Exclusive content
+- Testing releases before public launch
+
+### Procedural Cover Generation
+
+If a release has no cover art, Tunecamp automatically generates a procedural SVG cover based on the release title and artist name. The cover uses deterministic algorithms (no AI) to create unique, consistent artwork.
+
+### Header Image (Bandcamp-style)
+
+Replace the text title in the header with a custom image, similar to Bandcamp:
+
+```yaml
+# catalog.yaml
+headerImage: "header.png"  # Path relative to catalog directory
+```
+
+The header image will be displayed prominently at the top of all pages. If `headerImage` is set, the text title and description are hidden to avoid redundancy.
+
+### Custom Font
+
+Add custom fonts from Google Fonts or other sources:
+
+```yaml
+# catalog.yaml
+customFont: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+```
+
+The font will be loaded before the theme CSS, allowing you to use it in your custom CSS.
+
+### Custom CSS
+
+Add custom CSS to override or extend theme styles. You can use either a local file or an external URL:
+
+```yaml
+# catalog.yaml
+# Local file (copied to assets/ during build)
+customCSS: "custom.css"
+
+# Or external URL (CDN, etc.)
+customCSS: "https://cdn.jsdelivr.net/npm/water.css@2/out/water.css"
+```
+
+Local CSS files are copied to the `assets/` directory during build. The custom CSS is loaded after the theme CSS, so your styles will override the default theme.
+
+**Example custom.css:**
+
+```css
+/* Apply custom font to body */
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Custom header image styling */
+.header-image {
+  max-height: 300px;
+  border-radius: 8px;
+}
+```
+
 ## Links
 
 - [Documentation](./docs)
   - [Deployment Guide](./docs/DEPLOYMENT.md)
   - [API Documentation](./docs/API.md)
-  - [Theme Documentation](./docs/THEMES.md)
   - [Theme Showcase](./docs/THEME_SHOWCASE.md)
+  - [Unlock Codes Guide](./docs/unlock-codes-guida.md)
 - [Examples](./examples)
 - [Changelog](./CHANGELOG.md)

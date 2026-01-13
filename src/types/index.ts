@@ -1,5 +1,5 @@
 /**
- * Type definitions for Shogun Faircamp
+ * Type definitions for Tunecamp
  */
 
 export interface CatalogConfig {
@@ -9,6 +9,9 @@ export interface CatalogConfig {
   basePath?: string; // Base path for deployment (e.g., "" for root, "/repo-name" for subdirectory)
   theme?: string;
   language?: string;
+  headerImage?: string; // Header image path (replaces title text, like Bandcamp)
+  customFont?: string; // Custom font URL (e.g., Google Fonts) or local file path
+  customCSS?: string; // Custom CSS file path (relative to input directory) or URL
   labelMode?: boolean; // Enable multi-artist label mode
   podcast?: PodcastConfig; // Podcast feed configuration
   metadata?: Record<string, any>;

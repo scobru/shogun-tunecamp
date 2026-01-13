@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Command-line interface for Selfcamp
+ * Command-line interface for Tunecamp
  */
 
 import { Command } from 'commander';
-import { Selfcamp } from './index.js';
+import { Tunecamp } from './index.js';
 import fs from 'fs-extra';
 import path from 'path';
 import chalk from 'chalk';
@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
 const program = new Command();
 
 program
-  .name('selfcamp')
+  .name('tunecamp')
   .description('Static site generator for musicians and labels')
   .version('0.1.0');
 
@@ -31,7 +31,7 @@ program
   .option('-v, --verbose', 'Verbose output', false)
   .action(async (input: string, options: any) => {
     try {
-      const generator = new Selfcamp({
+      const generator = new Tunecamp({
         inputDir: path.resolve(input),
         outputDir: path.resolve(options.output),
         theme: options.theme,
@@ -68,7 +68,7 @@ program
       console.log(chalk.blue(`\nNext steps:`));
       console.log(`  cd ${directory}`);
       console.log(`  # Add your music files to releases/`);
-      console.log(`  selfcamp build . -o public`);
+      console.log(`  tunecamp build . -o public`);
     } catch (error) {
       console.error(chalk.red('Error:'), error);
       process.exit(1);
@@ -165,7 +165,7 @@ genres:
   // Create README
   const readme = `# My Music Catalog
 
-This is your Shogun Faircamp catalog.
+This is your Tunecamp catalog.
 
 ## Structure
 
@@ -186,7 +186,7 @@ This is your Shogun Faircamp catalog.
 
 ## Documentation
 
-See https://github.com/yourusername/selfcamp for full documentation.
+See https://github.com/scobru/tunecamp for full documentation.
 `;
   await fs.writeFile(path.join(targetDir, 'README.md'), readme);
 }

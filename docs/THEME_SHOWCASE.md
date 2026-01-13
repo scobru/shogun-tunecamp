@@ -1,6 +1,6 @@
 # Theme Showcase
 
-Visual comparison of all available themes for Shogun Faircamp.
+Visual comparison of all available themes for Tunecamp.
 
 ## Preview Generation
 
@@ -8,7 +8,7 @@ To preview all themes locally, run:
 
 ```bash
 # Build with default theme
-yarn build
+npm run build
 node dist/cli.js build ./examples/artist-free -o ./preview-default
 
 # Build with minimal theme

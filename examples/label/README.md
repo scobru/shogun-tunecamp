@@ -24,7 +24,7 @@ label/
 ## Building
 
 ```bash
-shogun-faircamp build ./examples/label -o ./output
+tunecamp build ./examples/label -o ./output
 ```
 
 ## Notes

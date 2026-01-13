@@ -109,9 +109,47 @@ export class SiteGenerator {
   private async generateIndexPage(): Promise<void> {
     const basePath = this.options.basePath || this.catalog.config.basePath || "";
 
+    // Prepare custom font URL
+    // Note: customFont should be an external URL (e.g., Google Fonts)
+    // For local fonts, use @font-face in customCSS instead
+    let customFontUrl = null;
+    let customFontFamily = null;
+    if (this.catalog.config.customFont) {
+      if (this.catalog.config.customFont.startsWith('http://') || this.catalog.config.customFont.startsWith('https://')) {
+        // External URL (e.g., Google Fonts) - extract font family from URL if possible
+        customFontUrl = this.catalog.config.customFont;
+        // Try to extract font family from Google Fonts URL
+        const fontMatch = this.catalog.config.customFont.match(/family=([^:&]+)/);
+        if (fontMatch) {
+          customFontFamily = fontMatch[1].replace(/\+/g, ' ');
+        }
+      }
+      // For local files, users should use @font-face in customCSS
+    }
+
+    // Prepare custom CSS URL
+    let customCSSUrl = null;
+    if (this.catalog.config.customCSS) {
+      if (this.catalog.config.customCSS.startsWith('http://') || this.catalog.config.customCSS.startsWith('https://')) {
+        // External URL
+        customCSSUrl = this.catalog.config.customCSS;
+      } else {
+        // Local file - already copied to assets/
+        customCSSUrl = `assets/${path.basename(this.catalog.config.customCSS)}`;
+      }
+    }
+
     const data = {
       basePath,
-      catalog: this.catalog.config,
+      catalog: {
+        ...this.catalog.config,
+        headerImageUrl: this.catalog.config.headerImage
+          ? path.basename(this.catalog.config.headerImage)
+          : null,
+        customFontUrl,
+        customFontFamily,
+        customCSSUrl,
+      },
       artist: this.catalog.artist,
       releases: this.catalog.releases
         .filter((release) => !release.config.unlisted) // Filter out unlisted releases
@@ -147,9 +185,47 @@ export class SiteGenerator {
 
     const basePath = this.options.basePath || this.catalog.config.basePath || "";
 
+    // Prepare custom font URL
+    let customFontUrl = null;
+    let customFontFamily = null;
+    if (this.catalog.config.customFont) {
+      if (this.catalog.config.customFont.startsWith('http://') || this.catalog.config.customFont.startsWith('https://')) {
+        customFontUrl = this.catalog.config.customFont;
+        // Try to extract font family from Google Fonts URL
+        const fontMatch = this.catalog.config.customFont.match(/family=([^:&]+)/);
+        if (fontMatch) {
+          customFontFamily = fontMatch[1].replace(/\+/g, ' ');
+        }
+      }
+    }
+
+    // Prepare custom CSS URL
+    let customCSSUrl = null;
+    if (this.catalog.config.customCSS) {
+      if (this.catalog.config.customCSS.startsWith('http://') || this.catalog.config.customCSS.startsWith('https://')) {
+        customCSSUrl = this.catalog.config.customCSS;
+      } else {
+        customCSSUrl = `../../assets/${path.basename(this.catalog.config.customCSS)}`;
+      }
+    }
+
+    const siteUrl = this.catalog.config.url || "";
+    const releaseUrl = siteUrl 
+      ? `${siteUrl}${basePath ? basePath : ''}releases/${release.slug}/index.html`
+      : `../../index.html`;
+
     const data = {
       basePath,
-      catalog: this.catalog.config,
+      catalog: {
+        ...this.catalog.config,
+        headerImageUrl: this.catalog.config.headerImage
+          ? `../../${path.basename(this.catalog.config.headerImage)}`
+          : null,
+        customFontUrl,
+        customFontFamily,
+        customCSSUrl,
+        url: siteUrl,
+      },
       artist: this.catalog.artist,
       release: {
         ...release,
@@ -158,8 +234,12 @@ export class SiteGenerator {
           ...track,
           url: path.basename(track.file),
         })),
+        slug: release.slug,
       },
       backUrl: "../../index.html",
+      releaseUrl,
+      embedCodePath: "embed-code.txt",
+      embedCompactPath: "embed-compact.txt",
     };
 
     const html = this.templateEngine.renderWithLayout(
@@ -183,6 +263,50 @@ export class SiteGenerator {
       const logoDest = path.join(this.options.outputDir, "logo.svg");
       await copyFile(logoPath, logoDest);
       console.log(`  🎨 Copied logo.svg`);
+    }
+
+    // Copy header image if exists
+    if (this.catalog.config.headerImage) {
+      const headerImageSrc = path.join(this.options.inputDir, this.catalog.config.headerImage);
+      if (await fs.pathExists(headerImageSrc)) {
+        const headerImageDest = path.join(this.options.outputDir, path.basename(this.catalog.config.headerImage));
+        await copyFile(headerImageSrc, headerImageDest);
+        console.log(`  🖼️  Copied header image: ${this.catalog.config.headerImage}`);
+      } else {
+        console.warn(`  ⚠️  Header image not found: ${headerImageSrc}`);
+      }
+    } else {
+      // Debug: check if headerImage is in config but not being read
+      if ((this.catalog.config as any).headerImage) {
+        console.warn(`  ⚠️  Header image found in config but not processed: ${(this.catalog.config as any).headerImage}`);
+      }
+    }
+
+    // Copy custom font file if exists (only if it's a local file, not a URL)
+    // Note: For local fonts, users should use @font-face in custom CSS instead
+    if (this.catalog.config.customFont && !this.catalog.config.customFont.startsWith('http://') && !this.catalog.config.customFont.startsWith('https://')) {
+      const customFontSrc = path.join(this.options.inputDir, this.catalog.config.customFont);
+      if (await fs.pathExists(customFontSrc)) {
+        const customFontDest = path.join(this.options.outputDir, "assets", "fonts", path.basename(this.catalog.config.customFont));
+        await ensureDir(path.dirname(customFontDest));
+        await copyFile(customFontSrc, customFontDest);
+        console.log(`  🔤 Copied custom font: ${this.catalog.config.customFont}`);
+      } else {
+        console.warn(`  ⚠️  Custom font not found: ${customFontSrc}`);
+      }
+    }
+
+    // Copy custom CSS if exists (only if it's a local file, not a URL)
+    if (this.catalog.config.customCSS && !this.catalog.config.customCSS.startsWith('http://') && !this.catalog.config.customCSS.startsWith('https://')) {
+      const customCSSSrc = path.join(this.options.inputDir, this.catalog.config.customCSS);
+      if (await fs.pathExists(customCSSSrc)) {
+        const customCSSDest = path.join(this.options.outputDir, "assets", path.basename(this.catalog.config.customCSS));
+        await ensureDir(path.dirname(customCSSDest));
+        await copyFile(customCSSSrc, customCSSDest);
+        console.log(`  🎨 Copied custom CSS: ${this.catalog.config.customCSS}`);
+      } else {
+        console.warn(`  ⚠️  Custom CSS not found: ${customCSSSrc}`);
+      }
     }
 
     // Copy artist photo if exists
@@ -336,9 +460,38 @@ export class SiteGenerator {
         (release) => release.config.artistSlug === artistSlug && !release.config.unlisted
       );
 
+      // Prepare custom font URL
+      let customFontUrl = null;
+      let customFontFamily = null;
+      if (this.catalog.config.customFont) {
+        if (this.catalog.config.customFont.startsWith('http://') || this.catalog.config.customFont.startsWith('https://')) {
+          customFontUrl = this.catalog.config.customFont;
+          // Try to extract font family from Google Fonts URL
+          const fontMatch = this.catalog.config.customFont.match(/family=([^:&]+)/);
+          if (fontMatch) {
+            customFontFamily = fontMatch[1].replace(/\+/g, ' ');
+          }
+        }
+      }
+
+      // Prepare custom CSS URL
+      let customCSSUrl = null;
+      if (this.catalog.config.customCSS) {
+        if (this.catalog.config.customCSS.startsWith('http://') || this.catalog.config.customCSS.startsWith('https://')) {
+          customCSSUrl = this.catalog.config.customCSS;
+        } else {
+          customCSSUrl = `../../assets/${path.basename(this.catalog.config.customCSS)}`;
+        }
+      }
+
       const data = {
         basePath,
-        catalog: this.catalog.config,
+        catalog: {
+          ...this.catalog.config,
+          customFontUrl,
+          customFontFamily,
+          customCSSUrl,
+        },
         artist,
         releases: artistReleases.map((release) => ({
           ...release,

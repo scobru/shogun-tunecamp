@@ -20,7 +20,7 @@ When you deploy a static site, it can be served from different locations:
 1. **Root of a domain**: `https://mymusic.com/`
 2. **Subdirectory**: `https://username.github.io/my-music/`
 
-The `basePath` configuration tells Shogun Faircamp where your site will be located, ensuring that all asset references (CSS, JavaScript, images, audio files) use the correct paths.
+The `basePath` configuration tells Tunecamp where your site will be located, ensuring that all asset references (CSS, JavaScript, images, audio files) use the correct paths.
 
 ### How It Works
 
@@ -65,7 +65,7 @@ language: "en"
 Override the `basePath` at build time using the `--basePath` flag:
 
 ```bash
-shogun-faircamp build ./my-catalog --output ./public --basePath /my-music
+tunecamp build ./my-catalog --output ./public --basePath /my-music
 ```
 
 This is useful for:
@@ -100,7 +100,7 @@ This is useful for:
 
 2. **Build your site**:
    ```bash
-   shogun-faircamp build . --output ./public
+   tunecamp build . --output ./public
    ```
 
 3. **Deploy**:
@@ -111,7 +111,8 @@ This is useful for:
 
 ```bash
 # Build the site
-shogun-faircamp build ./my-catalog --output ./docs --basePath /my-music-catalog
+tunecamp build ./my-catalog --output ./docs --basePath /my-music-catalog
+```
 
 # Commit and push
 git add docs/
@@ -142,7 +143,7 @@ If you're using a custom domain (e.g., `mymusic.com`), use root deployment:
    basePath: ""
    ```
 
-2. **Build command**: `shogun-faircamp build . --output ./public`
+2. **Build command**: `tunecamp build . --output ./public`
 
 3. **Publish directory**: `public`
 
@@ -165,7 +166,7 @@ Similar to Netlify, Vercel deployments typically use root paths with custom doma
    basePath: ""
    ```
 
-2. **Build command**: `shogun-faircamp build . --output ./public`
+2. **Build command**: `tunecamp build . --output ./public`
 
 3. **Output directory**: `public`
 
@@ -235,7 +236,8 @@ To test how your site will look when deployed to a subdirectory:
 
 ```bash
 # Build with the deployment basePath
-shogun-faircamp build . --output ./public --basePath /my-music
+tunecamp build . --output ./public --basePath /my-music
+```
 
 # Serve with a simple HTTP server
 cd public
@@ -268,11 +270,11 @@ jobs:
         with:
           node-version: '18'
       
-      - name: Install Shogun Faircamp
-        run: npm install -g shogun-faircamp
+      - name: Install Tunecamp
+        run: npm install -g tunecamp
       
       - name: Build site
-        run: shogun-faircamp build . --output ./public --basePath /my-music-repo
+        run: tunecamp build . --output ./public --basePath /my-music-repo
       
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
@@ -295,7 +297,7 @@ jobs:
 
 ## Migration Guide
 
-If you have an existing Shogun Faircamp site that was generated before the `basePath` feature:
+If you have an existing Tunecamp site that was generated before the `basePath` feature:
 
 1. **Determine your deployment path**: Where is your site currently deployed?
    - Root domain: Leave `basePath` empty or omit it
@@ -308,7 +310,7 @@ If you have an existing Shogun Faircamp site that was generated before the `base
 
 3. **Rebuild**:
    ```bash
-   shogun-faircamp build . --output ./public
+   tunecamp build . --output ./public
    ```
 
 4. **Redeploy**: Upload the new `public` folder to your hosting service.
@@ -319,7 +321,7 @@ If you have an existing Shogun Faircamp site that was generated before the `base
 
 If you're still having trouble with deployment:
 
-1. Check the [GitHub Issues](https://github.com/yourusername/shogun-faircamp/issues)
+1. Check the [GitHub Issues](https://github.com/scobru/tunecamp/issues)
 2. Review the [Examples](../examples/) directory for reference configurations
 3. Open a new issue with:
    - Your `catalog.yaml` configuration

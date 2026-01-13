@@ -28,9 +28,9 @@ artist-free/
 ## Building
 
 ```bash
-shogun-faircamp build ./examples/artist-free -o ./output
+tunecamp build ./examples/artist-free -o ./output
 ```
 
 ## Notes
 
-This example doesn't include actual audio files. Add your own MP3/FLAC files to the `tracks/` directory and cover art as `cover.jpg`.
+This example doesn't include actual audio files. Add your own MP3/FLAC files to the `tracks/` directory and cover art as `cover.jpg` and header image.

@@ -14,12 +14,23 @@
 
 import Gun from 'gun';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 
 // Default public GunDB peers
 const DEFAULT_PEERS = [
-    'https://gun-manhattan.herokuapp.com/gun',
-    'https://gun-us.herokuapp.com/gun',
+    'https://gun.defucc.me/gun',
+    'https://a.talkflow.team/gun',
+    'https://peer.wallie.io/gun',
+    'https://shogun-relay.scobrudot.dev/gun',
 ];
+
+interface SEAKeyPair {
+    pub: string;
+    priv: string;
+    epub: string;
+    epriv: string;
+}
 
 interface CodeOptions {
     releaseSlug: string;
@@ -28,6 +39,7 @@ interface CodeOptions {
     expiresInDays?: number;
     namespace: string;
     peers: string[];
+    keypair?: SEAKeyPair;
 }
 
 /**
@@ -62,10 +74,66 @@ function hashCode(code: string): string {
 }
 
 /**
+ * Load SEA key pair from file
+ */
+function loadKeyPair(keypairPath: string): SEAKeyPair {
+    try {
+        const fileContent = fs.readFileSync(keypairPath, 'utf-8');
+        const parsed = JSON.parse(fileContent);
+        
+        if (!parsed.pub || !parsed.priv || !parsed.epub || !parsed.epriv) {
+            throw new Error('Invalid keypair file: missing required keys');
+        }
+        
+        return {
+            pub: parsed.pub,
+            priv: parsed.priv,
+            epub: parsed.epub,
+            epriv: parsed.epriv,
+        };
+    } catch (error: any) {
+        throw new Error(`Failed to load keypair from ${keypairPath}: ${error.message}`);
+    }
+}
+
+/**
+ * Authenticate with GunDB using SEA pair
+ */
+async function authenticateGunDB(gun: any, pair: SEAKeyPair): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const user = gun.user();
+        
+        // Try to authenticate
+        user.auth(pair, (ack: any) => {
+            if (ack.err) {
+                // If authentication fails, try to create user first
+                user.create(pair, (createAck: any) => {
+                    if (createAck.err && createAck.err !== 'User already created!') {
+                        reject(new Error(`Failed to create/authenticate user: ${createAck.err}`));
+                        return;
+                    }
+                    
+                    // Now try to authenticate again
+                    user.auth(pair, (authAck: any) => {
+                        if (authAck.err) {
+                            reject(new Error(`Failed to authenticate: ${authAck.err}`));
+                            return;
+                        }
+                        resolve();
+                    });
+                });
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
+/**
  * Generate codes and store in GunDB
  */
 async function generateCodes(options: CodeOptions): Promise<string[]> {
-    const { releaseSlug, count, maxDownloads, expiresInDays, namespace, peers } = options;
+    const { releaseSlug, count, maxDownloads, expiresInDays, namespace, peers, keypair } = options;
 
     console.log(`\n🔐 Tunecamp Unlock Codes Generator`);
     console.log(`================================`);
@@ -73,6 +141,11 @@ async function generateCodes(options: CodeOptions): Promise<string[]> {
     console.log(`Count: ${count}`);
     console.log(`Max downloads per code: ${maxDownloads}`);
     if (expiresInDays) console.log(`Expires in: ${expiresInDays} days`);
+    if (keypair) {
+        console.log(`🔒 Using authenticated private space`);
+    } else {
+        console.log(`⚠️  Using public space (consider using --keypair for private storage)`);
+    }
     console.log(`\nConnecting to GunDB peers...`);
 
     // Initialize Gun
@@ -81,6 +154,18 @@ async function generateCodes(options: CodeOptions): Promise<string[]> {
     // Wait for connection
     await new Promise(resolve => setTimeout(resolve, 2000));
 
+    // Authenticate if keypair is provided
+    if (keypair) {
+        console.log(`\nAuthenticating with SEA pair...`);
+        try {
+            await authenticateGunDB(gun, keypair);
+            console.log(`✅ Authenticated successfully`);
+        } catch (error: any) {
+            console.error(`❌ Authentication failed: ${error.message}`);
+            throw error;
+        }
+    }
+
     const codes: string[] = [];
     const expiresAt = expiresInDays
         ? Date.now() + (expiresInDays * 24 * 60 * 60 * 1000)
@@ -88,12 +173,15 @@ async function generateCodes(options: CodeOptions): Promise<string[]> {
 
     console.log(`\nGenerating ${count} codes...`);
 
+    // Use user().get() for private space, or get() for public space
+    const dbRoot = keypair ? gun.user() : gun;
+
     for (let i = 0; i < count; i++) {
         const code = generateCode();
         const codeHash = hashCode(code);
 
-        // Store in GunDB
-        gun
+        // Store in GunDB (private space if authenticated, public otherwise)
+        dbRoot
             .get(namespace)
             .get('releases')
             .get(releaseSlug)
@@ -136,12 +224,14 @@ Options:
   --downloads <n>   Max downloads per code (default: 1)
   --expires <days>  Days until codes expire (optional)
   --namespace <ns>  GunDB namespace (default: tunecamp)
+  --keypair <file>  Path to SEA keypair JSON file (for private storage)
   --output <file>   Save codes to file (optional)
   --help            Show this help
 
 Examples:
   npx ts-node src/tools/generate-codes.ts my-album --count 10
   npx ts-node src/tools/generate-codes.ts my-album --count 50 --downloads 3 --output codes.txt
+  npx ts-node src/tools/generate-codes.ts my-album --count 20 --keypair ./gundb-keypair.json
 `);
         process.exit(0);
     }
@@ -153,9 +243,25 @@ Examples:
         ? parseInt(args[args.indexOf('--expires') + 1])
         : undefined;
     const namespace = args[args.indexOf('--namespace') + 1] || 'tunecamp';
+    const keypairPath = args.includes('--keypair')
+        ? args[args.indexOf('--keypair') + 1]
+        : null;
     const outputFile = args.includes('--output')
         ? args[args.indexOf('--output') + 1]
         : null;
+
+    // Load keypair if provided
+    let keypair: SEAKeyPair | undefined;
+    if (keypairPath) {
+        try {
+            keypair = loadKeyPair(keypairPath);
+        } catch (error: any) {
+            console.error(`\n❌ Error loading keypair: ${error.message}`);
+            console.error(`\n💡 Generate a new keypair with:`);
+            console.error(`   npx ts-node src/tools/generate-sea-pair.ts`);
+            process.exit(1);
+        }
+    }
 
     try {
         const codes = await generateCodes({
@@ -165,6 +271,7 @@ Examples:
             expiresInDays,
             namespace,
             peers: DEFAULT_PEERS,
+            keypair,
         });
 
         console.log(`\n✅ Generated ${codes.length} codes:\n`);
@@ -195,6 +302,13 @@ Examples:
         console.log(`  unlockCodes:`);
         console.log(`    enabled: true`);
         console.log(`    namespace: ${namespace}`);
+        if (keypair) {
+            console.log(`\n🔒 Codes stored in your private GunDB space`);
+            console.log(`   Only you can access and manage these codes`);
+        } else {
+            console.log(`\n⚠️  Codes stored in public space`);
+            console.log(`   Consider using --keypair for private storage`);
+        }
 
         process.exit(0);
     } catch (error) {

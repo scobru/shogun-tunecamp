@@ -61,7 +61,7 @@ async build(): Promise<void>
 **Example:**
 
 ```typescript
-const generator = new ShogunFaircamp({
+const generator = new Tunecamp({
   inputDir: "./catalog",
   outputDir: "./dist",
 });
@@ -83,9 +83,26 @@ interface CatalogConfig {
   title: string;
   description?: string;
   url?: string;
+  basePath?: string;
   theme?: string;
   language?: string;
+  headerImage?: string; // Header image path (replaces title text, like Bandcamp)
+  customFont?: string; // Custom font URL (e.g., Google Fonts) or local file path
+  customCSS?: string; // Custom CSS file path (relative to input directory) or URL
+  labelMode?: boolean;
+  podcast?: PodcastConfig;
   metadata?: Record<string, any>;
+}
+
+interface PodcastConfig {
+  enabled?: boolean;
+  title?: string;
+  description?: string;
+  author?: string;
+  email?: string;
+  category?: string;
+  image?: string;
+  explicit?: boolean;
 }
 ```
 
@@ -114,13 +131,22 @@ interface ReleaseConfig {
   description?: string;
   cover?: string;
   download?: DownloadMode;
+  unlockCodes?: UnlockCodesConfig;
   price?: number;
   genres?: string[];
   credits?: Credit[];
+  unlisted?: boolean;
+  artistSlug?: string;
   metadata?: Record<string, any>;
 }
 
 type DownloadMode = "free" | "paycurtain" | "codes" | "none";
+
+interface UnlockCodesConfig {
+  enabled: boolean;
+  namespace?: string;
+  peers?: string[];
+}
 
 interface Credit {
   role: string;
@@ -153,7 +179,7 @@ interface TrackMetadata {
 ### Custom Build Pipeline
 
 ```typescript
-import { ShogunFaircamp, CatalogParser, SiteGenerator } from "shogun-faircamp";
+import { Tunecamp, CatalogParser, SiteGenerator } from "tunecamp";
 
 // Parse catalog
 const parser = new CatalogParser("./my-catalog");
@@ -177,14 +203,14 @@ await generator.generate();
 #### Vite Plugin Example
 
 ```typescript
-import { ShogunFaircamp } from "shogun-faircamp";
+import { Tunecamp } from "tunecamp";
 import type { Plugin } from "vite";
 
-export function shogunFaircampPlugin(): Plugin {
+export function tunecampPlugin(): Plugin {
   return {
-    name: "vite-plugin-shogun-faircamp",
+    name: "vite-plugin-tunecamp",
     async buildStart() {
-      const generator = new ShogunFaircamp({
+      const generator = new Tunecamp({
         inputDir: "./catalog",
         outputDir: "./dist/music",
       });
@@ -197,14 +223,14 @@ export function shogunFaircampPlugin(): Plugin {
 #### Webpack Plugin Example
 
 ```typescript
-import { ShogunFaircamp } from "shogun-faircamp";
+import { Tunecamp } from "tunecamp";
 
-class ShogunFaircampPlugin {
+class TunecampPlugin {
   apply(compiler) {
     compiler.hooks.beforeCompile.tapAsync(
-      "ShogunFaircampPlugin",
+      "TunecampPlugin",
       async (params, callback) => {
-        const generator = new ShogunFaircamp({
+        const generator = new Tunecamp({
           inputDir: "./catalog",
           outputDir: "./dist/music",
         });
@@ -215,7 +241,7 @@ class ShogunFaircampPlugin {
   }
 }
 
-module.exports = ShogunFaircampPlugin;
+module.exports = TunecampPlugin;
 ```
 
 ### Node.js Script
@@ -223,7 +249,7 @@ module.exports = ShogunFaircampPlugin;
 ```javascript
 #!/usr/bin/env node
 
-const { ShogunFaircamp } = require("shogun-faircamp");
+const { Tunecamp } = require("tunecamp");
 const path = require("path");
 
 async function buildCatalog() {
@@ -232,7 +258,7 @@ async function buildCatalog() {
 
   console.log(`Building catalog from ${catalogDir}...`);
 
-  const generator = new ShogunFaircamp({
+  const generator = new Tunecamp({
     inputDir: path.resolve(catalogDir),
     outputDir: path.resolve(outputDir),
     verbose: true,
@@ -253,10 +279,10 @@ buildCatalog();
 ## Error Handling
 
 ```typescript
-import { ShogunFaircamp } from "shogun-faircamp";
+import { Tunecamp } from "tunecamp";
 
 try {
-  const generator = new ShogunFaircamp({
+  const generator = new Tunecamp({
     inputDir: "./catalog",
     outputDir: "./public",
   });
@@ -283,7 +309,7 @@ import {
   formatDuration,
   formatFileSize,
   createSlug,
-} from "shogun-faircamp";
+} from "tunecamp";
 
 // Read audio file metadata
 const metadata = await readAudioMetadata("./track.mp3");
@@ -297,7 +323,7 @@ const slug = createSlug("My Album Title"); // "my-album-title"
 
 ## TypeScript Support
 
-Shogun Faircamp is written in TypeScript and includes full type definitions.
+Tunecamp is written in TypeScript and includes full type definitions.
 
 ```typescript
 import type {
@@ -307,7 +333,8 @@ import type {
   CatalogConfig,
   ArtistConfig,
   ReleaseConfig,
-} from "shogun-faircamp";
+  PodcastConfig,
+} from "tunecamp";
 ```
 
 ## Examples
@@ -323,6 +350,6 @@ See the `/examples` directory in the repository for complete examples of:
 
 For API questions or issues:
 
-- Check the [GitHub repository](https://github.com/yourusername/shogun-faircamp)
+- Check the [GitHub repository](https://github.com/scobru/tunecamp)
 - Open an issue
 - Join discussions

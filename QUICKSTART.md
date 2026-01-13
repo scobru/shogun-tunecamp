@@ -1,11 +1,11 @@
 # Quick Start Guide
 
-Get up and running with Selfcamp in 5 minutes!
+Get up and running with Tunecamp in 5 minutes!
 
 ## Installation
 
 ```bash
-cd selfcamp
+cd tunecamp
 yarn install
 yarn build
 ```
@@ -176,7 +176,7 @@ download: "none"
 
 ## Changing Themes
 
-Selfcamp comes with 4 built-in themes:
+Tunecamp comes with 5 built-in themes:
 
 - **default** - Modern dark theme with purple/blue gradients
 - **minimal** - Clean light theme

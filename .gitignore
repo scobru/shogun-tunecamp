@@ -35,6 +35,7 @@ coverage/
 
 # Generated sites
 public/
+test-output/
 output/
 build/
 
@@ -43,3 +44,7 @@ tmp/
 temp/
 *.tmp
 
+# GunDB keypairs (keep secure!)
+gundb-keypair.json
+*-keypair.json
+*.keypair.json
