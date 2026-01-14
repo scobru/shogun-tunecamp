@@ -1,6 +1,6 @@
 {
   "name": "tunecamp",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A modern static site generator for musicians and music labels, inspired by Faircamp",
   "main": "dist/index.js",
   "type": "module",
