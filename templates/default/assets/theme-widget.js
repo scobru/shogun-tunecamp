@@ -23,7 +23,10 @@
         bgColor: '#000000',
         surfaceColor: '#000000',
         textColor: '#f1f5f9',
+        textMuted: '#94a3b8',
         borderColor: '#334155',
+        successColor: '#10b981',
+        warningColor: '#f59e0b',
         mode: 'dark'
       };
     }

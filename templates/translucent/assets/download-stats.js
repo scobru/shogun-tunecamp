@@ -30,6 +30,7 @@
      */
     constructor(options = {}) {
       this.peers = options.peers || DEFAULT_PEERS;
+      this.root = options.root || 'shogun';
       this.namespace = options.namespace || 'tunecamp-stats';
       this.gun = null;
       this.initialized = false;
@@ -98,7 +99,7 @@
 
       return new Promise((resolve) => {
         this.gun
-          .get(this.namespace)
+          .get(this.root).get(this.namespace)
           .get('releases')
           .get(releaseSlug)
           .get('downloads')
@@ -128,7 +129,7 @@
 
       return new Promise((resolve) => {
         this.gun
-          .get(this.namespace)
+          .get(this.root).get(this.namespace)
           .get('releases')
           .get(releaseSlug)
           .get('tracks')
@@ -162,7 +163,7 @@
 
       return new Promise((resolve) => {
         this.gun
-          .get(this.namespace)
+          .get(this.root).get(this.namespace)
           .get('releases')
           .get(releaseSlug)
           .get('downloads')
@@ -200,7 +201,7 @@
 
       return new Promise((resolve) => {
         this.gun
-          .get(this.namespace)
+          .get(this.root).get(this.namespace)
           .get('releases')
           .get(releaseSlug)
           .get('tracks')
@@ -232,7 +233,7 @@
       }
 
       const ref = this.gun
-        .get(this.namespace)
+        .get(this.root).get(this.namespace)
         .get('releases')
         .get(releaseSlug)
         .get('downloads');

@@ -8,6 +8,12 @@
   {{#if catalog.description}}
   <meta name="description" content="{{catalog.description}}">
   {{/if}}
+  <!-- Tunecamp Metadata (for community registry) -->
+  <meta name="generator" content="Tunecamp 0.1.0">
+  <meta name="tunecamp-title" content="{{catalog.title}}">
+  {{#if artist}}
+  <meta name="tunecamp-artist" content="{{artist.name}}">
+  {{/if}}
   <!-- RSS/Atom Feeds -->
   <link rel="alternate" type="application/rss+xml" title="{{catalog.title}} RSS Feed" href="{{assetPath 'feed.xml'}}">
   <link rel="alternate" type="application/atom+xml" title="{{catalog.title}} Atom Feed" href="{{assetPath 'atom.xml'}}">
@@ -102,6 +108,10 @@
 
   <!-- Interactive Theme Widget -->
   <script src="{{assetPath "assets/theme-widget.js"}}"></script>
+
+  <!-- Tunecamp Community Registry (auto-registers site) -->
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+  <script src="{{assetPath "assets/community-registry.js"}}"></script>
 </body>
 
 </html>

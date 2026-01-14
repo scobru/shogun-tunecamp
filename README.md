@@ -308,6 +308,24 @@ Tunecamp automatically tracks and displays download counts for your releases usi
 
 The download counter increments when users click "Download All" or individual track download buttons.
 
+### Community Registry (Decentralized Directory)
+
+Tunecamp includes an automatic community registry powered by GunDB. When someone visits your Tunecamp site, it gets automatically registered in a decentralized directory of Tunecamp sites.
+
+**Features:**
+- **Automatic registration**: No sign-up needed - your site is discovered when visited
+- **Decentralized**: Data stored on public GunDB peers, no central server
+- **Real-time**: New sites appear instantly in the community directory
+- **Privacy-respecting**: Only public info is shared (URL, title, artist name)
+
+**How it works:**
+1. Build and deploy your Tunecamp site
+2. When a visitor loads your site, it registers automatically
+3. Your site appears in the [Tunecamp Community](https://tunecamp.dev/community.html) directory
+4. Discover other independent artists using Tunecamp!
+
+You can disable auto-registration by removing the `community-registry.js` script from your build output.
+
 ## Supported Audio Formats
 
 - MP3
