@@ -26,6 +26,8 @@ Inspired by [Faircamp](https://simonrepp.com/faircamp/), this tool helps you cre
 - 🧙 **Interactive Wizard**: CLI and Web-based wizard for easy catalog creation
 - 🖼️ **Custom backgrounds**: Header and page background image support
 - 🔗 **Remote audio files**: Use external URLs for audio files instead of local files
+- 🌐 **Community Directory**: Auto-register your site to a public directory of Tunecamp sites
+- 🎧 **Community Player**: Centralized player to discover and listen to music from all Tunecamp sites
 
 ## Quick Start
 

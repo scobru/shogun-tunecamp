@@ -6,7 +6,7 @@
  * the site in a decentralized community directory.
  */
 
-(function() {
+(function () {
   'use strict';
 
   // Public GunDB peers for the community registry
@@ -59,7 +59,7 @@
       // Use title + artist as the unique identifier
       // This way the same site deployed to different URLs won't create duplicates
       const identifier = `${(siteInfo.title || 'untitled').toLowerCase().trim()}::${(siteInfo.artistName || 'unknown').toLowerCase().trim()}`;
-      
+
       // Create a simple hash
       let hash = 0;
       for (let i = 0; i < identifier.length; i++) {
@@ -99,7 +99,7 @@
             .get(REGISTRY_NAMESPACE)
             .get('sites')
             .get(siteId);
-          
+
           siteRef.get('lastSeen').put(now);
           // Always update currentPage (even if null, to clear it when on homepage)
           siteRef.get('currentPage').put(siteInfo.currentPage || null);
@@ -192,7 +192,7 @@
      */
     subscribeToSites(callback) {
       if (!this.initialized || !this.gun) {
-        return () => {};
+        return () => { };
       }
 
       const ref = this.gun
@@ -238,7 +238,7 @@
     async getSiteCount() {
       return new Promise((resolve) => {
         let count = 0;
-        
+
         this.gun
           .get(REGISTRY_ROOT)
           .get(REGISTRY_NAMESPACE)
@@ -251,56 +251,239 @@
         setTimeout(() => resolve(count), 2000);
       });
     }
+
+    /**
+     * Register tracks for the centralized community player
+     * @param {Object} siteInfo - Site information
+     * @param {Array} tracks - Array of track objects from window.tracks
+     * @param {string} releaseTitle - Title of the release/album
+     * @param {string} coverUrl - Cover image URL for the release
+     */
+    async registerTracks(siteInfo, tracks, releaseTitle, coverUrl) {
+      if (!this.initialized || !this.gun || !tracks || tracks.length === 0) {
+        return false;
+      }
+
+      const siteId = this.generateSiteId(siteInfo);
+      const baseUrl = siteInfo.url || window.location.origin;
+      // Use current page URL as base for resolving relative track URLs
+      // This ensures tracks/file.wav resolves to /releases/album/tracks/file.wav
+      const currentPageUrl = window.location.href;
+      const now = Date.now();
+
+      // Build absolute URLs for tracks
+      const tracksRef = this.gun
+        .get(REGISTRY_ROOT)
+        .get(REGISTRY_NAMESPACE)
+        .get('sites')
+        .get(siteId)
+        .get('tracks');
+
+      // Register each track
+      for (const track of tracks) {
+        // Generate track ID from title + release to avoid collisions
+        const trackSlug = (releaseTitle + '-' + (track.title || 'untitled'))
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '');
+
+        // Make audio URL absolute using current page URL as base
+        let audioUrl = track.url;
+        if (audioUrl && !audioUrl.startsWith('http')) {
+          // Use currentPageUrl as base so relative paths resolve correctly
+          audioUrl = new URL(audioUrl, currentPageUrl).href;
+        }
+
+        // Make cover URL absolute using current page URL as base
+        let absoluteCoverUrl = coverUrl;
+        if (absoluteCoverUrl && !absoluteCoverUrl.startsWith('http')) {
+          absoluteCoverUrl = new URL(absoluteCoverUrl, currentPageUrl).href;
+        }
+
+        const trackData = {
+          title: track.title || 'Untitled',
+          audioUrl: audioUrl,
+          duration: track.duration || 0,
+          releaseTitle: releaseTitle || 'Unknown Release',
+          artistName: siteInfo.artistName || track.artist || '',
+          coverUrl: absoluteCoverUrl || '',
+          siteUrl: baseUrl,
+          addedAt: now,
+        };
+
+        tracksRef.get(trackSlug).put(trackData);
+      }
+
+      console.log(`🎵 Registered ${tracks.length} tracks to community player`);
+      return true;
+    }
+
+    /**
+     * Get all tracks from all registered sites
+     * @param {function} callback - Called with array of tracks
+     */
+    async getAllTracks(callback) {
+      if (!this.initialized || !this.gun) {
+        callback([]);
+        return;
+      }
+
+      const allTracks = [];
+      const seenTracks = new Set();
+
+      // Get all sites first
+      this.gun
+        .get(REGISTRY_ROOT)
+        .get(REGISTRY_NAMESPACE)
+        .get('sites')
+        .map()
+        .once((siteData, siteId) => {
+          if (siteData && siteData.url) {
+            // For each site, get its tracks
+            this.gun
+              .get(REGISTRY_ROOT)
+              .get(REGISTRY_NAMESPACE)
+              .get('sites')
+              .get(siteId)
+              .get('tracks')
+              .map()
+              .once((trackData, trackId) => {
+                if (trackData && trackData.audioUrl) {
+                  const uniqueKey = `${siteId}:${trackId}`;
+                  if (!seenTracks.has(uniqueKey)) {
+                    seenTracks.add(uniqueKey);
+                    allTracks.push({
+                      id: trackId,
+                      siteId: siteId,
+                      ...trackData,
+                    });
+                  }
+                }
+              });
+          }
+        });
+
+      // Give time to collect all tracks
+      setTimeout(() => {
+        // Sort by addedAt (most recent first)
+        allTracks.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+        callback(allTracks);
+      }, 3000);
+    }
+
+    /**
+     * Subscribe to all tracks (real-time updates)
+     * @param {function} callback - Called when tracks are updated
+     */
+    subscribeToTracks(callback) {
+      if (!this.initialized || !this.gun) {
+        return () => { };
+      }
+
+      const tracksMap = new Map();
+
+      // Subscribe to all sites and their tracks
+      this.gun
+        .get(REGISTRY_ROOT)
+        .get(REGISTRY_NAMESPACE)
+        .get('sites')
+        .map()
+        .on((siteData, siteId) => {
+          if (siteData && siteData.url) {
+            this.gun
+              .get(REGISTRY_ROOT)
+              .get(REGISTRY_NAMESPACE)
+              .get('sites')
+              .get(siteId)
+              .get('tracks')
+              .map()
+              .on((trackData, trackId) => {
+                if (trackData && trackData.audioUrl) {
+                  const uniqueKey = `${siteId}:${trackId}`;
+                  tracksMap.set(uniqueKey, {
+                    id: trackId,
+                    siteId: siteId,
+                    ...trackData,
+                  });
+
+                  // Convert to array and call callback
+                  const allTracks = Array.from(tracksMap.values());
+                  allTracks.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+                  callback(allTracks);
+                }
+              });
+          }
+        });
+
+      return () => { };
+    }
   }
 
   // Expose globally
   window.TunecampCommunityRegistry = TunecampCommunityRegistry;
 
   // Auto-register on page load if site data is available
-  document.addEventListener('DOMContentLoaded', async function() {
+  document.addEventListener('DOMContentLoaded', async function () {
     // Check if this is a Tunecamp site (has site metadata)
     const siteTitle = document.querySelector('meta[name="tunecamp-title"]')?.content ||
-                      document.querySelector('.site-title a')?.textContent ||
-                      document.title;
-    
+      document.querySelector('.site-title a')?.textContent ||
+      document.title;
+
     const siteDescription = document.querySelector('meta[name="description"]')?.content || '';
     const artistName = document.querySelector('meta[name="tunecamp-artist"]')?.content ||
-                       document.querySelector('.release-artist')?.textContent?.replace('by ', '') || '';
-    
+      document.querySelector('.release-artist')?.textContent?.replace('by ', '') || '';
+
     // Get cover image if available
     const coverImage = document.querySelector('meta[property="og:image"]')?.content ||
-                       document.querySelector('.release-cover-large img')?.src ||
-                       document.querySelector('.header-image')?.src || '';
+      document.querySelector('.release-cover-large img')?.src ||
+      document.querySelector('.header-image')?.src || '';
 
     // Only register if we have a valid URL and it looks like a Tunecamp site
     const isTunecampSite = document.querySelector('.site-footer a[href*="tunecamp"]') ||
-                          document.querySelector('meta[name="generator"][content*="Tunecamp"]');
-    
+      document.querySelector('meta[name="generator"][content*="Tunecamp"]');
+
     if (isTunecampSite || window.TUNECAMP_SITE) {
       const registry = new TunecampCommunityRegistry();
       const initialized = await registry.init();
-      
+
       if (initialized) {
         // Always use the homepage/base URL for the site registration
         const baseUrl = window.location.origin;
-        
+
         // Get current page path for "now playing" feature (optional)
-        const currentPage = window.location.pathname !== '/' && window.location.pathname !== '/index.html' 
-          ? window.location.pathname 
+        const currentPage = window.location.pathname !== '/' && window.location.pathname !== '/index.html'
+          ? window.location.pathname
           : null;
-        
-        await registry.registerSite({
+
+        const siteInfo = {
           url: baseUrl, // Always homepage
           title: siteTitle,
           description: siteDescription,
           artistName: artistName,
           coverImage: coverImage,
           currentPage: currentPage, // Current page for "now playing"
-        });
+        };
+
+        await registry.registerSite(siteInfo);
+
+        // If this is a release page with tracks, also register tracks for the community player
+        if (window.tracks && Array.isArray(window.tracks) && window.tracks.length > 0) {
+          // Get release title from the page
+          const releaseTitle = document.querySelector('.release-metadata h1')?.textContent ||
+            document.querySelector('h1')?.textContent ||
+            'Unknown Release';
+
+          // Get release cover
+          const releaseCover = document.querySelector('.release-cover-large img')?.src || coverImage;
+
+          // Register tracks for the centralized player
+          await registry.registerTracks(siteInfo, window.tracks, releaseTitle, releaseCover);
+        }
       }
-      
+
       // Make registry available globally
       window.tunecampRegistry = registry;
     }
   });
 })();
+

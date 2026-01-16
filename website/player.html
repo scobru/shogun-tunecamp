@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tunecamp Community Player - Listen to Independent Music</title>
+    <meta name="description"
+        content="Listen to music from independent artists using Tunecamp. A decentralized community player powered by GunDB.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Player-specific styles */
+        .player-widget {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: var(--space-xl);
+            margin-bottom: var(--space-2xl);
+            color: #ffffff;
+        }
+
+        .player-content {
+            display: flex;
+            gap: var(--space-xl);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .player-cover {
+            width: 120px;
+            height: 120px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: rgba(255, 255, 255, 0.3);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .player-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .player-info {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .player-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: white;
+        }
+
+        .player-artist {
+            font-size: 0.9375rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 4px;
+        }
+
+        .player-release {
+            font-size: 0.8125rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .player-controls {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            margin-top: var(--space-lg);
+        }
+
+        .ctrl-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ctrl-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .ctrl-btn-play {
+            width: 56px;
+            height: 56px;
+            background: var(--accent);
+            font-size: 1.25rem;
+        }
+
+        .ctrl-btn-play:hover {
+            background: var(--accent-hover);
+        }
+
+        .player-progress {
+            flex: 1;
+            min-width: 200px;
+            margin-top: var(--space-lg);
+        }
+
+        .progress-wrapper {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        .progress-time {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-variant-numeric: tabular-nums;
+            min-width: 40px;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .volume-slider {
+            width: 70px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* Filter Bar */
+        .filter-bar {
+            display: flex;
+            gap: var(--space-md);
+            margin-bottom: var(--space-xl);
+            flex-wrap: wrap;
+        }
+
+        .filter-bar input,
+        .filter-bar select {
+            flex: 1;
+            min-width: 200px;
+            padding: var(--space-sm) var(--space-md);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9375rem;
+            background: var(--bg-surface);
+            color: var(--text-primary);
+        }
+
+        .filter-bar input:focus,
+        .filter-bar select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .shuffle-btn {
+            padding: var(--space-sm) var(--space-lg);
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .shuffle-btn:hover {
+            background: var(--accent-hover);
+        }
+
+        /* Track List */
+        .tracks-list {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .track-row {
+            display: flex;
+            align-items: center;
+            padding: var(--space-md) var(--space-lg);
+            gap: var(--space-md);
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .track-row:last-child {
+            border-bottom: none;
+        }
+
+        .track-row:hover {
+            background: var(--bg-surface-alt);
+        }
+
+        .track-row.playing {
+            background: var(--accent-light);
+        }
+
+        .track-play-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-surface-alt);
+            border-radius: 50%;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .track-row:hover .track-play-icon {
+            background: var(--accent);
+            color: white;
+        }
+
+        .track-cover-sm {
+            width: 44px;
+            height: 44px;
+            background: var(--accent);
+            border-radius: 4px;
+            overflow: hidden;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 1.25rem;
+        }
+
+        .track-cover-sm img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .track-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .track-name {
+            font-weight: 500;
+            font-size: 0.9375rem;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .track-meta {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .track-duration {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+            flex-shrink: 0;
+        }
+
+        .track-link {
+            color: var(--accent);
+            font-size: 0.8125rem;
+            flex-shrink: 0;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .track-row:hover .track-link {
+            opacity: 1;
+        }
+
+        /* Empty/loading states */
+        .empty-state {
+            text-align: center;
+            padding: var(--space-3xl);
+            color: var(--text-muted);
+        }
+
+        .empty-state .icon {
+            font-size: 3rem;
+            margin-bottom: var(--space-lg);
+        }
+
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* CTA */
+        .cta-section {
+            background: var(--accent);
+            color: white;
+            padding: var(--space-xl);
+            border-radius: 8px;
+            text-align: center;
+            margin: var(--space-2xl) 0;
+        }
+
+        .cta-section h3 {
+            color: white;
+            margin-bottom: var(--space-sm);
+        }
+
+        .cta-section p {
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: var(--space-lg);
+        }
+
+        .cta-section .btn {
+            background: white;
+            color: var(--accent);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .player-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .player-controls {
+                justify-content: center;
+            }
+
+            .player-progress {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header style="border-bottom: none; padding-bottom: var(--space-lg);">
+            <p style="margin-bottom: var(--space-lg);"><a href="index.html"
+                    style="color: var(--text-muted); font-size: 0.875rem;">← Back to Tunecamp</a></p>
+            <h1>🎵 Community Player</h1>
+            <p class="subtitle">Listen to music from independent artists</p>
+
+            <div class="stat-row">
+                <div class="stat-item">
+                    <div class="stat-number" id="trackCount">-</div>
+                    <div class="stat-label">Tracks</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="artistCount">-</div>
+                    <div class="stat-label">Artists</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Player Widget -->
+        <div class="player-widget">
+            <div class="player-content">
+                <div class="player-cover" id="playerCover">♪</div>
+
+                <div class="player-info">
+                    <div class="player-title" id="playerTitle">Select a track to play</div>
+                    <div class="player-artist" id="playerArtist">Browse the tracks below</div>
+                    <div class="player-release" id="playerRelease"></div>
+
+                    <div class="player-controls">
+                        <button class="ctrl-btn" id="prevBtn" title="Previous">⏮</button>
+                        <button class="ctrl-btn ctrl-btn-play" id="playBtn" title="Play">▶</button>
+                        <button class="ctrl-btn" id="nextBtn" title="Next">⏭</button>
+
+                        <div class="volume-control">
+                            <span>🔊</span>
+                            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="80">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="player-progress">
+                    <div class="progress-wrapper">
+                        <span class="progress-time" id="currentTime">0:00</span>
+                        <div class="progress-bar" id="progressBar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <span class="progress-time" id="duration">0:00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <input type="text" id="searchInput" placeholder="Search tracks or artists..." oninput="filterTracks()">
+            <select id="artistFilter" onchange="filterTracks()">
+                <option value="">All Artists</option>
+            </select>
+            <button class="shuffle-btn" onclick="shufflePlay()">🔀 Shuffle</button>
+        </div>
+
+        <!-- Tracks List -->
+        <section>
+            <h2>📻 All Tracks <span id="displayedCount" style="font-weight: normal; color: var(--text-muted);"></span>
+            </h2>
+
+            <div id="tracksContainer">
+                <div class="empty-state">
+                    <div class="icon loading-spinner">⟳</div>
+                    <p>Loading tracks from the community...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <div class="cta-section">
+            <h3>🎵 Add Your Music!</h3>
+            <p>Create your own Tunecamp site and your tracks will automatically appear here.<br>
+                No sign-up needed — just build, deploy, and share!</p>
+            <a href="index.html" class="btn">Get Started with Tunecamp</a>
+        </div>
+
+        <footer>
+            <div class="footer-links">
+                <a href="https://github.com/scobru/tunecamp">GitHub</a>
+                <a href="https://www.npmjs.com/package/tunecamp">NPM</a>
+                <a href="community.html">🌐 Community</a>
+                <a href="index.html">Home</a>
+                <a href="https://buymeacoffee.com/scobru" target="_blank">☕ Support</a>
+            </div>
+            <div class="footer-note">
+                Powered by GunDB. Made with ❤️ by <a href="https://github.com/scobru" target="_blank">scobru</a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- GunDB -->
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+
+    <script>
+        const REGISTRY_PEERS = [
+            'https://gun.defucc.me/gun',
+            'https://gun.o8.is/gun',
+            'https://shogun-relay.scobrudot.dev/gun',
+            'https://relay.peer.ooo/gun',
+        ];
+        const REGISTRY_ROOT = 'shogun';
+        const REGISTRY_NAMESPACE = 'tunecamp-community';
+
+        let gun;
+        let audio = new Audio();
+        let allTracks = [];
+        let filteredTracks = [];
+        let currentTrackIndex = -1;
+        let isPlaying = false;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            gun = Gun({ peers: REGISTRY_PEERS, localStorage: true });
+            loadTracks();
+            initPlayer();
+        });
+
+        function initPlayer() {
+            audio.addEventListener('timeupdate', updateProgress);
+            audio.addEventListener('loadedmetadata', updateDuration);
+            audio.addEventListener('ended', () => playNext());
+            audio.addEventListener('play', () => { isPlaying = true; updatePlayButton(); });
+            audio.addEventListener('pause', () => { isPlaying = false; updatePlayButton(); });
+
+            document.getElementById('playBtn').addEventListener('click', togglePlay);
+            document.getElementById('prevBtn').addEventListener('click', playPrev);
+            document.getElementById('nextBtn').addEventListener('click', playNext);
+
+            const volumeSlider = document.getElementById('volumeSlider');
+            volumeSlider.addEventListener('input', (e) => { audio.volume = e.target.value / 100; });
+            audio.volume = volumeSlider.value / 100;
+
+            document.getElementById('progressBar').addEventListener('click', (e) => {
+                const rect = e.target.getBoundingClientRect();
+                const percent = (e.clientX - rect.left) / rect.width;
+                if (audio.duration) audio.currentTime = audio.duration * percent;
+            });
+        }
+
+        function loadTracks() {
+            const container = document.getElementById('tracksContainer');
+            const tracksMap = new Map();
+            const artistsSet = new Set();
+
+            gun.get(REGISTRY_ROOT)
+                .get(REGISTRY_NAMESPACE)
+                .get('sites')
+                .map()
+                .on((siteData, siteId) => {
+                    if (siteData && siteData.url) {
+                        if (siteData.url.includes('localhost')) return;
+
+                        gun.get(REGISTRY_ROOT)
+                            .get(REGISTRY_NAMESPACE)
+                            .get('sites')
+                            .get(siteId)
+                            .get('tracks')
+                            .map()
+                            .on((trackData, trackId) => {
+                                if (trackData && trackData.audioUrl) {
+                                    const uniqueKey = `${siteId}:${trackId}`;
+                                    tracksMap.set(uniqueKey, {
+                                        id: trackId,
+                                        siteId: siteId,
+                                        siteUrl: siteData.url,
+                                        siteName: siteData.title,
+                                        ...trackData,
+                                    });
+
+                                    if (trackData.artistName) artistsSet.add(trackData.artistName);
+
+                                    // Deduplicate by title + artist
+                                    const deduped = new Map();
+                                    Array.from(tracksMap.values()).forEach(track => {
+                                        const dedupKey = `${(track.title || '').toLowerCase()}::${(track.artistName || '').toLowerCase()}`;
+                                        const existing = deduped.get(dedupKey);
+                                        if (!existing || (track.addedAt || 0) > (existing.addedAt || 0)) {
+                                            deduped.set(dedupKey, track);
+                                        }
+                                    });
+
+                                    allTracks = Array.from(deduped.values());
+                                    allTracks.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+
+                                    updateArtistFilter(artistsSet);
+                                    filterTracks();
+                                    updateStats();
+                                }
+                            });
+                    }
+                });
+
+            setTimeout(() => {
+                if (allTracks.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="icon">🎵</div>
+                            <h3>No tracks yet</h3>
+                            <p>Be the first! Create a Tunecamp site with music and your tracks will appear here.</p>
+                        </div>
+                    `;
+                }
+            }, 5000);
+        }
+
+        function updateArtistFilter(artistsSet) {
+            const select = document.getElementById('artistFilter');
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">All Artists</option>';
+            Array.from(artistsSet).sort().forEach(artist => {
+                const option = document.createElement('option');
+                option.value = artist;
+                option.textContent = artist;
+                select.appendChild(option);
+            });
+            select.value = currentValue;
+        }
+
+        function filterTracks() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const artistFilter = document.getElementById('artistFilter').value;
+
+            filteredTracks = allTracks.filter(track => {
+                const matchesSearch = !searchTerm ||
+                    track.title.toLowerCase().includes(searchTerm) ||
+                    (track.artistName && track.artistName.toLowerCase().includes(searchTerm)) ||
+                    (track.releaseTitle && track.releaseTitle.toLowerCase().includes(searchTerm));
+                const matchesArtist = !artistFilter || track.artistName === artistFilter;
+                return matchesSearch && matchesArtist;
+            });
+
+            renderTracks();
+        }
+
+        function renderTracks() {
+            const container = document.getElementById('tracksContainer');
+            const countEl = document.getElementById('displayedCount');
+
+            if (filteredTracks.length === 0) {
+                container.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><h3>No tracks found</h3><p>Try adjusting your search.</p></div>`;
+                countEl.textContent = '';
+                return;
+            }
+
+            countEl.textContent = `(${filteredTracks.length})`;
+
+            container.innerHTML = `
+                <div class="tracks-list">
+                    ${filteredTracks.map((track, index) => renderTrackRow(track, index)).join('')}
+                </div>
+            `;
+        }
+
+        function renderTrackRow(track, index) {
+            const isCurrentTrack = currentTrackIndex === index;
+            const coverHtml = track.coverUrl
+                ? `<img src="${esc(track.coverUrl)}" alt="${esc(track.title)}" onerror="this.parentElement.innerHTML='♪'">`
+                : '♪';
+
+            return `
+                <div class="track-row ${isCurrentTrack ? 'playing' : ''}" onclick="playTrack(${index})">
+                    <div class="track-play-icon">${isCurrentTrack && isPlaying ? '▐▐' : '▶'}</div>
+                    <div class="track-cover-sm">${coverHtml}</div>
+                    <div class="track-details">
+                        <div class="track-name">${esc(track.title)}</div>
+                        <div class="track-meta">${esc(track.artistName || 'Unknown')} · ${esc(track.releaseTitle || '')}</div>
+                    </div>
+                    <div class="track-duration">${formatTime(track.duration)}</div>
+                    <a href="${esc(track.siteUrl)}" target="_blank" class="track-link" onclick="event.stopPropagation()">Visit →</a>
+                </div>
+            `;
+        }
+
+        function updateStats() {
+            document.getElementById('trackCount').textContent = allTracks.length;
+            const artists = new Set(allTracks.map(t => t.artistName).filter(Boolean));
+            document.getElementById('artistCount').textContent = artists.size;
+        }
+
+        function playTrack(index) {
+            if (index < 0 || index >= filteredTracks.length) return;
+            currentTrackIndex = index;
+            const track = filteredTracks[index];
+
+            audio.src = track.audioUrl;
+            audio.play().catch(e => console.warn('Playback failed:', e));
+
+            document.getElementById('playerTitle').textContent = track.title;
+            document.getElementById('playerArtist').textContent = track.artistName || 'Unknown Artist';
+            document.getElementById('playerRelease').textContent = track.releaseTitle || '';
+
+            const coverEl = document.getElementById('playerCover');
+            coverEl.innerHTML = track.coverUrl
+                ? `<img src="${esc(track.coverUrl)}" alt="${esc(track.title)}" onerror="this.parentElement.innerHTML='♪'">`
+                : '♪';
+
+            renderTracks();
+        }
+
+        function togglePlay() {
+            if (currentTrackIndex === -1 && filteredTracks.length > 0) { playTrack(0); return; }
+            if (isPlaying) audio.pause(); else audio.play().catch(e => console.warn('Playback failed:', e));
+        }
+
+        function playPrev() {
+            if (filteredTracks.length === 0) return;
+            let newIndex = currentTrackIndex - 1;
+            if (newIndex < 0) newIndex = filteredTracks.length - 1;
+            playTrack(newIndex);
+        }
+
+        function playNext() {
+            if (filteredTracks.length === 0) return;
+            let newIndex = currentTrackIndex + 1;
+            if (newIndex >= filteredTracks.length) newIndex = 0;
+            playTrack(newIndex);
+        }
+
+        function shufflePlay() {
+            if (filteredTracks.length === 0) return;
+            playTrack(Math.floor(Math.random() * filteredTracks.length));
+        }
+
+        function updatePlayButton() {
+            document.getElementById('playBtn').textContent = isPlaying ? '⏸' : '▶';
+            renderTracks();
+        }
+
+        function updateProgress() {
+            if (!audio.duration) return;
+            document.getElementById('progressFill').style.width = (audio.currentTime / audio.duration) * 100 + '%';
+            document.getElementById('currentTime').textContent = formatTime(audio.currentTime);
+        }
+
+        function updateDuration() {
+            document.getElementById('duration').textContent = formatTime(audio.duration);
+        }
+
+        function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function esc(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+
+</html>

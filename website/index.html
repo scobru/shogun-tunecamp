@@ -1,220 +1,172 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tunecamp</title>
-    <meta name="description" content="A modern static site generator for musicians and music labels, inspired by Faircamp. Point Tunecamp at a folder hierarchy containing your audio files and generate a complete, database-free website.">
+    <title>Tunecamp - Static Site Generator for Musicians</title>
+    <meta name="description"
+        content="Create beautiful static music websites. No servers, no databases, just pure HTML files you can host anywhere.">
+    <meta name="generator" content="Tunecamp">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="container">
+        <!-- Header -->
         <header>
             <img src="tunecamp.svg" alt="Tunecamp" class="logo">
             <h1>Tunecamp</h1>
-            <p class="tagline">A modern static site generator for musicians and music labels.</p>
-            <p class="tagline">Point Tunecamp at a folder hierarchy containing your audio files.<br>Within minutes, Tunecamp builds a complete website presenting your work.<br>The resulting site requires no database, no programming, and minimal maintenance.</p>
+            <p class="subtitle">A static site generator for musicians</p>
+
+            <div class="download-buttons">
+                <a href="https://www.npmjs.com/package/tunecamp" class="btn">📦 Install from NPM</a>
+                <a href="https://github.com/scobru/tunecamp" class="btn btn-secondary">GitHub</a>
+                <a href="wizard/index.html" class="btn btn-secondary">🧙 Web Wizard</a>
+                <a href="https://buymeacoffee.com/scobru" class="btn btn-secondary" target="_blank">☕ Support</a>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                <code
+                    style="background: var(--bg-surface-alt); padding: 4px 8px; border-radius: 4px;">npx tunecamp wizard</code>
+                to get started, or try the <a href="wizard/index.html">Web Wizard</a>
+            </p>
         </header>
 
-        <div class="download-section">
-            <h2>Get Started</h2>
-            <p>Install via npm or use the interactive wizard online</p>
-            <div class="download-buttons">
-                <a href="https://www.npmjs.com/package/tunecamp" class="btn">📦 NPM</a>
-                <a href="https://github.com/scobru/tunecamp" class="btn btn-secondary">📂 GitHub</a>
-                <a href="../wizard/index.html" class="btn btn-secondary">🧙 Web Wizard</a>
-                <a href="https://github.com/scobru/tunecamp#quick-start" class="btn btn-secondary">📖 Docs</a>
-            </div>
-            <p style="margin-top: 20px;"><strong>Quick Start:</strong> Run <code>tunecamp wizard</code> in terminal or use the <a href="../wizard/index.html" style="color: #8b5cf6; border-bottom: 1px solid #8b5cf6; font-weight: 500;">Web Wizard</a> in your browser</p>
-            <p><strong>Current version: 1.0.1</strong> | MIT licensed</p>
-        </div>
-
-        <div class="features">
-            <div class="feature-section">
-                <h2>Audio-First</h2>
-                <p>Built specifically for musicians and music labels with automatic metadata extraction.</p>
-                <ul class="feature-list">
-                    <li><strong>Multi-format Support</strong> MP3, FLAC, OGG, WAV, M4A, OPUS and more</li>
-                    <li><strong>Automatic Metadata</strong> Reads tags from your audio files</li>
-                    <li><strong>Built-in Player</strong> Modern HTML5 audio player with streaming support</li>
-                    <li><strong>Remote Audio Files</strong> Use external URLs for audio (CDN, storage services)</li>
-                    <li><strong>Zero Database</strong> Pure static HTML generation</li>
-                </ul>
-            </div>
-
-            <div class="feature-section">
-                <h2>Download Models</h2>
-                <p>Flexible download options to match your distribution style.</p>
-                <ul class="feature-list">
-                    <li><strong>Free Downloads</strong> Make all tracks immediately available</li>
-                    <li><strong>Soft Paycurtain (Honor System)</strong> Show PayPal/Stripe links with a suggested price, but downloads remain always available - it's up to the listener to support you</li>
-                    <li><strong>Unlock Codes</strong> Protect downloads with codes validated via GunDB (requires self-hosting to generate codes)</li>
-                    <li><strong>Streaming Only</strong> No downloads, audio streaming only (perfect for distribution platforms)</li>
-                    <li><strong>Download Stats</strong> Track download counts via decentralized GunDB</li>
-                </ul>
-            </div>
-
-            <div class="feature-section">
-                <h2>For Musicians & Labels</h2>
-                <p>Perfect for solo artists, bands, and music labels of all sizes.</p>
-                <ul class="feature-list">
-                    <li><strong>Solo Artists</strong> Showcase your complete discography</li>
-                    <li><strong>Bands & Collectives</strong> Represent your musical projects</li>
-                    <li><strong>Music Labels</strong> Multi-artist catalog support</li>
-                    <li><strong>Flexible Structure</strong> Organize releases, tracks, and metadata</li>
-                </ul>
-            </div>
-
-            <div class="feature-section">
-                <h2>Modern & Fast</h2>
-                <p>Built with modern web standards for optimal performance.</p>
-                <ul class="feature-list">
-                    <li><strong>Responsive Design</strong> Works on all devices</li>
-                    <li><strong>Fast Loading</strong> Static sites that load instantly</li>
-                    <li><strong>Mobile Friendly</strong> Optimized for mobile devices</li>
-                    <li><strong>SEO Ready</strong> Search engine optimized with proper meta tags</li>
-                    <li><strong>Faircamp-Inspired</strong> Clean, elegant layout with integrated navigation</li>
-                </ul>
-            </div>
-
-            <div class="feature-section">
-                <h2>🧙 Interactive Wizard</h2>
-                <p>Create your music website without editing YAML files manually.</p>
-                <ul class="feature-list">
-                    <li><strong>CLI Wizard</strong> Guided step-by-step setup in terminal</li>
-                    <li><strong>Web Wizard</strong> Visual interface with drag-and-drop file uploads</li>
-                    <li><strong>Complete Site Generation</strong> Generate deployable ZIP directly from wizard</li>
-                    <li><strong>Load & Modify</strong> Load existing sites and add new releases</li>
-                    <li><strong>Multilingual</strong> English and Italian support</li>
-                    <li><strong>Live Preview</strong> See your site before generating</li>
-                </ul>
-            </div>
-
-            <div class="feature-section">
-                <h2>🎨 Customizable Design</h2>
-                <p>Highly customizable default theme with extensive customization options.</p>
-                <ul class="feature-list">
-                    <li><strong>Default Theme</strong> Modern Faircamp-inspired design with dark/light support</li>
-                    <li><strong>Custom Backgrounds</strong> Header and page background images</li>
-                    <li><strong>Custom Fonts</strong> Use Google Fonts or local fonts</li>
-                    <li><strong>Custom CSS</strong> Override styles or add your own</li>
-                    <li><strong>CSS Variables</strong> Easy color and style customization</li>
-                </ul>
-            </div>
-
-            <div class="feature-section">
-                <h2>Easy Configuration</h2>
-                <p>Simple YAML-based configuration or use the wizard - your choice.</p>
-                <ul class="feature-list">
-                    <li><strong>Wizard Interface</strong> No YAML editing required - visual setup in browser or terminal</li>
-                    <li><strong>YAML Configuration</strong> Easy-to-edit config files for advanced users</li>
-                    <li><strong>Load & Modify</strong> Load existing sites from ZIP and add new releases</li>
-                    <li><strong>Artist Profiles</strong> Bio, links, and social media</li>
-                    <li><strong>Release Metadata</strong> Dates, descriptions, genres, and credits</li>
-                    <li><strong>Custom Styling</strong> Background images, fonts, and CSS customization</li>
-                </ul>
-            </div>
-
-            <div class="feature-section">
-                <h2>Advanced Features</h2>
-                <p>Everything you need for modern distribution and sharing.</p>
-                <ul class="feature-list">
-                    <li><strong>RSS & Atom</strong> Automatic feed generation for releases with frontend download links</li>
-                    <li><strong>Podcast RSS</strong> Generate podcast feeds from your catalog</li>
-                    <li><strong>Embed Widgets</strong> Share releases with embeddable players</li>
-                    <li><strong>M3U Playlists</strong> Playlists per release and for the whole catalog with download links</li>
-                    <li><strong>Procedural Covers</strong> Auto-generate cover art when missing</li>
-                    <li><strong>Background Images</strong> Custom header and page background images</li>
-                    <li><strong>Unlisted Releases</strong> Hide releases from index but keep accessible via direct link</li>
-                    <li><strong>Unlock Codes</strong> Download protection via GunDB (requires self-hosting for code generation)</li>
-                </ul>
-            </div>
-
-            <div class="feature-section">
-                <h2>🌐 Community Directory</h2>
-                <p>Join the decentralized Tunecamp community!</p>
-                <ul class="feature-list">
-                    <li><strong>Auto-Discovery</strong> Your site is automatically registered when visitors browse it</li>
-                    <li><strong>Decentralized</strong> No sign-up, no central server - powered by GunDB</li>
-                    <li><strong>Real-time</strong> New sites appear instantly in the community directory</li>
-                    <li><strong>Privacy-First</strong> Only public info shared (URL, title, artist name)</li>
-                </ul>
-                <p style="margin-top: 15px;"><a href="community.html" class="btn btn-secondary">Browse Community →</a></p>
-            </div>
-        </div>
-
-        <!-- <div class="example-sites">
-            <h3>Sites Using Tunecamp</h3>
-            <p>These are some example sites - but many more are out there!</p>
-            <div class="site-links">
-                <a href="#" class="site-link">example1.com</a>
-                <a href="#" class="site-link">example2.com</a>
-                <a href="#" class="site-link">example3.com</a>
-                <a href="#" class="site-link">example4.com</a>
-                <a href="#" class="site-link">example5.com</a>
-                <a href="#" class="site-link">example6.com</a>
-            </div>
-        </div> -->
-
+        <!-- Core Principles -->
         <div class="principles">
-            <h3>Tunecamp adheres to these principles:</h3>
+            <h3>Built for independence</h3>
             <ul class="principles-list">
-                <li>Personal</li>
-                <li>Plain</li>
-                <li>Small</li>
-                <li>Simple</li>
-                <li>Light</li>
-                <li>Fast</li>
-                <li>Reduced</li>
-                <li>Elegant</li>
-                <li>Stable</li>
-                <li>Low/No-Maintenance</li>
-                <li>Free</li>
-                <li>Independent</li>
-                <li>Privacy-Respecting</li>
-                <li>Standards-Conforming</li>
+                <li>🎵 Audio-first</li>
+                <li>🚀 Static & fast</li>
+                <li>🌐 Host anywhere</li>
+                <li>💾 No database</li>
+                <li>🔒 Privacy-friendly</li>
+                <li>📱 Fully responsive</li>
             </ul>
         </div>
 
-        <div class="code-block">
-            <h3>Quick Start</h3>
-            <pre><code><span class="comment"># Install Tunecamp</span>
-npm install -g tunecamp
+        <!-- Features Grid -->
+        <section class="features">
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <span class="icon">🎵</span>
+                    <h3>Streaming</h3>
+                    <p>Built-in audio player with playlist support. Visitors can listen directly on your site.</p>
+                </div>
 
-<span class="comment"># Create your music catalog</span>
-mkdir my-music
-cd my-music
+                <div class="feature-card">
+                    <span class="icon">📥</span>
+                    <h3>Downloads</h3>
+                    <p>Free, pay-what-you-want, or unlock codes. You control how your music is distributed.</p>
+                </div>
 
-<span class="comment"># Initialize catalog structure</span>
-tunecamp init .
+                <div class="feature-card">
+                    <span class="icon">📡</span>
+                    <h3>RSS & Atom</h3>
+                    <p>Auto-generated feeds let fans subscribe to your releases.</p>
+                </div>
 
-<span class="comment"># Add your audio files</span>
-cp *.mp3 releases/example-album/tracks/
-<span class="string"># (optional) rename example-album to your release slug</span>
+                <div class="feature-card">
+                    <span class="icon">📋</span>
+                    <h3>Playlists</h3>
+                    <p>M3U playlists for desktop players and streaming apps.</p>
+                </div>
 
-<span class="comment"># Configure your catalog</span>
-<span class="string"># Edit catalog.yaml, artist.yaml, and release.yaml files</span>
+                <div class="feature-card">
+                    <span class="icon">📊</span>
+                    <h3>Analytics</h3>
+                    <p>Optional decentralized download stats via GunDB. No tracking cookies.</p>
+                </div>
 
-<span class="comment"># Generate your website</span>
-tunecamp build . --output ./public
+                <div class="feature-card">
+                    <span class="icon">🎨</span>
+                    <h3>Themeable</h3>
+                    <p>Customize colors and images. Works in dark and light modes.</p>
+                </div>
+            </div>
+        </section>
 
-<span class="comment"># Deploy to any static host</span>
-<span class="string"># Upload the public folder to Netlify, Vercel, GitHub Pages, etc.</span></code></pre>
-        </div>
+        <!-- Download Modes -->
+        <section class="feature-section">
+            <h2><span class="icon">📥</span> Distribution Options</h2>
+            <ul class="feature-list">
+                <li><strong>Free</strong> — Immediate download without restrictions</li>
+                <li><strong>Pay-what-you-want</strong> — Suggest a price with honor system</li>
+                <li><strong>Unlock codes</strong> — Protect downloads with unique codes</li>
+                <li><strong>Streaming only</strong> — No downloads, just playback</li>
+            </ul>
+        </section>
 
+        <!-- Community -->
+        <section class="feature-section">
+            <h2><span class="icon">🌐</span> Community Directory</h2>
+            <p>Tunecamp sites can auto-register to a public directory. Discover other artists and share your music with
+                the community.</p>
+            <ul class="feature-list">
+                <li><strong>Decentralized</strong> — Powered by GunDB peer-to-peer network</li>
+                <li><strong>Real-time</strong> — New sites appear instantly</li>
+                <li><strong>Privacy-first</strong> — Only public info shared (URL, title, artist name)</li>
+            </ul>
+            <p style="margin-top: var(--space-lg);">
+                <a href="player.html" class="btn">🎵 Listen to Community Music</a>
+                <a href="community.html" class="btn btn-secondary">Browse Sites</a>
+            </p>
+        </section>
+
+        <!-- Quick Start -->
+        <section class="feature-section">
+            <h2><span class="icon">⚡</span> Quick Start</h2>
+
+            <div class="code-block">
+                <h4>Install globally</h4>
+                <pre>npm install -g tunecamp</pre>
+            </div>
+
+            <div class="code-block">
+                <h4>Create your site</h4>
+                <pre>tunecamp wizard</pre>
+            </div>
+
+            <div class="code-block">
+                <h4>Or build from existing catalog</h4>
+                <pre>tunecamp build ./my-catalog -o ./public</pre>
+            </div>
+
+            <p>See the <a href="https://github.com/scobru/tunecamp#readme">README</a> for full documentation.</p>
+        </section>
+
+        <!-- Example Sites -->
+        <section class="example-sites">
+            <h3>Sites using Tunecamp</h3>
+            <div class="site-links">
+                <a href="https://homologomusic.vercel.app" class="site-link"
+                    target="_blank">homologomusic.vercel.app</a>
+            </div>
+            <p style="text-align: center; margin-top: var(--space-lg); color: var(--text-muted); font-size: 0.875rem;">
+                Want to add your site? <a href="https://github.com/scobru/tunecamp">Open a PR on GitHub</a>
+            </p>
+        </section>
+
+        <!-- Footer -->
         <footer>
             <div class="footer-links">
                 <a href="https://github.com/scobru/tunecamp">GitHub</a>
                 <a href="https://www.npmjs.com/package/tunecamp">NPM</a>
+                <a href="player.html">🎵 Player</a>
                 <a href="community.html">🌐 Community</a>
+                <a href="wizard/index.html">🧙 Wizard</a>
+                <a href="https://buymeacoffee.com/scobru" target="_blank">☕ Support</a>
             </div>
             <div class="footer-note">
-                This page uses no cookies and no client-side scripts.
+                Tunecamp is free and open source (MIT). Made with ❤️ by <a href="https://github.com/scobru"
+                    target="_blank">scobru</a>
             </div>
         </footer>
     </div>
 </body>
+
 </html>

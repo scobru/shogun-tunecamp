@@ -1,323 +1,230 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tunecamp Community - Sites Using Tunecamp</title>
-    <meta name="description" content="Discover artists and music labels using Tunecamp. A decentralized directory of independent music sites.">
+    <title>Tunecamp Community - Discover Independent Music</title>
+    <meta name="description"
+        content="Discover independent artists using Tunecamp. A decentralized community directory of music websites.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <style>
-        .community-header {
-            text-align: center;
-            margin-bottom: 60px;
-        }
-        
-        .community-header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-        }
-        
-        .community-stats {
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-            margin: 30px 0;
-        }
-        
-        .stat-item {
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #007bff;
-        }
-        
-        .stat-label {
-            font-size: 0.9rem;
-            color: #666;
-        }
-        
+        /* Community-specific styles */
         .sites-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 25px;
-            margin: 40px 0;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: var(--space-lg);
+            margin: var(--space-xl) 0;
         }
-        
+
         .site-card {
-            background: #f8f9fa;
-            border-radius: 12px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
             overflow: hidden;
-            transition: transform 0.2s, box-shadow 0.2s;
-            text-decoration: none;
-            color: inherit;
-            display: block;
+            transition: all 0.2s ease;
         }
-        
+
         .site-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-            opacity: 1;
-            border-bottom: none;
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
-        
-        .site-cover {
-            width: 100%;
+
+        .site-card-cover {
             height: 180px;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 4rem;
-            color: rgba(255,255,255,0.3);
+            color: white;
+            font-size: 3rem;
         }
-        
-        .site-cover img {
+
+        .site-card-cover img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-        
-        .site-info {
-            padding: 20px;
-        }
-        
-        .site-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 5px;
-            color: #333;
-        }
-        
-        .site-artist {
-            font-size: 0.9rem;
-            color: #666;
-            margin-bottom: 10px;
-        }
-        
-        .site-url {
-            font-size: 0.8rem;
-            color: #007bff;
-            word-break: break-all;
-        }
-        
-        .site-meta {
-            font-size: 0.75rem;
-            color: #999;
-            margin-top: 10px;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 60px;
-            color: #666;
-        }
-        
-        .loading-spinner {
-            font-size: 2rem;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-        
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 60px;
-            color: #666;
-        }
-        
-        .empty-state i {
-            font-size: 4rem;
-            color: #ddd;
-            margin-bottom: 20px;
-        }
-        
-        .register-cta {
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            color: white;
-            padding: 40px;
-            border-radius: 12px;
-            text-align: center;
-            margin: 40px 0;
-        }
-        
-        .register-cta h3 {
-            color: white;
-            margin-bottom: 15px;
-        }
-        
-        .register-cta p {
-            opacity: 0.9;
-            margin-bottom: 20px;
-        }
-        
-        .register-cta .btn {
-            background: white;
-            color: #6366f1;
-        }
-        
-        .register-cta .btn:hover {
-            background: #f0f0f0;
-        }
-        
-        .how-it-works {
-            background: #f8f9fa;
-            padding: 30px;
-            border-radius: 12px;
-            margin: 40px 0;
-        }
-        
-        .how-it-works h3 {
-            margin-bottom: 20px;
-        }
-        
-        .how-it-works ol {
-            padding-left: 20px;
-        }
-        
-        .how-it-works li {
-            margin-bottom: 10px;
-            color: #666;
-        }
-        
-        .back-link {
-            margin-bottom: 30px;
-        }
-        
-        .back-link a {
-            color: #666;
-            text-decoration: none;
-            border-bottom: none;
-        }
-        
-        .back-link a:hover {
-            color: #007bff;
+
+        .site-card-content {
+            padding: var(--space-lg);
         }
 
-        .filter-bar {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-        }
-
-        .filter-bar input {
-            flex: 1;
-            min-width: 200px;
-            padding: 12px 16px;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            font-family: inherit;
+        .site-card h3 {
             font-size: 1rem;
+            margin-bottom: var(--space-xs);
+            font-weight: 600;
         }
 
-        .filter-bar input:focus {
-            outline: none;
-            border-color: #007bff;
+        .site-card h3 a {
+            color: var(--text-primary);
+            text-decoration: none;
         }
 
-        .realtime-indicator {
-            display: inline-flex;
+        .site-card h3 a:hover {
+            color: var(--accent);
+        }
+
+        .site-card .artist {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: var(--space-sm);
+        }
+
+        .site-card .meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
-            color: #28a745;
+            gap: var(--space-sm);
         }
 
-        .realtime-dot {
-            width: 8px;
-            height: 8px;
-            background: #28a745;
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: #10b981;
             border-radius: 50%;
             animation: pulse 2s infinite;
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-md);
+            background: var(--bg-surface-alt);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: var(--space-xl);
+        }
+
+        .status-bar .live {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            font-size: 0.875rem;
+            color: #10b981;
+        }
+
+        .sites-count {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--space-3xl);
+            color: var(--text-muted);
+        }
+
+        .empty-state .icon {
+            font-size: 4rem;
+            margin-bottom: var(--space-lg);
+        }
+
+        .cta-section {
+            background: var(--accent);
+            color: white;
+            padding: var(--space-xl);
+            border-radius: 8px;
+            text-align: center;
+            margin: var(--space-2xl) 0;
+        }
+
+        .cta-section h3 {
+            color: white;
+            margin-bottom: var(--space-sm);
+        }
+
+        .cta-section p {
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: var(--space-lg);
+        }
+
+        .cta-section .btn {
+            background: white;
+            color: var(--accent);
+        }
+
+        .cta-section .btn:hover {
+            background: #f0f0f0;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
-        <div class="back-link">
-            <a href="index.html">← Back to Tunecamp</a>
-        </div>
+        <header style="border-bottom: none; padding-bottom: var(--space-lg);">
+            <p style="margin-bottom: var(--space-lg);"><a href="index.html"
+                    style="color: var(--text-muted); font-size: 0.875rem;">← Back to Tunecamp</a></p>
+            <h1>🌐 Community</h1>
+            <p class="subtitle">Discover independent artists using Tunecamp</p>
 
-        <header class="community-header">
-            <img src="tunecamp.svg" alt="Tunecamp" class="logo" style="width: 150px; height: 150px;">
-            <h1>Tunecamp Community</h1>
-            <p class="tagline">Discover independent artists and labels using Tunecamp</p>
-            
-            <div class="community-stats">
-                <div class="stat-item">
-                    <div class="stat-number" id="siteCount">-</div>
-                    <div class="stat-label">Sites Registered</div>
-                </div>
-                <div class="stat-item">
-                    <div class="realtime-indicator">
-                        <span class="realtime-dot"></span>
-                        Live Updates
-                    </div>
-                </div>
+            <div class="download-buttons">
+                <a href="player.html" class="btn">🎵 Listen Now</a>
+                <a href="index.html" class="btn btn-secondary">Get Tunecamp</a>
             </div>
         </header>
 
-        <div class="filter-bar">
-            <input type="text" id="searchInput" placeholder="Search artists, titles..." oninput="filterSites()">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="live">
+                <span class="live-dot"></span>
+                Live updates
+            </div>
+            <div class="sites-count" id="siteCount">Loading sites...</div>
         </div>
 
-        <div id="sitesContainer">
-            <div class="loading">
-                <div class="loading-spinner">⟳</div>
-                <p>Loading community sites from decentralized network...</p>
+        <!-- Sites Grid -->
+        <div class="sites-grid" id="sitesGrid">
+            <div class="empty-state">
+                <div class="icon">⏳</div>
+                <p>Connecting to the network...</p>
             </div>
         </div>
 
-        <div class="register-cta">
-            <h3>🎵 Join the Community!</h3>
+        <!-- CTA -->
+        <div class="cta-section">
+            <h3>🎵 Join the Community</h3>
             <p>Your Tunecamp site is automatically registered when visitors browse it.<br>
-            No sign-up needed - it's fully decentralized via GunDB.</p>
-            <a href="index.html" class="btn">Get Started with Tunecamp</a>
-        </div>
-
-        <div class="how-it-works">
-            <h3>How does this work?</h3>
-            <ol>
-                <li><strong>Build your site</strong> with Tunecamp and deploy it anywhere</li>
-                <li><strong>Automatic registration</strong> - when someone visits your site, it gets added to this directory</li>
-                <li><strong>Decentralized</strong> - all data is stored on public GunDB peers, no central server</li>
-                <li><strong>Real-time</strong> - new sites appear here instantly as they're discovered</li>
-            </ol>
-            <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
-                <strong>Privacy:</strong> Only your public site URL, title, and artist name are shared. 
-                No personal data or analytics are collected.
-            </p>
+                No sign-up needed — it's fully decentralized via GunDB.</p>
+            <a href="player.html" class="btn" style="margin-right: 10px;">🎵 Listen Now</a>
+            <a href="index.html" class="btn">Get Started</a>
         </div>
 
         <footer>
             <div class="footer-links">
                 <a href="https://github.com/scobru/tunecamp">GitHub</a>
                 <a href="https://www.npmjs.com/package/tunecamp">NPM</a>
+                <a href="player.html">🎵 Player</a>
                 <a href="index.html">Home</a>
+                <a href="https://buymeacoffee.com/scobru" target="_blank">☕ Support</a>
             </div>
             <div class="footer-note">
-                Powered by GunDB - a decentralized database.
+                Powered by GunDB. Made with ❤️ by <a href="https://github.com/scobru" target="_blank">scobru</a>
             </div>
         </footer>
     </div>
 
     <!-- GunDB -->
     <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
-    
     <script>
-        // GunDB configuration
         const REGISTRY_PEERS = [
             'https://gun.defucc.me/gun',
             'https://gun.o8.is/gun',
@@ -327,183 +234,85 @@
         const REGISTRY_ROOT = 'shogun';
         const REGISTRY_NAMESPACE = 'tunecamp-community';
 
-        let gun;
-        let allSites = new Map();
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
-            gun = Gun({ peers: REGISTRY_PEERS, localStorage: true });
-            loadSites();
-        });
+        const gun = Gun({ peers: REGISTRY_PEERS, localStorage: true });
+        const sitesMap = new Map();
 
         function loadSites() {
-            const container = document.getElementById('sitesContainer');
-            
-            // Subscribe to all sites
-            gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get('sites').map().on((data, key) => {
-                if (data && data.url) {
-                    // Subscribe to currentPage changes in real-time
-                    const siteData = {
-                        id: key,
-                        url: data.url,
-                        title: data.title || 'Untitled',
-                        description: data.description || '',
-                        artistName: data.artistName || '',
-                        coverImage: data.coverImage || '',
-                        registeredAt: data.registeredAt,
-                        lastSeen: data.lastSeen,
-                        currentPage: data.currentPage || null, // For "now playing" feature
-                    };
-                    
-                    // Subscribe to currentPage updates in real-time
-                    gun.get(REGISTRY_ROOT)
-                        .get(REGISTRY_NAMESPACE)
-                        .get('sites')
-                        .get(key)
-                        .get('currentPage')
-                        .on((currentPage) => {
-                            siteData.currentPage = currentPage || null;
-                            allSites.set(key, siteData);
-                            renderSites();
-                        });
-                    
-                    allSites.set(key, siteData);
-                    renderSites();
-                }
-            });
+            gun.get(REGISTRY_ROOT)
+                .get(REGISTRY_NAMESPACE)
+                .get('sites')
+                .map()
+                .on((data, key) => {
+                    if (data && data.url) {
+                        // Skip localhost sites
+                        if (data.url.includes('localhost')) return;
 
-            // Initial render after timeout (in case no sites yet)
+                        sitesMap.set(key, {
+                            id: key,
+                            url: data.url,
+                            title: data.title || 'Untitled',
+                            artistName: data.artistName || '',
+                            coverImage: data.coverImage || '',
+                            registeredAt: data.registeredAt,
+                            lastSeen: data.lastSeen,
+                        });
+
+                        renderSites();
+                    }
+                });
+
+            // Show empty state after timeout
             setTimeout(() => {
-                if (allSites.size === 0) {
-                    container.innerHTML = `
-                        <div class="empty-state">
-                            <i>🎵</i>
-                            <h3>No sites registered yet</h3>
-                            <p>Be the first! Create a Tunecamp site and visitors will automatically register it here.</p>
+                if (sitesMap.size === 0) {
+                    document.getElementById('sitesGrid').innerHTML = `
+                        <div class="empty-state" style="grid-column: 1/-1;">
+                            <div class="icon">🎵</div>
+                            <h3>No sites yet</h3>
+                            <p>Be the first! Create a Tunecamp site and your site will appear here automatically.</p>
                         </div>
                     `;
+                    document.getElementById('siteCount').textContent = '0 sites';
                 }
-                updateCount();
-            }, 3000);
+            }, 5000);
         }
 
         function renderSites() {
-            const container = document.getElementById('sitesContainer');
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            
-            // Convert to array
-            let sitesArray = Array.from(allSites.values());
-            
-            // Filter out localhost sites
-            sitesArray = sitesArray.filter(site => {
-                const url = (site.url || '').toLowerCase();
-                return !url.startsWith('http://localhost') && 
-                       !url.startsWith('https://localhost') &&
-                       !url.startsWith('localhost://') &&
-                       !url.startsWith('localhost/') &&
-                       !url.startsWith('localhost:');
-            });
-            
-            // Deduplicate by title+artist (keep the most recently seen)
-            const dedupMap = new Map();
-            sitesArray.forEach(site => {
-                const key = `${(site.title || '').toLowerCase().trim()}::${(site.artistName || '').toLowerCase().trim()}`;
-                const existing = dedupMap.get(key);
+            // Deduplicate by title + artist, keeping only the most recent (highest lastSeen)
+            const deduped = new Map();
+            Array.from(sitesMap.values()).forEach(site => {
+                const dedupKey = `${(site.title || '').toLowerCase()}::${(site.artistName || '').toLowerCase()}`;
+                const existing = deduped.get(dedupKey);
                 if (!existing || (site.lastSeen || 0) > (existing.lastSeen || 0)) {
-                    dedupMap.set(key, site);
+                    deduped.set(dedupKey, site);
                 }
             });
-            sitesArray = Array.from(dedupMap.values());
-            
-            // Filter by search term
-            if (searchTerm) {
-                sitesArray = sitesArray.filter(site => 
-                    site.title.toLowerCase().includes(searchTerm) ||
-                    site.artistName.toLowerCase().includes(searchTerm) ||
-                    site.url.toLowerCase().includes(searchTerm)
-                );
-            }
-            
-            // Sort by lastSeen (most recent first)
-            sitesArray.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
 
-            if (sitesArray.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i>🔍</i>
-                        <h3>No sites found</h3>
-                        <p>${searchTerm ? 'Try a different search term.' : 'No sites registered yet.'}</p>
+            const sites = Array.from(deduped.values());
+            sites.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+
+            document.getElementById('siteCount').textContent = `${sites.length} site${sites.length !== 1 ? 's' : ''}`;
+
+            const grid = document.getElementById('sitesGrid');
+            grid.innerHTML = sites.map(site => {
+                const coverHtml = site.coverImage
+                    ? `<img src="${escapeHtml(site.coverImage)}" alt="${escapeHtml(site.title)}" onerror="this.parentElement.innerHTML='🎵'">`
+                    : '🎵';
+
+                const lastSeen = site.lastSeen ? formatDate(site.lastSeen) : 'Unknown';
+
+                return `
+                    <div class="site-card">
+                        <div class="site-card-cover">${coverHtml}</div>
+                        <div class="site-card-content">
+                            <h3><a href="${escapeHtml(site.url)}" target="_blank">${escapeHtml(site.title)}</a></h3>
+                            ${site.artistName ? `<div class="artist">by ${escapeHtml(site.artistName)}</div>` : ''}
+                            <div class="meta">
+                                <span>Last seen: ${lastSeen}</span>
+                            </div>
+                        </div>
                     </div>
                 `;
-                return;
-            }
-
-            container.innerHTML = `
-                <div class="sites-grid">
-                    ${sitesArray.map(site => renderSiteCard(site)).join('')}
-                </div>
-            `;
-            
-            updateCount();
-        }
-
-        function renderSiteCard(site) {
-            const coverHtml = site.coverImage 
-                ? `<img src="${escapeHtml(site.coverImage)}" alt="${escapeHtml(site.title)}" onerror="this.parentElement.innerHTML='♪'">`
-                : '♪';
-            
-            const displayUrl = site.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
-            const lastSeenDate = site.lastSeen ? formatDate(site.lastSeen) : 'Unknown';
-            
-            // Show "now playing" if currentPage is available
-            let nowPlaying = '';
-            if (site.currentPage) {
-              // Format the path nicely (remove leading/trailing slashes, show release name)
-              const pagePath = site.currentPage.replace(/^\//, '').replace(/\/$/, '').replace(/\/index\.html$/, '');
-              const pageName = pagePath.split('/').pop() || pagePath;
-              // Make it more readable
-              const displayPage = pageName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-              nowPlaying = `<div class="site-meta" style="color: #8b5cf6; font-weight: 500; margin-top: 5px;">🎵 Now playing: ${escapeHtml(displayPage)}</div>`;
-            }
-
-            return `
-                <a href="${escapeHtml(site.url)}" target="_blank" rel="noopener" class="site-card">
-                    <div class="site-cover">${coverHtml}</div>
-                    <div class="site-info">
-                        <div class="site-title">${escapeHtml(site.title)}</div>
-                        ${site.artistName ? `<div class="site-artist">by ${escapeHtml(site.artistName)}</div>` : ''}
-                        <div class="site-url">${escapeHtml(displayUrl)}</div>
-                        <div class="site-meta">Last seen: ${lastSeenDate}</div>
-                        ${nowPlaying}
-                    </div>
-                </a>
-            `;
-        }
-
-        function filterSites() {
-            renderSites();
-        }
-
-        function updateCount() {
-            // Count unique sites (deduplicated by title+artist, excluding localhost)
-            const dedupMap = new Map();
-            allSites.forEach(site => {
-                // Skip localhost sites
-                const url = (site.url || '').toLowerCase();
-                if (url.startsWith('http://localhost') || 
-                    url.startsWith('https://localhost') ||
-                    url.startsWith('localhost://') ||
-                    url.startsWith('localhost/') ||
-                    url.startsWith('localhost:')) {
-                    return;
-                }
-                
-                const key = `${(site.title || '').toLowerCase().trim()}::${(site.artistName || '').toLowerCase().trim()}`;
-                if (!dedupMap.has(key)) {
-                    dedupMap.set(key, true);
-                }
-            });
-            document.getElementById('siteCount').textContent = dedupMap.size;
+            }).join('');
         }
 
         function formatDate(timestamp) {
@@ -514,27 +323,22 @@
             const diffHours = Math.floor(diffMs / 3600000);
             const diffDays = Math.floor(diffMs / 86400000);
 
-            if (diffMins < 1) return 'Just now';
+            if (diffMins < 5) return 'Just now';
             if (diffMins < 60) return `${diffMins}m ago`;
             if (diffHours < 24) return `${diffHours}h ago`;
             if (diffDays < 7) return `${diffDays}d ago`;
-            
-            return date.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-            });
+
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         }
 
         function escapeHtml(str) {
             if (!str) return '';
-            return str
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
+
+        document.addEventListener('DOMContentLoaded', loadSites);
     </script>
 </body>
+
 </html>

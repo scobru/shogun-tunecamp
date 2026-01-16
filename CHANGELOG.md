@@ -5,10 +5,20 @@ All notable changes to Tunecamp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2026-01-17
 
 ### Added
 
+- **Community Player**: Centralized player to discover and listen to music from all Tunecamp sites
+  - Streams tracks from all registered sites in the community
+  - Search and filter by artist
+  - Shuffle play and queue management
+  - Real-time updates via GunDB
+  - Available at [tunecamp.vercel.app/player.html](https://tunecamp.vercel.app/player.html)
+- **Community Directory**: Browse all Tunecamp sites in one place
+  - Auto-registration of sites via GunDB
+  - Real-time updates with live indicator
+  - Deduplication of duplicate entries
 - **Interactive Wizard**: New CLI and Web-based wizard for easy catalog creation
   - CLI wizard: `tunecamp wizard` - guided step-by-step setup in terminal
   - Web wizard: Standalone HTML interface with file uploads and live previews
@@ -30,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Website Redesign**: Complete redesign of tunecamp.vercel.app with Faircamp-inspired aesthetics
+  - Clean, minimal design with dark mode support
+  - Feature cards and improved typography
+  - Support button linking to Buy Me a Coffee
+- **Web Wizard Moved**: Web wizard is now part of the website at `/wizard/`
 - **Theme System Simplified**: Removed multiple theme variants (minimal, dark, retro, translucent)
   - Now using single `default` theme with Faircamp-inspired layout
   - Theme is highly customizable via CSS variables and custom CSS
@@ -42,6 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Track Deduplication**: Player now deduplicates tracks by title + artist, keeping only the most recent version
+- **Site Deduplication**: Community directory now deduplicates sites, preventing duplicate entries
 - **Streaming-only Mode**: Fixed audio player not working when `download: "none"`
   - Audio file paths now correctly encoded for browser compatibility
   - Player works correctly for streaming-only releases
