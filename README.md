@@ -163,17 +163,18 @@ tunecamp build ./my-music --output ./public --basePath /my-music
 Global catalog configuration:
 
 ```yaml
-title: "Catalog Title"
-description: "Catalog description"
-url: "https://yoursite.com"
-basePath: "" # Base path for deployment (empty for root, "/repo-name" for subdirectory)
-theme: "default" # or custom theme name
-language: "en"
+title: "Catalog Title" # Required
+description: "Catalog description" # Optional
+url: "https://yoursite.com" # Optional
+basePath: "" # Optional: Base path for deployment (empty for root, "/repo-name" for subdirectory)
+theme: "default" # Optional: Theme name (default: "default")
+language: "en" # Optional: Language code (default: "en")
 headerImage: "header.png" # Optional: Image to replace title in header (Bandcamp-style)
+backgroundImage: "background.png" # Optional: Background image for entire page (local file or URL)
 customFont: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" # Optional: Custom font URL (Google Fonts, etc.) or local file path
 customCSS: "custom.css" # Optional: Custom CSS file path (relative to input directory) or external URL
-labelMode: false # Set to true for multi-artist label catalogs
-podcast: # Optional podcast feed configuration
+labelMode: false # Optional: Set to true for multi-artist label catalogs (default: false)
+podcast: # Optional: Podcast feed configuration
   enabled: true
   title: "My Podcast"
   description: "Podcast description"
@@ -191,14 +192,22 @@ podcast: # Optional podcast feed configuration
 Artist information:
 
 ```yaml
-name: "Artist Name"
-bio: "Biography text"
-photo: "artist.jpg"
-links:
+name: "Artist Name" # Required
+bio: "Biography text" # Optional
+photo: "artist.jpg" # Optional: Artist photo image path
+links: # Optional: Social/website links
   - website: "https://..."
   - bandcamp: "https://..."
   - spotify: "https://..."
   - instagram: "https://..."
+donationLinks: # Optional: Support/donation links
+  - platform: "PayPal"
+    url: "https://paypal.me/artistname"
+    description: "Support the artist" # Optional
+  - platform: "Ko-fi"
+    url: "https://ko-fi.com/artistname"
+    description: "Buy me a coffee" # Optional
+slug: "artist-name" # Optional: URL slug (for label mode only)
 ```
 
 ### release.yaml
@@ -206,35 +215,36 @@ links:
 Individual release configuration:
 
 ```yaml
-title: "Album Title"
-date: "2024-01-15"
-description: "Album description"
-cover: "cover.jpg" # Optional, auto-detected (procedural cover generated if missing)
-download: "free" # free, paycurtain, codes, none
-price: 10.00 # For paycurtain mode
-paypalLink: "https://paypal.me/artistname/10" # Optional PayPal link
-stripeLink: "https://buy.stripe.com/..." # Optional Stripe link
-bandcampLink: "https://artistname.bandcamp.com/album/..." # Optional Bandcamp link
-streamingLinks: # Optional links to listen on streaming platforms
-  - platform: "Spotify"
-    url: "https://open.spotify.com/track/..."
+title: "Album Title" # Required
+date: "2024-01-15" # Required: Release date (YYYY-MM-DD format)
+description: "Album description" # Optional
+cover: "cover.jpg" # Optional: Cover art image (auto-detected if missing, procedural cover generated if not found)
+download: "free" # Optional: Download mode - "free", "paycurtain", "codes", or "none" (default: "free")
+price: 10.00 # Optional: Suggested price for paycurtain mode
+paypalLink: "https://paypal.me/artistname/10" # Optional: PayPal donation/payment link (for paycurtain mode)
+stripeLink: "https://buy.stripe.com/..." # Optional: Stripe payment link (for paycurtain mode)
+bandcampLink: "https://artistname.bandcamp.com/album/..." # Optional: Bandcamp purchase link (for paycurtain mode)
+streamingLinks: # Optional: Links to listen on streaming platforms
+  - platform: "Spotify" # Platform name (displayed as-is)
+    url: "https://open.spotify.com/track/..." # Platform URL
   - platform: "Apple Music"
     url: "https://music.apple.com/album/..."
   - platform: "YouTube Music"
     url: "https://music.youtube.com/watch?v=..."
-license: "cc-by" # License type
-genres:
+license: "cc-by" # Optional: License type - "copyright", "cc-by", "cc-by-sa", "cc-by-nc", "cc-by-nc-sa", "cc-by-nc-nd", "cc-by-nd", or "public-domain"
+genres: # Optional: List of genres
   - "Electronic"
   - "Ambient"
-credits:
-  - role: "Producer"
-    name: "Producer Name"
-unlisted: false # Set to true to hide from index/feeds but keep accessible via direct link
-artistSlug: "artist-name" # For label mode: associate release with an artist
-unlockCodes: # For download: codes mode
-  enabled: true
-  namespace: tunecamp
-  peers: # Optional custom GunDB peers
+credits: # Optional: List of credits
+  - role: "Producer" # Credit role (e.g., "Producer", "Vocalist", "Engineer")
+    name: "Producer Name" # Person's name
+unlisted: false # Optional: Set to true to hide from index/feeds but keep accessible via direct link (default: false)
+artistSlug: "artist-name" # Optional: For label mode - associate release with an artist by slug
+unlockCodes: # Optional: Configuration for unlock codes (required if download: "codes")
+  enabled: true # Required: Enable unlock codes
+  namespace: tunecamp # Optional: GunDB namespace (default: "tunecamp")
+  publicKey: "abc123..." # Optional but recommended: Public key from gundb-keypair.json (required for private space)
+  peers: # Optional: Custom GunDB peers
     - "https://your-relay.com/gun"
 ```
 
@@ -243,10 +253,10 @@ unlockCodes: # For download: codes mode
 Optional track-level metadata overrides:
 
 ```yaml
-tracks:
-  - file: "01-track.mp3"
-    title: "Custom Title"
-    description: "Track notes"
+tracks: # Optional: Override track metadata
+  - file: "01-track.mp3" # Required: Track filename
+    title: "Custom Title" # Optional: Custom track title (overrides metadata from audio file)
+    description: "Track notes" # Optional: Track description or notes
 ```
 
 ## CLI Commands
@@ -449,22 +459,6 @@ Check the `/examples` directory for complete catalog examples:
 - **artist-paycurtain**: Artist with pay-what-you-want model
 - **label**: Multi-artist label catalog
 
-## API Usage
-
-You can also use tunecamp programmatically:
-
-```javascript
-import { Tunecamp } from "tunecamp";
-
-const generator = new Tunecamp({
-  inputDir: "./my-music",
-  outputDir: "./public",
-  theme: "default",
-});
-
-await generator.build();
-```
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -575,7 +569,6 @@ body {
 
 - [Documentation](./docs)
   - [Deployment Guide](./docs/DEPLOYMENT.md)
-  - [API Documentation](./docs/API.md)
   - [Theme Showcase](./docs/THEME_SHOWCASE.md)
   - [Unlock Codes Guide](./docs/UNLOCK_CODES.md)
 - [Examples](./examples)
