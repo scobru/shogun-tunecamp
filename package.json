@@ -1,6 +1,6 @@
 {
   "name": "tunecamp",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A modern static site generator for musicians and music labels, inspired by Faircamp",
   "main": "dist/index.js",
   "type": "module",
@@ -11,7 +11,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tunecamp": "node dist/cli.js"
   },
   "keywords": [
     "music",
