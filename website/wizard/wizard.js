@@ -31,19 +31,19 @@ function initWizard() {
   // Set default date
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('releaseDate').value = today;
-  
+
   // Setup mode selection (call before other setups)
   setupModeSelection();
-  
+
   // Setup download mode listeners
   setupDownloadModeListeners();
-  
+
   // Setup file upload listeners
   setupFileUploads();
-  
+
   // Setup audio source toggle
   setupAudioSourceToggle();
-  
+
   // Update UI
   updateUI();
 }
@@ -55,19 +55,19 @@ function setupModeSelection() {
   // Setup ZIP file upload
   const zipArea = document.getElementById('zip-upload-area');
   const zipInput = document.getElementById('zipFileInput');
-  
+
   if (zipArea && zipInput) {
     zipArea.addEventListener('click', () => zipInput.click());
-    
+
     zipArea.addEventListener('dragover', (e) => {
       e.preventDefault();
       zipArea.classList.add('drag-over');
     });
-    
+
     zipArea.addEventListener('dragleave', () => {
       zipArea.classList.remove('drag-over');
     });
-    
+
     zipArea.addEventListener('drop', (e) => {
       e.preventDefault();
       zipArea.classList.remove('drag-over');
@@ -76,7 +76,7 @@ function setupModeSelection() {
         handleZipUpload(file);
       }
     });
-    
+
     zipInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
@@ -91,13 +91,13 @@ function setupModeSelection() {
  */
 function selectMode(mode) {
   wizardMode = mode;
-  
+
   // Update UI
   document.getElementById('mode-new').classList.toggle('selected', mode === 'new');
   document.getElementById('mode-load').classList.toggle('selected', mode === 'load');
   document.getElementById('load-zip-area').style.display = mode === 'load' ? 'block' : 'none';
   document.getElementById('features-grid').style.display = mode === 'new' ? 'grid' : 'none';
-  
+
   // Update next button
   updateNextButtonText();
 }
@@ -108,27 +108,27 @@ function selectMode(mode) {
 async function handleZipUpload(file) {
   const statusEl = document.getElementById('load-status');
   const lang = translations[currentLanguage];
-  
+
   try {
     statusEl.style.display = 'block';
     statusEl.className = 'load-status';
     statusEl.textContent = lang.welcome.loadingZip;
-    
+
     // Read ZIP file
     const arrayBuffer = await readFileAsArrayBuffer(file);
     const zip = await JSZip.loadAsync(arrayBuffer);
-    
+
     statusEl.textContent = lang.welcome.parsingZip;
-    
+
     // Debug: Log all files in ZIP
     console.log('ZIP contents:', Object.keys(zip.files).filter(k => !zip.files[k].dir).slice(0, 20));
-    
+
     // Try to find YAML files in various locations
     // 1. Root level (standard source structure)
     // 2. In subfolder (if ZIP contains a folder)
     let catalogYaml = zip.file('catalog.yaml');
     let artistYaml = zip.file('artist.yaml');
-    
+
     // If not in root, search in all files (including subfolders)
     if (!catalogYaml || !artistYaml) {
       for (const [path, file] of Object.entries(zip.files)) {
@@ -144,7 +144,7 @@ async function handleZipUpload(file) {
         }
       }
     }
-    
+
     // If still not found, try common folder structures
     if (!catalogYaml || !artistYaml) {
       // Try common folder names
@@ -166,7 +166,7 @@ async function handleZipUpload(file) {
         }
       }
     }
-    
+
     if (catalogYaml || artistYaml) {
       // Parse YAML files
       loadedSiteData = {
@@ -174,12 +174,12 @@ async function handleZipUpload(file) {
         artist: artistYaml ? await parseYAML(await artistYaml.async('text')) : {},
         releases: []
       };
-      
+
       // Try to find releases - search for release.yaml files
       const releases = [];
       for (const [path, file] of Object.entries(zip.files)) {
         if (file.dir) continue;
-        
+
         // Check if it's a release.yaml file
         if (path.endsWith('release.yaml') && path.includes('releases')) {
           try {
@@ -187,7 +187,7 @@ async function handleZipUpload(file) {
             // Extract slug from path: releases/slug-name/release.yaml
             const pathParts = path.split('/').filter(p => p && p !== 'release.yaml');
             const slug = pathParts[pathParts.length - 1] || 'release';
-            
+
             releases.push({
               slug: slug,
               data: releaseData,
@@ -200,15 +200,15 @@ async function handleZipUpload(file) {
         }
       }
       loadedSiteData.releases = releases;
-      
+
       // Prefill form fields
       prefillFormFromLoadedData(loadedSiteData);
-      
+
       // Show existing releases info if any found
       if (releases.length > 0) {
         showExistingReleases(releases);
       }
-      
+
       statusEl.className = 'load-status success';
       statusEl.textContent = lang.welcome.zipLoaded + (releases.length > 0 ? ` (${releases.length} release${releases.length > 1 ? 's' : ''} found)` : '');
     } else {
@@ -233,14 +233,14 @@ async function parseYAML(yamlText) {
   let currentKey = null;
   let currentArray = null;
   let inArray = false;
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
-    
+
     // Skip empty lines and comments
     if (!trimmed || trimmed.startsWith('#')) continue;
-    
+
     // Check if this is an array item (starts with -)
     if (trimmed.startsWith('-')) {
       const arrayValue = trimmed.substring(1).trim();
@@ -253,21 +253,23 @@ async function parseYAML(yamlText) {
           const subKey = value.substring(0, colonIdx).trim();
           let subValue = value.substring(colonIdx + 1).trim();
           // Remove quotes
-          if ((subValue.startsWith('"') && subValue.endsWith('"')) || 
-              (subValue.startsWith("'") && subValue.endsWith("'"))) {
+          if ((subValue.startsWith('"') && subValue.endsWith('"')) ||
+            (subValue.startsWith("'") && subValue.endsWith("'"))) {
             subValue = subValue.slice(1, -1);
           }
-          // If currentArray is empty or last item is not an object, create one
-          if (currentArray.length === 0 || typeof currentArray[currentArray.length - 1] !== 'object') {
-            currentArray.push({});
-          }
-          const lastItem = currentArray[currentArray.length - 1];
-          lastItem[subKey] = subValue;
+          // Each array item with dash (-) should create a new object
+          // This handles YAML like:
+          //   links:
+          //     - website: "url1"
+          //     - bandcamp: "url2"
+          const newItem = {};
+          newItem[subKey] = subValue;
+          currentArray.push(newItem);
         } else {
           // Simple array value
           // Remove quotes
-          if ((value.startsWith('"') && value.endsWith('"')) || 
-              (value.startsWith("'") && value.endsWith("'"))) {
+          if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
             value = value.slice(1, -1);
           }
           currentArray.push(value);
@@ -275,13 +277,13 @@ async function parseYAML(yamlText) {
       }
       continue;
     }
-    
+
     // Check for key-value pair
     const colonIndex = trimmed.indexOf(':');
     if (colonIndex > 0) {
       currentKey = trimmed.substring(0, colonIndex).trim();
       let value = trimmed.substring(colonIndex + 1).trim();
-      
+
       // Check if value is empty (might be an array or object starting on next line)
       if (!value) {
         // Check next line to see if it's an array
@@ -292,13 +294,13 @@ async function parseYAML(yamlText) {
           continue;
         }
       }
-      
+
       // Remove quotes if present
-      if ((value.startsWith('"') && value.endsWith('"')) || 
-          (value.startsWith("'") && value.endsWith("'"))) {
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
         value = value.slice(1, -1);
       }
-      
+
       // Check if it's a number
       if (value && !isNaN(value) && value.trim() !== '') {
         const numValue = parseFloat(value);
@@ -310,12 +312,12 @@ async function parseYAML(yamlText) {
       } else {
         result[currentKey] = value;
       }
-      
+
       currentArray = null;
       inArray = false;
     }
   }
-  
+
   return result;
 }
 
@@ -335,12 +337,12 @@ function prefillFormFromLoadedData(data) {
     if (data.catalog.backgroundImage) document.getElementById('backgroundImageUrl').value = data.catalog.backgroundImage;
     if (data.catalog.backgroundImageUrl) document.getElementById('backgroundImageUrl').value = data.catalog.backgroundImageUrl;
   }
-  
+
   // Fill artist fields
   if (data.artist) {
     if (data.artist.name) document.getElementById('artistName').value = data.artist.name;
     if (data.artist.bio) document.getElementById('artistBio').value = data.artist.bio;
-    
+
     // Parse and fill social links
     if (data.artist.links && Array.isArray(data.artist.links)) {
       // Clear existing links (except first row)
@@ -351,7 +353,7 @@ function prefillFormFromLoadedData(data) {
         for (let i = 1; i < rows.length; i++) {
           rows[i].remove();
         }
-        
+
         // Fill first row if there's at least one link
         if (data.artist.links.length > 0) {
           const firstRow = rows[0];
@@ -363,7 +365,7 @@ function prefillFormFromLoadedData(data) {
               firstRow.querySelector('.social-url').value = firstLink[platforms[0]];
             }
           }
-          
+
           // Add additional rows for remaining links
           for (let i = 1; i < data.artist.links.length; i++) {
             const link = data.artist.links[i];
@@ -382,7 +384,7 @@ function prefillFormFromLoadedData(data) {
       }
     }
   }
-  
+
   // Note: Release data is loaded but user can add new releases
   // For now, we keep the form ready for a new release
   // The loaded releases are stored in loadedSiteData.releases and will be included in the generated ZIP
@@ -395,12 +397,12 @@ function showExistingReleases(releases) {
   const infoBox = document.getElementById('existing-releases-info');
   const listEl = document.getElementById('existing-releases-list');
   const lang = translations[currentLanguage];
-  
+
   if (!infoBox || !listEl) return;
-  
+
   infoBox.style.display = 'block';
   listEl.innerHTML = '';
-  
+
   releases.forEach((release, index) => {
     const li = document.createElement('li');
     li.textContent = release.data.title || release.slug || `Release ${index + 1}`;
@@ -409,12 +411,12 @@ function showExistingReleases(releases) {
     }
     listEl.appendChild(li);
   });
-  
+
   // Update labels
   const labelEl = document.getElementById('existing-releases-label');
   const noteEl = document.getElementById('release-mode-note');
   if (labelEl) labelEl.textContent = lang.release.existingReleases + ` (${releases.length})`;
-  if (noteEl) noteEl.textContent = currentLanguage === 'it' 
+  if (noteEl) noteEl.textContent = currentLanguage === 'it'
     ? 'Puoi aggiungere una nuova release qui sotto. Le release esistenti verranno incluse nel nuovo ZIP generato.'
     : 'You can add a new release below. Existing releases will be included in the newly generated ZIP.';
 }
@@ -428,19 +430,19 @@ function setupFileUploads() {
   const coverInput = document.getElementById('coverFile');
   const coverPreview = document.getElementById('cover-preview');
   const coverPlaceholder = document.getElementById('cover-placeholder');
-  
+
   if (coverArea && coverInput) {
     coverArea.addEventListener('click', () => coverInput.click());
-    
+
     coverArea.addEventListener('dragover', (e) => {
       e.preventDefault();
       coverArea.classList.add('drag-over');
     });
-    
+
     coverArea.addEventListener('dragleave', () => {
       coverArea.classList.remove('drag-over');
     });
-    
+
     coverArea.addEventListener('drop', (e) => {
       e.preventDefault();
       coverArea.classList.remove('drag-over');
@@ -449,7 +451,7 @@ function setupFileUploads() {
         handleCoverUpload(file);
       }
     });
-    
+
     coverInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
@@ -457,23 +459,23 @@ function setupFileUploads() {
       }
     });
   }
-  
+
   // Audio upload
   const audioArea = document.getElementById('audio-upload-area');
   const audioInput = document.getElementById('audioFiles');
-  
+
   if (audioArea && audioInput) {
     audioArea.addEventListener('click', () => audioInput.click());
-    
+
     audioArea.addEventListener('dragover', (e) => {
       e.preventDefault();
       audioArea.classList.add('drag-over');
     });
-    
+
     audioArea.addEventListener('dragleave', () => {
       audioArea.classList.remove('drag-over');
     });
-    
+
     audioArea.addEventListener('drop', (e) => {
       e.preventDefault();
       audioArea.classList.remove('drag-over');
@@ -482,7 +484,7 @@ function setupFileUploads() {
         handleAudioUpload(files);
       }
     });
-    
+
     audioInput.addEventListener('change', (e) => {
       const files = Array.from(e.target.files);
       if (files.length > 0) {
@@ -497,10 +499,10 @@ function setupFileUploads() {
  */
 function handleCoverUpload(file) {
   coverFile = file;
-  
+
   const coverPreview = document.getElementById('cover-preview');
   const coverPlaceholder = document.getElementById('cover-placeholder');
-  
+
   const reader = new FileReader();
   reader.onload = (e) => {
     coverPreview.src = e.target.result;
@@ -520,10 +522,10 @@ function handleAudioUpload(files) {
       audioFiles.push(file);
     }
   });
-  
+
   // Sort by name
   audioFiles.sort((a, b) => a.name.localeCompare(b.name));
-  
+
   // Render track list
   renderTrackList();
 }
@@ -534,12 +536,12 @@ function handleAudioUpload(files) {
 function renderTrackList() {
   const container = document.getElementById('track-list-preview');
   if (!container) return;
-  
+
   if (audioFiles.length === 0) {
     container.innerHTML = '';
     return;
   }
-  
+
   container.innerHTML = audioFiles.map((file, index) => `
     <div class="track-item">
       <span class="track-number">${index + 1}</span>
@@ -589,9 +591,9 @@ function setupAudioSourceToggle() {
   const urlMode = document.getElementById('audio-url-mode');
   const addUrlBtn = document.getElementById('add-audio-url-btn');
   const urlInput = document.getElementById('audioUrlInput');
-  
+
   if (!uploadBtn || !urlBtn) return;
-  
+
   uploadBtn.addEventListener('click', () => {
     audioSourceMode = 'upload';
     uploadBtn.classList.add('active');
@@ -599,7 +601,7 @@ function setupAudioSourceToggle() {
     uploadMode.style.display = 'block';
     urlMode.style.display = 'none';
   });
-  
+
   urlBtn.addEventListener('click', () => {
     audioSourceMode = 'url';
     urlBtn.classList.add('active');
@@ -607,7 +609,7 @@ function setupAudioSourceToggle() {
     uploadMode.style.display = 'none';
     urlMode.style.display = 'block';
   });
-  
+
   // Add URL button
   if (addUrlBtn && urlInput) {
     addUrlBtn.addEventListener('click', () => {
@@ -617,7 +619,7 @@ function setupAudioSourceToggle() {
         urlInput.value = '';
       }
     });
-    
+
     // Allow Enter key
     urlInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
@@ -652,12 +654,12 @@ function removeAudioUrl(index) {
 function renderTrackUrlList() {
   const container = document.getElementById('track-url-list-preview');
   if (!container) return;
-  
+
   if (audioUrls.length === 0) {
     container.innerHTML = '';
     return;
   }
-  
+
   container.innerHTML = audioUrls.map((url, index) => {
     const fileName = url.split('/').pop() || `Track ${index + 1}`;
     return `
@@ -689,17 +691,17 @@ function isValidUrl(string) {
 function setupDownloadModeListeners() {
   const modeCards = document.querySelectorAll('.download-mode-card');
   const paycurtainOptions = document.getElementById('paycurtain-options');
-  
+
   modeCards.forEach(card => {
     card.addEventListener('click', () => {
       // Update active state
       modeCards.forEach(c => c.classList.remove('active'));
       card.classList.add('active');
-      
+
       // Check the radio
       const radio = card.querySelector('input[type="radio"]');
       radio.checked = true;
-      
+
       // Show/hide paycurtain options
       if (card.dataset.mode === 'paycurtain') {
         paycurtainOptions.style.display = 'block';
@@ -740,7 +742,7 @@ function addSocialLink() {
 function removeSocialLink(button) {
   const row = button.closest('.social-link-row');
   const container = document.getElementById('social-links-container');
-  
+
   // Don't remove if it's the only row
   if (container.children.length > 1) {
     row.remove();
@@ -759,7 +761,7 @@ function nextStep() {
   if (!validateStep(currentStep)) {
     return;
   }
-  
+
   if (currentStep < totalSteps) {
     currentStep++;
     updateUI();
@@ -832,11 +834,11 @@ function updateUI() {
       step.classList.add('active');
     }
   });
-  
+
   // Update progress bar
   const progressFill = document.getElementById('progress-fill');
   progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
-  
+
   // Update progress steps
   document.querySelectorAll('.progress-steps .step').forEach((step, index) => {
     step.classList.remove('active', 'completed');
@@ -846,14 +848,14 @@ function updateUI() {
       step.classList.add('active');
     }
   });
-  
+
   // Update back button visibility
   const btnBack = document.getElementById('btn-back');
   btnBack.style.visibility = currentStep > 1 ? 'visible' : 'hidden';
-  
+
   // Update next button text
   updateNextButtonText();
-  
+
   // If on step 1, show/hide features based on mode
   if (currentStep === 1) {
     const featuresGrid = document.getElementById('features-grid');
@@ -861,12 +863,12 @@ function updateUI() {
       featuresGrid.style.display = wizardMode === 'new' ? 'grid' : 'none';
     }
   }
-  
+
   // If on release step and we have loaded data, show existing releases
   if (currentStep === 4 && loadedSiteData && loadedSiteData.releases && loadedSiteData.releases.length > 0) {
     showExistingReleases(loadedSiteData.releases);
   }
-  
+
   // If on summary step, update summaries
   if (currentStep === 6) {
     updateSummary();
@@ -887,14 +889,14 @@ function getWizardData() {
       socialLinks.push({ platform, url });
     }
   });
-  
+
   // Get genres
   const genresInput = document.getElementById('releaseGenres').value;
   const genres = genresInput.split(',').map(g => g.trim()).filter(Boolean);
-  
+
   // Get download mode
   const downloadMode = document.querySelector('input[name="downloadMode"]:checked').value;
-  
+
   return {
     catalogTitle: document.getElementById('catalogTitle').value,
     catalogDescription: document.getElementById('catalogDescription').value,
@@ -924,22 +926,22 @@ function getWizardData() {
  */
 function updateSummary() {
   const data = getWizardData();
-  
+
   // Catalog summary
   document.getElementById('summary-catalog').innerHTML = `
     <p><strong>${data.catalogTitle}</strong></p>
     ${data.catalogUrl ? `<p>URL: ${data.catalogUrl}</p>` : ''}
   `;
-  
+
   // Artist summary
   document.getElementById('summary-artist').innerHTML = `
     <p><strong>${data.artistName}</strong></p>
     ${data.socialLinks.length > 0 ? `<p>${data.socialLinks.length} social links</p>` : ''}
   `;
-  
+
   // Release summary
   const trackCount = data.audioSourceMode === 'upload' ? audioFiles.length : audioUrls.length;
-  const trackSource = data.audioSourceMode === 'upload' 
+  const trackSource = data.audioSourceMode === 'upload'
     ? (currentLanguage === 'it' ? 'file caricati' : 'uploaded files')
     : (currentLanguage === 'it' ? 'URL' : 'URLs');
   document.getElementById('summary-release').innerHTML = `
@@ -948,7 +950,7 @@ function updateSummary() {
     <p>${data.genres.join(', ')}</p>
     <p>${trackCount} ${currentLanguage === 'it' ? 'tracce' : 'tracks'} (${trackSource})</p>
   `;
-  
+
   // Download summary
   const modeNames = {
     free: currentLanguage === 'it' ? 'Gratuito' : 'Free',
@@ -956,7 +958,7 @@ function updateSummary() {
     codes: currentLanguage === 'it' ? 'Codici Sblocco' : 'Unlock Codes',
     none: currentLanguage === 'it' ? 'Solo Streaming' : 'Streaming Only'
   };
-  
+
   let downloadHtml = `<p><strong>${modeNames[data.downloadMode]}</strong></p>`;
   if (data.downloadMode === 'paycurtain' && data.price) {
     downloadHtml += `<p>$${data.price}</p>`;
@@ -980,7 +982,7 @@ function showBuildingOverlay(message) {
     `;
     document.body.appendChild(overlay);
   }
-  
+
   document.getElementById('building-text').textContent = message;
   overlay.style.display = 'flex';
 }
@@ -1010,45 +1012,45 @@ function hideBuildingOverlay() {
  */
 async function generateCompleteSite() {
   const lang = translations[currentLanguage];
-  
+
   showBuildingOverlay(lang.building.title);
-  
+
   try {
     // Small delay to show the overlay
     await new Promise(r => setTimeout(r, 100));
-    
+
     updateBuildingProgress(lang.building.processing);
-    
+
     // Generate the complete site
     await buildCompleteSite();
-    
+
     hideBuildingOverlay();
-    
+
     // Show success step
     document.querySelectorAll('.wizard-step').forEach(step => {
       step.classList.remove('active');
       step.style.display = 'none';
     });
-    
+
     const successStep = document.getElementById('step-success');
     successStep.style.display = 'block';
     successStep.classList.add('active');
-    
+
     // Hide footer navigation
     document.querySelector('.wizard-footer').style.display = 'none';
-    
+
     // Update progress to complete
     const progressFill = document.getElementById('progress-fill');
     progressFill.style.width = '100%';
-    
+
     document.querySelectorAll('.progress-steps .step').forEach(step => {
       step.classList.remove('active');
       step.classList.add('completed');
     });
-    
+
     // Show build stats
     showBuildStats();
-    
+
   } catch (error) {
     hideBuildingOverlay();
     console.error('Build error:', error);
@@ -1062,9 +1064,9 @@ async function generateCompleteSite() {
 function showBuildStats() {
   const lang = translations[currentLanguage];
   const data = getWizardData();
-  
+
   const totalSize = audioFiles.reduce((sum, f) => sum + f.size, 0) + (coverFile ? coverFile.size : 0);
-  
+
   const statsHtml = `
     <div class="stat-item">
       <span class="stat-value">${data.audioSourceMode === 'upload' ? audioFiles.length : audioUrls.length}</span>
@@ -1079,7 +1081,7 @@ function showBuildStats() {
       <span class="stat-label">${lang.success.totalSize}</span>
     </div>
   `;
-  
+
   document.getElementById('build-stats').innerHTML = statsHtml;
 }
 
@@ -1101,9 +1103,9 @@ function slugify(text) {
 async function buildCompleteSite() {
   const data = getWizardData();
   const lang = translations[currentLanguage];
-  
+
   updateBuildingProgress(lang.building.generating);
-  
+
   // Generate all the HTML content
   window.generatedSite = {
     data: data,
@@ -1122,34 +1124,34 @@ async function buildCompleteSite() {
 async function downloadZip() {
   const data = getWizardData();
   const lang = translations[currentLanguage];
-  
+
   showBuildingOverlay(lang.building.packaging);
-  
+
   try {
     const zip = new JSZip();
-    
+
     // Create folder structure
     const releaseSlug = slugify(data.releaseTitle) || 'my-album';
-    
+
     // index.html
     zip.file('index.html', generateIndexHTML(data));
-    
+
     // Release page
     zip.file(`releases/${releaseSlug}/index.html`, generateReleaseHTML(data));
-    
+
     // CSS
     zip.file('assets/style.css', generateSiteCSS(data));
-    
+
     // JS
     zip.file('assets/player.js', generatePlayerJS());
-    
+
     // Cover image
     if (coverFile) {
       const coverExt = coverFile.name.split('.').pop();
       const coverData = await readFileAsArrayBuffer(coverFile);
       zip.file(`releases/${releaseSlug}/cover.${coverExt}`, coverData);
     }
-    
+
     // Audio files (only if uploaded, not if using URLs)
     if (data.audioSourceMode === 'upload' && audioFiles.length > 0) {
       updateBuildingProgress(lang.building.processing + '...');
@@ -1160,16 +1162,16 @@ async function downloadZip() {
         zip.file(`releases/${releaseSlug}/tracks/${file.name}`, audioData);
       }
     }
-    
+
     updateBuildingProgress(lang.building.packaging);
-    
+
     // Generate and download
     const content = await zip.generateAsync({ type: 'blob' }, (metadata) => {
       updateBuildingProgress(`${lang.building.packaging} ${Math.round(metadata.percent)}%`);
     });
-    
+
     hideBuildingOverlay();
-    
+
     const url = URL.createObjectURL(content);
     const a = document.createElement('a');
     a.href = url;
@@ -1178,7 +1180,7 @@ async function downloadZip() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
+
   } catch (error) {
     hideBuildingOverlay();
     console.error('ZIP error:', error);
@@ -1204,7 +1206,7 @@ function readFileAsArrayBuffer(file) {
 function generateIndexHTML(data) {
   const releaseSlug = slugify(data.releaseTitle);
   const coverExt = coverFile ? coverFile.name.split('.').pop() : 'jpg';
-  
+
   // Social links icons mapping
   const socialIcons = {
     website: '🌐',
@@ -1215,7 +1217,7 @@ function generateIndexHTML(data) {
     instagram: '📷',
     twitter: '🐦'
   };
-  
+
   return `<!DOCTYPE html>
 <html lang="${currentLanguage}">
 <head>
@@ -1353,7 +1355,7 @@ function generateIndexHTML(data) {
 function generateReleaseHTML(data) {
   const releaseSlug = slugify(data.releaseTitle);
   const coverExt = coverFile ? coverFile.name.split('.').pop() : 'jpg';
-  
+
   // Generate track list - support both uploaded files and URLs
   let trackListHTML = '';
   if (data.audioSourceMode === 'url' && data.audioUrls && data.audioUrls.length > 0) {
@@ -1392,7 +1394,7 @@ function generateReleaseHTML(data) {
       `;
     }).join('');
   }
-  
+
   // Download button based on mode
   let downloadButton = '';
   if (data.downloadMode === 'free') {
@@ -1412,7 +1414,7 @@ function generateReleaseHTML(data) {
   } else if (data.downloadMode === 'none') {
     downloadButton = '';
   }
-  
+
   return `<!DOCTYPE html>
 <html lang="${currentLanguage}">
 <head>

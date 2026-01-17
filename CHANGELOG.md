@@ -57,6 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Wizard YAML Link Import**: Fixed bug where importing an existing project only recognized the `website` link, ignoring other social links (bandcamp, spotify, instagram, etc.)
+  - Parser now correctly creates a separate object for each link in the YAML array
 - **Track Deduplication**: Player now deduplicates tracks by title + artist, keeping only the most recent version
 - **Site Deduplication**: Community directory now deduplicates sites, preventing duplicate entries
 - **Streaming-only Mode**: Fixed audio player not working when `download: "none"`
