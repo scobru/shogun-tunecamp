@@ -6,7 +6,6 @@
 import Gun from 'gun';
 import SEA from 'gun/sea';
 import { ArtistConfig, ReleaseConfig, TrackMetadata } from '../../types/index.js';
-import type { RelayStorage as RelayStorageType } from './relayStorage.js';
 import {
   serializeReleaseConfig,
   deserializeReleaseConfig,
@@ -28,10 +27,7 @@ const STORAGE_NAMESPACE = 'tunecamp-server';
 
 export interface GunDBStorageOptions {
   peers?: string[];
-  storagePath?: string; // For file storage (audio files, covers) - fallback
-  relayUrl?: string; // Shogun relay URL for storage
-  relayApiKey?: string; // API key for relay
-  useRelayStorage?: boolean; // Use relay storage instead of local
+  storagePath?: string; // For file storage (audio files, covers)
 }
 
 export interface UserCredentials {
@@ -46,20 +42,12 @@ export interface UserCredentials {
 export class GunDBStorage {
   private gun: any;
   private storagePath: string;
-  private relayStorage: RelayStorageType | null = null;
-  private useRelayStorage: boolean = false;
   private initialized: boolean = false;
 
   constructor(options: GunDBStorageOptions = {}) {
     // Use provided peers, or empty array means use defaults
     const peers = (options.peers && options.peers.length > 0) ? options.peers : GUN_PEERS;
     this.storagePath = options.storagePath || './storage';
-    this.useRelayStorage = options.useRelayStorage ?? false;
-
-    // Initialize relay storage if configured (async initialization)
-    this.initRelayStorage(options).catch(err => {
-      console.error('❌ Failed to initialize relay storage:', err);
-    });
 
     this.gun = Gun({
       peers,
@@ -73,25 +61,6 @@ export class GunDBStorage {
     console.log(`🔐 GunDB Storage initialized with ${actualPeers.length} peer(s)`);
     if (actualPeers.length > 0) {
       console.log(`   Peers: ${actualPeers.slice(0, 2).join(', ')}${actualPeers.length > 2 ? '...' : ''}`);
-    }
-  }
-
-  private async initRelayStorage(options: GunDBStorageOptions): Promise<void> {
-    if (this.useRelayStorage && options.relayUrl && options.relayApiKey) {
-      try {
-        const { RelayStorage: RelayStorageClass } = await import('./relayStorage.js');
-        this.relayStorage = new RelayStorageClass({
-          relayUrl: options.relayUrl,
-          apiKey: options.relayApiKey,
-        });
-        console.log(`🔗 Using Shogun Relay storage: ${options.relayUrl}`);
-      } catch (error: any) {
-        console.error('❌ Failed to initialize relay storage:', error.message);
-        this.useRelayStorage = false;
-      }
-    } else if (this.useRelayStorage) {
-      console.warn('⚠️  Relay storage requested but relayUrl or relayApiKey not provided. Using local storage.');
-      this.useRelayStorage = false;
     }
   }
 
@@ -404,6 +373,19 @@ export class GunDBStorage {
     });
   }
 
+  async deleteReleaseTrack(artistPublicKey: string, releaseSlug: string, filename: string): Promise<void> {
+    return new Promise((resolve) => {
+      this.getArtistNode(artistPublicKey)
+        .get('releases')
+        .get(releaseSlug)
+        .get('tracks')
+        .get(filename)
+        .put(null, (ack: any) => {
+          resolve();
+        });
+    });
+  }
+
   async getArtistReleases(artistPublicKey: string): Promise<Array<{ slug: string; config: ReleaseConfig }>> {
     return new Promise((resolve) => {
       const releases: Array<{ slug: string; config: ReleaseConfig }> = [];
@@ -493,63 +475,18 @@ export class GunDBStorage {
   }
 
   /**
-   * Upload file (to relay or local)
+   * Get file URL (local storage only)
    */
-  async uploadFile(
-    fileBuffer: Buffer,
-    filename: string,
-    contentType: string,
-    userAddress: string
-  ): Promise<{ success: boolean; cid?: string; path?: string; url?: string; error?: string }> {
-    if (this.useRelayStorage && this.relayStorage) {
-      // Upload to relay (IPFS)
-      const result = await this.relayStorage.uploadFile(fileBuffer, filename, contentType, userAddress);
-      if (result.success && result.cid) {
-        // Save metadata
-        await this.relayStorage.saveFileMetadata({
-          hash: result.cid,
-          userAddress,
-          fileName: filename,
-          displayName: filename,
-          originalName: filename,
-          fileSize: fileBuffer.length,
-          contentType,
-          uploadedAt: Date.now(),
-        });
-
-        return {
-          success: true,
-          cid: result.cid,
-          url: result.url,
-        };
-      }
-      return { success: false, error: result.error };
-    }
-
-    // Fallback to local storage (would need file system write logic)
-    // For now, return error if relay storage not available
-    return {
-      success: false,
-      error: 'File storage not configured. Please set RELAY_URL and RELAY_API_KEY or use local storage.',
-    };
-  }
-
-  /**
-   * Get file URL (from relay or local)
-   */
-  getFileUrl(cidOrPath: string): string {
-    if (this.useRelayStorage && this.relayStorage && cidOrPath.startsWith('Qm')) {
-      // IPFS CID
-      return this.relayStorage.getFileUrl(cidOrPath);
-    }
+  getFileUrl(filePath: string): string {
     // Local file path
-    return `/storage/${cidOrPath}`;
+    return `/storage/${filePath}`;
   }
 
   /**
-   * Check if using relay storage
+   * Check if using relay storage (always false - using local storage)
    */
   isUsingRelayStorage(): boolean {
-    return this.useRelayStorage && this.relayStorage !== null;
+    return false;
   }
 }
+

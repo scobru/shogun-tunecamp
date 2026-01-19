@@ -11,6 +11,9 @@
       <a id="viewPageBtn" href="#" target="_blank" class="btn btn-outline" style="display: none;">
         <i class="fas fa-external-link-alt"></i> View Page
       </a>
+      <button onclick="deleteRelease()" class="btn btn-danger">
+        <i class="fas fa-trash"></i> Delete Release
+      </button>
     </div>
   </div>
 
@@ -239,7 +242,7 @@
         <span class="track-duration">${formatDuration(track.duration)}</span>
       </div>
       <div class="track-actions">
-        <button onclick="deleteTrack('${track.id}')" class="btn btn-sm btn-danger" disabled>Delete</button>
+        <button onclick="deleteTrack('${track.filename}')" class="btn btn-sm btn-danger">Delete</button>
       </div>
     </div>
   `).join('');
@@ -251,6 +254,31 @@
     const sec = Math.floor(seconds % 60);
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
   }
+
+  // Delete track function
+  window.deleteTrack = async function (filename) {
+    if (!confirm('Are you sure you want to delete this track?')) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/me/releases/${currentSlug}/tracks/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        alert('Track deleted successfully!');
+        loadTracks(); // Refresh tracks
+      } else {
+        const error = await res.json();
+        alert('Failed to delete track: ' + (error.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Failed to delete track');
+    }
+  };
 
   // Tab Switching
   window.switchTab = function (tabName) {
@@ -348,6 +376,36 @@
       alert('Upload failed');
     }
   });
+
+  // Delete Release
+  window.deleteRelease = async function () {
+    if (!confirm('Are you sure you want to delete this release? This action cannot be undone!')) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/me/releases/${currentSlug}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        // Also delete from GunDB client-side
+        user.get('releases').get(currentSlug).put(null);
+        gun.get('shogun').get('tunecamp-server').get('artists').get(user.is.pub)
+          .get('releases').get(currentSlug).put(null);
+
+        alert('Release deleted successfully!');
+        window.location.href = '/dashboard';
+      } else {
+        const error = await res.json();
+        alert('Failed to delete release: ' + (error.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Failed to delete release');
+    }
+  };
 </script>
 
 <style>

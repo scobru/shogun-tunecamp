@@ -60,14 +60,14 @@ export class TemplateEngine {
     });
 
     // Path helper - prepends basePath to URLs
-    Handlebars.registerHelper("path", function(this: any, url: string) {
+    Handlebars.registerHelper("path", function (this: any, url: string) {
       const basePath = this.basePath || "";
-      
+
       // If url is already relative (starts with ./ or ../), return as-is
       if (url.startsWith("./") || url.startsWith("../")) {
         return url;
       }
-      
+
       // If url is already absolute (starts with /), apply basePath
       if (url.startsWith("/")) {
         if (!basePath || basePath === "/") {
@@ -76,21 +76,21 @@ export class TemplateEngine {
         const cleanBasePath = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
         return cleanBasePath + url;
       }
-      
+
       // For relative URLs without ./ prefix, make them relative to current directory
       if (!url.startsWith("/")) {
         return "./" + url;
       }
-      
+
       return url;
     });
 
     // Release path helper - for release pages, handles relative paths correctly
-    Handlebars.registerHelper("releasePath", function(this: any, url: string) {
-      // For release pages, always use relative paths
+    Handlebars.registerHelper("releasePath", function (this: any, url: string) {
+      // For absolute paths (starting with /), keep them as-is
+      // These are served by the server at their absolute paths (e.g., /storage/...)
       if (url.startsWith("/")) {
-        // Convert absolute path to relative
-        return "." + url;
+        return url;
       }
       // Ensure relative paths start with ./ for same-directory files
       // URL encode the path to handle spaces and special characters
@@ -116,14 +116,14 @@ export class TemplateEngine {
 
     // Asset path helper - for CSS, JS, and other assets
     // Always returns absolute paths starting with / to avoid issues with nested routes
-    Handlebars.registerHelper("assetPath", function(this: any, url: string) {
+    Handlebars.registerHelper("assetPath", function (this: any, url: string) {
       const basePath = this.basePath || "";
-      
+
       // If url is already an absolute URL (http/https), return as-is
       if (url.startsWith("http://") || url.startsWith("https://")) {
         return url;
       }
-      
+
       // If url already starts with /, it's already absolute
       if (url.startsWith("/")) {
         if (!basePath || basePath === "/") {
@@ -132,10 +132,10 @@ export class TemplateEngine {
         const cleanBasePath = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
         return cleanBasePath + url;
       }
-      
+
       // Check if we're in a release page (has backUrl context)
       const isReleasePage = this.backUrl !== undefined;
-      
+
       if (isReleasePage) {
         // For release pages, we need to go up to the root to access assets
         // Use relative path for release pages (they are in subdirectories)

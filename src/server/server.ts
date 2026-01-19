@@ -19,14 +19,10 @@ const __dirname = path.dirname(__filename);
 
 export interface ServerOptions {
   port?: number;
-  storagePath?: string; // Fallback local storage path
+  storagePath?: string; // Local storage path for files
   gunPeers?: string[];
   serverTitle?: string;
   serverDescription?: string;
-  // Shogun Relay configuration for storage
-  relayUrl?: string; // e.g., 'https://shogun-relay.scobrudot.dev'
-  relayApiKey?: string; // API key for relay authentication
-  useRelayStorage?: boolean; // Use relay storage instead of local
 }
 
 export class TunecampServer {
@@ -43,18 +39,12 @@ export class TunecampServer {
       gunPeers: options.gunPeers || [], // Empty array = use defaults from GUN_PEERS constant in gunDBStorage
       serverTitle: options.serverTitle || 'Tunecamp Server',
       serverDescription: options.serverDescription || 'Multi-artist music platform',
-      relayUrl: options.relayUrl || process.env.RELAY_URL || '',
-      relayApiKey: options.relayApiKey || process.env.RELAY_API_KEY || '',
-      useRelayStorage: options.useRelayStorage ?? (!!options.relayUrl || !!process.env.RELAY_URL),
     };
 
     this.app = express();
     this.storage = new GunDBStorage({
       peers: this.options.gunPeers,
       storagePath: this.options.storagePath,
-      relayUrl: this.options.relayUrl,
-      relayApiKey: this.options.relayApiKey,
-      useRelayStorage: this.options.useRelayStorage,
     });
 
     this.templateEngine = new TemplateEngine();

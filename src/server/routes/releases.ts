@@ -177,12 +177,16 @@ export function setupReleaseRoutes(
       const user = (req as any).user;
       const { slug } = req.params;
 
-      // Delete from GunDB
-      await storage.deleteRelease(user.pub, slug);
+      // Delete from GunDB (don't wait - may timeout)
+      storage.deleteRelease(user.pub, slug).catch(err => {
+        console.warn('GunDB delete may have timed out:', err);
+      });
 
-      // Delete files (optional - could keep for backup)
-      // const releasePath = storage.getReleaseStoragePath(user.pub, slug);
-      // await fs.remove(releasePath);
+      // Delete files from disk
+      const releasePath = storage.getReleaseStoragePath(user.pub, slug);
+      if (await fs.pathExists(releasePath)) {
+        await fs.remove(releasePath);
+      }
 
       res.json({ success: true });
     } catch (error: any) {
@@ -208,74 +212,42 @@ export function setupReleaseRoutes(
         return;
       }
 
-      // Check if using relay storage
-      if (storage.isUsingRelayStorage()) {
-        // Upload to relay (IPFS)
-        const fileBuffer = await fs.readFile(req.file.path);
-        const result = await storage.uploadFile(
-          fileBuffer,
-          `cover${path.extname(req.file.originalname)}`,
-          req.file.mimetype,
-          user.pub
-        );
+      // Save to local storage
+      const releasePath = storage.getReleaseStoragePath(user.pub, slug);
 
-        // Clean up temp file
-        await fs.remove(req.file.path);
+      // Ensure directory exists
+      await fs.ensureDir(releasePath);
 
-        if (!result.success) {
-          res.status(500).json({ error: result.error || 'Failed to upload cover to relay' });
-          return;
-        }
+      const coverFilename = `cover${path.extname(req.file.originalname)}`;
+      const coverPath = path.join(releasePath, coverFilename);
 
-        // Update release config with CID
+      console.log('📷 Saving cover to:', coverPath);
+
+      // Move uploaded file to release directory (overwrite existing)
+      await fs.move(req.file.path, coverPath, { overwrite: true });
+
+      // Try to update release config (might not exist in server GunDB)
+      try {
         const config = await storage.getRelease(user.pub, slug);
         if (config) {
           await storage.saveRelease(user.pub, slug, {
             ...config,
-            cover: result.cid, // Store CID instead of filename
-            coverUrl: result.url, // Store URL for easy access
+            cover: coverFilename,
           });
+        } else {
+          // Config doesn't exist in server GunDB, create minimal one
+          await storage.saveRelease(user.pub, slug, {
+            title: slug,
+            date: new Date().toISOString().split('T')[0],
+            cover: coverFilename,
+          } as any);
         }
-
-        res.json({ success: true, cid: result.cid, url: result.url });
-      } else {
-        // Fallback to local storage
-        const releasePath = storage.getReleaseStoragePath(user.pub, slug);
-        
-        // Ensure directory exists
-        await fs.ensureDir(releasePath);
-        
-        const coverFilename = `cover${path.extname(req.file.originalname)}`;
-        const coverPath = path.join(releasePath, coverFilename);
-
-        console.log('📷 Saving cover to:', coverPath);
-
-        // Move uploaded file to release directory (overwrite existing)
-        await fs.move(req.file.path, coverPath, { overwrite: true });
-
-        // Try to update release config (might not exist in server GunDB)
-        try {
-          const config = await storage.getRelease(user.pub, slug);
-          if (config) {
-            await storage.saveRelease(user.pub, slug, {
-              ...config,
-              cover: coverFilename,
-            });
-          } else {
-            // Config doesn't exist in server GunDB, create minimal one
-            await storage.saveRelease(user.pub, slug, {
-              title: slug,
-              date: new Date().toISOString().split('T')[0],
-              cover: coverFilename,
-            } as any);
-          }
-        } catch (configErr) {
-          console.warn('Could not update GunDB config for cover:', configErr);
-          // Continue anyway - file is saved
-        }
-
-        res.json({ success: true, coverPath: `/storage/${user.pub}/releases/${slug}/${coverFilename}` });
+      } catch (configErr) {
+        console.warn('Could not update GunDB config for cover:', configErr);
+        // Continue anyway - file is saved
       }
+
+      res.json({ success: true, coverPath: `/storage/${user.pub}/releases/${slug}/${coverFilename}` });
     } catch (error: any) {
       console.error('Error uploading cover:', error);
       res.status(500).json({ error: error.message || 'Failed to upload cover' });
@@ -314,71 +286,41 @@ export function setupReleaseRoutes(
         return;
       }
 
-      // Check if using relay storage
-      if (storage.isUsingRelayStorage()) {
-        // Upload to relay (IPFS)
-        const fileBuffer = await fs.readFile(req.file.path);
-        const result = await storage.uploadFile(
-          fileBuffer,
-          req.file.originalname,
-          req.file.mimetype,
-          user.pub
-        );
+      // Save to local storage
+      const releasePath = storage.getReleaseStoragePath(user.pub, slug);
+      const tracksDir = path.join(releasePath, 'tracks');
 
-        // Clean up temp file
-        await fs.remove(req.file.path);
+      // Ensure tracks directory exists
+      await fs.ensureDir(tracksDir);
 
-        if (!result.success) {
-          res.status(500).json({ error: result.error || 'Failed to upload track to relay' });
-          return;
-        }
+      const trackPath = path.join(tracksDir, req.file.originalname);
 
-        // Read metadata from buffer (we'll need to implement this)
-        // For now, use basic metadata
-        const track: TrackMetadata = {
-          file: result.cid!, // Store CID instead of path
-          filename: req.file.originalname,
-          title: req.file.originalname.replace(/\.[^.]+$/, ''),
-          url: result.url, // Store URL for playback
-        };
+      // Move uploaded file to tracks directory (overwrite existing)
+      await fs.move(req.file.path, trackPath, { overwrite: true });
 
-        // Save track metadata to GunDB
-        await storage.saveReleaseTrack(user.pub, slug, track);
+      // Read metadata
+      const metadata = await readAudioMetadata(trackPath);
 
-        res.json({ success: true, track, cid: result.cid, url: result.url });
-      } else {
-        // Fallback to local storage
-        const releasePath = storage.getReleaseStoragePath(user.pub, slug);
-        const tracksDir = path.join(releasePath, 'tracks');
-        const trackPath = path.join(tracksDir, req.file.originalname);
+      // Create track metadata
+      const track: TrackMetadata = {
+        file: trackPath,
+        filename: req.file.originalname,
+        title: metadata.title || req.file.originalname.replace(/\.[^.]+$/, ''),
+        artist: metadata.artist,
+        album: metadata.album,
+        year: metadata.year,
+        track: metadata.track,
+        duration: metadata.duration,
+        format: metadata.format,
+        bitrate: metadata.bitrate,
+        sampleRate: metadata.sampleRate,
+        genre: metadata.genre,
+      };
 
-        // Move uploaded file to tracks directory (overwrite existing)
-        await fs.move(req.file.path, trackPath, { overwrite: true });
+      // Save track metadata to GunDB
+      await storage.saveReleaseTrack(user.pub, slug, track);
 
-        // Read metadata
-        const metadata = await readAudioMetadata(trackPath);
-
-        // Create track metadata
-        const track: TrackMetadata = {
-          file: trackPath,
-          filename: req.file.originalname,
-          title: metadata.title || req.file.originalname.replace(/\.[^.]+$/, ''),
-          artist: metadata.artist,
-          album: metadata.album,
-          year: metadata.year,
-          track: metadata.track,
-          duration: metadata.duration,
-          format: metadata.format,
-          bitrate: metadata.bitrate,
-          sampleRate: metadata.sampleRate,
-          genre: metadata.genre,
-        };
-
-        // Save track metadata to GunDB
-        await storage.saveReleaseTrack(user.pub, slug, track);
-
-        res.json({ success: true, track });
-      }
+      res.json({ success: true, track });
     } catch (error: any) {
       console.error('Error uploading track:', error);
       res.status(500).json({ error: 'Failed to upload track' });
@@ -394,17 +336,19 @@ export function setupReleaseRoutes(
       const user = (req as any).user;
       const { slug, filename } = req.params;
 
-      // Delete from GunDB (TODO: implement delete track method)
-      // For now, just return success
-      // await storage.deleteReleaseTrack(user.pub, slug, filename);
+      // Delete from GunDB
+      await storage.deleteReleaseTrack(user.pub, slug, filename);
 
-      // Delete file (optional)
-      // const trackPath = path.join(
-      //   storage.getReleaseStoragePath(user.pub, slug),
-      //   'tracks',
-      //   filename
-      // );
-      // await fs.remove(trackPath);
+      // Delete file from filesystem
+      const trackPath = path.join(
+        storage.getReleaseStoragePath(user.pub, slug),
+        'tracks',
+        filename
+      );
+
+      if (await fs.pathExists(trackPath)) {
+        await fs.remove(trackPath);
+      }
 
       res.json({ success: true });
     } catch (error: any) {
