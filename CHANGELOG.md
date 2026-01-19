@@ -5,6 +5,57 @@ All notable changes to Tunecamp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-01-17
+
+### Added
+
+- **Server Mode (Beta)**: Multi-artist self-hosted music platform
+  - Express.js server with SSR using existing Handlebars templates
+  - GunDB-based authentication and storage (decentralized, no traditional database)
+  - Multi-artist support: artists can register, create releases, and upload tracks
+  - File upload for cover art and audio tracks (MP3, FLAC, OGG, WAV, M4A, OPUS)
+  - Automatic metadata extraction from uploaded audio files
+  - REST API for artist management and releases
+  - Same templates and UI as static version (70% code reuse)
+  - Storage structure: `storage/{artistPublicKey}/releases/{releaseSlug}/`
+  - Public pages: homepage (list artists), artist pages, release pages
+  - Authenticated routes: registration, login, profile, release management, file uploads
+  - Server entry point: `npm run server` or `node dist/server/server.js`
+  - Documentation: `docs/SERVER_MODE.md`, `docs/SERVER_MODE_QUICKSTART.md`, `docs/SHARED_CODE.md`
+
+### Technical Details
+
+- New dependencies: `express`, `multer` (file upload handling)
+- New directory: `src/server/` with server implementation
+- GunDB storage layer: `src/server/storage/gunDBStorage.ts`
+- Routes: public (homepage, artist, release pages), auth (register, login), authenticated (profile, releases, uploads)
+- Reuses existing code: `TemplateEngine`, `audioUtils`, `proceduralCoverGenerator`, `feedGenerator`, etc.
+- TypeScript compilation: all server code compiles successfully
+
+### Notes
+
+- Server mode is in **beta** - basic functionality works, but some features are still TODO
+- Authentication currently uses GunDB SEA (no JWT/sessions yet)
+- File storage is local (can be extended to S3-compatible storage)
+- See `docs/SERVER_MODE_QUICKSTART.md` for usage instructions
+
+## [1.1.4] - 2026-01-17
+
+### Added
+
+- **Dynamic Favicons**: Favicon now changes based on the current page
+  - Release pages use the release cover art as favicon (PNG, SVG, or JPEG supported)
+  - Homepage uses the Tunecamp logo as favicon
+  - Release pages without cover art fall back to the Tunecamp logo
+  - Bandcamp-style behavior: each release shows its own cover in the browser tab
+- **Website Favicons**: Added favicon to all pages on tunecamp.vercel.app (community.html, player.html)
+
+### Technical Details
+
+- Added `endsWith` Handlebars helper to detect image file types
+- Favicon detection supports PNG, SVG, and JPEG formats
+- Logo.svg is copied to build output for use as default favicon
+
 ## [1.1.3] - 2026-01-17
 
 ### Fixed

@@ -49,6 +49,11 @@ export class TemplateEngine {
       return str && typeof str === 'string' && str.startsWith(prefix);
     });
 
+    // String endsWith helper
+    Handlebars.registerHelper("endsWith", (str: string, suffix: string) => {
+      return str && typeof str === 'string' && str.endsWith(suffix);
+    });
+
     // Logical OR helper
     Handlebars.registerHelper("or", (a: any, b: any) => {
       return a || b;
@@ -110,12 +115,22 @@ export class TemplateEngine {
     });
 
     // Asset path helper - for CSS, JS, and other assets
+    // Always returns absolute paths starting with / to avoid issues with nested routes
     Handlebars.registerHelper("assetPath", function(this: any, url: string) {
       const basePath = this.basePath || "";
       
-      // If url is already relative (starts with ./ or ../), return as-is
-      if (url.startsWith("./") || url.startsWith("../")) {
+      // If url is already an absolute URL (http/https), return as-is
+      if (url.startsWith("http://") || url.startsWith("https://")) {
         return url;
+      }
+      
+      // If url already starts with /, it's already absolute
+      if (url.startsWith("/")) {
+        if (!basePath || basePath === "/") {
+          return url;
+        }
+        const cleanBasePath = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
+        return cleanBasePath + url;
       }
       
       // Check if we're in a release page (has backUrl context)
@@ -123,35 +138,17 @@ export class TemplateEngine {
       
       if (isReleasePage) {
         // For release pages, we need to go up to the root to access assets
-        if (url.startsWith("/")) {
-          if (!basePath || basePath === "/") {
-            return "../../" + url.substring(1);
-          }
-          const cleanBasePath = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
-          return "../../" + cleanBasePath + url;
+        // Use relative path for release pages (they are in subdirectories)
+        if (url.startsWith("./") || url.startsWith("../")) {
+          return url;
         }
-        
-        // For relative URLs without ./ prefix in release pages
-        if (!url.startsWith("/")) {
-          return "../../" + url;
-        }
+        return "../../" + url;
       } else {
-        // For main pages, use normal path helper logic
-        if (url.startsWith("/")) {
-          if (!basePath || basePath === "/") {
-            return url;
-          }
-          const cleanBasePath = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
-          return cleanBasePath + url;
-        }
-        
-        // For relative URLs without ./ prefix in main pages
-        if (!url.startsWith("/")) {
-          return "./" + url;
-        }
+        // For all other pages (including /auth/*, /dashboard/*, etc.), use absolute paths
+        // This ensures assets work correctly from any nested route
+        const cleanBasePath = basePath && basePath !== "/" ? basePath : "";
+        return cleanBasePath + "/" + url.replace(/^\.\//, "");
       }
-      
-      return url;
     });
   }
 

@@ -64,7 +64,8 @@ export interface ReleaseConfig {
   title: string;
   date: string;
   description?: string;
-  cover?: string;
+  cover?: string; // Local filename or IPFS CID
+  coverUrl?: string; // Full URL to cover (for relay storage)
   download?: DownloadMode;
   unlockCodes?: UnlockCodesConfig; // For 'codes' download mode
   price?: number;
@@ -98,9 +99,10 @@ export interface TrackConfig {
 }
 
 export interface TrackMetadata {
-  file: string;
+  file: string; // Local path or IPFS CID
   filename: string;
   title: string;
+  url?: string; // Full URL to track (for relay storage)
   artist?: string;
   album?: string;
   year?: number;

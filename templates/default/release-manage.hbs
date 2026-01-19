@@ -1,0 +1,412 @@
+<!-- Release Management - Client-Side GunDB -->
+<div class="container">
+  <div class="dashboard-header">
+    <div class="header-left">
+      <a href="/dashboard" class="btn btn-outline btn-sm">
+        <i class="fas fa-arrow-left"></i> Back
+      </a>
+      <h1 id="pageTitle">Manage Release</h1>
+    </div>
+    <div class="dashboard-actions">
+      <a id="viewPageBtn" href="#" target="_blank" class="btn btn-outline" style="display: none;">
+        <i class="fas fa-external-link-alt"></i> View Page
+      </a>
+    </div>
+  </div>
+
+  <div id="loadingRelease" class="loading">Loading release data...</div>
+
+  <div id="releaseContent" style="display: none;">
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('details')">Details</button>
+      <button class="tab-btn" onclick="switchTab('tracks')">Tracks</button>
+      <button class="tab-btn" onclick="switchTab('cover')">Cover Art</button>
+    </div>
+
+    <!-- Details Tab -->
+    <div id="tab-details" class="tab-content active">
+      <form id="detailsForm" class="edit-form">
+        <div class="form-group">
+          <label for="release-title">Title</label>
+          <input type="text" id="release-title" name="title" required>
+        </div>
+
+        <div class="form-group">
+          <label for="release-date">Date</label>
+          <input type="date" id="release-date" name="date" required>
+        </div>
+
+        <div class="form-group">
+          <label for="release-description">Description</label>
+          <textarea id="release-description" name="description" rows="6"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="release-download">Download Mode</label>
+          <select id="release-download" name="download">
+            <option value="free">Free</option>
+            <option value="paycurtain">Pay What You Want</option>
+            <option value="codes">Unlock Codes</option>
+            <option value="none">Streaming Only</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="release-genres">Genres (comma-separated)</label>
+          <input type="text" id="release-genres" name="genres">
+        </div>
+
+        <div class="form-group">
+          <label for="release-credits">Credits (comma-separated lines)</label>
+          <textarea id="release-credits" name="credits" rows="4" placeholder="Written by..., Produced by..."></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </form>
+    </div>
+
+    <!-- Tracks Tab -->
+    <div id="tab-tracks" class="tab-content">
+      <div class="upload-section">
+        <h3>Upload Track</h3>
+        <form id="uploadTrackForm" class="upload-form">
+          <input type="file" id="trackFile" name="track" accept="audio/*" required>
+          <button type="submit" class="btn btn-secondary">Upload</button>
+        </form>
+        <div id="trackUploadProgress" class="progress-bar" style="display: none;">
+          <div class="progress-fill"></div>
+        </div>
+      </div>
+
+      <div class="tracks-list">
+        <h3>Tracks</h3>
+        <div id="tracksContainer">
+          <!-- Tracks will be loaded here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Cover Tab -->
+    <div id="tab-cover" class="tab-content">
+      <div class="cover-section">
+        <div class="current-cover">
+          <h3>Current Cover</h3>
+          <img id="currentCoverImg" src="" alt="Cover Art" style="display: none;">
+          <p id="noCoverText">No cover art uploaded</p>
+        </div>
+
+        <div class="upload-section">
+          <h3>Upload Cover</h3>
+          <form id="uploadCoverForm" class="upload-form">
+            <input type="file" id="coverFile" name="cover" accept="image/*" required>
+            <button type="submit" class="btn btn-secondary">Upload New Cover</button>
+          </form>
+          <div id="coverUploadProgress" class="progress-bar" style="display: none;">
+            <div class="progress-fill"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Include GunDB -->
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
+
+<script>
+  // GunDB peers
+  const GUN_PEERS = [
+    'https://shogun-relay.scobrudot.dev/gun',
+    'https://gun.defucc.me/gun',
+    'https://gun.o8.is/gun',
+    'https://relay.peer.ooo/gun',
+  ];
+
+  // Initialize Gun
+  const gun = Gun({
+    peers: GUN_PEERS,
+    localStorage: true,
+  });
+  const user = gun.user();
+
+  // Current release slug from template data
+  const currentSlug = '{{slug}}';
+
+  // Helper: Serialize/Deserialize arrays
+  function arrayToObject(arr) {
+    if (!arr || !Array.isArray(arr) || arr.length === 0) return null;
+    const obj = {};
+    arr.forEach((item, index) => {
+      obj[index.toString()] = item;
+    });
+    return obj;
+  }
+
+  function objectToArray(obj) {
+    if (!obj || typeof obj !== 'object') return [];
+    const arr = [];
+    Object.keys(obj).sort((a, b) => parseInt(a) - parseInt(b)).forEach(key => {
+      if (!isNaN(parseInt(key))) arr.push(obj[key]);
+    });
+    return arr;
+  }
+
+  // Auth Check
+  const token = localStorage.getItem('tunecamp_token');
+  const seaPair = sessionStorage.getItem('tunecamp_sea');
+
+  if (!token || !seaPair) {
+    window.location.href = '/auth/login';
+  } else {
+    user.auth(JSON.parse(seaPair), (ack) => {
+      if (ack.err) {
+        window.location.href = '/auth/login';
+        return;
+      }
+      loadReleaseData();
+    });
+  }
+
+  function loadReleaseData() {
+    user.get('releases').get(currentSlug).get('config').on((config) => {
+      if (!config) {
+        document.getElementById('loadingRelease').textContent = 'Release not found';
+        return;
+      }
+
+      const release = {
+        ...config,
+        genres: objectToArray(config.genres),
+        credits: objectToArray(config.credits),
+      };
+
+      // Update UI
+      document.getElementById('pageTitle').textContent = release.title;
+      document.getElementById('release-title').value = release.title;
+      document.getElementById('release-date').value = release.date;
+      document.getElementById('release-description').value = release.description || '';
+      document.getElementById('release-download').value = release.download || 'free';
+      document.getElementById('release-genres').value = release.genres ? release.genres.join(', ') : '';
+      document.getElementById('release-credits').value = release.credits ? release.credits.join('\n') : '';
+
+      // Cover
+      if (release.cover) {
+        const coverUrl = `/storage/${user.is.pub}/releases/${currentSlug}/${release.cover.split('/').pop()}`; // Simple URL construction
+        document.getElementById('currentCoverImg').src = coverUrl;
+        document.getElementById('currentCoverImg').style.display = 'block';
+        document.getElementById('noCoverText').style.display = 'none';
+      }
+
+      // Update View Page button
+      const viewBtn = document.getElementById('viewPageBtn');
+      viewBtn.href = `/artists/${user.is.pub}/${currentSlug}`;
+      viewBtn.style.display = 'inline-block';
+
+      document.getElementById('loadingRelease').style.display = 'none';
+      document.getElementById('releaseContent').style.display = 'block';
+    });
+
+    // Load tracks
+    loadTracks();
+  }
+
+  function loadTracks() {
+    // We utilize the API for reading tracks list for now as file metadata is filesystem based
+    fetch(`/api/me/releases/${currentSlug}/tracks`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(tracks => {
+        displayTracks(tracks);
+      })
+      .catch(err => console.error('Error loading tracks:', err));
+  }
+
+  function displayTracks(tracks) {
+    const container = document.getElementById('tracksContainer');
+    if (!tracks || tracks.length === 0) {
+      container.innerHTML = '<p class="no-tracks">No tracks uploaded yet.</p>';
+      return;
+    }
+
+    container.innerHTML = tracks.map((track, index) => `
+    <div class="track-item">
+      <div class="track-info">
+        <span class="track-number">${index + 1}</span>
+        <span class="track-title">${track.title || track.file}</span>
+        <span class="track-duration">${formatDuration(track.duration)}</span>
+      </div>
+      <div class="track-actions">
+        <button onclick="deleteTrack('${track.id}')" class="btn btn-sm btn-danger" disabled>Delete</button>
+      </div>
+    </div>
+  `).join('');
+  }
+
+  function formatDuration(seconds) {
+    if (!seconds) return '0:00';
+    const min = Math.floor(seconds / 60);
+    const sec = Math.floor(seconds % 60);
+    return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+  }
+
+  // Tab Switching
+  window.switchTab = function (tabName) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+    event.target.classList.add('active');
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+  }
+
+  // Save Changes
+  document.getElementById('detailsForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const genres = document.getElementById('release-genres').value.split(',').map(g => g.trim()).filter(g => g);
+    const credits = document.getElementById('release-credits').value.split('\n').map(c => c.trim()).filter(c => c);
+
+    const updates = {
+      title: document.getElementById('release-title').value,
+      date: document.getElementById('release-date').value,
+      description: document.getElementById('release-description').value,
+      download: document.getElementById('release-download').value,
+      genres: arrayToObject(genres),
+      credits: arrayToObject(credits),
+      updatedAt: Date.now(),
+    };
+
+    // Save to user space (for client-side reading)
+    user.get('releases').get(currentSlug).get('config').put(updates, (ack) => {
+      if (ack.err) {
+        alert('Failed to save changes: ' + ack.err);
+      } else {
+        // Also save to public namespace (for server-side reading)
+        gun.get('shogun').get('tunecamp-server').get('artists').get(user.is.pub)
+          .get('releases').get(currentSlug).get('config').put(updates);
+        alert('Changes saved successfully!');
+      }
+    });
+  });
+
+  // Upload Cover
+  document.getElementById('uploadCoverForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const file = document.getElementById('coverFile').files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('cover', file);
+
+    try {
+      const res = await fetch(`/api/me/releases/${currentSlug}/cover`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      if (res.ok) {
+        alert('Cover uploaded successfully!');
+        // GunDB update will be handled by server/client sync but force reload simpler
+        loadReleaseData(); // Reload to refresh cover
+      } else {
+        alert('Cover upload failed');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Upload failed');
+    }
+  });
+
+  // Upload Track
+  document.getElementById('uploadTrackForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const file = document.getElementById('trackFile').files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('track', file);
+
+    try {
+      const res = await fetch(`/api/me/releases/${currentSlug}/tracks`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      if (res.ok) {
+        alert('Track uploaded successfully!');
+        loadTracks(); // Refresh tracks
+        document.getElementById('uploadTrackForm').reset();
+      } else {
+        alert('Track upload failed');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Upload failed');
+    }
+  });
+</script>
+
+<style>
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 1rem;
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 2rem;
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    color: var(--text-muted);
+  }
+
+  .tab-btn.active {
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+    margin-bottom: -2px;
+  }
+
+  .tab-content {
+    display: none;
+  }
+
+  .tab-content.active {
+    display: block;
+  }
+
+  .upload-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+  }
+
+  .tracks-list {
+    margin-top: 2rem;
+  }
+
+  .track-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .current-cover img {
+    max-width: 300px;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+</style>

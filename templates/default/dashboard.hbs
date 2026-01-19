@@ -1,0 +1,303 @@
+<!-- Dashboard: Artist Management - Client-Side GunDB -->
+<div class="container">
+  <div class="dashboard-header">
+    <h1>Dashboard</h1>
+    <div class="dashboard-actions">
+      <button id="createReleaseBtn" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Release
+      </button>
+      <button id="logoutBtn" class="btn btn-outline">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </button>
+    </div>
+  </div>
+
+  <div id="userInfo" class="user-info" style="display: none;">
+    <h2>Welcome, <span id="artistName"></span>!</h2>
+    <p id="artistBio"></p>
+  </div>
+
+  <div id="releasesList" class="releases-list">
+    <h2>My Releases</h2>
+    <div id="loadingReleases" class="loading">Loading releases...</div>
+    <div id="releasesContainer" class="releases-grid">
+      <!-- Releases will be loaded here -->
+    </div>
+    <p id="noReleases" class="no-releases" style="display: none;">No releases yet. Create your first release!</p>
+  </div>
+</div>
+
+<!-- Create Release Modal -->
+<div id="createReleaseModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Create New Release</h3>
+      <button class="modal-close" onclick="closeCreateModal()">&times;</button>
+    </div>
+    <form id="createReleaseForm" class="modal-body">
+      <div class="form-group">
+        <label for="release-title">Title *</label>
+        <input type="text" id="release-title" name="title" required>
+      </div>
+
+      <div class="form-group">
+        <label for="release-date">Date *</label>
+        <input type="date" id="release-date" name="date" required>
+      </div>
+
+      <div class="form-group">
+        <label for="release-description">Description</label>
+        <textarea id="release-description" name="description" rows="4"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="release-download">Download Mode</label>
+        <select id="release-download" name="download">
+          <option value="free">Free</option>
+          <option value="paycurtain">Pay What You Want</option>
+          <option value="codes">Unlock Codes</option>
+          <option value="none">Streaming Only</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="release-genres">Genres (comma-separated)</label>
+        <input type="text" id="release-genres" name="genres" placeholder="Electronic, Ambient, Pop">
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" onclick="closeCreateModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Release</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Include GunDB -->
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
+
+<script>
+  // GunDB peers
+  const GUN_PEERS = [
+    'https://shogun-relay.scobrudot.dev/gun',
+    'https://gun.defucc.me/gun',
+    'https://gun.o8.is/gun',
+    'https://relay.peer.ooo/gun',
+  ];
+
+  // Initialize Gun
+  const gun = Gun({
+    peers: GUN_PEERS,
+    localStorage: true,
+  });
+  const user = gun.user();
+
+  // Helper: Create slug
+  function createSlug(text) {
+    return text.toString().toLowerCase()
+      .replace(/\s+/g, '-')           // Replace spaces with -
+      .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+      .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+      .replace(/^-+/, '')             // Trim - from start of text
+      .replace(/-+$/, '');            // Trim - from end of text
+  }
+
+  // Helper: Serialize/Deserialize arrays (GunDB constraint)
+  function arrayToObject(arr) {
+    if (!arr || !Array.isArray(arr) || arr.length === 0) return null;
+    const obj = {};
+    arr.forEach((item, index) => {
+      obj[index.toString()] = item;
+    });
+    return obj;
+  }
+
+  function objectToArray(obj) {
+    if (!obj || typeof obj !== 'object') return [];
+    const arr = [];
+    Object.keys(obj).sort((a, b) => parseInt(a) - parseInt(b)).forEach(key => {
+      if (!isNaN(parseInt(key))) arr.push(obj[key]);
+    });
+    return arr;
+  }
+
+  // Check authentication
+  const token = localStorage.getItem('tunecamp_token');
+  const seaPair = sessionStorage.getItem('tunecamp_sea');
+
+  if (!token || !seaPair) {
+    window.location.href = '/auth/login';
+  } else {
+    // Authenticate with stored pair
+    user.auth(JSON.parse(seaPair), (ack) => {
+      if (ack.err) {
+        console.error('Auth check failed:', ack.err);
+        window.location.href = '/auth/login';
+        return;
+      }
+
+      // Load profile
+      user.get('profile').once((profile) => {
+        document.getElementById('artistName').textContent = profile?.name || 'Artist';
+        document.getElementById('artistBio').textContent = profile?.bio || '';
+        document.getElementById('userInfo').style.display = 'block';
+      });
+
+      // Load releases
+      loadReleases();
+    });
+  }
+
+  // Load releases from GunDB
+  function loadReleases() {
+    document.getElementById('loadingReleases').style.display = 'block';
+    const releasesContainer = document.getElementById('releasesContainer');
+    const noReleases = document.getElementById('noReleases');
+    const releases = [];
+
+    // Use map().once() to get all releases
+    user.get('releases').map().once((releaseData, slug) => {
+      if (!releaseData) return;
+
+      // Get full config
+      user.get('releases').get(slug).get('config').once((config) => {
+        if (!config) return;
+
+        // Deserialize arrays
+        const release = {
+          slug,
+          config: {
+            ...config,
+            genres: objectToArray(config.genres),
+            streamingLinks: objectToArray(config.streamingLinks),
+            credits: objectToArray(config.credits),
+          }
+        };
+
+        // Check if already in list
+        const existingIndex = releases.findIndex(r => r.slug === slug);
+        if (existingIndex >= 0) {
+          releases[existingIndex] = release;
+        } else {
+          releases.push(release);
+        }
+
+        // Sort by date (newest first)
+        releases.sort((a, b) => new Date(b.config.date) - new Date(a.config.date));
+
+        displayReleases(releases);
+        document.getElementById('loadingReleases').style.display = 'none';
+        noReleases.style.display = releases.length === 0 ? 'block' : 'none';
+      });
+    });
+
+    // Timeout to hide loader if no releases found
+    setTimeout(() => {
+      document.getElementById('loadingReleases').style.display = 'none';
+      if (releases.length === 0) {
+        noReleases.style.display = 'block';
+      }
+    }, 2000);
+  }
+
+  function displayReleases(releases) {
+    const container = document.getElementById('releasesContainer');
+    container.innerHTML = releases.map(release => `
+    <div class="release-card">
+      <div class="release-header">
+        <h3>${release.config.title}</h3>
+        <span class="release-date">${release.config.date}</span>
+      </div>
+      <p class="release-slug">/${release.slug}</p>
+      
+      ${release.config.genres && release.config.genres.length > 0
+        ? `<div class="release-genres">${release.config.genres.map(g => `<span class="tag">${g}</span>`).join('')}</div>`
+        : ''}
+        
+      <div class="release-actions">
+        <a href="/dashboard/releases/${release.slug}" class="btn btn-sm">Manage</a>
+        <a href="/artists/${user.is.pub}/${release.slug}" target="_blank" class="btn btn-sm btn-outline">View Page</a>
+      </div>
+    </div>
+  `).join('');
+  }
+
+  // Create release modal
+  document.getElementById('createReleaseBtn').addEventListener('click', () => {
+    document.getElementById('createReleaseModal').style.display = 'flex';
+  });
+
+  function closeCreateModal() {
+    document.getElementById('createReleaseModal').style.display = 'none';
+  }
+
+  // Create release form
+  document.getElementById('createReleaseForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const title = document.getElementById('release-title').value;
+    const slug = createSlug(title);
+
+    if (!slug) {
+      alert('Invalid title');
+      return;
+    }
+
+    const genresInput = document.getElementById('release-genres').value;
+    const genres = genresInput ? genresInput.split(',').map(g => g.trim()).filter(g => g) : [];
+
+    const config = {
+      title,
+      date: document.getElementById('release-date').value,
+      description: document.getElementById('release-description').value,
+      download: document.getElementById('release-download').value,
+      // Convert array to object for GunDB
+      genres: arrayToObject(genres),
+      createdAt: Date.now(),
+    };
+
+    // Save to GunDB (user space for client-side reading)
+    user.get('releases').get(slug).get('config').put(config, (ack) => {
+      if (ack.err) {
+        alert('Failed to create release: ' + ack.err);
+      } else {
+        user.get('releases').get(slug).get('updatedAt').put(Date.now());
+
+        // Also save to public namespace (for server-side reading)
+        // Server reads from: shogun > tunecamp-server > artists > {pub} > releases > {slug}
+        gun.get('shogun').get('tunecamp-server').get('artists').get(user.is.pub)
+          .get('releases').get(slug).get('config').put(config);
+
+        // Also notify server via API just for folder creation (optional but good for syncing)
+        // We still use API for this part to ensure server-side folders exist
+        fetch('/api/me/releases', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ...config,
+            title, // Send raw title too
+            genres: genres // Send standard array to API (wrapper will handle serialization if needed)
+          }),
+        }).then(() => {
+          alert('Release created successfully!');
+          closeCreateModal();
+          // Reload releases list
+          loadReleases();
+        });
+      }
+    });
+  });
+
+  // Logout
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    user.leave();
+    sessionStorage.removeItem('tunecamp_sea');
+    localStorage.removeItem('tunecamp_token');
+    localStorage.removeItem('tunecamp_user');
+    window.location.href = '/auth/login';
+  });
+</script>

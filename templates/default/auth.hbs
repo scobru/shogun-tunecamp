@@ -1,0 +1,220 @@
+<!-- Auth Pages: Login and Register - Using GunDB Client-Side -->
+<div class="container">
+  <div class="auth-container">
+    <div class="auth-card">
+      <h1 class="auth-title" id="authTitle">Login</h1>
+
+      <div id="authError" class="auth-error" style="display: none;">
+        <i class="fas fa-exclamation-circle"></i> <span id="errorMessage"></span>
+      </div>
+
+      <!-- Login Form -->
+      <div id="loginSection">
+        <form id="loginForm" class="auth-form">
+          <div class="form-group">
+            <label for="alias">Username</label>
+            <input type="text" id="alias" name="alias" required autocomplete="username">
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password">
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">
+            <i class="fas fa-sign-in-alt"></i> Login
+          </button>
+        </form>
+
+        <p class="auth-switch">
+          Don't have an account? <a href="#" onclick="showRegister()">Register here</a>
+        </p>
+      </div>
+
+      <!-- Register Form -->
+      <div id="registerSection" style="display: none;">
+        <form id="registerForm" class="auth-form">
+          <div class="form-group">
+            <label for="reg-alias">Username</label>
+            <input type="text" id="reg-alias" name="alias" required autocomplete="username">
+          </div>
+
+          <div class="form-group">
+            <label for="reg-password">Password</label>
+            <input type="password" id="reg-password" name="password" required autocomplete="new-password" minlength="6">
+          </div>
+
+          <div class="form-group">
+            <label for="artist-name">Artist Name</label>
+            <input type="text" id="artist-name" name="name" required>
+          </div>
+
+          <div class="form-group">
+            <label for="artist-bio">Bio (optional)</label>
+            <textarea id="artist-bio" name="bio" rows="4"></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">
+            <i class="fas fa-user-plus"></i> Register
+          </button>
+        </form>
+
+        <p class="auth-switch">
+          Already have an account? <a href="#" onclick="showLogin()">Login here</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Include GunDB -->
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
+
+<script>
+  // GunDB peers
+  const GUN_PEERS = [
+    'https://shogun-relay.scobrudot.dev/gun',
+    'https://gun.defucc.me/gun',
+    'https://gun.o8.is/gun',
+    'https://relay.peer.ooo/gun',
+  ];
+
+  // Initialize Gun
+  const gun = Gun({
+    peers: GUN_PEERS,
+    localStorage: true,
+  });
+  const user = gun.user();
+
+  // Check if already logged in
+  user.recall({ sessionStorage: true }, function (ack) {
+    if (ack.err) {
+      console.log('No existing session');
+      return;
+    }
+    if (user.is) {
+      console.log('User already logged in:', user.is.alias);
+      // Store for dashboard
+      sessionStorage.setItem('tunecamp_sea', JSON.stringify(user._.sea));
+      localStorage.setItem('tunecamp_token', user.is.pub);
+      localStorage.setItem('tunecamp_user', JSON.stringify({
+        alias: user.is.alias,
+        pub: user.is.pub,
+      }));
+      window.location.href = '/dashboard';
+    }
+  });
+
+  // Show/hide sections
+  function showRegister() {
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('registerSection').style.display = 'block';
+    document.getElementById('authTitle').textContent = 'Register';
+    hideError();
+  }
+
+  function showLogin() {
+    document.getElementById('loginSection').style.display = 'block';
+    document.getElementById('registerSection').style.display = 'none';
+    document.getElementById('authTitle').textContent = 'Login';
+    hideError();
+  }
+
+  function showError(message) {
+    document.getElementById('errorMessage').textContent = message;
+    document.getElementById('authError').style.display = 'block';
+  }
+
+  function hideError() {
+    document.getElementById('authError').style.display = 'none';
+  }
+
+  // Login form handler
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideError();
+
+    const alias = document.getElementById('alias').value;
+    const password = document.getElementById('password').value;
+
+    user.auth(alias, password, function (ack) {
+      if (ack.err) {
+        showError(ack.err);
+        return;
+      }
+
+      console.log('Login successful:', user.is);
+
+      // Store credentials
+      sessionStorage.setItem('tunecamp_sea', JSON.stringify(user._.sea));
+      localStorage.setItem('tunecamp_token', user.is.pub);
+      localStorage.setItem('tunecamp_user', JSON.stringify({
+        alias: user.is.alias,
+        pub: user.is.pub,
+      }));
+
+      // Redirect to dashboard
+      window.location.href = '/dashboard';
+    });
+  });
+
+  // Register form handler
+  document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideError();
+
+    const alias = document.getElementById('reg-alias').value;
+    const password = document.getElementById('reg-password').value;
+    const artistName = document.getElementById('artist-name').value;
+    const artistBio = document.getElementById('artist-bio').value;
+
+    user.create(alias, password, function (ack) {
+      if (ack.err) {
+        showError(ack.err);
+        return;
+      }
+
+      console.log('Registration successful, now logging in...');
+
+      // Auto-login after registration
+      user.auth(alias, password, function (authAck) {
+        if (authAck.err) {
+          showError('Registered but login failed: ' + authAck.err);
+          return;
+        }
+
+        // Save artist profile to GunDB
+        const profileData = {
+          name: artistName,
+          bio: artistBio || '',
+          slug: alias.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          createdAt: Date.now(),
+        };
+
+        // Save to user's private space
+        user.get('profile').put(profileData);
+
+        // Also save to public artists list
+        gun.get('shogun').get('tunecamp-server').get('artists').get(user.is.pub).get('profile').put(profileData);
+
+        // Store credentials
+        sessionStorage.setItem('tunecamp_sea', JSON.stringify(user._.sea));
+        localStorage.setItem('tunecamp_token', user.is.pub);
+        localStorage.setItem('tunecamp_user', JSON.stringify({
+          alias: user.is.alias,
+          pub: user.is.pub,
+          profile: profileData,
+        }));
+
+        alert('Registration successful!');
+        window.location.href = '/dashboard';
+      });
+    });
+  });
+
+  // Check URL for mode
+  if (window.location.pathname.includes('register')) {
+    showRegister();
+  }
+</script>

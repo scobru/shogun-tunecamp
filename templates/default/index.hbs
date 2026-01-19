@@ -68,6 +68,21 @@
       <p class="no-results" id="noResults" style="display: none;">No releases match your search.</p>
       {{else}}
       <p class="no-releases">No releases yet. Check back soon!</p>
+      {{#unless artist}}
+      <!-- Server Mode: Call to action for artists -->
+      <div class="server-mode-cta" style="margin-top: 2rem; padding: 2rem; background: var(--surface-color); border-radius: 8px; border: 1px solid var(--border-color); text-align: center;">
+        <h3 style="margin-top: 0;">Are you an artist?</h3>
+        <p>Create your artist profile and start sharing your music!</p>
+        <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+          <a href="/auth/register" class="btn btn-primary">
+            <i class="fas fa-user-plus"></i> Sign Up
+          </a>
+          <a href="/auth/login" class="btn btn-outline">
+            <i class="fas fa-sign-in-alt"></i> Login
+          </a>
+        </div>
+      </div>
+      {{/unless}}
       {{/if}}
     </section>
 

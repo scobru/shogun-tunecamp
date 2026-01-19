@@ -479,7 +479,7 @@
 
         // If this is a release page with tracks, also register tracks for the community player
         // BUT: Skip if this release is unlisted (should not appear in community registry)
-        const isUnlisted = document.querySelector('meta[name="tunecamp-release-unlisted"]')?.content === 'true';
+        // Note: isUnlisted was already declared above, so we reuse it here
         
         if (!isUnlisted && window.tracks && Array.isArray(window.tracks) && window.tracks.length > 0) {
           // Get release title from the page

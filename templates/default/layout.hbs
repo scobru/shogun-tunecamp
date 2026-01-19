@@ -8,6 +8,22 @@
   {{#if catalog.description}}
   <meta name="description" content="{{catalog.description}}">
   {{/if}}
+  <!-- Favicon: Use release cover for release pages, logo for homepage -->
+  {{#if release}}
+  {{#if release.coverUrl}}
+  {{#if (endsWith release.coverUrl ".png")}}
+  <link rel="icon" type="image/png" href="{{releasePath release.coverUrl}}">
+  {{else if (endsWith release.coverUrl ".svg")}}
+  <link rel="icon" type="image/svg+xml" href="{{releasePath release.coverUrl}}">
+  {{else}}
+  <link rel="icon" type="image/jpeg" href="{{releasePath release.coverUrl}}">
+  {{/if}}
+  {{else}}
+  <link rel="icon" type="image/svg+xml" href="{{path '../../logo.svg'}}">
+  {{/if}}
+  {{else}}
+  <link rel="icon" type="image/svg+xml" href="{{path 'logo.svg'}}">
+  {{/if}}
   <!-- Tunecamp Metadata (for community registry) -->
   <meta name="generator" content="Tunecamp 1.0.1">
   <meta name="tunecamp-title" content="{{catalog.title}}">
@@ -87,6 +103,11 @@
     </a>
     <div class="nav-links">
       <a href="{{path "index.html"}}" class="nav-link">Browse</a>
+      {{#unless artist}}
+      <!-- Server Mode: Auth links (only on homepage) -->
+      <a href="/auth/login" class="nav-link">Login</a>
+      <a href="/auth/register" class="nav-link nav-link-primary">Sign Up</a>
+      {{/unless}}
     </div>
   </nav>
 
