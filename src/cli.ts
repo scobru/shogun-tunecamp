@@ -38,7 +38,7 @@ program
         basePath: options.basePath,
         verbose: options.verbose,
       });
-      
+
       await generator.build();
     } catch (error) {
       console.error(chalk.red('Error:'), error);
@@ -53,7 +53,7 @@ program
   .action(async (directory: string) => {
     try {
       const targetDir = path.resolve(directory);
-      
+
       if (await fs.pathExists(targetDir)) {
         const files = await fs.readdir(targetDir);
         if (files.length > 0) {
@@ -61,9 +61,9 @@ program
           process.exit(1);
         }
       }
-      
+
       await initializeCatalog(targetDir);
-      
+
       console.log(chalk.green('✅ Catalog initialized successfully!'));
       console.log(chalk.blue(`\nNext steps:`));
       console.log(`  cd ${directory}`);
@@ -84,20 +84,20 @@ program
     const http = await import('http');
     const fs = await import('fs');
     const path = await import('path');
-    
+
     const port = parseInt(options.port);
     const dir = path.resolve(directory);
-    
+
     const server = http.createServer((req, res) => {
       let filePath = path.join(dir, req.url === '/' ? 'index.html' : req.url!);
-      
+
       fs.readFile(filePath, (err, data) => {
         if (err) {
           res.writeHead(404);
           res.end('Not found');
           return;
         }
-        
+
         const ext = path.extname(filePath);
         const contentTypes: Record<string, string> = {
           '.html': 'text/html',
@@ -114,21 +114,49 @@ program
           '.ogg': 'audio/ogg',
           '.wav': 'audio/wav',
         };
-        
+
         res.writeHead(200, { 'Content-Type': contentTypes[ext] || 'text/plain' });
         res.end(data);
       });
     });
-    
+
     server.listen(port, () => {
       console.log(chalk.green(`🎵 Server running at http://localhost:${port}`));
       console.log(chalk.blue(`Serving: ${dir}`));
     });
   });
 
+// Server mode - streaming music server with API
+program
+  .command('server')
+  .description('Start TuneCamp as a music streaming server')
+  .argument('[music-dir]', 'Directory containing music files', './music')
+  .option('-p, --port <port>', 'Port number', '1970')
+  .option('-d, --db <path>', 'Database file path', './tunecamp.db')
+  .action(async (musicDir: string, options: any) => {
+    try {
+      const { loadConfig } = await import('./server/config.js');
+      const { startServer } = await import('./server/server.js');
+
+      const config = loadConfig({
+        port: parseInt(options.port, 10),
+        musicDir: path.resolve(musicDir),
+        dbPath: path.resolve(options.db),
+      });
+
+      console.log(chalk.blue('🎶 Starting TuneCamp Server...'));
+      console.log('');
+
+      await startServer(config);
+    } catch (error) {
+      console.error(chalk.red('Error starting server:'), error);
+      process.exit(1);
+    }
+  });
+
 async function initializeCatalog(targetDir: string): Promise<void> {
   await fs.ensureDir(targetDir);
-  
+
   // Create catalog.yaml
   const catalogYaml = `title: "My Music Catalog"
 description: "Independent music releases"
@@ -138,7 +166,7 @@ theme: "default"
 language: "en"
 `;
   await fs.writeFile(path.join(targetDir, 'catalog.yaml'), catalogYaml);
-  
+
   // Create artist.yaml
   const artistYaml = `name: "Artist Name"
 bio: "Write your biography here."
@@ -147,11 +175,11 @@ links:
   - bandcamp: "https://artistname.bandcamp.com"
 `;
   await fs.writeFile(path.join(targetDir, 'artist.yaml'), artistYaml);
-  
+
   // Create releases directory with example
   const exampleReleaseDir = path.join(targetDir, 'releases', 'example-album');
   await fs.ensureDir(path.join(exampleReleaseDir, 'tracks'));
-  
+
   const releaseYaml = `title: "Example Album"
 date: "${new Date().toISOString().split('T')[0]}"
 description: "An amazing album"
@@ -161,7 +189,7 @@ genres:
   - "Experimental"
 `;
   await fs.writeFile(path.join(exampleReleaseDir, 'release.yaml'), releaseYaml);
-  
+
   // Create README
   const readme = `# My Music Catalog
 

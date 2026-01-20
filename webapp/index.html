@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TuneCamp Server</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Navigation -->
+    <nav class="navbar">
+      <div class="nav-brand">
+        <span class="logo">🎶</span>
+        <span class="brand-name">TuneCamp</span>
+      </div>
+      <div class="nav-links">
+        <a href="#/" class="nav-link active" data-route="home">Home</a>
+        <a href="#/albums" class="nav-link" data-route="albums">Albums</a>
+        <a href="#/artists" class="nav-link" data-route="artists">Artists</a>
+        <a href="#/search" class="nav-link" data-route="search">Search</a>
+      </div>
+      <div class="nav-auth" id="nav-auth">
+        <button class="btn btn-outline" id="admin-btn">Admin</button>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content" id="main-content">
+      <!-- Content loaded dynamically -->
+    </main>
+
+    <!-- Audio Player -->
+    <div class="player" id="player">
+      <div class="player-track">
+        <img src="" alt="" class="player-cover" id="player-cover">
+        <div class="player-info">
+          <div class="player-title" id="player-title">No track playing</div>
+          <div class="player-artist" id="player-artist"></div>
+        </div>
+      </div>
+      <div class="player-controls">
+        <button class="player-btn" id="prev-btn">⏮</button>
+        <button class="player-btn play-btn" id="play-btn">▶</button>
+        <button class="player-btn" id="next-btn">⏭</button>
+      </div>
+      <div class="player-progress">
+        <span class="time" id="current-time">0:00</span>
+        <input type="range" class="progress-bar" id="progress-bar" min="0" max="100" value="0">
+        <span class="time" id="total-time">0:00</span>
+      </div>
+      <div class="player-volume">
+        <span>🔊</span>
+        <input type="range" class="volume-bar" id="volume-bar" min="0" max="100" value="80">
+      </div>
+      <audio id="audio-element"></audio>
+    </div>
+  </div>
+
+  <!-- Login Modal -->
+  <div class="modal" id="login-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">Admin Login</h2>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body">
+        <form id="login-form">
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Enter admin password" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Login</button>
+        </form>
+        <div id="login-error" class="error-message"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
