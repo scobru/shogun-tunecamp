@@ -34,9 +34,12 @@ export function createArtistsRoutes(database: DatabaseService) {
 
             const albums = database.getAlbumsByArtist(id, req.isAdmin !== true);
 
-            // Get tracks by this artist that have no album (loose tracks)
-            const allTracks = database.getTracks();
-            const looseTracks = allTracks.filter(t => t.artist_id === id && !t.album_id);
+            // Get tracks by this artist that have no album (loose tracks) - only for admin
+            let looseTracks: ReturnType<typeof database.getTracks> = [];
+            if (req.isAdmin) {
+                const allTracks = database.getTracks();
+                looseTracks = allTracks.filter(t => t.artist_id === id && !t.album_id);
+            }
 
             res.json({
                 ...artist,

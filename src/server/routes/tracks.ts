@@ -20,12 +20,12 @@ export function createTracksRoutes(database: DatabaseService) {
                 return res.json(allTracks);
             }
 
-            // Filter to only tracks from public albums
+            // Filter to only tracks from public albums (tracks without albums are private)
             const publicAlbums = new Set(
                 database.getAlbums(true).map((a) => a.id)
             );
             const publicTracks = allTracks.filter(
-                (t) => t.album_id === null || publicAlbums.has(t.album_id)
+                (t) => t.album_id !== null && publicAlbums.has(t.album_id)
             );
 
             res.json(publicTracks);
