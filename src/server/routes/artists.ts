@@ -7,15 +7,109 @@ export function createArtistsRoutes(database: DatabaseService) {
 
     /**
      * GET /api/artists
-     * List all artists
+     * List all artists (for admin) or only those with public releases (for non-admin)
      */
-    router.get("/", (req, res) => {
+    router.get("/", (req: AuthenticatedRequest, res) => {
         try {
-            const artists = database.getArtists();
-            res.json(artists);
+            const allArtists = database.getArtists();
+
+            if (req.isAdmin) {
+                return res.json(allArtists);
+            }
+
+            // Filter to only artists that have at least one public release
+            const publicReleases = database.getReleases(true); // publicOnly = true
+            const artistsWithPublicReleases = new Set(
+                publicReleases.map(r => r.artist_id).filter(id => id !== null)
+            );
+
+            const filteredArtists = allArtists.filter(a => artistsWithPublicReleases.has(a.id));
+            res.json(filteredArtists);
         } catch (error) {
             console.error("Error getting artists:", error);
             res.status(500).json({ error: "Failed to get artists" });
+        }
+    });
+
+    /**
+     * POST /api/artists
+     * Create a new artist (admin only)
+     */
+    router.post("/", (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        try {
+            const { name, bio, links } = req.body;
+
+            if (!name) {
+                return res.status(400).json({ error: "Name is required" });
+            }
+
+            // Check if artist already exists
+            const existing = database.getArtistByName(name);
+            if (existing) {
+                return res.status(409).json({ error: "Artist already exists", artist: existing });
+            }
+
+            // Parse links if it's a string
+            let parsedLinks = links;
+            if (typeof links === 'string') {
+                try {
+                    parsedLinks = JSON.parse(links);
+                } catch (e) {
+                    parsedLinks = null;
+                }
+            }
+
+            const artistId = database.createArtist(name, bio || undefined, undefined, parsedLinks);
+            const artist = database.getArtist(artistId);
+
+            console.log(`🎤 Created artist: ${name}`);
+            res.status(201).json(artist);
+        } catch (error) {
+            console.error("Error creating artist:", error);
+            res.status(500).json({ error: "Failed to create artist" });
+        }
+    });
+
+    /**
+     * PUT /api/artists/:id
+     * Update an existing artist (admin only)
+     */
+    router.put("/:id", (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        try {
+            const id = parseInt(req.params.id as string, 10);
+            const { bio, links } = req.body;
+
+            const artist = database.getArtist(id);
+            if (!artist) {
+                return res.status(404).json({ error: "Artist not found" });
+            }
+
+            // Parse links if it's a string or array
+            let parsedLinks = links;
+            if (typeof links === 'string') {
+                try {
+                    parsedLinks = JSON.parse(links);
+                } catch (e) {
+                    parsedLinks = artist.links ? JSON.parse(artist.links) : null;
+                }
+            }
+
+            database.updateArtist(id, bio || artist.bio || undefined, artist.photo_path || undefined, parsedLinks);
+
+            const updatedArtist = database.getArtist(id);
+            console.log(`🎤 Updated artist: ${artist.name}`);
+            res.json(updatedArtist);
+        } catch (error) {
+            console.error("Error updating artist:", error);
+            res.status(500).json({ error: "Failed to update artist" });
         }
     });
 

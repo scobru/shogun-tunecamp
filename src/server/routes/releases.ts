@@ -70,6 +70,7 @@ export function createReleaseRoutes(
             if (body.genres && body.genres.length > 0) releaseConfig.genres = body.genres;
             if (body.download) releaseConfig.download = body.download;
             if (body.price) releaseConfig.price = body.price;
+            if (body.artistName) releaseConfig.artist = body.artistName;
 
             await fs.writeFile(
                 path.join(releaseDir, "release.yaml"),
@@ -113,29 +114,62 @@ export function createReleaseRoutes(
             // We need to find the folder containing this album's tracks
             const tracks = database.getTracks(id);
             if (tracks.length === 0) {
-                return res.status(400).json({ error: "Cannot update release without tracks" });
+                // Allow updating releases without tracks - try to find by slug
+                const releaseDir = path.join(musicDir, "releases", album.slug);
+                const releaseYamlPath = path.join(releaseDir, "release.yaml");
+
+                if (await fs.pathExists(releaseYamlPath)) {
+                    const { parse } = await import("yaml");
+                    const content = await fs.readFile(releaseYamlPath, "utf-8");
+                    const config = parse(content);
+
+                    // Update fields
+                    if (body.title) config.title = body.title;
+                    if (body.date) config.date = body.date;
+                    if (body.description !== undefined) config.description = body.description;
+                    if (body.genres) config.genres = body.genres;
+                    if (body.download) config.download = body.download;
+                    if (body.price !== undefined) config.price = body.price;
+                    if (body.artistName) config.artist = body.artistName;
+
+                    await fs.writeFile(releaseYamlPath, stringify(config));
+                }
+            } else {
+                const trackDir = path.dirname(tracks[0].file_path);
+                const releaseDir = trackDir.includes("tracks")
+                    ? path.dirname(trackDir)
+                    : trackDir;
+                const releaseYamlPath = path.join(releaseDir, "release.yaml");
+
+                if (await fs.pathExists(releaseYamlPath)) {
+                    const { parse } = await import("yaml");
+                    const content = await fs.readFile(releaseYamlPath, "utf-8");
+                    const config = parse(content);
+
+                    // Update fields
+                    if (body.title) config.title = body.title;
+                    if (body.date) config.date = body.date;
+                    if (body.description !== undefined) config.description = body.description;
+                    if (body.genres) config.genres = body.genres;
+                    if (body.download) config.download = body.download;
+                    if (body.price !== undefined) config.price = body.price;
+                    if (body.artistName) config.artist = body.artistName;
+
+                    await fs.writeFile(releaseYamlPath, stringify(config));
+                }
             }
 
-            const trackDir = path.dirname(tracks[0].file_path);
-            const releaseDir = trackDir.includes("tracks")
-                ? path.dirname(trackDir)
-                : trackDir;
-            const releaseYamlPath = path.join(releaseDir, "release.yaml");
-
-            if (await fs.pathExists(releaseYamlPath)) {
-                const { parse } = await import("yaml");
-                const content = await fs.readFile(releaseYamlPath, "utf-8");
-                const config = parse(content);
-
-                // Update fields
-                if (body.title) config.title = body.title;
-                if (body.date) config.date = body.date;
-                if (body.description !== undefined) config.description = body.description;
-                if (body.genres) config.genres = body.genres;
-                if (body.download) config.download = body.download;
-                if (body.price !== undefined) config.price = body.price;
-
-                await fs.writeFile(releaseYamlPath, stringify(config));
+            // Update artist in database if artistName provided
+            if (body.artistName) {
+                let artist = database.getArtistByName(body.artistName);
+                if (!artist) {
+                    // Create artist if doesn't exist
+                    const artistId = database.createArtist(body.artistName);
+                    artist = database.getArtist(artistId);
+                }
+                if (artist) {
+                    database.updateAlbumArtist(id, artist.id);
+                }
             }
 
             // Update visibility in database
@@ -266,6 +300,75 @@ export function createReleaseRoutes(
         } catch (error) {
             console.error("Error getting release folder:", error);
             res.status(500).json({ error: "Failed to get release folder" });
+        }
+    });
+
+    /**
+     * POST /api/admin/releases/:id/tracks/add
+     * Move a track from library to this release
+     */
+    router.post("/:id/tracks/add", async (req, res) => {
+        try {
+            const releaseId = parseInt(req.params.id, 10);
+            const { trackId } = req.body;
+
+            if (!trackId) {
+                return res.status(400).json({ error: "Track ID is required" });
+            }
+
+            const release = database.getAlbum(releaseId);
+            if (!release) {
+                return res.status(404).json({ error: "Release not found" });
+            }
+
+            const track = database.getTrack(trackId);
+            if (!track) {
+                return res.status(404).json({ error: "Track not found" });
+            }
+
+            // Determine target path
+            let releaseDir: string | null = null;
+            const existingTracks = database.getTracks(releaseId);
+
+            if (existingTracks.length > 0) {
+                // If release has tracks, use that directory
+                const trackDir = path.dirname(existingTracks[0].file_path);
+                releaseDir = trackDir.includes("tracks")
+                    ? trackDir
+                    : path.join(trackDir, "tracks");
+            } else {
+                // Determine release directory from slug
+                releaseDir = path.join(musicDir, "releases", release.slug, "tracks");
+                await fs.ensureDir(releaseDir);
+            }
+
+            if (!releaseDir) {
+                return res.status(500).json({ error: "Could not determine release directory" });
+            }
+
+            const fileName = path.basename(track.file_path);
+            const newPath = path.join(releaseDir, fileName);
+
+            // Move file
+            if (track.file_path !== newPath) {
+                await fs.move(track.file_path, newPath, { overwrite: true });
+                console.log(`📦 Moved track: ${track.title} -> ${newPath}`);
+
+                // Update database
+                database.updateTrackPath(trackId, newPath, releaseId);
+            } else {
+                // Even if path is same, ensure album link is correct
+                database.updateTrackAlbum(trackId, releaseId);
+            }
+
+
+            // Trigger rescan (optional but good for consistency)
+            // await scanner.scanDirectory(musicDir);
+
+            res.json({ message: "Track added to release", newPath });
+        } catch (error) {
+            console.error("Error adding track to release:", error);
+            res.status(500).json({ error: "Failed to add track to release" });
         }
     });
 

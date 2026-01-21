@@ -114,6 +114,27 @@ const API = {
         return this.get('/artists');
     },
 
+    async createArtist(data) {
+        return this.post('/artists', data);
+    },
+
+    async updateArtist(id, data) {
+        return this.put('/artists/' + id, data);
+    },
+
+    async uploadArtistAvatar(artistId, file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('artistId', artistId);
+        const response = await fetch('/api/admin/upload/avatar', {
+            method: 'POST',
+            headers: this.token ? { 'Authorization': 'Bearer ' + this.token } : {},
+            body: formData
+        });
+        if (!response.ok) throw new Error(await response.text());
+        return response.json();
+    },
+
     async getArtist(idOrSlug) {
         return this.get('/artists/' + idOrSlug);
     },
@@ -163,6 +184,10 @@ const API = {
 
     async getReleaseFolder(id) {
         return this.get('/admin/releases/' + id + '/folder');
+    },
+
+    async addTrackToRelease(releaseId, trackId) {
+        return this.post('/admin/releases/' + releaseId + '/tracks/add', { trackId });
     },
 
     // Upload

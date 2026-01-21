@@ -88,7 +88,13 @@ export function createScanner(database: DatabaseService): ScannerService {
             // Determine artist
             let artistId: number | null = null;
             if (config.artist) {
-                artistId = database.createArtist(config.artist);
+                // Check if artist already exists before creating
+                const existingArtist = database.getArtistByName(config.artist);
+                if (existingArtist) {
+                    artistId = existingArtist.id;
+                } else {
+                    artistId = database.createArtist(config.artist);
+                }
             } else {
                 // Look up parent folders for artist config
                 let current = dir;
@@ -119,12 +125,20 @@ export function createScanner(database: DatabaseService): ScannerService {
                 }
             }
 
-            // Check for existing album to avoid duplicates
-            const existingAlbum = database.getAlbumByTitle(config.title, artistId || undefined);
+            // Check for existing album by SLUG to avoid duplicates (race condition between watcher/scanner)
+            const slug = config.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            const existingAlbum = database.getAlbumBySlug(slug);
             let albumId: number;
 
             if (existingAlbum) {
                 albumId = existingAlbum.id;
+
+                // Update artist if we have one and existing doesn't
+                if (artistId && !existingAlbum.artist_id) {
+                    database.updateAlbumArtist(albumId, artistId);
+                    console.log(`  Updated album artist: ${config.title} -> ID ${artistId}`);
+                }
+
                 // Mark existing album as a release if it wasn't already
                 if (!existingAlbum.is_release) {
                     database.promoteToRelease(albumId);
@@ -133,7 +147,7 @@ export function createScanner(database: DatabaseService): ScannerService {
             } else {
                 albumId = database.createAlbum({
                     title: config.title,
-                    slug: config.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+                    slug: slug,
                     artist_id: artistId,
                     date: config.date || null,
                     cover_path: coverPath,

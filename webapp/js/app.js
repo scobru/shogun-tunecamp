@@ -83,6 +83,10 @@ const App = {
         const id = path.split('/')[2];
         await this.renderAlbum(main, id);
       } else if (path === '/tracks') {
+        if (!this.isAdmin) {
+          window.location.hash = '#/';
+          return;
+        }
         await this.renderTracks(main);
       } else if (path === '/artists') {
         await this.renderArtists(main);
@@ -172,6 +176,7 @@ const App = {
             ${album.date ? '<p style="color: var(--text-muted);">' + album.date + '</p>' : ''}
             ${album.genre ? '<p style="color: var(--text-muted);">' + album.genre + '</p>' : ''}
             ${album.description ? '<p style="color: var(--text-secondary); margin-top: 1rem; max-width: 500px;">' + album.description + '</p>' : ''}
+            ${this.isAdmin && !album.is_release ? '<button class="btn btn-primary" id="promote-btn" style="margin-top: 1rem;">Promote to Release</button>' : ''}
           </div>
         </div>
         <div class="track-list" id="track-list"></div>
@@ -179,6 +184,21 @@ const App = {
     `;
 
     this.renderTrackList(document.getElementById('track-list'), album.tracks);
+
+    // Promote handler
+    if (this.isAdmin && !album.is_release) {
+      document.getElementById('promote-btn').addEventListener('click', async () => {
+        if (confirm('Promote this album to a public release?')) {
+          try {
+            await API.promoteToRelease(album.id);
+            alert('Album promoted!');
+            window.location.reload();
+          } catch (e) {
+            alert('Failed to promote: ' + e.message);
+          }
+        }
+      });
+    }
   },
 
   async renderArtists(container) {
@@ -237,6 +257,12 @@ const App = {
           </div>
         </div>
         <div class="track-duration">${Player.formatTime(track.duration)}</div>
+        ${this.isAdmin && !track.album_id && track.file_path.includes('library') ?
+        `<button class="btn btn-sm btn-outline add-to-release-btn" title="Add to Release" 
+            style="margin-left: 1rem; padding: 2px 8px; font-size: 0.8rem;" 
+            onclick="event.stopPropagation(); App.showAddToReleaseModal(${track.id}, '${track.title.replace(/'/g, "\\'")}')">
+            + Release
+           </button>` : ''}
       </div>
     `).join('');
 
@@ -416,6 +442,7 @@ const App = {
           <h1 class="section-title">Admin Panel</h1>
           <div>
             <button class="btn btn-primary" id="new-release-btn">+ New Release</button>
+            <button class="btn btn-outline" id="new-artist-btn">+ New Artist</button>
             <button class="btn btn-outline" id="upload-btn">📤 Upload Tracks</button>
             <button class="btn btn-outline" id="rescan-btn">🔄 Rescan</button>
             <button class="btn btn-outline" id="logout-btn">Logout</button>
@@ -465,6 +492,12 @@ const App = {
                 <input type="text" id="release-title" required placeholder="Album title">
               </div>
               <div class="form-group">
+                <label>Artist *</label>
+                <select id="release-artist" required>
+                  <option value="">Select Artist...</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label>Release Date</label>
                 <input type="date" id="release-date" value="${new Date().toISOString().split('T')[0]}">
               </div>
@@ -496,6 +529,9 @@ const App = {
         
         <h2 class="section-title" style="font-size: 1.25rem; margin: 2rem 0 1rem;">Manage Releases</h2>
         <div id="releases-list"></div>
+        
+        <h2 class="section-title" style="font-size: 1.25rem; margin: 2rem 0 1rem;">Manage Artists</h2>
+        <div id="artists-list"></div>
       </section>
     `;
 
@@ -510,6 +546,7 @@ const App = {
           <div class="release-artist">${r.artist_name || 'Unknown Artist'}</div>
         </div>
         <div class="release-actions">
+          <button class="btn btn-sm btn-outline edit-release" data-id="${r.id}">✏️ Edit</button>
           <button class="btn btn-sm btn-outline upload-to-release" data-slug="${r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}">+ Add Tracks</button>
           <button class="btn btn-sm btn-outline btn-danger delete-release">🗑️</button>
         </div>
@@ -531,6 +568,40 @@ const App = {
       img.onload = () => { el.innerHTML = ''; el.style.backgroundImage = `url(${el.dataset.src})`; el.style.backgroundSize = 'cover'; };
       img.onerror = () => { /* keep placeholder */ };
       img.src = el.dataset.src;
+    });
+
+    // Render artists list
+    const artistsList = document.getElementById('artists-list');
+    const allArtists = await API.getArtists();
+    artistsList.innerHTML = allArtists.map(a => `
+      <div class="release-row" data-artist-id="${a.id}">
+        <div class="release-cover-small artist-cover-placeholder" data-src="${API.getArtistCoverUrl(a.id)}">
+          <div class="placeholder-icon" style="font-size: 1.5rem;">👤</div>
+        </div>
+        <div class="release-info">
+          <div class="release-title">${a.name}</div>
+          <div class="release-artist">${a.bio ? a.bio.substring(0, 50) + '...' : 'No bio'}</div>
+        </div>
+        <div class="release-actions">
+          <button class="btn btn-sm btn-outline edit-artist" data-id="${a.id}">✏️ Edit</button>
+        </div>
+      </div>
+    `).join('');
+
+    // Load artist images
+    artistsList.querySelectorAll('.artist-cover-placeholder').forEach(el => {
+      const img = new Image();
+      img.onload = () => { el.innerHTML = ''; el.style.backgroundImage = `url(${el.dataset.src})`; el.style.backgroundSize = 'cover'; };
+      img.onerror = () => { /* keep placeholder */ };
+      img.src = el.dataset.src;
+    });
+
+    // Edit artist handlers
+    artistsList.querySelectorAll('.edit-artist').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.target.dataset.id;
+        this.showEditArtistModal(id);
+      });
     });
 
     // Toggle visibility handlers
@@ -568,6 +639,14 @@ const App = {
       });
     });
 
+    // Edit release handlers
+    list.querySelectorAll('.edit-release').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.target.dataset.id;
+        this.showEditReleaseModal(id);
+      });
+    });
+
     // Add tracks to release handlers
     list.querySelectorAll('.upload-to-release').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -584,10 +663,18 @@ const App = {
     });
 
     // New release panel toggle
-    document.getElementById('new-release-btn').addEventListener('click', () => {
+    document.getElementById('new-release-btn').addEventListener('click', async () => {
       const panel = document.getElementById('release-panel');
       panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
       document.getElementById('upload-panel').style.display = 'none';
+
+      // Populate artists
+      try {
+        const artists = await API.getArtists();
+        const select = document.getElementById('release-artist');
+        select.innerHTML = '<option value="">Select Artist...</option>' +
+          artists.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
+      } catch (e) { console.error("Failed to load artists", e); }
     });
 
     document.getElementById('cancel-release').addEventListener('click', () => {
@@ -624,6 +711,11 @@ const App = {
       this.isAdmin = false;
       this.checkAuth();
       window.location.hash = '#/';
+    });
+
+    // New Artist button
+    document.getElementById('new-artist-btn').addEventListener('click', () => {
+      this.showCreateArtistModal();
     });
   },
 
@@ -695,6 +787,7 @@ const App = {
 
   async handleCreateRelease() {
     const title = document.getElementById('release-title').value;
+    const artistName = document.getElementById('release-artist').value;
     const date = document.getElementById('release-date').value;
     const description = document.getElementById('release-description').value;
     const genresRaw = document.getElementById('release-genres').value;
@@ -705,6 +798,7 @@ const App = {
     try {
       await API.createRelease({
         title,
+        artistName,
         date,
         description: description || undefined,
         genres: genres.length > 0 ? genres : undefined,
@@ -719,6 +813,314 @@ const App = {
   },
 
   // Helpers
+  async showAddToReleaseModal(trackId, trackTitle) {
+    const releases = await API.getAdminReleases();
+
+    // Create modal content
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.id = 'add-track-modal';
+
+    const options = releases.map(r => `<option value="${r.id}">${r.title}</option>`).join('');
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+          <h2 class="section-title">Add Track to Release</h2>
+          <p>Track: <strong>${trackTitle}</strong></p>
+          <div class="form-group">
+            <label>Select Target Release:</label>
+            <select id="target-release-select" style="width: 100%; padding: 0.5rem; margin: 1rem 0;">
+              ${options}
+            </select>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="confirm-add-track">Add to Release</button>
+            <button class="btn btn-outline" onclick="document.getElementById('add-track-modal').remove()">Cancel</button>
+          </div>
+        </div>
+      `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById('confirm-add-track').addEventListener('click', async () => {
+      const releaseId = document.getElementById('target-release-select').value;
+      try {
+        await API.addTrackToRelease(releaseId, trackId);
+        document.getElementById('add-track-modal').remove();
+        alert('Track added to release!');
+        // Ideally refresh UI or remove row, for now reload
+        window.location.reload();
+      } catch (e) {
+        alert('Failed to add track: ' + e.message);
+      }
+    });
+  },
+
+  async showEditReleaseModal(releaseId) {
+    // Fetch release details and artists
+    const [release, artists] = await Promise.all([
+      API.getAlbum(releaseId),
+      API.getArtists()
+    ]);
+
+    const artistOptions = artists.map(a =>
+      `<option value="${a.name}" ${a.name === release.artist_name ? 'selected' : ''}>${a.name}</option>`
+    ).join('');
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.id = 'edit-release-modal';
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px;">
+          <h2 class="section-title">Edit Release: ${release.title}</h2>
+          <form id="edit-release-form">
+            <div class="form-group">
+              <label>Title</label>
+              <input type="text" id="edit-release-title" value="${release.title}" required>
+            </div>
+            <div class="form-group">
+              <label>Artist</label>
+              <select id="edit-release-artist">
+                <option value="">Select Artist...</option>
+                ${artistOptions}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="edit-release-date" value="${release.date || ''}">
+            </div>
+            <div class="form-group">
+              <label>Description</label>
+              <textarea id="edit-release-description" rows="3">${release.description || ''}</textarea>
+            </div>
+            <div class="form-group">
+              <label>Genres (comma separated)</label>
+              <input type="text" id="edit-release-genres" value="${release.genre || ''}">
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+              <button type="button" class="btn btn-outline" id="cancel-edit-release">Cancel</button>
+            </div>
+          </form>
+        </div>
+      `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById('cancel-edit-release').addEventListener('click', () => {
+      document.getElementById('edit-release-modal').remove();
+    });
+
+    document.getElementById('edit-release-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('edit-release-title').value;
+      const artistName = document.getElementById('edit-release-artist').value;
+      const date = document.getElementById('edit-release-date').value;
+      const description = document.getElementById('edit-release-description').value;
+      const genresRaw = document.getElementById('edit-release-genres').value;
+      const genres = genresRaw ? genresRaw.split(',').map(g => g.trim()).filter(g => g) : [];
+
+      try {
+        await API.updateRelease(releaseId, {
+          title,
+          artistName: artistName || undefined,
+          date: date || undefined,
+          description: description || undefined,
+          genres: genres.length > 0 ? genres : undefined
+        });
+        document.getElementById('edit-release-modal').remove();
+        alert('Release updated!');
+        window.location.reload();
+      } catch (err) {
+        alert('Failed to update release: ' + err.message);
+      }
+    });
+  },
+
+  async showEditArtistModal(artistId) {
+    const artist = await API.getArtist(artistId);
+
+    // Parse links to display format
+    let linksText = '';
+    if (artist.links && Array.isArray(artist.links)) {
+      for (const linkObj of artist.links) {
+        for (const [key, url] of Object.entries(linkObj)) {
+          linksText += `${key}: ${url}\n`;
+        }
+      }
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.id = 'edit-artist-modal';
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px;">
+          <h2 class="section-title">Edit Artist: ${artist.name}</h2>
+          <form id="edit-artist-form">
+            <div class="form-group">
+              <label>Avatar</label>
+              <div style="display: flex; align-items: center; gap: 1rem;">
+                <div class="artist-avatar-preview" style="width: 80px; height: 80px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; font-size: 2rem; background-size: cover; background-position: center;" id="avatar-preview">
+                  ${artist.photo_path ? '' : '👤'}
+                </div>
+                <input type="file" id="edit-artist-avatar" accept="image/*" style="flex: 1;">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Bio</label>
+              <textarea id="edit-artist-bio" rows="3">${artist.bio || ''}</textarea>
+            </div>
+            <div class="form-group">
+              <label>Links (one per line, format: platform: url)</label>
+              <textarea id="edit-artist-links" rows="4">${linksText.trim()}</textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+              <button type="button" class="btn btn-outline" id="cancel-edit-artist">Cancel</button>
+            </div>
+          </form>
+        </div>
+      `;
+
+    document.body.appendChild(modal);
+
+    // Set avatar preview if exists
+    if (artist.photo_path) {
+      document.getElementById('avatar-preview').style.backgroundImage = `url(${API.getArtistCoverUrl(artist.id)})`;
+    }
+
+    // Avatar file preview
+    document.getElementById('edit-artist-avatar').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          document.getElementById('avatar-preview').style.backgroundImage = `url(${ev.target.result})`;
+          document.getElementById('avatar-preview').innerHTML = '';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    document.getElementById('cancel-edit-artist').addEventListener('click', () => {
+      document.getElementById('edit-artist-modal').remove();
+    });
+
+    document.getElementById('edit-artist-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const bio = document.getElementById('edit-artist-bio').value;
+      const linksRaw = document.getElementById('edit-artist-links').value;
+      const avatarFile = document.getElementById('edit-artist-avatar').files[0];
+
+      // Parse links
+      let links = [];
+      if (linksRaw.trim()) {
+        const lines = linksRaw.split('\n').filter(l => l.trim());
+        for (const line of lines) {
+          const match = line.match(/^([\w]+):\s*(.+)$/);
+          if (match) {
+            links.push({ [match[1].toLowerCase()]: match[2].trim() });
+          }
+        }
+      }
+
+      try {
+        // Update artist info
+        await API.updateArtist(artistId, {
+          bio: bio || undefined,
+          links: links.length > 0 ? links : undefined
+        });
+
+        // Upload avatar if provided
+        if (avatarFile) {
+          await API.uploadArtistAvatar(artistId, avatarFile);
+        }
+
+        document.getElementById('edit-artist-modal').remove();
+        alert('Artist updated!');
+        window.location.reload();
+      } catch (err) {
+        alert('Failed to update artist: ' + err.message);
+      }
+    });
+  },
+
+  showCreateArtistModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.id = 'create-artist-modal';
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px;">
+          <h2 class="section-title">Create New Artist</h2>
+          <form id="create-artist-form">
+            <div class="form-group">
+              <label>Name *</label>
+              <input type="text" id="new-artist-name" required placeholder="Artist name">
+            </div>
+            <div class="form-group">
+              <label>Bio</label>
+              <textarea id="new-artist-bio" rows="3" placeholder="Short biography..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Links (one per line, format: platform: url)</label>
+              <textarea id="new-artist-links" rows="4" placeholder="website: https://example.com
+instagram: https://instagram.com/artist
+bandcamp: https://artist.bandcamp.com"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Create Artist</button>
+              <button type="button" class="btn btn-outline" id="cancel-create-artist">Cancel</button>
+            </div>
+          </form>
+        </div>
+      `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById('cancel-create-artist').addEventListener('click', () => {
+      document.getElementById('create-artist-modal').remove();
+    });
+
+    document.getElementById('create-artist-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('new-artist-name').value;
+      const bio = document.getElementById('new-artist-bio').value;
+      const linksRaw = document.getElementById('new-artist-links').value;
+
+      // Parse links from text format
+      let links = [];
+      if (linksRaw.trim()) {
+        const lines = linksRaw.split('\n').filter(l => l.trim());
+        for (const line of lines) {
+          const match = line.match(/^([\w]+):\s*(.+)$/);
+          if (match) {
+            links.push({ [match[1].toLowerCase()]: match[2].trim() });
+          }
+        }
+      }
+
+      try {
+        await API.createArtist({
+          name,
+          bio: bio || undefined,
+          links: links.length > 0 ? links : undefined
+        });
+        document.getElementById('create-artist-modal').remove();
+        alert('Artist created!');
+        window.location.reload();
+      } catch (err) {
+        alert('Failed to create artist: ' + err.message);
+      }
+    });
+  },
+
   renderAlbumGrid(container, albums) {
     if (!albums || albums.length === 0) {
       container.innerHTML = '<p style="color: var(--text-secondary);">No albums found</p>';

@@ -70,6 +70,7 @@ export interface DatabaseService {
     getAlbumsByArtist(artistId: number, publicOnly?: boolean): Album[];
     createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number;
     updateAlbumVisibility(id: number, isPublic: boolean): void;
+    updateAlbumArtist(id: number, artistId: number): void;
     promoteToRelease(id: number): void; // Mark library album as release
     deleteAlbum(id: number): void;
     // Tracks
@@ -79,6 +80,7 @@ export interface DatabaseService {
     createTrack(track: Omit<Track, "id" | "created_at" | "album_title" | "artist_name">): number;
     updateTrackAlbum(id: number, albumId: number | null): void;
     updateTrackArtist(id: number, artistId: number | null): void;
+    updateTrackPath(id: number, filePath: string, albumId: number): void;
     deleteTrack(id: number): void;
     // Playlists
     getPlaylists(): Playlist[];
@@ -342,6 +344,10 @@ export function createDatabase(dbPath: string): DatabaseService {
             ).run(isPublic ? 1 : 0, publishedAt, id);
         },
 
+        updateAlbumArtist(id: number, artistId: number): void {
+            db.prepare("UPDATE albums SET artist_id = ? WHERE id = ?").run(artistId, id);
+        },
+
         promoteToRelease(id: number): void {
             db.prepare("UPDATE albums SET is_release = 1 WHERE id = ?").run(id);
         },
@@ -421,6 +427,10 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updateTrackArtist(id: number, artistId: number | null): void {
             db.prepare("UPDATE tracks SET artist_id = ? WHERE id = ?").run(artistId, id);
+        },
+
+        updateTrackPath(id: number, filePath: string, albumId: number): void {
+            db.prepare("UPDATE tracks SET file_path = ?, album_id = ? WHERE id = ?").run(filePath, albumId, id);
         },
 
         deleteTrack(id: number): void {

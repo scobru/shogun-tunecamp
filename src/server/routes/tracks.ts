@@ -9,26 +9,17 @@ export function createTracksRoutes(database: DatabaseService) {
 
     /**
      * GET /api/tracks
-     * List all tracks (from public albums only for non-admin)
+     * List all tracks (ADMIN ONLY)
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
-            // For non-admin, we need to filter by public albums
-            const allTracks = database.getTracks();
-
-            if (req.isAdmin) {
-                return res.json(allTracks);
+            // Tracks list is admin only
+            if (!req.isAdmin) {
+                return res.status(401).json({ error: "Unauthorized" });
             }
 
-            // Filter to only tracks from public albums (tracks without albums are private)
-            const publicAlbums = new Set(
-                database.getAlbums(true).map((a) => a.id)
-            );
-            const publicTracks = allTracks.filter(
-                (t) => t.album_id !== null && publicAlbums.has(t.album_id)
-            );
-
-            res.json(publicTracks);
+            const allTracks = database.getTracks();
+            res.json(allTracks);
         } catch (error) {
             console.error("Error getting tracks:", error);
             res.status(500).json({ error: "Failed to get tracks" });

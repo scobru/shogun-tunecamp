@@ -13,9 +13,9 @@ export function createAlbumsRoutes(database: DatabaseService) {
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
-            // For admin: show all library albums
-            // For non-admin: this endpoint could be restricted or show public library albums
-            const albums = req.isAdmin ? database.getLibraryAlbums() : database.getLibraryAlbums();
+            // Show all albums (releases + library)
+            // Filter by visibility for non-admins
+            const albums = database.getAlbums(!req.isAdmin);
             res.json(albums);
         } catch (error) {
             console.error("Error getting albums:", error);
@@ -47,7 +47,7 @@ export function createAlbumsRoutes(database: DatabaseService) {
             return res.status(401).json({ error: "Unauthorized" });
         }
         try {
-            const id = parseInt(req.params.id, 10);
+            const id = parseInt(req.params.id as string, 10);
             const album = database.getAlbum(id);
             if (!album) {
                 return res.status(404).json({ error: "Album not found" });
