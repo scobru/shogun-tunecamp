@@ -75,6 +75,11 @@
     <aside class="sidebar">
       {{#if artist}}
       <div class="sidebar-section artist-card">
+        {{#if artist.photoUrl}}
+        <div class="artist-avatar">
+          <img src="{{artist.photoUrl}}" alt="{{artist.name}}" class="artist-photo">
+        </div>
+        {{/if}}
         <h2 class="sidebar-title">{{artist.name}}</h2>
         {{#if artist.bio}}
         <p class="sidebar-bio">{{artist.bio}}</p>

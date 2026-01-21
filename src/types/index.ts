@@ -34,6 +34,7 @@ export interface ArtistConfig {
   name: string;
   bio?: string;
   photo?: string;
+  avatar?: string; // Alias for photo - used in some configurations
   links?: ArtistLink[];
   donationLinks?: DonationLink[];
   slug?: string; // For label mode: artist page URL slug

@@ -7,6 +7,8 @@ export interface ServerConfig {
     dbPath: string;
     jwtSecret: string;
     corsOrigins: string[];
+    publicUrl?: string;  // Public URL for GunDB registration (e.g., https://mysite.com)
+    siteName?: string;   // Site name for community registry
 }
 
 /**
@@ -28,6 +30,8 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
         dbPath: process.env.TUNECAMP_DB_PATH || defaultDbPath,
         jwtSecret,
         corsOrigins: process.env.TUNECAMP_CORS_ORIGINS?.split(",") || ["*"],
+        publicUrl: process.env.TUNECAMP_PUBLIC_URL || overrides?.publicUrl,
+        siteName: process.env.TUNECAMP_SITE_NAME || overrides?.siteName,
         ...overrides,
     };
 }

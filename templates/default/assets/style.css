@@ -282,6 +282,26 @@ a:hover {
   text-align: center;
 }
 
+/* Artist Avatar/Photo */
+.artist-avatar {
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.artist-photo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--border-color);
+  transition: transform 0.3s, border-color 0.3s;
+}
+
+.artist-photo:hover {
+  transform: scale(1.05);
+  border-color: var(--accent);
+}
+
 /* Genre Tags */
 .genre-tags {
   display: flex;

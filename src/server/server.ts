@@ -13,7 +13,11 @@ import { createAlbumsRoutes } from "./routes/albums.js";
 import { createTracksRoutes } from "./routes/tracks.js";
 import { createArtistsRoutes } from "./routes/artists.js";
 import { createPlaylistsRoutes } from "./routes/playlists.js";
+import { createUploadRoutes } from "./routes/upload.js";
+import { createReleaseRoutes } from "./routes/releases.js";
+import { createStatsRoutes } from "./routes/stats.js";
 import { createScanner } from "./scanner.js";
+import { createGunDBService } from "./gundb.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,14 +45,21 @@ export async function startServer(config: ServerConfig): Promise<void> {
     await scanner.scanDirectory(config.musicDir);
     scanner.startWatching(config.musicDir);
 
+    // Initialize GunDB service
+    const gundbService = createGunDBService(database);
+    await gundbService.init();
+
     // API Routes
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService));
-    app.use("/api/admin", authMiddleware.requireAdmin, createAdminRoutes(database, scanner, config.musicDir));
+    app.use("/api/admin", authMiddleware.requireAdmin, createAdminRoutes(database, scanner, config.musicDir, gundbService, config));
     app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(database));
     app.use("/api/artists", authMiddleware.optionalAuth, createArtistsRoutes(database));
     app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database));
     app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database));
     app.use("/api/playlists", authMiddleware.requireAdmin, createPlaylistsRoutes(database));
+    app.use("/api/admin/upload", authMiddleware.requireAdmin, createUploadRoutes(database, scanner, config.musicDir));
+    app.use("/api/admin/releases", authMiddleware.requireAdmin, createReleaseRoutes(database, scanner, config.musicDir));
+    app.use("/api/stats", createStatsRoutes(gundbService));
 
     // Serve static webapp
     const webappPath = path.join(__dirname, "..", "..", "webapp");
@@ -63,7 +74,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 
     // Start server
-    app.listen(config.port, () => {
+    app.listen(config.port, async () => {
         console.log("");
         console.log(`🎶 TuneCamp Server running at http://localhost:${config.port}`);
         console.log("");
@@ -71,6 +82,27 @@ export async function startServer(config: ServerConfig): Promise<void> {
             console.log("⚠️  First run detected! Visit the server to set up admin password.");
         }
         console.log(`📊 Stats: ${database.getStats().tracks} tracks in library`);
+
+        // Register server on GunDB community if publicUrl is set
+        if (config.publicUrl) {
+            const artists = database.getArtists();
+            const artistName = artists.length > 0 ? artists[0].name : "";
+
+            const siteInfo = {
+                url: config.publicUrl,
+                title: config.siteName || "TuneCamp Server",
+                description: `Music server with ${database.getStats().tracks} tracks`,
+                artistName,
+            };
+
+            const registered = await gundbService.registerSite(siteInfo);
+            if (registered) {
+                console.log(`🌐 Registered on GunDB community: ${config.publicUrl}`);
+            }
+        } else {
+            console.log("💡 Set TUNECAMP_PUBLIC_URL to register on community");
+        }
+
         console.log("");
     });
 

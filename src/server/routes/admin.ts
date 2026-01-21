@@ -1,11 +1,15 @@
 import { Router } from "express";
 import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
+import type { GunDBService } from "../gundb.js";
+import type { ServerConfig } from "../config.js";
 
 export function createAdminRoutes(
     database: DatabaseService,
     scanner: ScannerService,
-    musicDir: string
+    musicDir: string,
+    gundbService: GunDBService,
+    config: ServerConfig
 ) {
     const router = Router();
 
@@ -27,7 +31,7 @@ export function createAdminRoutes(
      * PUT /api/admin/releases/:id/visibility
      * Toggle album visibility
      */
-    router.put("/releases/:id/visibility", (req, res) => {
+    router.put("/releases/:id/visibility", async (req, res) => {
         try {
             const id = parseInt(req.params.id, 10);
             const { isPublic } = req.body;
@@ -42,6 +46,25 @@ export function createAdminRoutes(
             }
 
             database.updateAlbumVisibility(id, isPublic);
+
+            // Register/unregister tracks on GunDB based on visibility
+            if (config.publicUrl) {
+                const siteInfo = {
+                    url: config.publicUrl,
+                    title: config.siteName || "TuneCamp Server",
+                    artistName: album.artist_name || "",
+                };
+
+                if (isPublic) {
+                    // Register tracks to community
+                    const tracks = database.getTracks(id);
+                    await gundbService.registerTracks(siteInfo, album, tracks);
+                } else {
+                    // Unregister tracks from community
+                    await gundbService.unregisterTracks(siteInfo, album);
+                }
+            }
+
             res.json({ message: "Visibility updated", isPublic });
         } catch (error) {
             console.error("Error updating visibility:", error);

@@ -10,7 +10,9 @@ const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opu
 interface ArtistConfig {
     name: string;
     bio?: string;
-    image?: string;
+    image?: string;  // Legacy field
+    avatar?: string; // New avatar field
+    links?: any[];   // Array of link objects
 }
 
 interface ReleaseConfig {
@@ -45,12 +47,18 @@ export function createScanner(database: DatabaseService): ScannerService {
                 if (config.name) {
                     const existingArtist = database.getArtistByName(config.name);
                     let artistId: number;
+                    // Use avatar field, fallback to image for legacy support
+                    const avatarPath = config.avatar
+                        ? path.resolve(rootDir, config.avatar)
+                        : (config.image ? path.resolve(rootDir, config.image) : undefined);
 
                     if (existingArtist) {
                         artistId = existingArtist.id;
+                        // Update artist with bio/photo/links if they're in the config
+                        database.updateArtist(artistId, config.bio, avatarPath, config.links);
                         console.log(`  Found existing artist: ${config.name}`);
                     } else {
-                        artistId = database.createArtist(config.name, config.bio, config.image ? path.resolve(rootDir, config.image) : undefined);
+                        artistId = database.createArtist(config.name, config.bio, avatarPath, config.links);
                         console.log(`  Created artist from config: ${config.name}`);
                     }
                     folderToArtistMap.set(rootDir, artistId);
@@ -117,19 +125,25 @@ export function createScanner(database: DatabaseService): ScannerService {
 
             if (existingAlbum) {
                 albumId = existingAlbum.id;
+                // Mark existing album as a release if it wasn't already
+                if (!existingAlbum.is_release) {
+                    database.promoteToRelease(albumId);
+                }
                 console.log(`  Found existing album: ${config.title}`);
             } else {
                 albumId = database.createAlbum({
                     title: config.title,
+                    slug: config.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
                     artist_id: artistId,
                     date: config.date || null,
                     cover_path: coverPath,
                     genre: config.genres?.join(", ") || null,
                     description: config.description || null,
                     is_public: false, // Default to private
+                    is_release: true, // Albums from release.yaml are releases
                     published_at: null,
                 });
-                console.log(`  Created album from config: ${config.title}`);
+                console.log(`  Created release from config: ${config.title}`);
             }
 
             // Map this folder and its subfolders (like 'tracks', 'audio') to this album
@@ -187,22 +201,52 @@ export function createScanner(database: DatabaseService): ScannerService {
             // 1. Try to get Album ID from folder map (from release.yaml)
             let albumId = folderToAlbumMap.get(dir) || folderToAlbumMap.get(path.dirname(dir)) || null;
 
-            // Look up parent folders for artist config (similar to how release config does it)
+            // Check if this is a "library" track (in library folder, not a release)
+            const isLibraryTrack = dir.includes(path.sep + "library") || dir.endsWith("library");
+
+            // 2. Determine artist based on track type
             let artistId: number | null = null;
-            let current = dir;
-            while (current.length >= path.dirname(current).length) {
-                if (folderToArtistMap.has(current)) {
-                    artistId = folderToArtistMap.get(current)!;
-                    break;
+
+            if (isLibraryTrack) {
+                // LIBRARY MODE: ONLY use ID3 metadata, no fallback to artist.yaml
+                if (common.artist) {
+                    const existingArtist = database.getArtistByName(common.artist);
+                    artistId = existingArtist ? existingArtist.id : database.createArtist(common.artist);
+                    console.log(`    [Library] Using metadata artist: ${common.artist}`);
+                } else {
+                    // No metadata artist - leave as "Unknown Artist" (no artistId)
+                    console.log(`    [Library] No metadata artist found`);
                 }
-                const parent = path.dirname(current);
-                if (parent === current) break;
-                current = parent;
+            } else if (albumId) {
+                // RELEASE MODE with album: use album's artist
+                const album = database.getAlbum(albumId);
+                if (album && album.artist_id) {
+                    artistId = album.artist_id;
+                }
+            } else {
+                // LOOSE TRACK (not in library, not in release): check metadata first, then folder
+                if (common.artist) {
+                    const existingArtist = database.getArtistByName(common.artist);
+                    artistId = existingArtist ? existingArtist.id : database.createArtist(common.artist);
+                    console.log(`    Using metadata artist: ${common.artist}`);
+                } else {
+                    // Fallback to parent folder artist config
+                    let current = dir;
+                    while (current.length >= path.dirname(current).length) {
+                        if (folderToArtistMap.has(current)) {
+                            artistId = folderToArtistMap.get(current)!;
+                            break;
+                        }
+                        const parent = path.dirname(current);
+                        if (parent === current) break;
+                        current = parent;
+                    }
+                }
             }
 
-            // 2. Fallback to metadata if no release.yaml found
+            // 3. Fallback to metadata album if no release.yaml found
             if (!albumId && common.album) {
-                // Try to find artist ID from metadata
+                // Try to find artist ID from metadata if still not set
                 if (!artistId && common.artist) {
                     const existingArtist = database.getArtistByName(common.artist);
                     artistId = existingArtist ? existingArtist.id : database.createArtist(common.artist);
@@ -219,6 +263,7 @@ export function createScanner(database: DatabaseService): ScannerService {
 
                     albumId = database.createAlbum({
                         title: common.album,
+                        slug: common.album.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
                         artist_id: artistId,
                         date: common.year?.toString() || null,
                         cover_path: null, // Basic fallback

@@ -139,6 +139,13 @@ export class SiteGenerator {
       }
     }
 
+    // Prepare artist data with photo URL
+    const artistImage = this.catalog.artist?.photo || this.catalog.artist?.avatar;
+    const artistData = this.catalog.artist ? {
+      ...this.catalog.artist,
+      photoUrl: artistImage ? path.basename(artistImage) : null,
+    } : undefined;
+
     const data = {
       basePath,
       catalog: {
@@ -147,18 +154,18 @@ export class SiteGenerator {
           ? path.basename(this.catalog.config.headerImage)
           : null,
         backgroundImageUrl: (() => {
-            const bgImage = this.catalog.config.backgroundImage || this.catalog.config.backgroundImageUrl;
-            if (!bgImage) return null;
-            if (bgImage.startsWith('http://') || bgImage.startsWith('https://')) {
-              return bgImage;
-            }
-            return path.basename(bgImage);
-          })(),
+          const bgImage = this.catalog.config.backgroundImage || this.catalog.config.backgroundImageUrl;
+          if (!bgImage) return null;
+          if (bgImage.startsWith('http://') || bgImage.startsWith('https://')) {
+            return bgImage;
+          }
+          return path.basename(bgImage);
+        })(),
         customFontUrl,
         customFontFamily,
         customCSSUrl,
       },
-      artist: this.catalog.artist,
+      artist: artistData,
       releases: this.catalog.releases
         .filter((release) => !release.config.unlisted) // Filter out unlisted releases
         .map((release) => ({
@@ -218,7 +225,7 @@ export class SiteGenerator {
     }
 
     const siteUrl = this.catalog.config.url || "";
-    const releaseUrl = siteUrl 
+    const releaseUrl = siteUrl
       ? `${siteUrl}${basePath ? basePath : ''}releases/${release.slug}/index.html`
       : `../../index.html`;
 
@@ -230,13 +237,13 @@ export class SiteGenerator {
           ? `../../${path.basename(this.catalog.config.headerImage)}`
           : null,
         backgroundImageUrl: (() => {
-            const bgImage = this.catalog.config.backgroundImage || this.catalog.config.backgroundImageUrl;
-            if (!bgImage) return null;
-            if (bgImage.startsWith('http://') || bgImage.startsWith('https://')) {
-              return bgImage;
-            }
-            return `../../${path.basename(bgImage)}`;
-          })(),
+          const bgImage = this.catalog.config.backgroundImage || this.catalog.config.backgroundImageUrl;
+          if (!bgImage) return null;
+          if (bgImage.startsWith('http://') || bgImage.startsWith('https://')) {
+            return bgImage;
+          }
+          return `../../${path.basename(bgImage)}`;
+        })(),
         customFontUrl,
         customFontFamily,
         customCSSUrl,
@@ -339,12 +346,17 @@ export class SiteGenerator {
       }
     }
 
-    // Copy artist photo if exists
-    if (this.catalog.artist?.photo) {
-      const artistPhotoSrc = path.join(this.options.inputDir, this.catalog.artist.photo);
-      const artistPhotoDest = path.join(this.options.outputDir, path.basename(this.catalog.artist.photo));
-      await copyFile(artistPhotoSrc, artistPhotoDest);
-      console.log(`  📸 Copied artist photo: ${this.catalog.artist.photo}`);
+    // Copy artist photo/avatar if exists (support both field names)
+    const artistImage = this.catalog.artist?.photo || this.catalog.artist?.avatar;
+    if (artistImage) {
+      const artistPhotoSrc = path.join(this.options.inputDir, artistImage);
+      if (await fs.pathExists(artistPhotoSrc)) {
+        const artistPhotoDest = path.join(this.options.outputDir, path.basename(artistImage));
+        await copyFile(artistPhotoSrc, artistPhotoDest);
+        console.log(`  📸 Copied artist photo: ${artistImage}`);
+      } else {
+        console.warn(`  ⚠️  Artist photo not found: ${artistPhotoSrc}`);
+      }
     }
 
     for (const release of this.catalog.releases) {

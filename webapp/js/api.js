@@ -105,8 +105,12 @@ const API = {
         return this.get('/artists');
     },
 
-    async getArtist(id) {
-        return this.get('/artists/' + id);
+    async getArtist(idOrSlug) {
+        return this.get('/artists/' + idOrSlug);
+    },
+
+    getArtistCoverUrl(idOrSlug) {
+        return '/api/artists/' + idOrSlug + '/cover';
     },
 
     // Tracks
@@ -133,5 +137,63 @@ const API = {
 
     async getAdminStats() {
         return this.get('/admin/stats');
+    },
+
+    // Release Management
+    async createRelease(data) {
+        return this.post('/admin/releases', data);
+    },
+
+    async updateRelease(id, data) {
+        return this.put('/admin/releases/' + id, data);
+    },
+
+    async deleteRelease(id) {
+        return this.delete('/admin/releases/' + id);
+    },
+
+    async getReleaseFolder(id) {
+        return this.get('/admin/releases/' + id + '/folder');
+    },
+
+    // Upload
+    async uploadTracks(files, options = {}) {
+        const formData = new FormData();
+        for (const file of files) {
+            formData.append('files', file);
+        }
+        if (options.releaseSlug) {
+            formData.append('releaseSlug', options.releaseSlug);
+            formData.append('type', 'release');
+        }
+
+        const res = await fetch('/api/admin/upload/tracks', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + this.token
+            },
+            body: formData
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+    },
+
+    async uploadCover(file, releaseSlug) {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (releaseSlug) {
+            formData.append('releaseSlug', releaseSlug);
+            formData.append('type', 'release');
+        }
+
+        const res = await fetch('/api/admin/upload/cover', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + this.token
+            },
+            body: formData
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
     }
 };

@@ -76,13 +76,8 @@ export function createTracksRoutes(database: DatabaseService) {
                 return res.status(404).json({ error: "Track not found" });
             }
 
-            // Check album visibility for non-admin
-            if (!req.isAdmin && track.album_id) {
-                const album = database.getAlbum(track.album_id);
-                if (album && !album.is_public) {
-                    return res.status(404).json({ error: "Track not found" });
-                }
-            }
+            // Note: Track streaming is allowed regardless of album visibility
+            // This allows users to play tracks they have direct links to
 
             if (!fs.existsSync(track.file_path)) {
                 return res.status(404).json({ error: "Audio file not found" });

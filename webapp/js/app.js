@@ -153,19 +153,25 @@ const App = {
     this.renderAlbumGrid(document.getElementById('albums-grid'), albums);
   },
 
-  async renderAlbum(container, id) {
-    const album = await API.getAlbum(id);
+  async renderAlbum(container, idOrSlug) {
+    const album = await API.getAlbum(idOrSlug);
+
+    // Build artist link
+    const artistLink = album.artist_slug
+      ? `<a href="#/artist/${album.artist_slug}" style="color: var(--text-secondary); text-decoration: none;">${album.artist_name || 'Unknown Artist'}</a>`
+      : `<span style="color: var(--text-secondary);">${album.artist_name || 'Unknown Artist'}</span>`;
 
     container.innerHTML = `
       <div class="album-detail">
         <div class="album-header" style="display: flex; gap: 2rem; margin-bottom: 2rem;">
-          <img src="${API.getAlbumCoverUrl(id)}" alt="${album.title}" 
+          <img src="${API.getAlbumCoverUrl(album.slug || album.id)}" alt="${album.title}" 
                style="width: 250px; height: 250px; border-radius: 12px; object-fit: cover;">
           <div>
             <h1>${album.title}</h1>
-            <p style="color: var(--text-secondary); margin-bottom: 1rem;">${album.artist_name || 'Unknown Artist'}</p>
+            <p style="margin-bottom: 1rem;">${artistLink}</p>
             ${album.date ? '<p style="color: var(--text-muted);">' + album.date + '</p>' : ''}
             ${album.genre ? '<p style="color: var(--text-muted);">' + album.genre + '</p>' : ''}
+            ${album.description ? '<p style="color: var(--text-secondary); margin-top: 1rem; max-width: 500px;">' + album.description + '</p>' : ''}
           </div>
         </div>
         <div class="track-list" id="track-list"></div>
@@ -187,15 +193,22 @@ const App = {
 
     const grid = document.getElementById('artists-grid');
     grid.innerHTML = artists.map(artist => `
-      <a href="#/artist/${artist.id}" class="card">
-        <div class="card-cover" style="display: flex; align-items: center; justify-content: center; font-size: 3rem; background: var(--bg-tertiary);">
-          👤
+      <a href="#/artist/${artist.slug || artist.id}" class="card">
+        <div class="card-cover artist-cover-placeholder" data-src="${API.getArtistCoverUrl(artist.slug || artist.id)}">
+          <div class="placeholder-icon">👤</div>
         </div>
         <div class="card-body">
           <div class="card-title">${artist.name}</div>
         </div>
       </a>
     `).join('');
+    // Load artist images with fallback
+    grid.querySelectorAll('.artist-cover-placeholder').forEach(el => {
+      const img = new Image();
+      img.onload = () => { el.innerHTML = ''; el.style.backgroundImage = `url(${el.dataset.src})`; el.style.backgroundSize = 'cover'; };
+      img.onerror = () => { /* keep placeholder */ };
+      img.src = el.dataset.src;
+    });
   },
 
   async renderTracks(container) {
@@ -236,16 +249,63 @@ const App = {
     const hasAlbums = artist.albums && artist.albums.length > 0;
     const hasTracks = artist.tracks && artist.tracks.length > 0;
 
+    // Build links HTML
+    let linksHtml = '';
+    if (artist.links && Array.isArray(artist.links)) {
+      const linkIcons = {
+        website: '🌐',
+        bandcamp: '🎵',
+        spotify: '🎧',
+        instagram: '📷',
+        twitter: '🐦',
+        youtube: '▶️',
+        soundcloud: '☁️',
+        facebook: '📘',
+      };
+
+      linksHtml = '<div class="artist-links" style="display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">';
+      for (const linkObj of artist.links) {
+        for (const [key, url] of Object.entries(linkObj)) {
+          const icon = linkIcons[key] || '🔗';
+          const name = key.charAt(0).toUpperCase() + key.slice(1);
+          linksHtml += `<a href="${url}" target="_blank" class="btn btn-outline" style="gap: 0.5rem;"><span>${icon}</span> ${name}</a>`;
+        }
+      }
+      linksHtml += '</div>';
+    }
+
     container.innerHTML = `
       <section class="section">
-        <h1 class="section-title">${artist.name}</h1>
-        ${artist.bio ? '<p style="color: var(--text-secondary); margin-bottom: 2rem;">' + artist.bio + '</p>' : ''}
+        <div class="artist-header" style="display: flex; gap: 2rem; margin-bottom: 2rem; align-items: flex-start;">
+          <div class="artist-cover-placeholder artist-header-cover" data-src="${API.getArtistCoverUrl(artist.slug || artist.id)}">
+            <div class="placeholder-icon">👤</div>
+          </div>
+          <div style="flex: 1;">
+            <h1 class="section-title" style="margin-bottom: 0.5rem;">${artist.name}</h1>
+            ${artist.bio ? '<p style="color: var(--text-secondary); margin-bottom: 1rem; max-width: 600px;">' + artist.bio + '</p>' : ''}
+            ${linksHtml}
+          </div>
+        </div>
         ${hasAlbums ? '<h2 class="section-title" style="font-size: 1.25rem; margin-bottom: 1rem;">Albums</h2>' : ''}
         <div class="grid" id="artist-albums"></div>
         ${hasTracks ? '<h2 class="section-title" style="font-size: 1.25rem; margin: 2rem 0 1rem;">Tracks</h2>' : ''}
         <div class="track-list" id="artist-tracks"></div>
       </section>
     `;
+
+    // Load artist header image with fallback
+    const artistHeaderCover = container.querySelector('.artist-header-cover');
+    if (artistHeaderCover) {
+      const img = new Image();
+      img.onload = () => {
+        artistHeaderCover.innerHTML = '';
+        artistHeaderCover.style.backgroundImage = `url(${artistHeaderCover.dataset.src})`;
+        artistHeaderCover.style.backgroundSize = 'cover';
+        artistHeaderCover.style.backgroundPosition = 'center';
+      };
+      img.onerror = () => { /* keep placeholder */ };
+      img.src = artistHeaderCover.dataset.src;
+    }
 
     if (hasAlbums) {
       this.renderAlbumGrid(document.getElementById('artist-albums'), artist.albums);
@@ -355,7 +415,9 @@ const App = {
         <div class="admin-header">
           <h1 class="section-title">Admin Panel</h1>
           <div>
-            <button class="btn btn-outline" id="rescan-btn">🔄 Rescan Library</button>
+            <button class="btn btn-primary" id="new-release-btn">+ New Release</button>
+            <button class="btn btn-outline" id="upload-btn">📤 Upload Tracks</button>
+            <button class="btn btn-outline" id="rescan-btn">🔄 Rescan</button>
             <button class="btn btn-outline" id="logout-btn">Logout</button>
           </div>
         </div>
@@ -375,22 +437,81 @@ const App = {
           </div>
           <div class="stat-card">
             <div class="stat-value">${stats.publicAlbums}</div>
-            <div class="stat-label">Public Releases</div>
+            <div class="stat-label">Public</div>
           </div>
         </div>
         
-        <h2 class="section-title" style="font-size: 1.25rem; margin-bottom: 1rem;">Manage Releases</h2>
+        <!-- Upload Panel (hidden by default) -->
+        <div id="upload-panel" class="admin-panel" style="display: none;">
+          <h3>Upload Tracks to Library</h3>
+          <div class="upload-zone" id="upload-zone">
+            <input type="file" id="file-input" multiple accept="audio/*" style="display: none;">
+            <p>📁 Drag & drop audio files here or <button class="btn btn-outline btn-sm" id="browse-btn">Browse</button></p>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">Supports: MP3, FLAC, OGG, WAV, M4A, AAC, OPUS</p>
+          </div>
+          <div id="upload-progress" style="display: none;">
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+            <p id="upload-status"></p>
+          </div>
+        </div>
+
+        <!-- New Release Panel (hidden by default) -->
+        <div id="release-panel" class="admin-panel" style="display: none;">
+          <h3>Create New Release</h3>
+          <form id="release-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Title *</label>
+                <input type="text" id="release-title" required placeholder="Album title">
+              </div>
+              <div class="form-group">
+                <label>Release Date</label>
+                <input type="date" id="release-date" value="${new Date().toISOString().split('T')[0]}">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Description</label>
+              <textarea id="release-description" rows="3" placeholder="Optional description..."></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Genres (comma separated)</label>
+                <input type="text" id="release-genres" placeholder="Electronic, Ambient, etc.">
+              </div>
+              <div class="form-group">
+                <label>Download Type</label>
+                <select id="release-download">
+                  <option value="free">Free Download</option>
+                  <option value="paycurtain">Pay What You Want</option>
+                  <option value="none">No Download</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Create Release</button>
+              <button type="button" class="btn btn-outline" id="cancel-release">Cancel</button>
+            </div>
+          </form>
+        </div>
+        
+        <h2 class="section-title" style="font-size: 1.25rem; margin: 2rem 0 1rem;">Manage Releases</h2>
         <div id="releases-list"></div>
       </section>
     `;
 
     const list = document.getElementById('releases-list');
     list.innerHTML = releases.map(r => `
-      <div class="release-row">
-        <img src="${API.getAlbumCoverUrl(r.id)}" alt="" class="release-cover-small">
+      <div class="release-row" data-release-id="${r.id}">
+        <div class="release-cover-small album-cover-placeholder" data-src="${API.getAlbumCoverUrl(r.id)}">
+          <div class="placeholder-icon" style="font-size: 1.5rem;">🎵</div>
+        </div>
         <div class="release-info">
           <div class="release-title">${r.title}</div>
           <div class="release-artist">${r.artist_name || 'Unknown Artist'}</div>
+        </div>
+        <div class="release-actions">
+          <button class="btn btn-sm btn-outline upload-to-release" data-slug="${r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}">+ Add Tracks</button>
+          <button class="btn btn-sm btn-outline btn-danger delete-release">🗑️</button>
         </div>
         <div class="release-status">
           <span class="status-badge ${r.is_public ? 'status-public' : 'status-private'}">
@@ -403,6 +524,14 @@ const App = {
         </div>
       </div>
     `).join('');
+
+    // Load release covers with fallback
+    list.querySelectorAll('.album-cover-placeholder').forEach(el => {
+      const img = new Image();
+      img.onload = () => { el.innerHTML = ''; el.style.backgroundImage = `url(${el.dataset.src})`; el.style.backgroundSize = 'cover'; };
+      img.onerror = () => { /* keep placeholder */ };
+      img.src = el.dataset.src;
+    });
 
     // Toggle visibility handlers
     list.querySelectorAll('input[type="checkbox"]').forEach(input => {
@@ -421,6 +550,59 @@ const App = {
       });
     });
 
+    // Delete release handlers
+    list.querySelectorAll('.delete-release').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const row = e.target.closest('.release-row');
+        const id = row.dataset.releaseId;
+        const title = row.querySelector('.release-title').textContent;
+
+        if (confirm(`Delete "${title}"? This will remove all files!`)) {
+          try {
+            await API.deleteRelease(id);
+            row.remove();
+          } catch (err) {
+            alert('Failed to delete release');
+          }
+        }
+      });
+    });
+
+    // Add tracks to release handlers
+    list.querySelectorAll('.upload-to-release').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const slug = e.target.dataset.slug;
+        this.showUploadToRelease(slug);
+      });
+    });
+
+    // Upload panel toggle
+    document.getElementById('upload-btn').addEventListener('click', () => {
+      const panel = document.getElementById('upload-panel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      document.getElementById('release-panel').style.display = 'none';
+    });
+
+    // New release panel toggle
+    document.getElementById('new-release-btn').addEventListener('click', () => {
+      const panel = document.getElementById('release-panel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      document.getElementById('upload-panel').style.display = 'none';
+    });
+
+    document.getElementById('cancel-release').addEventListener('click', () => {
+      document.getElementById('release-panel').style.display = 'none';
+    });
+
+    // Release form
+    document.getElementById('release-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.handleCreateRelease();
+    });
+
+    // Upload handlers
+    this.setupUploadHandlers();
+
     // Rescan button
     document.getElementById('rescan-btn').addEventListener('click', async () => {
       const btn = document.getElementById('rescan-btn');
@@ -432,7 +614,7 @@ const App = {
       } catch (e) {
         alert('Scan failed');
         btn.disabled = false;
-        btn.textContent = '🔄 Rescan Library';
+        btn.textContent = '🔄 Rescan';
       }
     });
 
@@ -445,6 +627,97 @@ const App = {
     });
   },
 
+  setupUploadHandlers() {
+    const zone = document.getElementById('upload-zone');
+    const input = document.getElementById('file-input');
+    const browseBtn = document.getElementById('browse-btn');
+
+    browseBtn.addEventListener('click', () => input.click());
+
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      zone.classList.add('dragover');
+    });
+
+    zone.addEventListener('dragleave', () => {
+      zone.classList.remove('dragover');
+    });
+
+    zone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      await this.uploadFiles(e.dataTransfer.files);
+    });
+
+    input.addEventListener('change', async (e) => {
+      await this.uploadFiles(e.target.files);
+    });
+  },
+
+  async uploadFiles(files, options = {}) {
+    if (files.length === 0) return;
+
+    const progress = document.getElementById('upload-progress');
+    const status = document.getElementById('upload-status');
+    const fill = document.getElementById('progress-fill');
+
+    progress.style.display = 'block';
+    status.textContent = `Uploading ${files.length} file(s)...`;
+    fill.style.width = '50%';
+
+    try {
+      const result = await API.uploadTracks(files, options);
+      fill.style.width = '100%';
+      status.textContent = `✅ Uploaded ${result.files.length} file(s)`;
+
+      // Refresh after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err) {
+      status.textContent = '❌ Upload failed: ' + err.message;
+      fill.style.width = '0%';
+    }
+  },
+
+  showUploadToRelease(slug) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = 'audio/*';
+
+    input.addEventListener('change', async (e) => {
+      await this.uploadFiles(e.target.files, { releaseSlug: slug });
+    });
+
+    input.click();
+  },
+
+  async handleCreateRelease() {
+    const title = document.getElementById('release-title').value;
+    const date = document.getElementById('release-date').value;
+    const description = document.getElementById('release-description').value;
+    const genresRaw = document.getElementById('release-genres').value;
+    const download = document.getElementById('release-download').value;
+
+    const genres = genresRaw ? genresRaw.split(',').map(g => g.trim()).filter(g => g) : [];
+
+    try {
+      await API.createRelease({
+        title,
+        date,
+        description: description || undefined,
+        genres: genres.length > 0 ? genres : undefined,
+        download
+      });
+
+      alert('Release created! Add tracks and cover via the release actions.');
+      window.location.reload();
+    } catch (err) {
+      alert('Failed to create release: ' + err.message);
+    }
+  },
+
   // Helpers
   renderAlbumGrid(container, albums) {
     if (!albums || albums.length === 0) {
@@ -453,15 +726,24 @@ const App = {
     }
 
     container.innerHTML = albums.map(album => `
-      <a href="#/album/${album.id}" class="card">
-        <img src="${API.getAlbumCoverUrl(album.id)}" class="card-cover" alt="${album.title}" 
-             onerror="this.style.background='var(--bg-tertiary)'; this.src='';">
+      <a href="#/album/${album.slug || album.id}" class="card">
+        <div class="card-cover album-cover-placeholder" data-src="${API.getAlbumCoverUrl(album.slug || album.id)}">
+          <div class="placeholder-icon">🎵</div>
+        </div>
         <div class="card-body">
           <div class="card-title">${album.title}</div>
           <div class="card-subtitle">${album.artist_name || ''}</div>
         </div>
       </a>
     `).join('');
+
+    // Load album covers with fallback
+    container.querySelectorAll('.album-cover-placeholder').forEach(el => {
+      const img = new Image();
+      img.onload = () => { el.innerHTML = ''; el.style.backgroundImage = `url(${el.dataset.src})`; el.style.backgroundSize = 'cover'; };
+      img.onerror = () => { /* keep placeholder */ };
+      img.src = el.dataset.src;
+    });
   },
 
   renderTrackList(container, tracks) {

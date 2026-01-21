@@ -4,21 +4,26 @@ import type { Database as DatabaseType } from "better-sqlite3";
 export interface Artist {
     id: number;
     name: string;
+    slug: string;
     bio: string | null;
     photo_path: string | null;
+    links: string | null;  // JSON string of links
     created_at: string;
 }
 
 export interface Album {
     id: number;
     title: string;
+    slug: string;
     artist_id: number | null;
     artist_name?: string;
+    artist_slug?: string;
     date: string | null;
     cover_path: string | null;
     genre: string | null;
     description: string | null;
     is_public: boolean;
+    is_release: boolean; // true = published release, false = library album
     published_at: string | null;
     created_at: string;
 }
@@ -52,14 +57,21 @@ export interface DatabaseService {
     getArtists(): Artist[];
     getArtist(id: number): Artist | undefined;
     getArtistByName(name: string): Artist | undefined;
-    createArtist(name: string, bio?: string, photoPath?: string): number;
+    getArtistBySlug(slug: string): Artist | undefined;
+    createArtist(name: string, bio?: string, photoPath?: string, links?: any): number;
+    updateArtist(id: number, bio?: string, photoPath?: string, links?: any): void;
     // Albums
     getAlbums(publicOnly?: boolean): Album[];
+    getReleases(publicOnly?: boolean): Album[]; // is_release=1
+    getLibraryAlbums(): Album[]; // is_release=0
     getAlbum(id: number): Album | undefined;
+    getAlbumBySlug(slug: string): Album | undefined;
     getAlbumByTitle(title: string, artistId?: number): Album | undefined;
     getAlbumsByArtist(artistId: number, publicOnly?: boolean): Album[];
-    createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name">): number;
+    createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number;
     updateAlbumVisibility(id: number, isPublic: boolean): void;
+    promoteToRelease(id: number): void; // Mark library album as release
+    deleteAlbum(id: number): void;
     // Tracks
     getTracks(albumId?: number): Track[];
     getTrack(id: number): Track | undefined;
@@ -93,20 +105,24 @@ export function createDatabase(dbPath: string): DatabaseService {
     CREATE TABLE IF NOT EXISTS artists (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
+      slug TEXT NOT NULL UNIQUE,
       bio TEXT,
       photo_path TEXT,
+      links TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS albums (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
       artist_id INTEGER REFERENCES artists(id),
       date TEXT,
       cover_path TEXT,
       genre TEXT,
       description TEXT,
       is_public INTEGER DEFAULT 0,
+      is_release INTEGER DEFAULT 0,
       published_at TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -149,7 +165,16 @@ export function createDatabase(dbPath: string): DatabaseService {
     CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist_id);
     CREATE INDEX IF NOT EXISTS idx_albums_artist ON albums(artist_id);
     CREATE INDEX IF NOT EXISTS idx_albums_public ON albums(is_public);
+    CREATE INDEX IF NOT EXISTS idx_albums_release ON albums(is_release);
   `);
+
+    // Migration: Add is_release column if it doesn't exist
+    try {
+        db.exec(`ALTER TABLE albums ADD COLUMN is_release INTEGER DEFAULT 0`);
+        console.log("📦 Migrated database: added is_release column");
+    } catch (e) {
+        // Column already exists, ignore
+    }
 
     return {
         db,
@@ -167,33 +192,91 @@ export function createDatabase(dbPath: string): DatabaseService {
             return db.prepare("SELECT * FROM artists WHERE name = ?").get(name) as Artist | undefined;
         },
 
-        createArtist(name: string, bio?: string, photoPath?: string): number {
-            const result = db
-                .prepare("INSERT INTO artists (name, bio, photo_path) VALUES (?, ?, ?)")
-                .run(name, bio || null, photoPath || null);
-            return result.lastInsertRowid as number;
+        getArtistBySlug(slug: string): Artist | undefined {
+            return db.prepare("SELECT * FROM artists WHERE slug = ?").get(slug) as Artist | undefined;
+        },
+
+        createArtist(name: string, bio?: string, photoPath?: string, links?: any): number {
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            const linksJson = links ? JSON.stringify(links) : null;
+
+            // Try to insert, if slug exists add a number suffix
+            let finalSlug = slug;
+            let attempt = 0;
+            while (attempt < 100) {
+                try {
+                    const result = db
+                        .prepare("INSERT INTO artists (name, slug, bio, photo_path, links) VALUES (?, ?, ?, ?, ?)")
+                        .run(name, finalSlug, bio || null, photoPath || null, linksJson);
+                    return result.lastInsertRowid as number;
+                } catch (e: any) {
+                    if (e.code === "SQLITE_CONSTRAINT_UNIQUE" && e.message.includes("slug")) {
+                        attempt++;
+                        finalSlug = `${slug}-${attempt}`;
+                    } else {
+                        throw e;
+                    }
+                }
+            }
+            throw new Error("Could not create unique slug for artist");
+        },
+
+        updateArtist(id: number, bio?: string, photoPath?: string, links?: any): void {
+            const linksJson = links ? JSON.stringify(links) : null;
+            db.prepare("UPDATE artists SET bio = ?, photo_path = ?, links = ? WHERE id = ?")
+                .run(bio || null, photoPath || null, linksJson, id);
         },
 
         // Albums
         getAlbums(publicOnly = false): Album[] {
             const sql = publicOnly
-                ? `SELECT a.*, ar.name as artist_name FROM albums a 
+                ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.is_public = 1 ORDER BY a.date DESC`
-                : `SELECT a.*, ar.name as artist_name FROM albums a 
+                : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            ORDER BY a.date DESC`;
             return db.prepare(sql).all() as Album[];
         },
 
+        getReleases(publicOnly = false): Album[] {
+            const sql = publicOnly
+                ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+           LEFT JOIN artists ar ON a.artist_id = ar.id 
+           WHERE a.is_release = 1 AND a.is_public = 1 ORDER BY a.date DESC`
+                : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+           LEFT JOIN artists ar ON a.artist_id = ar.id 
+           WHERE a.is_release = 1 ORDER BY a.date DESC`;
+            return db.prepare(sql).all() as Album[];
+        },
+
+        getLibraryAlbums(): Album[] {
+            return db.prepare(
+                `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+           LEFT JOIN artists ar ON a.artist_id = ar.id 
+           WHERE a.is_release = 0 ORDER BY a.title`
+            ).all() as Album[];
+        },
+
+
         getAlbum(id: number): Album | undefined {
             return db
                 .prepare(
-                    `SELECT a.*, ar.name as artist_name FROM albums a 
+                    `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.id = ?`
                 )
                 .get(id) as Album | undefined;
+        },
+
+        getAlbumBySlug(slug: string): Album | undefined {
+            return db
+                .prepare(
+                    `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+           LEFT JOIN artists ar ON a.artist_id = ar.id 
+           WHERE a.slug = ?`
+                )
+                .get(slug) as Album | undefined;
         },
 
         getAlbumByTitle(title: string, artistId?: number): Album | undefined {
@@ -214,23 +297,42 @@ export function createDatabase(dbPath: string): DatabaseService {
             return db.prepare(sql).all(artistId) as Album[];
         },
 
-        createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name">): number {
-            const result = db
-                .prepare(
-                    `INSERT INTO albums (title, artist_id, date, cover_path, genre, description, is_public, published_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-                )
-                .run(
-                    album.title,
-                    album.artist_id,
-                    album.date,
-                    album.cover_path,
-                    album.genre,
-                    album.description,
-                    album.is_public ? 1 : 0,
-                    album.published_at
-                );
-            return result.lastInsertRowid as number;
+        createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number {
+            const slug = album.slug || album.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+            // Try to insert, if slug exists add a number suffix
+            let finalSlug = slug;
+            let attempt = 0;
+            while (attempt < 100) {
+                try {
+                    const result = db
+                        .prepare(
+                            `INSERT INTO albums (title, slug, artist_id, date, cover_path, genre, description, is_public, is_release, published_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                        )
+                        .run(
+                            album.title,
+                            finalSlug,
+                            album.artist_id,
+                            album.date,
+                            album.cover_path,
+                            album.genre,
+                            album.description,
+                            album.is_public ? 1 : 0,
+                            album.is_release ? 1 : 0,
+                            album.published_at
+                        );
+                    return result.lastInsertRowid as number;
+                } catch (e: any) {
+                    if (e.code === "SQLITE_CONSTRAINT_UNIQUE" && e.message.includes("slug")) {
+                        attempt++;
+                        finalSlug = `${slug}-${attempt}`;
+                    } else {
+                        throw e;
+                    }
+                }
+            }
+            throw new Error("Could not create unique slug for album");
         },
 
         updateAlbumVisibility(id: number, isPublic: boolean): void {
@@ -238,6 +340,17 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare(
                 "UPDATE albums SET is_public = ?, published_at = ? WHERE id = ?"
             ).run(isPublic ? 1 : 0, publishedAt, id);
+        },
+
+        promoteToRelease(id: number): void {
+            db.prepare("UPDATE albums SET is_release = 1 WHERE id = ?").run(id);
+        },
+
+        deleteAlbum(id: number): void {
+            // First delete associated tracks
+            db.prepare("DELETE FROM tracks WHERE album_id = ?").run(id);
+            // Then delete the album
+            db.prepare("DELETE FROM albums WHERE id = ?").run(id);
         },
 
         // Tracks

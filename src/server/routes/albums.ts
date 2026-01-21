@@ -22,13 +22,19 @@ export function createAlbumsRoutes(database: DatabaseService) {
     });
 
     /**
-     * GET /api/albums/:id
-     * Get album details with tracks
+     * GET /api/albums/:idOrSlug
+     * Get album details with tracks (supports ID or slug)
      */
-    router.get("/:id", (req: AuthenticatedRequest, res) => {
+    router.get("/:idOrSlug", (req: AuthenticatedRequest, res) => {
         try {
-            const id = parseInt(req.params.id as string, 10);
-            const album = database.getAlbum(id);
+            const param = req.params.idOrSlug as string;
+            let album;
+
+            if (/^\d+$/.test(param)) {
+                album = database.getAlbum(parseInt(param, 10));
+            } else {
+                album = database.getAlbumBySlug(param);
+            }
 
             if (!album) {
                 return res.status(404).json({ error: "Album not found" });
@@ -39,7 +45,7 @@ export function createAlbumsRoutes(database: DatabaseService) {
                 return res.status(404).json({ error: "Album not found" });
             }
 
-            const tracks = database.getTracks(id);
+            const tracks = database.getTracks(album.id);
 
             res.json({
                 ...album,
@@ -52,22 +58,26 @@ export function createAlbumsRoutes(database: DatabaseService) {
     });
 
     /**
-     * GET /api/albums/:id/cover
-     * Get album cover image
+     * GET /api/albums/:idOrSlug/cover
+     * Get album cover image (supports ID or slug)
      */
-    router.get("/:id/cover", (req: AuthenticatedRequest, res) => {
+    router.get("/:idOrSlug/cover", (req: AuthenticatedRequest, res) => {
         try {
-            const id = parseInt(req.params.id as string, 10);
-            const album = database.getAlbum(id);
+            const param = req.params.idOrSlug as string;
+            let album;
+
+            if (/^\d+$/.test(param)) {
+                album = database.getAlbum(parseInt(param, 10));
+            } else {
+                album = database.getAlbumBySlug(param);
+            }
 
             if (!album) {
                 return res.status(404).json({ error: "Album not found" });
             }
 
-            // Non-admin can only see public albums
-            if (!album.is_public && !req.isAdmin) {
-                return res.status(404).json({ error: "Album not found" });
-            }
+            // Note: Cover images are accessible regardless of album visibility
+            // This allows showing covers in player even for private albums
 
             if (!album.cover_path || !fs.existsSync(album.cover_path)) {
                 return res.status(404).json({ error: "Cover not found" });
