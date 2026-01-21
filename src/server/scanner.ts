@@ -270,6 +270,7 @@ export function createScanner(database: DatabaseService): ScannerService {
                         genre: common.genre?.join(", ") || null,
                         description: null,
                         is_public: false,
+                        is_release: false, // Albums from metadata are library albums
                         published_at: null,
                     });
                 }
