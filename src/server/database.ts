@@ -101,6 +101,10 @@ export interface DatabaseService {
     getStats(): { artists: number; albums: number; tracks: number; publicAlbums: number };
     // Search
     search(query: string, publicOnly?: boolean): { artists: Artist[]; albums: Album[]; tracks: Track[] };
+    // Settings
+    getSetting(key: string): string | undefined;
+    setSetting(key: string, value: string): void;
+    getAllSettings(): { [key: string]: string };
 }
 
 export function createDatabase(dbPath: string): DatabaseService {
@@ -179,6 +183,11 @@ export function createDatabase(dbPath: string): DatabaseService {
     CREATE INDEX IF NOT EXISTS idx_albums_artist ON albums(artist_id);
     CREATE INDEX IF NOT EXISTS idx_albums_public ON albums(is_public);
     CREATE INDEX IF NOT EXISTS idx_albums_release ON albums(is_release);
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
 
     // Migration: Add is_release column if it doesn't exist
@@ -587,6 +596,25 @@ export function createDatabase(dbPath: string): DatabaseService {
             const tracks = db.prepare(tracksSql).all(likeQuery, likeQuery) as Track[];
 
             return { artists, albums, tracks };
+        },
+
+        // Settings
+        getSetting(key: string): string | undefined {
+            const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+            return row?.value;
+        },
+
+        setSetting(key: string, value: string): void {
+            db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
+        },
+
+        getAllSettings(): { [key: string]: string } {
+            const rows = db.prepare("SELECT key, value FROM settings").all() as { key: string; value: string }[];
+            const settings: { [key: string]: string } = {};
+            for (const row of rows) {
+                settings[row.key] = row.value;
+            }
+            return settings;
         },
     };
 }

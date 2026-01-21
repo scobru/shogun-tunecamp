@@ -59,5 +59,20 @@ export function createCatalogRoutes(database: DatabaseService) {
         }
     });
 
+    /**
+     * GET /api/catalog/settings
+     * Get public site settings (site name, description)
+     */
+    router.get("/settings", (req, res) => {
+        try {
+            const siteName = database.getSetting("siteName") || "TuneCamp";
+            const siteDescription = database.getSetting("siteDescription") || "";
+            res.json({ siteName, siteDescription });
+        } catch (error) {
+            console.error("Error getting settings:", error);
+            res.status(500).json({ error: "Failed to get settings" });
+        }
+    });
+
     return router;
 }

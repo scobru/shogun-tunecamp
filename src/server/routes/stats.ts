@@ -64,5 +64,33 @@ export function createStatsRoutes(gundbService: GunDBService) {
         }
     });
 
+    /**
+     * GET /api/stats/network/sites
+     * Get all TuneCamp sites registered in the community
+     */
+    router.get("/network/sites", async (req, res) => {
+        try {
+            const sites = await gundbService.getCommunitySites();
+            res.json(sites);
+        } catch (error) {
+            console.error("Error getting community sites:", error);
+            res.status(500).json({ error: "Failed to get community sites" });
+        }
+    });
+
+    /**
+     * GET /api/stats/network/tracks
+     * Get all tracks shared by the TuneCamp community
+     */
+    router.get("/network/tracks", async (req, res) => {
+        try {
+            const tracks = await gundbService.getCommunityTracks();
+            res.json(tracks);
+        } catch (error) {
+            console.error("Error getting community tracks:", error);
+            res.status(500).json({ error: "Failed to get community tracks" });
+        }
+    });
+
     return router;
 }

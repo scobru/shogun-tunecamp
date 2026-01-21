@@ -87,6 +87,18 @@ const API = {
         return this.get('/catalog/search?q=' + encodeURIComponent(query));
     },
 
+    async getSiteSettings() {
+        return this.get('/catalog/settings');
+    },
+
+    async updateSettings(data) {
+        return this.put('/admin/settings', data);
+    },
+
+    async getAdminSettings() {
+        return this.get('/admin/settings');
+    },
+
     // Albums (Library)
     async getAlbums() {
         return this.get('/albums');
@@ -245,5 +257,14 @@ const API = {
         });
         if (!res.ok) throw new Error(await res.text());
         return res.json();
+    },
+
+    // Network / Community
+    async getNetworkSites() {
+        return this.get('/stats/network/sites');
+    },
+
+    async getNetworkTracks() {
+        return this.get('/stats/network/tracks');
     }
 };

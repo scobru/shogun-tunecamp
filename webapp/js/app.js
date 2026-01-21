@@ -5,10 +5,23 @@ const App = {
 
   async init() {
     Player.init();
+    await this.loadSiteSettings();
     await this.checkAuth();
     this.setupRouter();
     this.setupEventListeners();
     this.route();
+  },
+
+  async loadSiteSettings() {
+    try {
+      const settings = await API.getSiteSettings();
+      this.siteName = settings.siteName || 'TuneCamp';
+      document.querySelector('.brand-name').textContent = this.siteName;
+      document.title = this.siteName;
+    } catch (e) {
+      console.error('Failed to load site settings:', e);
+      this.siteName = 'TuneCamp';
+    }
   },
 
   async checkAuth() {
@@ -95,6 +108,8 @@ const App = {
         await this.renderArtist(main, id);
       } else if (path === '/search') {
         await this.renderSearch(main);
+      } else if (path === '/network') {
+        await this.renderNetwork(main);
       } else if (path === '/admin') {
         if (this.isAdmin) {
           await this.renderAdmin(main);
@@ -450,6 +465,155 @@ const App = {
     }
   },
 
+  async renderNetwork(container) {
+    container.innerHTML = `
+      <section class="section">
+        <h1 class="section-title">🌐 TuneCamp Network</h1>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+          Explore tracks shared by other TuneCamp instances on the decentralized network.
+        </p>
+        <div id="network-loading" style="text-align: center; padding: 2rem;">
+          <p>Loading community tracks...</p>
+        </div>
+        <div id="network-tracks" style="display: none;"></div>
+        <div id="network-sites" style="display: none; margin-top: 2rem;"></div>
+      </section>
+    `;
+
+    try {
+      const [tracks, sites] = await Promise.all([
+        API.getNetworkTracks(),
+        API.getNetworkSites()
+      ]);
+
+      document.getElementById('network-loading').style.display = 'none';
+      const tracksContainer = document.getElementById('network-tracks');
+      const sitesContainer = document.getElementById('network-sites');
+
+      if (tracks && tracks.length > 0) {
+        tracksContainer.style.display = 'block';
+        tracksContainer.innerHTML = `
+          <h2 class="section-title" style="font-size: 1.25rem; margin-bottom: 1rem;">
+            🎵 Community Tracks (${tracks.length})
+          </h2>
+          <div class="track-list">
+            ${tracks.map((t, i) => `
+              <div class="track-item network-track" data-audio-url="${t.audioUrl}" data-index="${i}"
+                   data-track='${JSON.stringify({
+          id: t.slug,
+          title: t.title,
+          artist_name: t.artistName,
+          duration: t.duration,
+          audioUrl: t.audioUrl,
+          coverUrl: t.coverUrl,
+          isExternal: true
+        }).replace(/'/g, "&apos;")}'>
+                <div class="track-info">
+                  <div class="track-title">${t.title || 'Untitled'}</div>
+                  <div style="color: var(--text-secondary); font-size: 0.875rem;">
+                    ${t.artistName || 'Unknown Artist'} · <a href="${t.siteUrl}" target="_blank" style="color: var(--accent);">${new URL(t.siteUrl || 'https://unknown').hostname}</a>
+                  </div>
+                </div>
+                <div class="track-duration">${Player.formatTime(t.duration)}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+
+        // Add click handlers for network tracks
+        tracksContainer.querySelectorAll('.network-track').forEach(item => {
+          item.addEventListener('click', () => {
+            try {
+              const track = JSON.parse(item.dataset.track.replace(/&apos;/g, "'"));
+              const index = parseInt(item.dataset.index, 10);
+
+              // Build queue from all network tracks
+              const allTracks = tracks.map(t => ({
+                id: t.slug,
+                title: t.title,
+                artist_name: t.artistName,
+                duration: t.duration,
+                audioUrl: t.audioUrl,
+                coverUrl: t.coverUrl,
+                isExternal: true
+              }));
+
+              this.playExternalTrack(track, allTracks, index);
+            } catch (e) {
+              console.error('Failed to play network track:', e);
+            }
+          });
+        });
+      } else {
+        tracksContainer.style.display = 'block';
+        tracksContainer.innerHTML = `
+          <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+            <p>No tracks found in the network yet.</p>
+            <p style="font-size: 0.875rem; margin-top: 0.5rem;">
+              Make your releases public to share them with the community!
+            </p>
+          </div>
+        `;
+      }
+
+      if (sites && sites.length > 0) {
+        sitesContainer.style.display = 'block';
+        sitesContainer.innerHTML = `
+          <h2 class="section-title" style="font-size: 1.25rem; margin-bottom: 1rem;">
+            🏠 TuneCamp Instances (${sites.length})
+          </h2>
+          <div class="grid">
+            ${sites.map(s => `
+              <a href="${s.url}" target="_blank" class="card" style="text-decoration: none;">
+                <div class="card-body">
+                  <div class="card-title">${s.title || 'Untitled'}</div>
+                  <div class="card-subtitle">${s.artistName || new URL(s.url || 'https://unknown').hostname}</div>
+                </div>
+              </a>
+            `).join('')}
+          </div>
+        `;
+      }
+    } catch (e) {
+      console.error('Failed to load network data:', e);
+      document.getElementById('network-loading').innerHTML = `
+        <div class="error-message">Failed to load network data. Try again later.</div>
+      `;
+    }
+  },
+
+  playExternalTrack(track, queue, index) {
+    // For external tracks, we use the direct audioUrl
+    const audio = document.getElementById('audio-element');
+    audio.src = track.audioUrl;
+
+    document.getElementById('player-title').textContent = track.title;
+    document.getElementById('player-artist').textContent = track.artist_name || '';
+
+    const cover = document.getElementById('player-cover');
+    const icon = cover.querySelector('.player-cover-icon');
+
+    if (track.coverUrl) {
+      const img = new Image();
+      img.onload = () => {
+        cover.style.backgroundImage = `url(${track.coverUrl})`;
+        cover.style.backgroundSize = 'cover';
+        cover.style.backgroundPosition = 'center';
+        if (icon) icon.style.display = 'none';
+      };
+      img.onerror = () => {
+        cover.style.backgroundImage = '';
+        if (icon) icon.style.display = 'block';
+      };
+      img.src = track.coverUrl;
+    } else {
+      cover.style.backgroundImage = '';
+      if (icon) icon.style.display = 'block';
+    }
+
+    audio.play();
+  },
+
   async renderAdmin(container) {
     const [releases, stats] = await Promise.all([
       API.getAdminReleases(),
@@ -552,6 +716,18 @@ const App = {
         
         <h2 class="section-title" style="font-size: 1.25rem; margin: 2rem 0 1rem;">Manage Artists</h2>
         <div id="artists-list"></div>
+
+        <h2 class="section-title" style="font-size: 1.25rem; margin: 2rem 0 1rem;">⚙️ Site Settings</h2>
+        <div class="admin-panel" id="settings-panel">
+          <div class="form-group">
+            <label>Site Name</label>
+            <input type="text" id="setting-site-name" placeholder="TuneCamp" value="${this.siteName || 'TuneCamp'}">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">This name appears in the header and browser tab.</p>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="save-settings-btn">Save Settings</button>
+          </div>
+        </div>
       </section>
     `;
 
@@ -736,6 +912,20 @@ const App = {
     // New Artist button
     document.getElementById('new-artist-btn').addEventListener('click', () => {
       this.showCreateArtistModal();
+    });
+
+    // Save Settings button
+    document.getElementById('save-settings-btn').addEventListener('click', async () => {
+      const siteName = document.getElementById('setting-site-name').value.trim();
+      try {
+        await API.updateSettings({ siteName });
+        this.siteName = siteName;
+        document.querySelector('.brand-name').textContent = siteName;
+        document.title = siteName;
+        alert('Settings saved!');
+      } catch (e) {
+        alert('Failed to save settings: ' + e.message);
+      }
     });
   },
 
@@ -1019,7 +1209,6 @@ const App = {
           artistName: artistName || undefined,
           date: date || undefined,
           description: description || undefined,
-          genres: genres.length > 0 ? genres : undefined,
           genres: genres.length > 0 ? genres : undefined,
           download: download || undefined,
           externalLinks: Array.from(document.querySelectorAll('#external-links-container > div')).map(div => ({

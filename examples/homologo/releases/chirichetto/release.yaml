@@ -1,5 +1,5 @@
-title: "Chirichetto"
-date: "2026-01-13"
+title: Chirichetto
+date: 2026-01-13
 description: |
   Ci provo io con te 
   ma non so se mai mi dirai di si 
@@ -41,18 +41,20 @@ description: |
   ora non smetto
   faccio il balletto
   CHIRICHETTO!
-download: "free"
+download: free
 price: 1.5
-bandcampLink: "https://homologomusic.bandcamp.com/track/chirichetto"
-cover: "artwork/image.JPG"
+bandcampLink: https://homologomusic.bandcamp.com/track/chirichetto
+cover: artwork/image.JPG
 genres:
-  - "Electronic"
-  - "Pop"
-  - "Club"
+  - Electronic
+  - Pop
+  - Club
 credits:
-  - role: "Produced by"
-    name: "Francesco Bruno"
-name: "Francesco Bruno"
+  - role: Produced by
+    name: Francesco Bruno
+name: Francesco Bruno
 streamingLinks:
-  - platform: "Bandcamp"
-    url: "https://homologomusic.bandcamp.com/track/chirichetto"
+  - platform: Bandcamp
+    url: https://homologomusic.bandcamp.com/track/chirichetto
+artist: Homologo
+links: []

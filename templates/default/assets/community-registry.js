@@ -457,6 +457,24 @@
           return;
         }
 
+        // Check for publicUrl configuration
+        // If publicUrl is set, only register if current URL matches
+        // This prevents Vercel preview deployments and other staging environments from polluting the registry
+        const configuredPublicUrl = document.querySelector('meta[name="tunecamp-public-url"]')?.content;
+
+        if (configuredPublicUrl) {
+          // Compare origins (protocol + hostname + port)
+          try {
+            const configuredOrigin = new URL(configuredPublicUrl).origin;
+            if (baseUrl !== configuredOrigin) {
+              console.log(`📍 Skipping community registration (current URL ${baseUrl} doesn't match publicUrl ${configuredOrigin})`);
+              return;
+            }
+          } catch (e) {
+            console.warn('Invalid publicUrl configured:', configuredPublicUrl);
+          }
+        }
+
         // Check if this is an unlisted release (should not appear in registry)
         const isUnlisted = document.querySelector('meta[name="tunecamp-release-unlisted"]')?.content === 'true';
 
@@ -480,7 +498,7 @@
         // If this is a release page with tracks, also register tracks for the community player
         // BUT: Skip if this release is unlisted (should not appear in community registry)
         const isUnlisted = document.querySelector('meta[name="tunecamp-release-unlisted"]')?.content === 'true';
-        
+
         if (!isUnlisted && window.tracks && Array.isArray(window.tracks) && window.tracks.length > 0) {
           // Get release title from the page
           const releaseTitle = document.querySelector('.release-metadata h1')?.textContent ||

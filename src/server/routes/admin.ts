@@ -104,5 +104,41 @@ export function createAdminRoutes(
         }
     });
 
+    /**
+     * GET /api/admin/settings
+     * Get all site settings
+     */
+    router.get("/settings", (req, res) => {
+        try {
+            const settings = database.getAllSettings();
+            res.json(settings);
+        } catch (error) {
+            console.error("Error getting settings:", error);
+            res.status(500).json({ error: "Failed to get settings" });
+        }
+    });
+
+    /**
+     * PUT /api/admin/settings
+     * Update site settings
+     */
+    router.put("/settings", (req, res) => {
+        try {
+            const { siteName, siteDescription } = req.body;
+
+            if (siteName !== undefined) {
+                database.setSetting("siteName", siteName);
+            }
+            if (siteDescription !== undefined) {
+                database.setSetting("siteDescription", siteDescription);
+            }
+
+            res.json({ message: "Settings updated" });
+        } catch (error) {
+            console.error("Error updating settings:", error);
+            res.status(500).json({ error: "Failed to update settings" });
+        }
+    });
+
     return router;
 }

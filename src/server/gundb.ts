@@ -31,6 +31,9 @@ export interface GunDBService {
     incrementDownloadCount(releaseSlug: string): Promise<number>;
     getTrackDownloadCount(releaseSlug: string, trackId: string): Promise<number>;
     incrementTrackDownloadCount(releaseSlug: string, trackId: string): Promise<number>;
+    // Community exploration
+    getCommunitySites(): Promise<any[]>;
+    getCommunityTracks(): Promise<any[]>;
 }
 
 /**
@@ -305,6 +308,59 @@ export function createGunDBService(database: DatabaseService): GunDBService {
         });
     }
 
+    async function getCommunitySites(): Promise<any[]> {
+        if (!initialized || !gun) return [];
+
+        return new Promise((resolve) => {
+            const sites: any[] = [];
+
+            gun
+                .get(REGISTRY_ROOT)
+                .get(REGISTRY_NAMESPACE)
+                .get("sites")
+                .map()
+                .once((siteData: any, siteId: string) => {
+                    if (siteData && siteData.url && siteId !== "_") {
+                        sites.push({
+                            id: siteId,
+                            ...siteData
+                        });
+                    }
+                });
+
+            // Wait for data to collect
+            setTimeout(() => resolve(sites), 3000);
+        });
+    }
+
+    async function getCommunityTracks(): Promise<any[]> {
+        if (!initialized || !gun) return [];
+
+        return new Promise((resolve) => {
+            const tracks: any[] = [];
+
+            // Iterate through all sites and their tracks
+            gun
+                .get(REGISTRY_ROOT)
+                .get(REGISTRY_NAMESPACE)
+                .get("sites")
+                .map()
+                .get("tracks")
+                .map()
+                .once((trackData: any, trackSlug: string) => {
+                    if (trackData && trackData.audioUrl && trackSlug !== "_") {
+                        tracks.push({
+                            slug: trackSlug,
+                            ...trackData
+                        });
+                    }
+                });
+
+            // Wait for data to collect
+            setTimeout(() => resolve(tracks), 4000);
+        });
+    }
+
     return {
         init,
         registerSite,
@@ -314,5 +370,7 @@ export function createGunDBService(database: DatabaseService): GunDBService {
         incrementDownloadCount,
         getTrackDownloadCount,
         incrementTrackDownloadCount,
+        getCommunitySites,
+        getCommunityTracks,
     };
 }

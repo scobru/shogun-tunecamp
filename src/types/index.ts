@@ -6,6 +6,7 @@ export interface CatalogConfig {
   title: string;
   description?: string;
   url?: string;
+  publicUrl?: string; // Official public URL for GunDB registration (prevents preview deploys from polluting registry)
   basePath?: string; // Base path for deployment (e.g., "" for root, "/repo-name" for subdirectory)
   theme?: string;
   language?: string;

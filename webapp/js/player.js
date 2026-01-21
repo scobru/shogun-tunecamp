@@ -62,10 +62,24 @@ const Player = {
         document.getElementById('player-artist').textContent = track.artist_name || '';
 
         const cover = document.getElementById('player-cover');
+        const icon = cover.querySelector('.player-cover-icon');
         if (track.album_id) {
-            cover.src = API.getAlbumCoverUrl(track.album_id);
+            const coverUrl = API.getAlbumCoverUrl(track.album_id);
+            const img = new Image();
+            img.onload = () => {
+                cover.style.backgroundImage = `url(${coverUrl})`;
+                cover.style.backgroundSize = 'cover';
+                cover.style.backgroundPosition = 'center';
+                if (icon) icon.style.display = 'none';
+            };
+            img.onerror = () => {
+                cover.style.backgroundImage = '';
+                if (icon) icon.style.display = 'block';
+            };
+            img.src = coverUrl;
         } else {
-            cover.src = '';
+            cover.style.backgroundImage = '';
+            if (icon) icon.style.display = 'block';
         }
     },
 

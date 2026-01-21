@@ -132,6 +132,7 @@ export function createReleaseRoutes(
                     if (body.download) config.download = body.download;
                     if (body.price !== undefined) config.price = body.price;
                     if (body.artistName) config.artist = body.artistName;
+                    if (body.externalLinks) config.links = body.externalLinks;
 
                     await fs.writeFile(releaseYamlPath, stringify(config));
                 }
