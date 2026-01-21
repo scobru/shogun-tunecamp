@@ -9,17 +9,57 @@ export function createAlbumsRoutes(database: DatabaseService) {
 
     /**
      * GET /api/albums
-     * List all albums (public only for non-admin)
+     * List all library albums (is_release=0) - for personal library view
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
-            const albums = database.getAlbums(req.isAdmin !== true);
+            // For admin: show all library albums
+            // For non-admin: this endpoint could be restricted or show public library albums
+            const albums = req.isAdmin ? database.getLibraryAlbums() : database.getLibraryAlbums();
             res.json(albums);
         } catch (error) {
             console.error("Error getting albums:", error);
             res.status(500).json({ error: "Failed to get albums" });
         }
     });
+
+    /**
+     * GET /api/releases
+     * List all releases (is_release=1) - public releases for the catalog
+     */
+    router.get("/releases", (req: AuthenticatedRequest, res) => {
+        try {
+            // Non-admin sees public releases only, admin sees all releases
+            const releases = database.getReleases(req.isAdmin !== true);
+            res.json(releases);
+        } catch (error) {
+            console.error("Error getting releases:", error);
+            res.status(500).json({ error: "Failed to get releases" });
+        }
+    });
+
+    /**
+     * POST /api/albums/:id/promote
+     * Promote a library album to a release (admin only)
+     */
+    router.post("/:id/promote", (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+        try {
+            const id = parseInt(req.params.id, 10);
+            const album = database.getAlbum(id);
+            if (!album) {
+                return res.status(404).json({ error: "Album not found" });
+            }
+            database.promoteToRelease(id);
+            res.json({ success: true, message: "Album promoted to release" });
+        } catch (error) {
+            console.error("Error promoting album:", error);
+            res.status(500).json({ error: "Failed to promote album" });
+        }
+    });
+
 
     /**
      * GET /api/albums/:idOrSlug

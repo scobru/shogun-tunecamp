@@ -87,7 +87,7 @@ const API = {
         return this.get('/catalog/search?q=' + encodeURIComponent(query));
     },
 
-    // Albums
+    // Albums (Library)
     async getAlbums() {
         return this.get('/albums');
     },
@@ -98,6 +98,15 @@ const API = {
 
     getAlbumCoverUrl(id) {
         return '/api/albums/' + id + '/cover';
+    },
+
+    // Releases (Published)
+    async getReleases() {
+        return this.get('/albums/releases');
+    },
+
+    async promoteToRelease(id) {
+        return this.post('/albums/' + id + '/promote', {});
     },
 
     // Artists
