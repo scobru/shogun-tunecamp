@@ -53,6 +53,32 @@ export interface Playlist {
     created_at: string;
 }
 
+export interface PlayHistoryEntry {
+    id: number;
+    track_id: number;
+    track_title: string;
+    artist_name: string | null;
+    album_title: string | null;
+    played_at: string;
+}
+
+export interface TrackWithPlayCount extends Track {
+    play_count: number;
+}
+
+export interface ArtistWithPlayCount extends Artist {
+    play_count: number;
+}
+
+export interface ListeningStats {
+    totalPlays: number;
+    totalListeningTime: number; // in seconds
+    uniqueTracks: number;
+    playsToday: number;
+    playsThisWeek: number;
+    playsThisMonth: number;
+}
+
 export interface DatabaseService {
     db: DatabaseType;
     // Artists
@@ -90,15 +116,22 @@ export interface DatabaseService {
     updateTrackPath(id: number, filePath: string, albumId: number): void;
     deleteTrack(id: number): void;
     // Playlists
-    getPlaylists(): Playlist[];
+    getPlaylists(publicOnly?: boolean): Playlist[];
     getPlaylist(id: number): Playlist | undefined;
-    createPlaylist(name: string, description?: string): number;
+    createPlaylist(name: string, description?: string, isPublic?: boolean): number;
+    updatePlaylistVisibility(id: number, isPublic: boolean): void;
     deletePlaylist(id: number): void;
     getPlaylistTracks(playlistId: number): Track[];
     addTrackToPlaylist(playlistId: number, trackId: number): void;
     removeTrackFromPlaylist(playlistId: number, trackId: number): void;
     // Stats
     getStats(): { artists: number; albums: number; tracks: number; publicAlbums: number };
+    // Play History
+    recordPlay(trackId: number): void;
+    getRecentPlays(limit?: number): PlayHistoryEntry[];
+    getTopTracks(limit?: number, days?: number): TrackWithPlayCount[];
+    getTopArtists(limit?: number, days?: number): ArtistWithPlayCount[];
+    getListeningStats(): ListeningStats;
     // Search
     search(query: string, publicOnly?: boolean): { artists: Artist[]; albums: Album[]; tracks: Track[] };
     // Settings
@@ -112,6 +145,32 @@ export function createDatabase(dbPath: string): DatabaseService {
 
     // Enable WAL mode for better concurrency
     db.pragma("journal_mode = WAL");
+
+    // Register custom Levenshtein function
+    db.function("levenshtein", (a: string, b: string) => {
+        if (!a) return b ? b.length : 0;
+        if (!b) return a ? a.length : 0;
+        const matrix = [];
+        for (let i = 0; i <= b.length; i++) {
+            matrix[i] = [i];
+        }
+        for (let j = 0; j <= a.length; j++) {
+            matrix[0][j] = j;
+        }
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1,
+                        Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
+                    );
+                }
+            }
+        }
+        return matrix[b.length][a.length];
+    });
 
     // Create tables
     db.exec(`
@@ -162,6 +221,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       description TEXT,
+      is_public INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -518,103 +578,215 @@ export function createDatabase(dbPath: string): DatabaseService {
         createPlaylist(name: string, description?: string): number {
             const result = db
                 .prepare("INSERT INTO playlists (name, description) VALUES (?, ?)")
-                .run(name, description || null);
-            return result.lastInsertRowid as number;
-        },
+            // Playlists
+            getPlaylists(publicOnly = false): Playlist[] {
+                const sql = publicOnly
+                    ? "SELECT * FROM playlists WHERE is_public = 1 ORDER BY name"
+                    : "SELECT * FROM playlists ORDER BY name";
+                return db.prepare(sql).all() as Playlist[];
+            },
 
-        deletePlaylist(id: number): void {
-            db.prepare("DELETE FROM playlists WHERE id = ?").run(id);
-        },
+            getPlaylist(id: number): Playlist | undefined {
+                return db.prepare("SELECT * FROM playlists WHERE id = ?").get(id) as Playlist | undefined;
+            },
 
-        getPlaylistTracks(playlistId: number): Track[] {
-            return db
-                .prepare(
-                    `SELECT t.*, a.title as album_title, ar.name as artist_name 
+            createPlaylist(name: string, description ?: string, isPublic = false): number {
+                const result = db
+                    .prepare("INSERT INTO playlists (name, description, is_public) VALUES (?, ?, ?)")
+                    .run(name, description || null, isPublic ? 1 : 0);
+                return result.lastInsertRowid as number;
+            },
+
+            updatePlaylistVisibility(id: number, isPublic: boolean): void {
+                db.prepare("UPDATE playlists SET is_public = ? WHERE id = ?").run(isPublic ? 1 : 0, id);
+            },
+
+                deletePlaylist(id: number): void {
+                    db.prepare("DELETE FROM playlists WHERE id = ?").run(id);
+                },
+
+                    getPlaylistTracks(playlistId: number): Track[] {
+                return db
+                    .prepare(
+                        `SELECT t.*, a.title as album_title, ar.name as artist_name 
            FROM tracks t
            JOIN playlist_tracks pt ON t.id = pt.track_id
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
            WHERE pt.playlist_id = ?
            ORDER BY pt.position`
-                )
-                .all(playlistId) as Track[];
-        },
+                    )
+                    .all(playlistId) as Track[];
+            },
 
-        addTrackToPlaylist(playlistId: number, trackId: number): void {
-            const maxPos = db
-                .prepare("SELECT MAX(position) as max FROM playlist_tracks WHERE playlist_id = ?")
-                .get(playlistId) as { max: number | null };
-            const position = (maxPos?.max || 0) + 1;
-            db.prepare(
-                "INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)"
-            ).run(playlistId, trackId, position);
-        },
+            addTrackToPlaylist(playlistId: number, trackId: number): void {
+                const maxPos = db
+                    .prepare("SELECT MAX(position) as max FROM playlist_tracks WHERE playlist_id = ?")
+                    .get(playlistId) as { max: number | null };
+                const position = (maxPos?.max || 0) + 1;
+                db.prepare(
+                    "INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)"
+                ).run(playlistId, trackId, position);
+            },
 
-        removeTrackFromPlaylist(playlistId: number, trackId: number): void {
-            db.prepare(
-                "DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?"
-            ).run(playlistId, trackId);
-        },
+                removeTrackFromPlaylist(playlistId: number, trackId: number): void {
+                    db.prepare(
+                        "DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?"
+                    ).run(playlistId, trackId);
+                },
 
-        // Stats
-        getStats() {
-            const artists = (db.prepare("SELECT COUNT(*) as count FROM artists").get() as { count: number }).count;
-            const albums = (db.prepare("SELECT COUNT(*) as count FROM albums").get() as { count: number }).count;
-            const tracks = (db.prepare("SELECT COUNT(*) as count FROM tracks").get() as { count: number }).count;
-            const publicAlbums = (db.prepare("SELECT COUNT(*) as count FROM albums WHERE is_public = 1").get() as { count: number }).count;
-            return { artists, albums, tracks, publicAlbums };
-        },
+                    // Stats
+                    getStats() {
+                const artists = (db.prepare("SELECT COUNT(*) as count FROM artists").get() as { count: number }).count;
+                const albums = (db.prepare("SELECT COUNT(*) as count FROM albums").get() as { count: number }).count;
+                const tracks = (db.prepare("SELECT COUNT(*) as count FROM tracks").get() as { count: number }).count;
+                const publicAlbums = (db.prepare("SELECT COUNT(*) as count FROM albums WHERE is_public = 1").get() as { count: number }).count;
+                return { artists, albums, tracks, publicAlbums };
+            },
 
-        // Search
-        search(query: string, publicOnly = false) {
-            const likeQuery = `%${query}%`;
+            // Search
+            search(query: string, publicOnly = false) {
+                const likeQuery = `%${query}%`;
 
-            const artists = db
-                .prepare("SELECT * FROM artists WHERE name LIKE ?")
-                .all(likeQuery) as Artist[];
+                const artists = db
+                    .prepare("SELECT * FROM artists WHERE name LIKE ?")
+                    .all(likeQuery) as Artist[];
 
-            const albumsSql = publicOnly
-                ? `SELECT a.*, ar.name as artist_name FROM albums a 
+                const albumsSql = publicOnly
+                    ? `SELECT a.*, ar.name as artist_name FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.is_public = 1 AND (a.title LIKE ? OR ar.name LIKE ?)`
-                : `SELECT a.*, ar.name as artist_name FROM albums a 
+                    : `SELECT a.*, ar.name as artist_name FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.title LIKE ? OR ar.name LIKE ?`;
-            const albums = db.prepare(albumsSql).all(likeQuery, likeQuery) as Album[];
+                const albums = db.prepare(albumsSql).all(likeQuery, likeQuery) as Album[];
 
-            const tracksSql = publicOnly
-                ? `SELECT t.*, a.title as album_title, ar.name as artist_name 
+                const tracksSql = publicOnly
+                    ? `SELECT t.*, a.title as album_title, ar.name as artist_name 
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
            WHERE a.is_public = 1 AND (t.title LIKE ? OR ar.name LIKE ?)`
-                : `SELECT t.*, a.title as album_title, ar.name as artist_name 
+                    : `SELECT t.*, a.title as album_title, ar.name as artist_name 
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
            WHERE t.title LIKE ? OR ar.name LIKE ?`;
-            const tracks = db.prepare(tracksSql).all(likeQuery, likeQuery) as Track[];
+                const tracks = db.prepare(tracksSql).all(likeQuery, likeQuery) as Track[];
 
-            return { artists, albums, tracks };
-        },
+                return { artists, albums, tracks };
+            },
 
-        // Settings
-        getSetting(key: string): string | undefined {
-            const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
-            return row?.value;
-        },
+            // Settings
+            getSetting(key: string): string | undefined {
+                const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+                return row?.value;
+            },
 
-        setSetting(key: string, value: string): void {
-            db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
-        },
+            setSetting(key: string, value: string): void {
+                db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
+            },
 
-        getAllSettings(): { [key: string]: string } {
-            const rows = db.prepare("SELECT key, value FROM settings").all() as { key: string; value: string }[];
-            const settings: { [key: string]: string } = {};
-            for (const row of rows) {
-                settings[row.key] = row.value;
-            }
-            return settings;
-        },
-    };
-}
+                getAllSettings(): { [key: string]: string } {
+                const rows = db.prepare("SELECT key, value FROM settings").all() as { key: string; value: string }[];
+                const settings: { [key: string]: string } = {};
+                for (const row of rows) {
+                    settings[row.key] = row.value;
+                }
+                return settings;
+            },
+
+            // Play History
+            recordPlay(trackId: number): void {
+                db.prepare("INSERT INTO play_history (track_id) VALUES (?)").run(trackId);
+            },
+
+                getRecentPlays(limit = 50): PlayHistoryEntry[] {
+                return db.prepare(`
+                SELECT 
+                    ph.id,
+                    ph.track_id,
+                    t.title as track_title,
+                    ar.name as artist_name,
+                    al.title as album_title,
+                    ph.played_at
+                FROM play_history ph
+                LEFT JOIN tracks t ON ph.track_id = t.id
+                LEFT JOIN artists ar ON t.artist_id = ar.id
+                LEFT JOIN albums al ON t.album_id = al.id
+                ORDER BY ph.played_at DESC
+                LIMIT ?
+            `).all(limit) as PlayHistoryEntry[];
+            },
+
+            getTopTracks(limit = 20, days = 30): TrackWithPlayCount[] {
+                const dateLimit = new Date();
+                dateLimit.setDate(dateLimit.getDate() - days);
+                const dateStr = dateLimit.toISOString();
+
+                return db.prepare(`
+                SELECT 
+                    t.*,
+                    al.title as album_title,
+                    ar.name as artist_name,
+                    COUNT(ph.id) as play_count
+                FROM tracks t
+                LEFT JOIN play_history ph ON ph.track_id = t.id AND ph.played_at >= ?
+                LEFT JOIN albums al ON t.album_id = al.id
+                LEFT JOIN artists ar ON t.artist_id = ar.id
+                GROUP BY t.id
+                HAVING play_count > 0
+                ORDER BY play_count DESC
+                LIMIT ?
+            `).all(dateStr, limit) as TrackWithPlayCount[];
+            },
+
+            getTopArtists(limit = 10, days = 30): ArtistWithPlayCount[] {
+                const dateLimit = new Date();
+                dateLimit.setDate(dateLimit.getDate() - days);
+                const dateStr = dateLimit.toISOString();
+
+                return db.prepare(`
+                SELECT 
+                    ar.*,
+                    COUNT(ph.id) as play_count
+                FROM artists ar
+                LEFT JOIN tracks t ON t.artist_id = ar.id
+                LEFT JOIN play_history ph ON ph.track_id = t.id AND ph.played_at >= ?
+                GROUP BY ar.id
+                HAVING play_count > 0
+                ORDER BY play_count DESC
+                LIMIT ?
+            `).all(dateStr, limit) as ArtistWithPlayCount[];
+            },
+
+            getListeningStats(): ListeningStats {
+                const now = new Date();
+                const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+                const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+                const monthStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+                const totalPlays = (db.prepare("SELECT COUNT(*) as count FROM play_history").get() as { count: number }).count;
+                const uniqueTracks = (db.prepare("SELECT COUNT(DISTINCT track_id) as count FROM play_history").get() as { count: number }).count;
+                const playsToday = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(todayStart) as { count: number }).count;
+                const playsThisWeek = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(weekStart) as { count: number }).count;
+                const playsThisMonth = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(monthStart) as { count: number }).count;
+
+                // Estimate listening time from track durations
+                const listeningTime = (db.prepare(`
+                SELECT COALESCE(SUM(t.duration), 0) as total_seconds
+                FROM play_history ph
+                LEFT JOIN tracks t ON ph.track_id = t.id
+            `).get() as { total_seconds: number }).total_seconds;
+
+                return {
+                    totalPlays,
+                    totalListeningTime: Math.round(listeningTime),
+                    uniqueTracks,
+                    playsToday,
+                    playsThisWeek,
+                    playsThisMonth,
+                };
+            },
+        };
+    }

@@ -16,8 +16,13 @@ import { createPlaylistsRoutes } from "./routes/playlists.js";
 import { createUploadRoutes } from "./routes/upload.js";
 import { createReleaseRoutes } from "./routes/releases.js";
 import { createStatsRoutes } from "./routes/stats.js";
+import { createUsersRoutes } from "./routes/users.js";
+import { createCommentsRoutes } from "./routes/comments.js";
 import { createScanner } from "./scanner.js";
 import { createGunDBService } from "./gundb.js";
+import { createLibraryStatsRoutes } from "./routes/library-stats.js";
+import { createBrowserRoutes } from "./routes/browser.js";
+import { createMetadataRoutes } from "./routes/metadata.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,10 +61,15 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/artists", authMiddleware.optionalAuth, createArtistsRoutes(database));
     app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database));
     app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database));
-    app.use("/api/playlists", authMiddleware.requireAdmin, createPlaylistsRoutes(database));
+    app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database));
     app.use("/api/admin/upload", authMiddleware.requireAdmin, createUploadRoutes(database, scanner, config.musicDir));
     app.use("/api/admin/releases", authMiddleware.requireAdmin, createReleaseRoutes(database, scanner, config.musicDir));
     app.use("/api/stats", createStatsRoutes(gundbService));
+    app.use("/api/stats/library", createLibraryStatsRoutes(database));
+    app.use("/api/browser", authMiddleware.requireAdmin, createBrowserRoutes(config.musicDir));
+    app.use("/api/metadata", authMiddleware.requireAdmin, createMetadataRoutes(database, config.musicDir));
+    app.use("/api/users", createUsersRoutes(gundbService));
+    app.use("/api/comments", createCommentsRoutes(gundbService));
 
     // Serve static webapp
     const webappPath = path.join(__dirname, "..", "..", "webapp");

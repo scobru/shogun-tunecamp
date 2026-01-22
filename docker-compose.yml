@@ -1,0 +1,28 @@
+# TuneCamp Docker Compose Configuration
+# Usage: docker-compose up -d
+
+services:
+  tunecamp:
+    build: .
+    image: tunecamp:latest
+    container_name: tunecamp
+    ports:
+      - "1970:1970"
+    volumes:
+      # Map your music library (REQUIRED - change this path)
+      - /path/to/your/music:/music:ro
+      # Persistent data (database, uploads)
+      - tunecamp_data:/data
+    environment:
+      # Optional: Set public URL for community registration
+      - TUNECAMP_PUBLIC_URL=
+      # Optional: Site name for community
+      - TUNECAMP_SITE_NAME=My TuneCamp Server
+      # Optional: JWT secret (auto-generated if not set)
+      - JWT_SECRET=
+    restart: unless-stopped
+    # Optional: healthcheck configured in Dockerfile
+    
+volumes:
+  tunecamp_data:
+    driver: local

@@ -1,0 +1,76 @@
+import { Router } from "express";
+import fs from "fs-extra";
+import path from "path";
+
+const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
+
+export function createBrowserRoutes(musicDir: string) {
+    const router = Router();
+
+    /**
+     * GET /api/browser
+     * List files and folders in a directory
+     * Query params:
+     * - path: Relative path from musicDir (default: root)
+     */
+    router.get("/", async (req, res) => {
+        try {
+            const relPath = (req.query.path as string) || "";
+            // Security check: unexpected ".." or absolute paths
+            if (relPath.includes("..") || path.isAbsolute(relPath)) {
+                return res.status(400).json({ error: "Invalid path" });
+            }
+
+            const absPath = path.join(musicDir, relPath);
+
+            if (!(await fs.pathExists(absPath))) {
+                return res.status(404).json({ error: "Path not found" });
+            }
+
+            const stats = await fs.stat(absPath);
+            if (!stats.isDirectory()) {
+                return res.status(400).json({ error: "Not a directory" });
+            }
+
+            const entries = await fs.readdir(absPath, { withFileTypes: true });
+
+            const dirs = [];
+            const files = [];
+
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    dirs.push({
+                        name: entry.name,
+                        path: path.join(relPath, entry.name).replace(/\\/g, "/"),
+                        type: "directory"
+                    });
+                } else {
+                    const ext = path.extname(entry.name).toLowerCase();
+                    if (AUDIO_EXTENSIONS.includes(ext)) {
+                        files.push({
+                            name: entry.name,
+                            path: path.join(relPath, entry.name).replace(/\\/g, "/"),
+                            type: "file",
+                            ext: ext
+                        });
+                    }
+                }
+            }
+
+            // Sort: Directories first, then files
+            dirs.sort((a, b) => a.name.localeCompare(b.name));
+            files.sort((a, b) => a.name.localeCompare(b.name));
+
+            res.json({
+                path: relPath,
+                parent: relPath ? path.dirname(relPath).replace(/\\/g, "/") : null,
+                entries: [...dirs, ...files]
+            });
+        } catch (error) {
+            console.error("Error listing directory:", error);
+            res.status(500).json({ error: "Failed to list directory" });
+        }
+    });
+
+    return router;
+}

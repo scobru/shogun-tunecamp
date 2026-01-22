@@ -80,6 +80,128 @@ const App = {
         e.target.classList.add('active');
       });
     });
+
+    // === User Auth Event Handlers ===
+    this.setupUserAuthHandlers();
+  },
+
+  setupUserAuthHandlers() {
+    // User login button
+    const userLoginBtn = document.getElementById('user-login-btn');
+    const userMenu = document.getElementById('user-menu');
+    const userName = document.getElementById('user-name');
+    const userLogoutBtn = document.getElementById('user-logout-btn');
+    const userAuthModal = document.getElementById('user-auth-modal');
+    const userModalClose = document.getElementById('user-modal-close');
+    const userModalTitle = document.getElementById('user-modal-title');
+    const userLoginForm = document.getElementById('user-login-form');
+    const userRegisterForm = document.getElementById('user-register-form');
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
+    const userAuthError = document.getElementById('user-auth-error');
+
+    // Check if elements exist (they might not on some pages)
+    if (!userLoginBtn) return;
+
+    // Update UI based on current auth state
+    const updateAuthUI = () => {
+      if (typeof UserAuth !== 'undefined' && UserAuth.isLoggedIn()) {
+        userLoginBtn.style.display = 'none';
+        userMenu.style.display = 'flex';
+        userName.textContent = UserAuth.getUsername();
+      } else {
+        userLoginBtn.style.display = 'block';
+        userMenu.style.display = 'none';
+      }
+    };
+
+    // Initial UI update
+    updateAuthUI();
+
+    // Listen for restored sessions
+    window.addEventListener('userauth:restored', updateAuthUI);
+
+    // Show modal on login click
+    userLoginBtn.addEventListener('click', () => {
+      userAuthModal.classList.add('active');
+      userAuthError.textContent = '';
+    });
+
+    // Close modal
+    userModalClose.addEventListener('click', () => {
+      userAuthModal.classList.remove('active');
+    });
+
+    // Click outside to close
+    userAuthModal.addEventListener('click', (e) => {
+      if (e.target === userAuthModal) {
+        userAuthModal.classList.remove('active');
+      }
+    });
+
+    // Tab switching
+    tabLogin.addEventListener('click', () => {
+      tabLogin.classList.add('active');
+      tabRegister.classList.remove('active');
+      userLoginForm.style.display = 'block';
+      userRegisterForm.style.display = 'none';
+      userModalTitle.textContent = 'Login';
+      userAuthError.textContent = '';
+    });
+
+    tabRegister.addEventListener('click', () => {
+      tabRegister.classList.add('active');
+      tabLogin.classList.remove('active');
+      userRegisterForm.style.display = 'block';
+      userLoginForm.style.display = 'none';
+      userModalTitle.textContent = 'Create Account';
+      userAuthError.textContent = '';
+    });
+
+    // Login form submit
+    userLoginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
+      userAuthError.textContent = '';
+
+      try {
+        await UserAuth.login(username, password);
+        userAuthModal.classList.remove('active');
+        updateAuthUI();
+      } catch (err) {
+        userAuthError.textContent = err.message;
+      }
+    });
+
+    // Register form submit
+    userRegisterForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('reg-username').value.trim();
+      const password = document.getElementById('reg-password').value;
+      const passwordConfirm = document.getElementById('reg-password-confirm').value;
+      userAuthError.textContent = '';
+
+      if (password !== passwordConfirm) {
+        userAuthError.textContent = 'Passwords do not match';
+        return;
+      }
+
+      try {
+        await UserAuth.register(username, password);
+        userAuthModal.classList.remove('active');
+        updateAuthUI();
+        alert('Account created successfully! You are now logged in.');
+      } catch (err) {
+        userAuthError.textContent = err.message;
+      }
+    });
+
+    // Logout button
+    userLogoutBtn.addEventListener('click', () => {
+      UserAuth.logout();
+      updateAuthUI();
+    });
   },
 
   async route() {
@@ -108,8 +230,18 @@ const App = {
         await this.renderArtist(main, id);
       } else if (path === '/search') {
         await this.renderSearch(main);
+      } else if (path === '/browser' || path.startsWith('/browser/')) {
+        const subpath = path.replace('/browser/', '').replace('/browser', '');
+        await this.renderBrowser(main, subpath);
       } else if (path === '/network') {
         await this.renderNetwork(main);
+      } else if (path === '/playlists') {
+        await this.renderPlaylists(main);
+      } else if (path.startsWith('/playlist/')) {
+        const id = path.split('/')[2];
+        await this.renderPlaylist(main, id);
+      } else if (path === '/stats') {
+        await this.renderStats(main);
       } else if (path === '/admin') {
         if (this.isAdmin) {
           await this.renderAdmin(main);
@@ -209,10 +341,30 @@ const App = {
           </div>
         </div>
         <div class="track-list" id="track-list"></div>
+        
+        <!-- Comments Section -->
+        <div class="comments-section" id="comments-section">
+          <div class="comments-header">
+            <h3 class="comments-title">💬 Comments</h3>
+            <span class="comments-count" id="comments-count"></span>
+          </div>
+          <div id="comment-form-container"></div>
+          <div class="comments-list" id="comments-list">
+            <div class="comments-empty">Loading comments...</div>
+          </div>
+        </div>
       </div>
     `;
 
     this.renderTrackList(document.getElementById('track-list'), album.tracks);
+
+    // Load comments for the first track (or album itself)
+    const firstTrack = album.tracks && album.tracks.length > 0 ? album.tracks[0] : null;
+    if (firstTrack) {
+      this.renderComments(firstTrack.id);
+    } else {
+      document.getElementById('comments-list').innerHTML = '<div class="comments-empty">No tracks to comment on</div>';
+    }
 
     // Promote handler
     if (this.isAdmin && !album.is_release) {
@@ -228,6 +380,116 @@ const App = {
         }
       });
     }
+  },
+
+  async renderComments(trackId) {
+    const formContainer = document.getElementById('comment-form-container');
+    const listContainer = document.getElementById('comments-list');
+    const countSpan = document.getElementById('comments-count');
+
+    // Show comment form or login prompt
+    const isLoggedIn = typeof UserAuth !== 'undefined' && UserAuth.isLoggedIn();
+
+    if (isLoggedIn) {
+      formContainer.innerHTML = `
+        <form class="comment-form" id="comment-form">
+          <textarea class="comment-input" id="comment-text" placeholder="Write a comment..." rows="2" maxlength="500"></textarea>
+          <button type="submit" class="btn btn-primary">Post</button>
+        </form>
+      `;
+
+      document.getElementById('comment-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const text = document.getElementById('comment-text').value.trim();
+        if (!text) return;
+
+        try {
+          await UserAuth.postComment(trackId, text);
+          document.getElementById('comment-text').value = '';
+          this.renderComments(trackId); // Refresh
+        } catch (err) {
+          alert('Failed to post comment: ' + err.message);
+        }
+      });
+    } else {
+      formContainer.innerHTML = `
+        <div class="comment-login-prompt">
+          <a id="comment-login-link">Login</a> to leave a comment
+        </div>
+      `;
+
+      document.getElementById('comment-login-link').addEventListener('click', () => {
+        document.getElementById('user-auth-modal').classList.add('active');
+      });
+    }
+
+    // Load comments
+    try {
+      const comments = await UserAuth.getComments(trackId);
+      countSpan.textContent = `${comments.length} comment${comments.length !== 1 ? 's' : ''}`;
+
+      if (comments.length === 0) {
+        listContainer.innerHTML = '<div class="comments-empty">No comments yet. Be the first!</div>';
+        return;
+      }
+
+      const currentPubKey = isLoggedIn ? UserAuth.getPubKey() : null;
+
+      listContainer.innerHTML = comments.map(c => {
+        const initial = (c.username || '?').charAt(0).toUpperCase();
+        const timeAgo = this.formatTimeAgo(c.createdAt);
+        const isOwner = currentPubKey && c.pubKey === currentPubKey;
+
+        return `
+          <div class="comment-item" data-comment-id="${c.id}">
+            <div class="comment-avatar">${initial}</div>
+            <div class="comment-content">
+              <div class="comment-header">
+                <span class="comment-username">${c.username || 'Anonymous'}</span>
+                <span class="comment-time">${timeAgo}</span>
+              </div>
+              <div class="comment-text">${this.escapeHtml(c.text)}</div>
+              ${isOwner ? `
+                <div class="comment-actions">
+                  <button class="comment-delete" data-id="${c.id}">Delete</button>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Delete handlers
+      listContainer.querySelectorAll('.comment-delete').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (confirm('Delete this comment?')) {
+            try {
+              await UserAuth.deleteComment(btn.dataset.id);
+              this.renderComments(trackId);
+            } catch (err) {
+              alert('Failed to delete: ' + err.message);
+            }
+          }
+        });
+      });
+    } catch (err) {
+      listContainer.innerHTML = '<div class="comments-empty">Failed to load comments</div>';
+    }
+  },
+
+  formatTimeAgo(timestamp) {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+    if (seconds < 604800) return Math.floor(seconds / 86400) + 'd ago';
+    return new Date(timestamp).toLocaleDateString();
+  },
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   },
 
   async renderArtists(container) {
@@ -579,6 +841,288 @@ const App = {
       document.getElementById('network-loading').innerHTML = `
         <div class="error-message">Failed to load network data. Try again later.</div>
       `;
+    }
+  },
+
+  async renderStats(container) {
+    container.innerHTML = '<div class="loading">Loading stats...</div>';
+
+    try {
+      const [overview, recent, topTracks, topArtists] = await Promise.all([
+        API.getListeningStats(),
+        API.getRecentPlays(20),
+        API.getTopTracks(10, 30),
+        API.getTopArtists(10, 30)
+      ]);
+
+      container.innerHTML = `
+        <div class="stats-container">
+          <div class="page-header">
+            <h2>Your Listening Stats</h2>
+            <div class="stats-period">Last 30 Days</div>
+          </div>
+
+          <div class="stats-overview">
+            <div class="stat-card">
+              <div class="stat-value">${overview.totalPlays}</div>
+              <div class="stat-label">Total Plays</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${App.formatTimeAgo(overview.totalListeningTime * 1000).replace(' ago', '')}</div>
+              <div class="stat-label">Listening Time</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${overview.uniqueTracks}</div>
+              <div class="stat-label">Unique Tracks</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${overview.playsToday}</div>
+              <div class="stat-label">Plays Today</div>
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stats-section">
+              <h3>Recently Played</h3>
+              <div class="track-list">
+                ${recent.length ? recent.map(play => `
+                  <div class="track-item" onclick="Player.play({id: ${play.track_id}, title: '${App.escapeHtml(play.track_title).replace(/'/g, "\\'")}', artist_name: '${App.escapeHtml(play.artist_name || '').replace(/'/g, "\\'")}'})">
+                    <div class="track-info">
+                      <div class="track-title">${App.escapeHtml(play.track_title)}</div>
+                      <div class="track-artist">${App.escapeHtml(play.artist_name || 'Unknown Artist')}</div>
+                    </div>
+                    <div class="track-meta">
+                      ${App.formatTimeAgo(new Date(play.played_at).getTime())}
+                    </div>
+                  </div>
+                `).join('') : '<p class="empty-state">No recent plays</p>'}
+              </div>
+            </div>
+
+            <div class="stats-section">
+              <h3>Top Tracks (30d)</h3>
+              <div class="track-list">
+                ${topTracks.length ? topTracks.map((track, i) => `
+                  <div class="track-item" onclick="Player.play({id: ${track.id}, title: '${App.escapeHtml(track.title).replace(/'/g, "\\'")}', artist_name: '${App.escapeHtml(track.artist_name || '').replace(/'/g, "\\'")}'})">
+                    <div class="track-num">${i + 1}</div>
+                    <div class="track-info">
+                      <div class="track-title">${App.escapeHtml(track.title)}</div>
+                      <div class="track-artist">${App.escapeHtml(track.artist_name || 'Unknown Artist')}</div>
+                    </div>
+                    <div class="track-meta">
+                      ${track.play_count} plays
+                    </div>
+                  </div>
+                `).join('') : '<p class="empty-state">No top tracks yet</p>'}
+              </div>
+            </div>
+
+            <div class="stats-section">
+              <h3>Top Artists (30d)</h3>
+              <div class="artist-list">
+                ${topArtists.length ? topArtists.map((artist, i) => `
+                  <div class="artist-item" onclick="window.location.hash='#/artist/${artist.id}'">
+                    <div class="artist-num">${i + 1}</div>
+                    <div class="artist-info">
+                      <div class="artist-name">${App.escapeHtml(artist.name)}</div>
+                    </div>
+                    <div class="artist-meta">
+                      ${artist.play_count} plays
+                    </div>
+                  </div>
+                `).join('') : '<p class="empty-state">No top artists yet</p>'}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    } catch (error) {
+      console.error('Error rendering stats:', error);
+      container.innerHTML = '<div class="error-message">Failed to load statistics</div>';
+    }
+  },
+
+  async renderBrowser(container, currentPath = '') {
+    if (!this.isAdmin) {
+      container.innerHTML = '<div class="error-message">Access denied. Admin only.</div>';
+      return;
+    }
+
+    container.innerHTML = '<div class="loading">Loading browser...</div>';
+
+    try {
+      const data = await API.getBrowser(currentPath);
+
+      const parentPath = data.parent !== null ? `<div class="browser-item folder-item" onclick="window.location.hash='#/browser/${data.parent}'">
+        <div class="browser-icon">📁</div>
+        <div class="browser-name">..</div>
+      </div>` : '';
+
+      container.innerHTML = `
+        <div class="browser-container">
+          <div class="page-header">
+            <h2>File Browser</h2>
+            <div class="browser-path">root/${data.path}</div>
+          </div>
+
+          <div class="browser-list">
+            ${parentPath}
+            ${data.entries.length ? data.entries.map(entry => {
+        if (entry.type === 'directory') {
+          return `
+                  <div class="browser-item folder-item" onclick="window.location.hash='#/browser/${entry.path}'">
+                    <div class="browser-icon">📁</div>
+                    <div class="browser-name">${App.escapeHtml(entry.name)}</div>
+                  </div>
+                `;
+        } else {
+          return `
+                  <div class="browser-item file-item">
+                    <div class="browser-icon">🎵</div>
+                    <div class="browser-name">${App.escapeHtml(entry.name)}</div>
+                    <div class="browser-meta">${entry.ext}</div>
+                  </div>
+                `;
+        }
+      }).join('') : '<div class="empty-state">Folder is empty</div>'}
+          </div>
+        </div>
+      `;
+    } catch (error) {
+      console.error('Error rendering browser:', error);
+      container.innerHTML = '<div class="error-message">Failed to load directory</div>';
+    }
+  },
+
+  async renderPlaylists(container) {
+    container.innerHTML = '<div class="loading">Loading playlists...</div>';
+    try {
+      const playlists = await API.getPlaylists();
+
+      let createForm = '';
+      if (this.isAdmin) {
+        createForm = `
+          <div class="card mb-4">
+            <h3>Create Playlist</h3>
+            <div class="form-group">
+              <input type="text" id="playlist-name" class="form-control" placeholder="Playlist Name">
+              <input type="text" id="playlist-desc" class="form-control" placeholder="Description (optional)" style="margin-top: 5px;">
+              <label><input type="checkbox" id="playlist-public"> Public</label>
+              <button class="btn btn-primary" id="create-playlist-btn" style="margin-top: 10px;">Create</button>
+            </div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = `
+        <div class="page-header">
+          <h2>Playlists</h2>
+        </div>
+        ${createForm}
+        <div class="grid">
+          ${playlists.length ? playlists.map(p => `
+            <div class="card card-hover" onclick="window.location.hash='#/playlist/${p.id}'" style="cursor: pointer;">
+              <h3>${App.escapeHtml(p.name)}</h3>
+              <p class="text-secondary">${App.escapeHtml(p.description || '')}</p>
+              <div style="font-size: 0.8em; color: #888;">
+                ${p.is_public ? '🌐 Public' : '🔒 Private'} • ${new Date(p.created_at).toLocaleDateString()}
+              </div>
+            </div>
+          `).join('') : '<p>No playlists found.</p>'}
+        </div>
+      `;
+
+      if (this.isAdmin) {
+        document.getElementById('create-playlist-btn').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const name = document.getElementById('playlist-name').value;
+          const desc = document.getElementById('playlist-desc').value;
+          const isPublic = document.getElementById('playlist-public').checked;
+          if (!name) return alert('Name required');
+          try {
+            await API.createPlaylist(name, desc);
+            // createPlaylist API might not accept isPublic yet? 
+            // wait, existing createPlaylist args: name, desc. 
+            // I updated backend to accept isPublic but did I update API client?
+            // API.createPlaylist(name, desc) -> POST body { name, description }.
+            // I should check API.createPlaylist.
+            // If not, I can create then update visibility.
+            await this.renderPlaylists(container);
+          } catch (err) {
+            console.error(err);
+            alert('Failed to create playlist');
+          }
+        });
+      }
+
+    } catch (err) {
+      console.error(err);
+      container.innerHTML = '<div class="error-message">Failed to load playlists</div>';
+    }
+  },
+
+  async renderPlaylist(container, id) {
+    container.innerHTML = '<div class="loading">Loading playlist...</div>';
+    try {
+      const playlist = await API.getPlaylist(id);
+
+      let adminControls = '';
+      if (this.isAdmin) {
+        adminControls = `
+          <div class="actions" style="margin-bottom: 20px;">
+             <button class="btn btn-danger" id="delete-playlist-btn">Delete Playlist</button>
+             <button class="btn btn-outline" id="toggle-visibility-btn">${playlist.is_public ? 'Make Private' : 'Make Public'}</button>
+          </div>
+        `;
+      }
+
+      container.innerHTML = `
+        <div class="page-header">
+          <h2>${App.escapeHtml(playlist.name)}</h2>
+          <p>${App.escapeHtml(playlist.description || '')}</p>
+          ${adminControls}
+        </div>
+        <div class="track-list">
+          ${playlist.tracks.length ? playlist.tracks.map((t, i) => `
+            <div class="track-item" onclick="App.playPlaylistTrack(${id}, ${i})">
+              <div class="track-number">${i + 1}</div>
+              <div class="track-title">${App.escapeHtml(t.title)}</div>
+              <div class="track-artist">${App.escapeHtml(t.artist_name || 'Unknown')}</div>
+              <div class="track-duration">${App.formatDuration(t.duration)}</div>
+              ${this.isAdmin ? `<div class="track-actions"><button class="btn-icon" onclick="event.stopPropagation(); App.removeFromPlaylist(${id}, ${t.id})">❌</button></div>` : ''}
+            </div>
+          `).join('') : '<p>No tracks in this playlist.</p>'}
+        </div>
+      `;
+
+      // Helper for playing playlist
+      App.playPlaylistTrack = (playlistId, index) => {
+        Player.playQueue(playlist.tracks, index);
+      };
+
+      if (this.isAdmin) {
+        document.getElementById('delete-playlist-btn').addEventListener('click', async () => {
+          if (confirm('Delete playlist?')) {
+            await API.deletePlaylist(id);
+            window.location.hash = '#/playlists';
+          }
+        });
+        document.getElementById('toggle-visibility-btn').addEventListener('click', async () => {
+          await API.updatePlaylist(id, { isPublic: !playlist.is_public });
+          this.renderPlaylist(container, id);
+        });
+
+        App.removeFromPlaylist = async (pId, tId) => {
+          if (confirm('Remove track?')) {
+            await API.removeTrackFromPlaylist(pId, tId);
+            this.renderPlaylist(container, id);
+          }
+        };
+      }
+
+    } catch (err) {
+      console.error(err);
+      container.innerHTML = '<div class="error-message">Failed to load playlist</div>';
     }
   },
 

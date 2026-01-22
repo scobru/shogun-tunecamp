@@ -266,5 +266,53 @@ const API = {
 
     async getNetworkTracks() {
         return this.get('/stats/network/tracks');
+    },
+
+    // Library Statistics
+    async recordPlay(trackId) {
+        return this.post('/stats/library/play/' + trackId, {});
+    },
+
+    async getRecentPlays(limit = 50) {
+        return this.get('/stats/library/recent?limit=' + limit);
+    },
+
+    async getTopTracks(limit = 20, days = 30) {
+        return this.get('/stats/library/top-tracks?limit=' + limit + '&days=' + days);
+    },
+
+    async getTopArtists(limit = 10, days = 30) {
+        return this.get('/stats/library/top-artists?limit=' + limit + '&days=' + days);
+    },
+
+    async getListeningStats() {
+        return this.get('/stats/library/overview');
+    },
+
+    // Browser
+    async getBrowser(path = '') {
+        return this.get('/browser?path=' + encodeURIComponent(path));
+    },
+
+    // Lyrics
+    async getLyrics(trackId) {
+        return this.get('/tracks/' + trackId + '/lyrics');
+    },
+
+    // Metadata
+    async searchMetadata(query) {
+        return this.get('/metadata/search?q=' + encodeURIComponent(query));
+    },
+
+    async updatePlaylist(id, data) {
+        return this.put('/playlists/' + id, data);
+    },
+
+    async addTrackToPlaylist(playlistId, trackId) {
+        return this.post(`/playlists/${playlistId}/tracks`, { trackId });
+    },
+
+    async removeTrackFromPlaylist(playlistId, trackId) {
+        return this.delete(`/playlists/${playlistId}/tracks/${trackId}`);
     }
 };

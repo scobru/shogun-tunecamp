@@ -5,6 +5,7 @@ const Player = {
     queue: [],
     currentIndex: -1,
     isPlaying: false,
+    playRecorded: false,
 
     init() {
         this.audio = document.getElementById('audio-element');
@@ -36,8 +37,48 @@ const Player = {
 
         this.audio.addEventListener('timeupdate', () => this.updateProgress());
         this.audio.addEventListener('ended', () => this.next());
-        this.audio.addEventListener('play', () => this.updatePlayButton(true));
+        this.audio.addEventListener('play', () => {
+            this.updatePlayButton(true);
+            // Record play if not yet recorded for this track load
+            if (!this.playRecorded && this.queue[this.currentIndex]) {
+                const track = this.queue[this.currentIndex];
+                API.recordPlay(track.id).catch(err => console.error('Failed to record play:', err));
+                this.playRecorded = true;
+            }
+        });
         this.audio.addEventListener('pause', () => this.updatePlayButton(false));
+
+        document.getElementById('lyrics-btn').addEventListener('click', () => this.toggleLyrics());
+    },
+
+    async toggleLyrics() {
+        const panel = document.getElementById('lyrics-panel');
+        const content = document.getElementById('lyrics-content');
+
+        if (panel.style.display === 'none') {
+            panel.style.display = 'block';
+            if (this.queue[this.currentIndex]) {
+                content.innerHTML = 'Loading...';
+                try {
+                    const data = await API.getLyrics(this.queue[this.currentIndex].id);
+                    if (data.lyrics && (Array.isArray(data.lyrics) ? data.lyrics.length > 0 : data.lyrics)) {
+                        // Handle sync lyrics array or string
+                        const text = Array.isArray(data.lyrics)
+                            ? data.lyrics.map(l => l.text).join('\n')
+                            : data.lyrics;
+                        content.innerHTML = `<pre>${App.escapeHtml(text)}</pre>`;
+                    } else {
+                        content.innerHTML = '<p>No lyrics found for this track.</p>';
+                    }
+                } catch (e) {
+                    content.innerHTML = '<p>Failed to load lyrics.</p>';
+                }
+            } else {
+                content.innerHTML = '<p>No track playing.</p>';
+            }
+        } else {
+            panel.style.display = 'none';
+        }
     },
 
     loadVolume() {
@@ -56,6 +97,7 @@ const Player = {
     },
 
     loadTrack(track) {
+        this.playRecorded = false;
         this.audio.src = API.getStreamUrl(track.id);
 
         document.getElementById('player-title').textContent = track.title;

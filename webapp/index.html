@@ -21,10 +21,18 @@
         <a href="#/albums" class="nav-link" data-route="albums">Albums</a>
         <a href="#/tracks" class="nav-link" data-route="tracks">Tracks</a>
         <a href="#/artists" class="nav-link" data-route="artists">Artists</a>
+        <a href="#/stats" class="nav-link" data-route="stats">Stats</a>
+        <a href="#/browser" class="nav-link" data-route="browser">Browser</a>
         <a href="#/network" class="nav-link" data-route="network">Network</a>
+        <a href="#/playlists" class="nav-link" data-route="playlists">Playlists</a>
         <a href="#/search" class="nav-link" data-route="search">Search</a>
       </div>
       <div class="nav-auth" id="nav-auth">
+        <div class="user-menu" id="user-menu" style="display: none;">
+          <span class="user-name" id="user-name"></span>
+          <button class="btn btn-sm btn-ghost" id="user-logout-btn" title="Logout">👋</button>
+        </div>
+        <button class="btn btn-outline btn-sm" id="user-login-btn">Login</button>
         <button class="btn btn-outline" id="admin-btn">Admin</button>
       </div>
     </nav>
@@ -49,6 +57,7 @@
         <button class="player-btn" id="prev-btn">⏮</button>
         <button class="player-btn play-btn" id="play-btn">▶</button>
         <button class="player-btn" id="next-btn">⏭</button>
+        <button class="player-btn btn-xs" id="lyrics-btn" title="Lyrics" style="margin-left: 10px;">🎤</button>
       </div>
       <div class="player-progress">
         <span class="time" id="current-time">0:00</span>
@@ -60,6 +69,18 @@
         <input type="range" class="volume-bar" id="volume-bar" min="0" max="100" value="80">
       </div>
       <audio id="audio-element"></audio>
+    </div>
+
+    <!-- Lyrics Panel -->
+    <div class="lyrics-panel" id="lyrics-panel" style="display: none;">
+      <div class="lyrics-header">
+        <h3>Lyrics</h3>
+        <button class="close-btn"
+          onclick="document.getElementById('lyrics-panel').style.display='none'">&times;</button>
+      </div>
+      <div class="lyrics-content" id="lyrics-content">
+        Loading...
+      </div>
     </div>
   </div>
 
@@ -83,7 +104,59 @@
     </div>
   </div>
 
+  <!-- User Auth Modal -->
+  <div class="modal" id="user-auth-modal">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h2 id="user-modal-title">Login</h2>
+        <button class="modal-close" id="user-modal-close">&times;</button>
+      </div>
+      <div class="modal-body" id="user-modal-body">
+        <!-- Tab buttons -->
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tab-login">Login</button>
+          <button class="auth-tab" id="tab-register">Register</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="user-login-form">
+          <div class="form-group">
+            <label for="login-username">Username</label>
+            <input type="text" id="login-username" placeholder="your_username" required>
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" placeholder="••••••" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Login</button>
+        </form>
+
+        <!-- Register Form (hidden by default) -->
+        <form id="user-register-form" style="display: none;">
+          <div class="form-group">
+            <label for="reg-username">Choose a username</label>
+            <input type="text" id="reg-username" placeholder="your_username" required>
+            <small class="form-hint">At least 3 characters</small>
+          </div>
+          <div class="form-group">
+            <label for="reg-password">Password</label>
+            <input type="password" id="reg-password" placeholder="••••••" required>
+            <small class="form-hint">At least 6 characters</small>
+          </div>
+          <div class="form-group">
+            <label for="reg-password-confirm">Confirm Password</label>
+            <input type="password" id="reg-password-confirm" placeholder="••••••" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+        </form>
+
+        <div id="user-auth-error" class="error-message"></div>
+      </div>
+    </div>
+  </div>
+
   <script src="js/api.js"></script>
+  <script src="js/user-auth.js"></script>
   <script src="js/player.js"></script>
   <script src="js/app.js"></script>
 </body>

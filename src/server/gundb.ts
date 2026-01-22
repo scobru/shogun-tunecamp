@@ -21,6 +21,23 @@ export interface SiteInfo {
     coverImage?: string;
 }
 
+export interface UserProfile {
+    pubKey: string;
+    username: string;
+    createdAt: number;
+    avatar?: string;
+}
+
+export interface Comment {
+    id: string;
+    trackId: number;
+    pubKey: string;
+    username: string;
+    text: string;
+    signature?: string;
+    createdAt: number;
+}
+
 export interface GunDBService {
     init(): Promise<boolean>;
     registerSite(siteInfo: SiteInfo): Promise<boolean>;
@@ -34,6 +51,14 @@ export interface GunDBService {
     // Community exploration
     getCommunitySites(): Promise<any[]>;
     getCommunityTracks(): Promise<any[]>;
+    // User profiles
+    registerUser(pubKey: string, username: string): Promise<boolean>;
+    getUser(pubKey: string): Promise<UserProfile | null>;
+    getUserByUsername(username: string): Promise<UserProfile | null>;
+    // Comments
+    addComment(trackId: number, data: { pubKey: string; username: string; text: string; signature?: string }): Promise<Comment | null>;
+    getComments(trackId: number): Promise<Comment[]>;
+    deleteComment(commentId: string, pubKey: string): Promise<boolean>;
 }
 
 /**
@@ -361,6 +386,217 @@ export function createGunDBService(database: DatabaseService): GunDBService {
         });
     }
 
+    // User profiles namespace
+    const USERS_NAMESPACE = "tunecamp-users";
+
+    async function registerUser(pubKey: string, username: string): Promise<boolean> {
+        if (!initialized || !gun) return false;
+
+        const now = Date.now();
+        const userRecord: UserProfile = {
+            pubKey,
+            username,
+            createdAt: now,
+        };
+
+        return new Promise((resolve) => {
+            // Store user by pubKey
+            gun
+                .get(REGISTRY_ROOT)
+                .get(USERS_NAMESPACE)
+                .get("byPubKey")
+                .get(pubKey)
+                .put(userRecord, (ack: any) => {
+                    if (ack.err) {
+                        console.warn("Failed to register user:", ack.err);
+                        resolve(false);
+                    }
+                });
+
+            // Also store username -> pubKey mapping
+            gun
+                .get(REGISTRY_ROOT)
+                .get(USERS_NAMESPACE)
+                .get("byUsername")
+                .get(username.toLowerCase())
+                .put({ pubKey, username }, (ack: any) => {
+                    if (ack.err) {
+                        resolve(false);
+                    } else {
+                        console.log(`👤 User registered: ${username}`);
+                        resolve(true);
+                    }
+                });
+
+            // Timeout fallback
+            setTimeout(() => resolve(true), 3000);
+        });
+    }
+
+    async function getUser(pubKey: string): Promise<UserProfile | null> {
+        if (!initialized || !gun) return null;
+
+        return new Promise((resolve) => {
+            gun
+                .get(REGISTRY_ROOT)
+                .get(USERS_NAMESPACE)
+                .get("byPubKey")
+                .get(pubKey)
+                .once((data: any) => {
+                    if (data && data.username) {
+                        resolve({
+                            pubKey: data.pubKey || pubKey,
+                            username: data.username,
+                            createdAt: data.createdAt || 0,
+                            avatar: data.avatar,
+                        });
+                    } else {
+                        resolve(null);
+                    }
+                });
+
+            setTimeout(() => resolve(null), 3000);
+        });
+    }
+
+    async function getUserByUsername(username: string): Promise<UserProfile | null> {
+        if (!initialized || !gun) return null;
+
+        return new Promise((resolve) => {
+            gun
+                .get(REGISTRY_ROOT)
+                .get(USERS_NAMESPACE)
+                .get("byUsername")
+                .get(username.toLowerCase())
+                .once(async (data: any) => {
+                    if (data && data.pubKey) {
+                        const user = await getUser(data.pubKey);
+                        resolve(user);
+                    } else {
+                        resolve(null);
+                    }
+                });
+
+            setTimeout(() => resolve(null), 3000);
+        });
+    }
+
+    // Comments namespace
+    const COMMENTS_NAMESPACE = "tunecamp-comments";
+
+    async function addComment(
+        trackId: number,
+        data: { pubKey: string; username: string; text: string; signature?: string }
+    ): Promise<Comment | null> {
+        if (!initialized || !gun) return null;
+
+        const commentId = `${trackId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const now = Date.now();
+
+        // GunDB doesn't accept undefined values, so use empty string for optional fields
+        const comment: Comment = {
+            id: commentId,
+            trackId,
+            pubKey: data.pubKey || "",
+            username: data.username || "Anonymous",
+            text: data.text,
+            signature: data.signature || "",
+            createdAt: now,
+        };
+
+        return new Promise((resolve) => {
+            gun
+                .get(REGISTRY_ROOT)
+                .get(COMMENTS_NAMESPACE)
+                .get(`track-${trackId}`)
+                .get(commentId)
+                .put(comment, (ack: any) => {
+                    if (ack.err) {
+                        console.warn("Failed to add comment:", ack.err);
+                        resolve(null);
+                    } else {
+                        console.log(`💬 Comment added on track ${trackId}`);
+                        resolve(comment);
+                    }
+                });
+
+            setTimeout(() => resolve(comment), 2000);
+        });
+    }
+
+    async function getComments(trackId: number): Promise<Comment[]> {
+        if (!initialized || !gun) return [];
+
+        return new Promise((resolve) => {
+            const comments: Comment[] = [];
+
+            gun
+                .get(REGISTRY_ROOT)
+                .get(COMMENTS_NAMESPACE)
+                .get(`track-${trackId}`)
+                .map()
+                .once((data: any, id: string) => {
+                    if (data && data.text && id !== "_") {
+                        comments.push({
+                            id: data.id || id,
+                            trackId: data.trackId || trackId,
+                            pubKey: data.pubKey || "",
+                            username: data.username || "Anonymous",
+                            text: data.text,
+                            signature: data.signature,
+                            createdAt: data.createdAt || 0,
+                        });
+                    }
+                });
+
+            // Wait for data to collect, then sort by time
+            setTimeout(() => {
+                comments.sort((a, b) => b.createdAt - a.createdAt);
+                resolve(comments);
+            }, 2000);
+        });
+    }
+
+    async function deleteComment(commentId: string, pubKey: string): Promise<boolean> {
+        if (!initialized || !gun) return false;
+
+        // Extract trackId from commentId
+        const parts = commentId.split("-");
+        const trackId = parts[0];
+
+        return new Promise((resolve) => {
+            // First check ownership
+            gun
+                .get(REGISTRY_ROOT)
+                .get(COMMENTS_NAMESPACE)
+                .get(`track-${trackId}`)
+                .get(commentId)
+                .once((data: any) => {
+                    if (!data || data.pubKey !== pubKey) {
+                        resolve(false);
+                        return;
+                    }
+
+                    // Delete by setting to null
+                    gun
+                        .get(REGISTRY_ROOT)
+                        .get(COMMENTS_NAMESPACE)
+                        .get(`track-${trackId}`)
+                        .get(commentId)
+                        .put(null, (ack: any) => {
+                            if (ack.err) {
+                                resolve(false);
+                            } else {
+                                console.log(`🗑️ Comment deleted: ${commentId}`);
+                                resolve(true);
+                            }
+                        });
+                });
+
+            setTimeout(() => resolve(false), 3000);
+        });
+    }
+
     return {
         init,
         registerSite,
@@ -372,5 +608,13 @@ export function createGunDBService(database: DatabaseService): GunDBService {
         incrementTrackDownloadCount,
         getCommunitySites,
         getCommunityTracks,
+        // User profiles
+        registerUser,
+        getUser,
+        getUserByUsername,
+        // Comments
+        addComment,
+        getComments,
+        deleteComment,
     };
 }

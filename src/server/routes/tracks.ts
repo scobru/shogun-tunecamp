@@ -1,12 +1,17 @@
 import { Router } from "express";
 import fs from "fs";
 import path from "path";
+import { parseFile } from "music-metadata";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 
 export function createTracksRoutes(database: DatabaseService) {
     const router = Router();
 
+    /**
+     * GET /api/tracks
+     * List all tracks (ADMIN ONLY)
+     */
     /**
      * GET /api/tracks
      * List all tracks (ADMIN ONLY)
@@ -23,6 +28,33 @@ export function createTracksRoutes(database: DatabaseService) {
         } catch (error) {
             console.error("Error getting tracks:", error);
             res.status(500).json({ error: "Failed to get tracks" });
+        }
+    });
+
+    /**
+     * GET /api/tracks/:id/lyrics
+     * Get track lyrics from metadata
+     */
+    router.get("/:id/lyrics", async (req: AuthenticatedRequest, res) => {
+        try {
+            const id = parseInt(req.params.id as string, 10);
+            const track = database.getTrack(id);
+
+            if (!track) {
+                return res.status(404).json({ error: "Track not found" });
+            }
+
+            if (!fs.existsSync(track.file_path)) {
+                return res.status(404).json({ error: "File not found" });
+            }
+
+            const metadata = await parseFile(track.file_path);
+            const lyrics = metadata.common.lyrics;
+
+            res.json({ lyrics: lyrics || [] });
+        } catch (error) {
+            console.error("Error getting lyrics:", error);
+            res.status(500).json({ error: "Failed to get lyrics" });
         }
     });
 

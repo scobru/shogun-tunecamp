@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { DatabaseService } from "../database.js";
+import type { AuthenticatedRequest } from "../middleware/auth.js";
 
 export function createPlaylistsRoutes(database: DatabaseService) {
     const router = Router();
@@ -10,7 +11,8 @@ export function createPlaylistsRoutes(database: DatabaseService) {
      */
     router.get("/", (req, res) => {
         try {
-            const playlists = database.getPlaylists();
+            const isPublicOnly = !req.isAdmin;
+            const playlists = database.getPlaylists(isPublicOnly);
             res.json(playlists);
         } catch (error) {
             console.error("Error getting playlists:", error);
@@ -22,7 +24,8 @@ export function createPlaylistsRoutes(database: DatabaseService) {
      * POST /api/playlists
      * Create new playlist
      */
-    router.post("/", (req, res) => {
+    router.post("/", (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
         try {
             const { name, description } = req.body;
 
@@ -39,6 +42,28 @@ export function createPlaylistsRoutes(database: DatabaseService) {
     });
 
     /**
+     * PUT /api/playlists/:id
+     * Update playlist (rename, visibility)
+     */
+    router.put("/:id", (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+        try {
+            const id = parseInt(req.params.id, 10);
+            const { isPublic } = req.body;
+
+            // For now only supports toggling visibility
+            if (isPublic !== undefined) {
+                database.updatePlaylistVisibility(id, isPublic);
+            }
+
+            res.json({ message: "Playlist updated" });
+        } catch (error) {
+            console.error("Error updating playlist:", error);
+            res.status(500).json({ error: "Failed to update playlist" });
+        }
+    });
+
+    /**
      * GET /api/playlists/:id
      * Get playlist with tracks
      */
@@ -49,6 +74,10 @@ export function createPlaylistsRoutes(database: DatabaseService) {
 
             if (!playlist) {
                 return res.status(404).json({ error: "Playlist not found" });
+            }
+
+            if (!req.isAdmin && !playlist.is_public) {
+                return res.status(403).json({ error: "Unauthorized" });
             }
 
             const tracks = database.getPlaylistTracks(id);
@@ -67,7 +96,8 @@ export function createPlaylistsRoutes(database: DatabaseService) {
      * DELETE /api/playlists/:id
      * Delete playlist
      */
-    router.delete("/:id", (req, res) => {
+    router.delete("/:id", (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
         try {
             const id = parseInt(req.params.id, 10);
             const playlist = database.getPlaylist(id);
@@ -88,7 +118,8 @@ export function createPlaylistsRoutes(database: DatabaseService) {
      * POST /api/playlists/:id/tracks
      * Add track to playlist
      */
-    router.post("/:id/tracks", (req, res) => {
+    router.post("/:id/tracks", (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
         try {
             const playlistId = parseInt(req.params.id, 10);
             const { trackId } = req.body;
@@ -119,7 +150,8 @@ export function createPlaylistsRoutes(database: DatabaseService) {
      * DELETE /api/playlists/:id/tracks/:trackId
      * Remove track from playlist
      */
-    router.delete("/:id/tracks/:trackId", (req, res) => {
+    router.delete("/:id/tracks/:trackId", (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
         try {
             const playlistId = parseInt(req.params.id, 10);
             const trackId = parseInt(req.params.trackId, 10);
