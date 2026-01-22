@@ -27,6 +27,7 @@ Inspired by [Faircamp](https://simonrepp.com/faircamp/), this tool helps you cre
 - 🔗 **Remote audio files**: Use external URLs for audio files instead of local files
 - 🌐 **Community Directory**: Auto-register your site to a public directory of Tunecamp sites
 - 🎧 **Community Player**: Centralized player to discover and listen to music from all Tunecamp sites
+- 🖥️ **Server Mode**: Personal streaming server with REST API and web interface
 
 ## Quick Start
 
