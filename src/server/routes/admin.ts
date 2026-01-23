@@ -56,6 +56,9 @@ export function createAdminRoutes(
                 };
 
                 if (isPublic) {
+                    // Ensure site is registered first
+                    await gundbService.registerSite(siteInfo);
+
                     // Register tracks to community
                     const tracks = database.getTracks(id);
                     await gundbService.registerTracks(siteInfo, album, tracks);

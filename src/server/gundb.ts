@@ -469,7 +469,18 @@ export function createGunDBService(database: DatabaseService): GunDBService {
                 });
 
             // Wait for data to collect
-            setTimeout(() => resolve(tracks), 5000);
+            setTimeout(() => {
+                // Deduplicate by slug (prefer secure)
+                const uniqueTracks = new Map();
+                for (const t of tracks) {
+                    if (!uniqueTracks.has(t.slug) || t._secure) {
+                        uniqueTracks.set(t.slug, t);
+                    }
+                }
+                const result = Array.from(uniqueTracks.values());
+                console.log(`🌐 Found ${result.length} unique community tracks`);
+                resolve(result);
+            }, 4000);
         });
     }
 
