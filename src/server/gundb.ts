@@ -168,6 +168,7 @@ export function createGunDBService(database: DatabaseService): GunDBService {
                 // 2. Write Reference to Public Directory
                 // We write a pointer to the public list so people can find us.
                 // IMPORTANT: We include our pub key so they can verify/load the private data.
+                console.log(`📝 Registering public reference for Site ID: ${siteId} with PubKey: ${serverPair.pub.slice(0, 8)}...`);
                 gun
                     .get(REGISTRY_ROOT)
                     .get(REGISTRY_NAMESPACE)
@@ -185,7 +186,7 @@ export function createGunDBService(database: DatabaseService): GunDBService {
                             console.warn("Failed to register site in directory:", pubAck.err);
                             resolve(false);
                         } else {
-                            console.log("✅ Server registered in Tunecamp Community (Secure Mode)");
+                            console.log(`✅ Server registered in Tunecamp Community (Secure Mode) - Site ID: ${siteId}`);
                             resolve(true);
                         }
                     });
