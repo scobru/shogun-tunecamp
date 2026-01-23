@@ -427,23 +427,45 @@ export function createGunDBService(database: DatabaseService): GunDBService {
                 .get(REGISTRY_NAMESPACE)
                 .get("sites")
                 .map()
-                .once((siteData: any) => {
-                    if (!siteData || !siteData.pub) return;
+                .once((siteData: any, siteId: string) => {
+                    if (!siteData || siteId === "_") return;
 
-                    // 2. Read tracks from each user's secure graph
-                    gun.user(siteData.pub)
-                        .get('tunecamp')
-                        .get('tracks')
-                        .map()
-                        .once((trackData: any, slug: string) => {
-                            if (trackData && trackData.audioUrl && slug !== "_") {
-                                tracks.push({
-                                    ...trackData,
-                                    slug: slug,
-                                    _secure: true
-                                });
-                            }
-                        });
+                    // Secure Mode (Trusted by User Graph)
+                    if (siteData.pub) {
+                        gun.user(siteData.pub)
+                            .get('tunecamp')
+                            .get('tracks')
+                            .map()
+                            .once((trackData: any, slug: string) => {
+                                if (trackData && trackData.audioUrl && slug !== "_") {
+                                    tracks.push({
+                                        ...trackData,
+                                        slug: slug,
+                                        siteId: siteId,
+                                        _secure: true
+                                    });
+                                }
+                            });
+                    }
+                    // Legacy Mode (Public Graph)
+                    else {
+                        gun.get(REGISTRY_ROOT)
+                            .get(REGISTRY_NAMESPACE)
+                            .get("sites")
+                            .get(siteId)
+                            .get("tracks")
+                            .map()
+                            .once((trackData: any, slug: string) => {
+                                if (trackData && trackData.audioUrl && slug !== "_") {
+                                    tracks.push({
+                                        ...trackData,
+                                        slug: slug,
+                                        siteId: siteId,
+                                        _secure: false
+                                    });
+                                }
+                            });
+                    }
                 });
 
             // Wait for data to collect
