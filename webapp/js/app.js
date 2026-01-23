@@ -1576,12 +1576,12 @@ const App = {
             <button class="btn btn-primary" id="save-settings-btn">Save Settings</button>
           </div>
         </div>
-      </section >
+      </section>
   `;
 
     const list = document.getElementById('releases-list');
     list.innerHTML = releases.map(r => `
-  < div class="release-row" data - release - id="${r.id}" >
+      <div class="release-row" data-release-id="${r.id}">
         <div class="release-cover-small album-cover-placeholder" data-src="${API.getAlbumCoverUrl(r.id)}">
           <div class="placeholder-icon" style="font-size: 1.5rem;">🎵</div>
         </div>
