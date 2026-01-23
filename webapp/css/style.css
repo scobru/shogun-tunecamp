@@ -703,51 +703,6 @@ body {
   .player-progress { width: 100%; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
-  --bg-tertiary: #2b2930;
-  --bg-card: #211f26;
-  --surface-container: #1d1b20;
-  --surface-container-high: #2b2930;
-  
-  --text-primary: #e6e0e9;
-  --text-secondary: #cac4d0;
-  --text-muted: #938f99;
-  
-  /* Primary accent - Purple */
-  --accent: #d0bcff;
-  --accent-dark: #6750a4;
-  --accent-container: #4f378b;
-  --accent-hover: #e8def8;
-  --accent-glow: rgba(208, 188, 255, 0.25);
-  
-  /* Semantic colors */
-  --success: #c3e7ad;
-  --success-container: #2e4c1e;
-  --warning: #ffd599;
-  --warning-container: #5c4100;
-  --danger: #f2b8b5;
-  --danger-container: #8c1d18;
-  --color-danger: #f2b8b5;
-  
-  --border: #49454f;
-  --outline: #79747e;
-  
-  /* Elevation shadows (Material Design 3) */
-  --elevation-1: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --elevation-2: 0 2px 6px 2px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --elevation-3: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px 0 rgba(0, 0, 0, 0.3);
-  --elevation-4: 0 6px 10px 4px rgba(0, 0, 0, 0.15), 0 2px 3px 0 rgba(0, 0, 0, 0.3);
-  
-  /* Deprecated aliases for backward compatibility */
-  --shadow: var(--elevation-2);
-  
-  /* Border radius (Material Design 3) */
-  --radius: 16px;
-  --radius-sm: 12px;
-  --radius-lg: 28px;
-  --radius-full: 9999px;
-  
-  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
 
 * {
   box-sizing: border-box;
