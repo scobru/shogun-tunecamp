@@ -270,6 +270,15 @@ const API = {
         return this.get('/stats/network/tracks');
     },
 
+    // Identity Management
+    async getIdentity() {
+        return this.get('/admin/system/identity');
+    },
+
+    async importIdentity(pair) {
+        return this.post('/admin/system/identity', pair);
+    },
+
     // Library Statistics
     async recordPlay(trackId) {
         return this.post('/stats/library/play/' + trackId, {});

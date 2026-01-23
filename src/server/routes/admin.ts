@@ -189,5 +189,38 @@ export function createAdminRoutes(
         }
     });
 
+    /**
+     * GET /api/admin/system/identity
+     * Get server identity keypair (ADMIN ONLY)
+     */
+    router.get("/system/identity", async (req, res) => {
+        try {
+            const pair = await gundbService.getIdentityKeyPair();
+            res.json(pair);
+        } catch (error) {
+            console.error("Error getting identity:", error);
+            res.status(500).json({ error: "Failed to get identity" });
+        }
+    });
+
+    /**
+     * POST /api/admin/system/identity
+     * Import server identity keypair (ADMIN ONLY)
+     */
+    router.post("/system/identity", async (req, res) => {
+        try {
+            const pair = req.body;
+            const success = await gundbService.setIdentityKeyPair(pair);
+            if (success) {
+                res.json({ message: "Identity imported successfully" });
+            } else {
+                res.status(400).json({ error: "Invalid keypair or authentication failed" });
+            }
+        } catch (error) {
+            console.error("Error setting identity:", error);
+            res.status(500).json({ error: "Failed to set identity" });
+        }
+    });
+
     return router;
 }

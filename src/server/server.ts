@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import http from "http";
 import { fileURLToPath } from "url";
 import type { ServerConfig } from "./config.js";
 import { createDatabase } from "./database.js";
@@ -30,6 +31,7 @@ const __dirname = path.dirname(__filename);
 
 export async function startServer(config: ServerConfig): Promise<void> {
     const app = express();
+    const server = http.createServer(app);
 
     // Middleware
     app.use(cors({ origin: config.corsOrigins }));
@@ -51,8 +53,8 @@ export async function startServer(config: ServerConfig): Promise<void> {
     await scanner.scanDirectory(config.musicDir);
     scanner.startWatching(config.musicDir);
 
-    // Initialize GunDB service
-    const gundbService = createGunDBService(database);
+    // Initialize GunDB service (with HTTP server for WebSockets)
+    const gundbService = createGunDBService(database, server);
     await gundbService.init();
 
     // API Routes
@@ -86,7 +88,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 
     // Start server
-    app.listen(config.port, async () => {
+    server.listen(config.port, async () => {
         console.log("");
         console.log(`🎶 TuneCamp Server running at http://localhost:${config.port}`);
         console.log("");

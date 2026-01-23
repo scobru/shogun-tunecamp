@@ -60,6 +60,9 @@ export interface GunDBService {
     addComment(trackId: number, data: { pubKey: string; username: string; text: string; signature?: string }): Promise<Comment | null>;
     getComments(trackId: number): Promise<Comment[]>;
     deleteComment(commentId: string, pubKey: string): Promise<boolean>;
+    // Key Management
+    getIdentityKeyPair(): Promise<any>;
+    setIdentityKeyPair(pair: any): Promise<boolean>;
 }
 
 /**
@@ -72,7 +75,7 @@ function generateTrackSlug(albumTitle: string, trackTitle: string): string {
         .replace(/^-|-$/g, "");
 }
 
-export function createGunDBService(database: DatabaseService): GunDBService {
+export function createGunDBService(database: DatabaseService, server?: any): GunDBService {
     let gun: any = null;
     let initialized = false;
     let serverPair: any = null;
@@ -81,7 +84,10 @@ export function createGunDBService(database: DatabaseService): GunDBService {
         try {
             gun = Gun({
                 peers: REGISTRY_PEERS,
-                radisk: false, // Disable radisk for server
+                radisk: true,
+                web: server,
+                axe: true,
+                wire: true,
             });
 
             // Initialize User Auth (SEA)
@@ -113,7 +119,7 @@ export function createGunDBService(database: DatabaseService): GunDBService {
             });
 
             initialized = true;
-            console.log("🌐 GunDB Community Registry initialized");
+            console.log("🌐 GunDB Community Registry initialized (v1.2 w/ WebSocket)");
 
             // Start background cleanup task (every 12 hours)
             setInterval(cleanupNetwork, 12 * 60 * 60 * 1000);
@@ -124,6 +130,39 @@ export function createGunDBService(database: DatabaseService): GunDBService {
             return false;
         }
     }
+
+    async function getIdentityKeyPair(): Promise<any> {
+        return serverPair;
+    }
+
+    async function setIdentityKeyPair(pair: any): Promise<boolean> {
+        try {
+            if (!pair || !pair.pub || !pair.priv || !pair.epub || !pair.epriv) {
+                return false;
+            }
+
+            // Basic validation
+            if (typeof pair.pub !== 'string' || typeof pair.priv !== 'string') return false;
+
+            // Save
+            serverPair = pair;
+            database.setSetting("gunPair", JSON.stringify(serverPair));
+
+            // Re-authenticate if running
+            if (gun) {
+                gun.user().leave();
+                gun.user().auth(serverPair, (ack: any) => {
+                    if (!ack.err) console.log(`🔐 Identity Imported & Re-Authenticated: ${serverPair.pub.slice(0, 8)}...`);
+                });
+            }
+            return true;
+        } catch (e) {
+            console.error("Error setting identity pair:", e);
+            return false;
+        }
+    }
+
+
 
     async function registerSite(siteInfo: SiteInfo): Promise<boolean> {
         if (!initialized || !gun || !serverPair) {
@@ -425,6 +464,27 @@ export function createGunDBService(database: DatabaseService): GunDBService {
 
             // 1. Get sites
             console.log("🔍 Scanning community sites...");
+
+            // ALWAYS scan our own secure graph explicitly (bypass directory lag)
+            if (serverPair && serverPair.pub) {
+                console.log(`🔐 Reading OWN secure graph (${serverPair.pub.slice(0, 8)}...)`);
+                gun.user(serverPair.pub)
+                    .get('tunecamp')
+                    .get('tracks')
+                    .map()
+                    .once((trackData: any, slug: string) => {
+                        if (trackData && trackData.audioUrl && slug !== "_") {
+                            tracks.push({
+                                ...trackData,
+                                slug: slug,
+                                siteId: 'local', // Placeholder or fetch real ID
+                                _secure: true,
+                                _isSelf: true
+                            });
+                        }
+                    });
+            }
+
             gun.get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get("sites")
@@ -720,6 +780,9 @@ export function createGunDBService(database: DatabaseService): GunDBService {
         addComment,
         getComments,
         deleteComment,
+        // Key Management
+        getIdentityKeyPair,
+        setIdentityKeyPair
     };
 
     /**

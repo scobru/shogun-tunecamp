@@ -473,13 +473,35 @@ const App = {
             try {
               const rawLinks = typeof artist.links === 'string' ? JSON.parse(artist.links) : artist.links;
               if (Array.isArray(rawLinks)) {
-                links = rawLinks.map(l => {
-                  if (l.label && l.url) return { platform: l.label, url: l.url }; // New format
-                  const key = Object.keys(l)[0];
-                  return { platform: key.charAt(0).toUpperCase() + key.slice(1), url: l[key] };
-                });
+                // Reuse detection logic
+                const detectType = (label, url) => {
+                  const lower = (label + url).toLowerCase();
+                  if (lower.includes('patreon') || lower.includes('ko-fi') || lower.includes('paypal') || lower.includes('buymeacoffee') || lower.includes('liberapay') || lower.includes('donate')) {
+                    return 'support';
+                  }
+                  return 'social';
+                };
+
+                links = rawLinks
+                  .map(l => {
+                    let linkObj = l;
+                    if (l.label && l.url) {
+                      linkObj = { platform: l.label, url: l.url, type: l.type };
+                    } else {
+                      const key = Object.keys(l)[0];
+                      linkObj = { platform: key.charAt(0).toUpperCase() + key.slice(1), url: l[key], type: 'social' }; // Old format assume social unless detected
+                    }
+
+                    // Auto-detect if type missing
+                    if (!linkObj.type) {
+                      linkObj.type = detectType(linkObj.platform || '', linkObj.url || '');
+                    }
+                    return linkObj;
+                  })
+                  .filter(l => l.type === 'support');
               }
             } catch (e) {
+
               console.error('Failed to parse artist links', e);
             }
           } else if (artist.donationLinks) {
@@ -1599,6 +1621,16 @@ const App = {
                 <button type="button" class="btn btn-outline btn-sm" id="reset-hidden-tracks">👁️ Reset Hidden Tracks</button>
                 <small style="display: block; color: var(--text-muted); margin-top: 0.5rem;">If you accidentally removed a network track, this will restore it.</small>
             </div>
+            
+            <div class="form-group" style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 1rem;">
+                <label>Identity Management</label>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="button" class="btn btn-outline btn-sm" id="export-identity-btn">🔑 Export Keys</button>
+                    <button type="button" class="btn btn-outline btn-sm" id="import-identity-btn">📥 Import Keys</button>
+                </div>
+                <small style="display: block; color: var(--text-muted); margin-top: 0.5rem;">Backup your server identity or move it to another instance. <strong>Warning: Keep your keys secret!</strong></small>
+            </div>
+
             <button type="submit" class="btn btn-primary">Save Network Settings</button>
           </form>
         </div>
@@ -1882,6 +1914,77 @@ const App = {
         alert('Hidden tracks list cleared. Refreshing...');
         window.location.reload();
       }
+    });
+
+    // Identity Export
+    document.getElementById('export-identity-btn').addEventListener('click', async () => {
+      try {
+        const keys = await API.getIdentity();
+        const json = JSON.stringify(keys, null, 2);
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '10005';
+        modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Server Identity Keys</h2>
+                        <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p style="color: var(--color-danger); margin-bottom: 1rem;">⚠️ these keys grant full control over your server's identity. Do not share them publicly.</p>
+                        <textarea style="width: 100%; height: 200px; font-family: monospace; margin-bottom: 1rem;" readonly>${json}</textarea>
+                        <button class="btn btn-primary btn-block" id="copy-keys-btn">Copy to Clipboard</button>
+                    </div>
+                </div>
+            `;
+        document.body.appendChild(modal);
+
+        document.getElementById('copy-keys-btn').onclick = () => {
+          navigator.clipboard.writeText(json);
+          alert('Copied to clipboard!');
+        };
+      } catch (e) {
+        alert('Failed to get keys: ' + e.message);
+      }
+    });
+
+    // Identity Import
+    document.getElementById('import-identity-btn').addEventListener('click', () => {
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'flex';
+      modal.style.zIndex = '10005';
+      modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Import Identity Keys</h2>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom: 1rem;">Paste your exported keypair JSON below.</p>
+                    <textarea id="import-keys-input" style="width: 100%; height: 200px; font-family: monospace; margin-bottom: 1rem;" placeholder="{ ... }"></textarea>
+                    <button class="btn btn-primary btn-block" id="confirm-import-keys">Import & Restart Identity</button>
+                </div>
+            </div>
+        `;
+      document.body.appendChild(modal);
+
+      document.getElementById('confirm-import-keys').onclick = async () => {
+        const val = document.getElementById('import-keys-input').value;
+        try {
+          const json = JSON.parse(val);
+          if (confirm('Are you sure? This will replace your current server identity. Existing private data may become inaccessible if not backed up.')) {
+            await API.importIdentity(json);
+            alert('Identity imported successfully! The page will reload.');
+            window.location.reload();
+          }
+        } catch (e) {
+          alert('Import failed: ' + e.message);
+        }
+      };
     });
     // Release form
     document.getElementById('release-form').addEventListener('submit', async (e) => {
@@ -2368,11 +2471,15 @@ const App = {
       });
     }
 
-    function addLinkInput(label = '', url = '') {
+    function addLinkInput(label = '', url = '', type = 'social') {
       const div = document.createElement('div');
       div.style.display = 'flex';
       div.style.gap = '0.5rem';
       div.innerHTML = `
+      <select class="link-type" style="width: 100px;">
+        <option value="social" ${type === 'social' ? 'selected' : ''}>Social</option>
+        <option value="support" ${type === 'support' ? 'selected' : ''}>Support</option>
+      </select>
       <input type="text" placeholder="Label (e.g. Bandcamp)" class="link-label" value="${label}" style="flex: 1;">
       <input type="text" placeholder="URL (https://...)" class="link-url" value="${url}" style="flex: 2;">
       <button type="button" class="btn btn-outline btn-sm remove-link" style="color: var(--color-danger); border-color: var(--color-danger);">✕</button>
@@ -2381,7 +2488,21 @@ const App = {
       linksContainer.appendChild(div);
     }
 
-    existingLinks.forEach(link => addLinkInput(link.label, link.url));
+    // Helper to auto-detect type from URL/Label if missing
+    function detectType(label, url) {
+      const lower = (label + url).toLowerCase();
+      if (lower.includes('patreon') || lower.includes('ko-fi') || lower.includes('paypal') || lower.includes('buymeacoffee') || lower.includes('liberapay') || lower.includes('donate')) {
+        return 'support';
+      }
+      return 'social';
+    }
+
+    // Populate existing
+    existingLinks.forEach(link => {
+      // If type is missing, try to detect it
+      const type = link.type || detectType(link.label || '', link.url || '');
+      addLinkInput(link.label, link.url, type);
+    });
 
     document.getElementById('add-artist-link').onclick = () => addLinkInput();
 
@@ -2392,6 +2513,7 @@ const App = {
 
       // Gather links
       const links = Array.from(document.querySelectorAll('#artist-links-container > div')).map(div => ({
+        type: div.querySelector('.link-type').value,
         label: div.querySelector('.link-label').value.trim(),
         url: div.querySelector('.link-url').value.trim()
       })).filter(l => l.label && l.url);
