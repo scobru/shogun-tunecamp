@@ -517,7 +517,8 @@ body {
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 500px;
-  max-height: 85vh; /* Scrollable */
+  max-height: 90vh; /* Scrollable */
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
@@ -544,7 +545,6 @@ body {
 
 .modal-body {
   padding: 2rem;
-  overflow-y: auto;
 }
 
 /* Forms */
