@@ -423,15 +423,19 @@ export function createGunDBService(database: DatabaseService): GunDBService {
             const tracks: any[] = [];
 
             // 1. Get sites
+            console.log("🔍 Scanning community sites...");
             gun.get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get("sites")
                 .map()
                 .once((siteData: any, siteId: string) => {
-                    if (!siteData || siteId === "_") return;
+                    if (!siteData || siteId === "_") return; // Ignore meta
+
+                    console.log(`🔎 Found site: ${siteId} (Pub: ${siteData.pub ? 'Yes' : 'No'})`);
 
                     // Secure Mode (Trusted by User Graph)
                     if (siteData.pub) {
+                        console.log(`🔐 Reading secure graph for ${siteId} (${siteData.pub.slice(0, 8)}...)`);
                         gun.user(siteData.pub)
                             .get('tunecamp')
                             .get('tracks')
@@ -470,6 +474,7 @@ export function createGunDBService(database: DatabaseService): GunDBService {
 
             // Wait for data to collect
             setTimeout(() => {
+                console.log(`⏱️ Network scan finished. Raw tracks found: ${tracks.length}`);
                 // Deduplicate by slug (prefer secure)
                 const uniqueTracks = new Map();
                 for (const t of tracks) {
