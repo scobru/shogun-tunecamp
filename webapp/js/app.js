@@ -78,8 +78,23 @@ const App = {
       link.addEventListener('click', (e) => {
         document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
         e.target.classList.add('active');
+
+        // Close mobile menu on link click
+        const navLinks = document.getElementById('nav-links');
+        if (navLinks.classList.contains('active')) {
+          navLinks.classList.remove('active');
+        }
       });
     });
+
+    // Mobile Menu Toggle
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    if (mobileMenuToggle) {
+      mobileMenuToggle.addEventListener('click', () => {
+        const navLinks = document.getElementById('nav-links');
+        navLinks.classList.toggle('active');
+      });
+    }
 
     // === User Auth Event Handlers ===
     this.setupUserAuthHandlers();
@@ -577,6 +592,9 @@ const App = {
           </div>
         </div>
         <div class="track-duration">${Player.formatTime(track.duration)}</div>
+        <div class="track-waveform">
+            <canvas width="100" height="30" data-waveform="${track.waveform || ''}"></canvas>
+        </div>
         ${this.isAdmin && !track.album_id && track.file_path.includes('library') ?
         `<button class="btn btn-sm btn-outline add-to-release-btn" title="Add to Release" 
             style="margin-left: 1rem; padding: 2px 8px; font-size: 0.8rem;" 
@@ -599,6 +617,38 @@ const App = {
     `).join('');
 
     this.attachTrackListeners(tracks);
+    this.drawWaveforms(list);
+  },
+
+  drawWaveforms(container) {
+    container.querySelectorAll('canvas').forEach(canvas => {
+      const dataStr = canvas.dataset.waveform;
+      if (!dataStr) return;
+
+      try {
+        const peaks = JSON.parse(dataStr);
+        if (!Array.isArray(peaks)) return;
+
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const barWidth = width / peaks.length;
+        const gap = 0; // seamless
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = '#5eadb0'; // Accent color, could use var but canvas needs hex usually
+
+        peaks.forEach((peak, i) => {
+          const barHeight = Math.max(2, peak * height); // Min 2px
+          // Center the bar vertically
+          const y = (height - barHeight) / 2;
+
+          ctx.fillRect(i * barWidth, y, barWidth - gap, barHeight);
+        });
+      } catch (e) {
+        console.error('Waveform draw error', e);
+      }
+    });
   },
 
   async renderArtist(container, id) {
@@ -2220,6 +2270,9 @@ bandcamp: https://artist.bandcamp.com"></textarea>
         <div class="track-info">
           <div class="track-title">${track.title}</div>
         </div>
+        <div class="track-waveform">
+            <canvas width="100" height="30" data-waveform="${track.waveform || ''}"></canvas>
+        </div>
         <div class="track-duration">${Player.formatTime(track.duration)}</div>
         ${this.isAdmin ? `
         <button class="btn btn-sm btn-ghost add-to-playlist-btn" 
@@ -2232,6 +2285,7 @@ bandcamp: https://artist.bandcamp.com"></textarea>
     `).join('');
 
     this.attachTrackListeners(tracks);
+    this.drawWaveforms(container);
   },
 
   attachTrackListeners(allTracks) {

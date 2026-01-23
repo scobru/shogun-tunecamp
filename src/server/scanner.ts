@@ -4,6 +4,7 @@ import chokidar, { type FSWatcher } from "chokidar";
 import { parseFile } from "music-metadata";
 import { parse } from "yaml";
 import type { DatabaseService } from "./database.js";
+import { WaveformService } from "./waveform.js";
 
 const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
 
@@ -206,6 +207,7 @@ export function createScanner(database: DatabaseService): ScannerService {
         // Skip if already in database, but verify album/artist linking
         const existing = database.getTrackByPath(filePath);
         if (existing) {
+            // console.log(`Debug: Checking existing track ${path.basename(filePath)} - Waveform: ${existing.waveform ? 'Present' : 'Missing'}`);
             const dir = path.dirname(filePath);
             const albumId = folderToAlbumMap.get(dir) || folderToAlbumMap.get(path.dirname(dir)); // Check parent too (e.g. tracks/)
 
@@ -232,6 +234,21 @@ export function createScanner(database: DatabaseService): ScannerService {
                     // Ignore metadata errors for existing tracks
                 }
             }
+
+            // Check if waveform is missing
+            if (!existing.waveform) {
+                // Generate waveform in background
+                WaveformService.generateWaveform(filePath)
+                    .then((peaks: number[]) => {
+                        const json = JSON.stringify(peaks);
+                        database.updateTrackWaveform(existing.id, json);
+                        console.log(`    [Backfill] Generated waveform for: ${path.basename(filePath)}`);
+                    })
+                    .catch((err: Error) => {
+                        console.error(`    [Backfill] Failed to generate waveform for ${path.basename(filePath)}:`, err.message);
+                    });
+            }
+
             return;
         }
 
@@ -329,7 +346,7 @@ export function createScanner(database: DatabaseService): ScannerService {
             }
 
             // Create track
-            database.createTrack({
+            const trackId = database.createTrack({
                 title: common.title || path.basename(filePath, ext),
                 album_id: albumId,
                 artist_id: artistId,
@@ -339,7 +356,21 @@ export function createScanner(database: DatabaseService): ScannerService {
                 format: format.codec || ext.substring(1),
                 bitrate: format.bitrate ? Math.round(format.bitrate / 1000) : null,
                 sample_rate: format.sampleRate || null,
+                waveform: null // Pattern for now
             });
+
+            // Generate waveform in background
+            // Generate waveform in background
+            WaveformService.generateWaveform(filePath)
+                .then((peaks: number[]) => {
+                    const json = JSON.stringify(peaks);
+                    database.updateTrackWaveform(trackId, json);
+                    console.log(`    Generated waveform for: ${path.basename(filePath)}`);
+                })
+                .catch((err: Error) => {
+                    console.error(`    Failed to generate waveform for ${path.basename(filePath)}:`, err.message);
+                });
+
         } catch (error) {
             console.error("  Error processing " + filePath + ":", error);
         }

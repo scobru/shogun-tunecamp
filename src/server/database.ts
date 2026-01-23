@@ -43,6 +43,7 @@ export interface Track {
     format: string | null;
     bitrate: number | null;
     sample_rate: number | null;
+    waveform: string | null; // JSON string of number[]
     created_at: string;
 }
 
@@ -115,6 +116,7 @@ export interface DatabaseService {
     updateTrackArtist(id: number, artistId: number | null): void;
     updateTrackTitle(id: number, title: string): void;
     updateTrackPath(id: number, filePath: string, albumId: number): void;
+    updateTrackWaveform(id: number, waveform: string): void;
     deleteTrack(id: number): void;
     // Playlists
     getPlaylists(publicOnly?: boolean): Playlist[];
@@ -194,8 +196,6 @@ export function createDatabase(dbPath: string): DatabaseService {
       cover_path TEXT,
       genre TEXT,
       description TEXT,
-      genre TEXT,
-      description TEXT,
       download TEXT,
       external_links TEXT,
       is_public INTEGER DEFAULT 0,
@@ -215,6 +215,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       format TEXT,
       bitrate INTEGER,
       sample_rate INTEGER,
+      waveform TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -271,6 +272,14 @@ export function createDatabase(dbPath: string): DatabaseService {
     try {
         db.exec(`ALTER TABLE albums ADD COLUMN external_links TEXT`);
         console.log("📦 Migrated database: added external_links column");
+    } catch (e) {
+        // Column already exists, ignore
+    }
+
+    // Migration: Add waveform column to tracks
+    try {
+        db.exec(`ALTER TABLE tracks ADD COLUMN waveform TEXT`);
+        console.log("📦 Migrated database: added waveform column");
     } catch (e) {
         // Column already exists, ignore
     }
@@ -569,6 +578,10 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updateTrackPath(id: number, filePath: string, albumId: number): void {
             db.prepare("UPDATE tracks SET file_path = ?, album_id = ? WHERE id = ?").run(filePath, albumId, id);
+        },
+
+        updateTrackWaveform(id: number, waveform: string): void {
+            db.prepare("UPDATE tracks SET waveform = ? WHERE id = ?").run(waveform, id);
         },
 
         deleteTrack(id: number): void {
