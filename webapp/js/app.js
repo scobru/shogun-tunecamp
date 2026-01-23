@@ -37,15 +37,28 @@ const App = {
 
   updateAuthUI(status) {
     const btn = document.getElementById('admin-btn');
+    const browserLink = document.querySelector('.nav-link[data-route="browser"]');
+
+    // Default hide browser link
+    if (browserLink) browserLink.style.display = 'none';
+
     if (status.firstRun) {
       btn.textContent = 'Setup Admin';
       btn.classList.add('btn-primary');
+      btn.style.display = 'inline-block';
     } else if (this.isAdmin) {
       btn.textContent = 'Admin Panel';
       btn.classList.add('btn-primary');
+      btn.style.display = 'inline-block';
+      // Show browser link only if admin
+      if (browserLink) browserLink.style.display = 'inline-block';
     } else {
       btn.textContent = 'Login';
       btn.classList.remove('btn-primary');
+      // If we want to hide the admin login button entirely for regular users, uncomment next line:
+      // btn.style.display = 'none'; 
+      // But keeping it visible for now so they CAN login.
+      btn.style.display = 'inline-block';
     }
   },
 
@@ -994,25 +1007,41 @@ const App = {
         API.getNetworkSites()
       ]);
 
-      // Filter valid sites
-      const sites = sitesRaw.filter(s =>
-        s.url &&
-        !s.url.includes('localhost') &&
-        s.title &&
-        s.title !== 'Untitled' &&
-        s.title !== 'TuneCamp Server' &&
-        s.coverImage
-      );
+      // Deduplicate sites by URL, keeping the most recent
+      const uniqueSites = new Map();
+      sitesRaw.forEach(s => {
+        if (!s.url ||
+          s.url.includes('localhost') ||
+          !s.title ||
+          s.title === 'Untitled' ||
+          s.title === 'TuneCamp Server') return;
 
-      // Filter valid tracks
+        if (!uniqueSites.has(s.url)) {
+          uniqueSites.set(s.url, s);
+        } else {
+          // If duplicate, keep the one seen most recently
+          const existing = uniqueSites.get(s.url);
+          if ((s.lastSeen || 0) > (existing.lastSeen || 0)) {
+            uniqueSites.set(s.url, s);
+          }
+        }
+      });
+      const sites = Array.from(uniqueSites.values());
+
+      // Filter valid tracks and deduplicate by audioUrl
       const blocked = JSON.parse(localStorage.getItem('tunecamp_blocked_tracks') || '[]');
-      const tracks = tracksRaw.filter(t =>
-        t.audioUrl &&
-        t.title &&
-        t.siteUrl &&
-        !t.siteUrl.includes('localhost') &&
-        !blocked.includes(t.audioUrl)
-      );
+      const seenTrackUrls = new Set();
+      const tracks = tracksRaw.filter(t => {
+        if (!t.audioUrl ||
+          !t.title ||
+          !t.siteUrl ||
+          t.siteUrl.includes('localhost') ||
+          blocked.includes(t.audioUrl)) return false;
+
+        if (seenTrackUrls.has(t.audioUrl)) return false;
+        seenTrackUrls.add(t.audioUrl);
+        return true;
+      });
 
       const loadingEl = document.getElementById('network-loading');
       if (loadingEl) loadingEl.style.display = 'none';
@@ -1097,14 +1126,20 @@ const App = {
             🏠 TuneCamp Instances (${sites.length})
           </h2>
           <div class="grid">
-            ${sites.map(s => `
+            ${sites.map(s => {
+          const coverHtml = s.coverImage
+            ? `<div class="card-cover" style="background-image: url('${s.coverImage}'); background-size: cover; background-position: center;"></div>`
+            : `<div class="card-cover" style="display: flex; align-items: center; justify-content: center; font-size: 3rem; background: var(--bg-secondary);">🏠</div>`;
+
+          return `
               <a href="${s.url}" target="_blank" class="card" style="text-decoration: none;">
+                ${coverHtml}
                 <div class="card-body">
                   <div class="card-title">${s.title || 'Untitled'}</div>
                   <div class="card-subtitle">${s.artistName || new URL(s.url || 'https://unknown').hostname}</div>
                 </div>
               </a>
-            `).join('')}
+            `}).join('')}
           </div>
         `;
       }
@@ -1724,6 +1759,23 @@ const App = {
       togglePanel('upload-panel');
     });
 
+    // New Release toggle
+    document.getElementById('new-release-btn').addEventListener('click', () => {
+      togglePanel('release-panel');
+      // Populate artists dropdown
+      const select = document.getElementById('release-artist');
+      if (select.children.length <= 1) { // Only load if not loaded
+        API.getArtists().then(artists => {
+          select.innerHTML = '<option value="">Select Artist...</option>' +
+            artists.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
+        });
+      }
+    });
+
+    document.getElementById('cancel-release').addEventListener('click', () => {
+      togglePanel(null);
+    });
+
     document.getElementById('network-settings-btn').addEventListener('click', async () => {
       togglePanel('network-settings-panel');
       // Load current settings
@@ -1913,10 +1965,10 @@ const App = {
     modal.style.display = 'flex';
     modal.id = 'add-track-modal';
 
-    const options = releases.map(r => `< option value = "${r.id}" > ${r.title}</option > `).join('');
+    const options = releases.map(r => `<option value="${r.id}">${r.title}</option>`).join('');
 
     modal.innerHTML = `
-  < div class="modal-content" style = "max-width: 400px;" >
+      <div class="modal-content" style="max-width: 400px;">
           <h2 class="section-title">Add Track to Release</h2>
           <p>Track: <strong>${trackTitle}</strong></p>
           <div class="form-group">
@@ -1929,7 +1981,7 @@ const App = {
             <button class="btn btn-primary" id="confirm-add-track">Add to Release</button>
             <button class="btn btn-outline" onclick="document.getElementById('add-track-modal').remove()">Cancel</button>
           </div>
-        </div >
+        </div>
   `;
 
     document.body.appendChild(modal);
@@ -1956,7 +2008,7 @@ const App = {
     ]);
 
     const artistOptions = artists.map(a =>
-      `< option value = "${a.name}" ${a.name === release.artist_name ? 'selected' : ''}> ${a.name}</option > `
+      `<option value="${a.name}" ${a.name === release.artist_name ? 'selected' : ''}>${a.name}</option>`
     ).join('');
 
     const modal = document.createElement('div');
@@ -1965,7 +2017,7 @@ const App = {
     modal.id = 'edit-release-modal';
 
     modal.innerHTML = `
-  < div class="modal-content" style = "max-width: 500px;" >
+      <div class="modal-content" style="max-width: 500px;">
           <h2 class="section-title">Edit Release: ${release.title}</h2>
           <form id="edit-release-form">
             <div class="form-group">
@@ -2023,7 +2075,7 @@ const App = {
               <button type="button" class="btn btn-outline" id="delete-release-btn" style="border-color: var(--color-danger); color: var(--color-danger);">Delete Release</button>
             </div>
           </form>
-        </div >
+        </div>
   `;
 
     document.body.appendChild(modal);
@@ -2059,8 +2111,8 @@ const App = {
       div.style.display = 'flex';
       div.style.gap = '0.5rem';
       div.innerHTML = `
-  < input type = "text" placeholder = "Label (e.g. Bandcamp)" class="link-label" value = "${label}" style = "flex: 1;" >
-    <input type="text" placeholder="URL (https://...)" class="link-url" value="${url}" style="flex: 2;">
+      <input type="text" placeholder="Label (e.g. Bandcamp)" class="link-label" value="${label}" style="flex: 1;">
+      <input type="text" placeholder="URL (https://...)" class="link-url" value="${url}" style="flex: 2;">
       <button type="button" class="btn btn-outline btn-sm remove-link" style="color: var(--color-danger); border-color: var(--color-danger);">✕</button>
       `;
       div.querySelector('.remove-link').onclick = () => div.remove();
