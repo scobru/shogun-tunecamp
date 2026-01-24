@@ -116,6 +116,7 @@ export interface DatabaseService {
     updateTrackArtist(id: number, artistId: number | null): void;
     updateTrackTitle(id: number, title: string): void;
     updateTrackPath(id: number, filePath: string, albumId: number): void;
+    updateTrackDuration(id: number, duration: number): void;
     updateTrackWaveform(id: number, waveform: string): void;
     deleteTrack(id: number): void;
     // Playlists
@@ -593,6 +594,10 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updateTrackPath(id: number, filePath: string, albumId: number): void {
             db.prepare("UPDATE tracks SET file_path = ?, album_id = ? WHERE id = ?").run(filePath, albumId, id);
+        },
+
+        updateTrackDuration(id: number, duration: number): void {
+            db.prepare("UPDATE tracks SET duration = ? WHERE id = ?").run(duration, id);
         },
 
         updateTrackWaveform(id: number, waveform: string): void {

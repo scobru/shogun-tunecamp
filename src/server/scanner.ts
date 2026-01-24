@@ -5,6 +5,27 @@ import { parseFile } from "music-metadata";
 import { parse } from "yaml";
 import type { DatabaseService } from "./database.js";
 import { WaveformService } from "./waveform.js";
+import ffmpeg from "fluent-ffmpeg";
+import ffmpegPath from "ffmpeg-static";
+
+// Set ffmpeg path
+if (ffmpegPath) {
+    ffmpeg.setFfmpegPath(ffmpegPath);
+}
+
+function getDurationFromFfmpeg(filePath: string): Promise<number | null> {
+    return new Promise((resolve) => {
+        ffmpeg.ffprobe(filePath, (err, metadata) => {
+            if (err) {
+                console.warn(`    [Scanner] ffprobe failed for ${path.basename(filePath)}:`, err.message);
+                resolve(null);
+            } else {
+                const duration = metadata.format.duration;
+                resolve(duration ? parseFloat(duration as any) : null);
+            }
+        });
+    });
+}
 
 const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
 
@@ -271,6 +292,18 @@ export function createScanner(database: DatabaseService): ScannerService {
                     });
             }
 
+            // Check if duration is missing (0 or null)
+            if (!existing.duration) {
+                getDurationFromFfmpeg(filePath).then((duration) => {
+                    if (duration) {
+                        database.updateTrackDuration(existing.id, duration);
+                        console.log(`    [Backfill] Updated duration for: ${path.basename(filePath)} -> ${duration}s`);
+                    }
+                }).catch(e => {
+                    // ignore
+                });
+            }
+
             return;
         }
 
@@ -367,13 +400,23 @@ export function createScanner(database: DatabaseService): ScannerService {
                 if (album && album.artist_id) artistId = album.artist_id;
             }
 
+
+            let duration = format.duration;
+            if (!duration) {
+                // Fallback to ffprobe
+                duration = (await getDurationFromFfmpeg(filePath)) ?? undefined;
+                if (duration) {
+                    console.log(`    [Scanner] Recovered duration via ffprobe: ${duration}s`);
+                }
+            }
+
             // Create track
             const trackId = database.createTrack({
                 title: common.title || path.basename(filePath, ext),
                 album_id: albumId,
                 artist_id: artistId,
                 track_num: common.track?.no || null,
-                duration: format.duration || null,
+                duration: duration || null,
                 file_path: filePath,
                 format: format.codec || ext.substring(1),
                 bitrate: format.bitrate ? Math.round(format.bitrate / 1000) : null,
