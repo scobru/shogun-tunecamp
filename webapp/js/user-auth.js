@@ -10,9 +10,9 @@ const UserAuth = {
 
     // GunDB peers for sync
     PEERS: [
+        'https://shogun-relay.scobrudot.dev/gun',
         'https://gun.defucc.me/gun',
         'https://gun.o8.is/gun',
-        'https://shogun-relay.scobrudot.dev/gun',
     ],
 
     /**
@@ -29,7 +29,7 @@ const UserAuth = {
         // Initialize Gun instance
         this.gun = Gun({
             peers: this.PEERS,
-            localStorage: true,
+            localStorage: false,
             radisk: false
         });
 
