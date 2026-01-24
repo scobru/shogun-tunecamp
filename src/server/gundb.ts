@@ -464,6 +464,11 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
 
             // 1. Get sites
             console.log("🔍 Scanning community sites...");
+            try {
+                const debugPair = serverPair ? "PRESENT" : "MISSING";
+                const debugPub = serverPair ? serverPair.pub : "N/A";
+                console.log(`[DEBUG] serverPair: ${debugPair}, pub: ${debugPub}`);
+            } catch (e) { console.log("[DEBUG] Error logging serverPair", e); }
 
             // ALWAYS scan our own secure graph explicitly (bypass directory lag)
             if (serverPair && serverPair.pub) {
