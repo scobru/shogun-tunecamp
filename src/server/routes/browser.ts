@@ -80,5 +80,37 @@ export function createBrowserRoutes(musicDir: string) {
         }
     });
 
+    /**
+     * GET /api/browser/file
+     * Stream a file from the music directory
+     * Query params:
+     * - path: Relative path from musicDir
+     */
+    router.get("/file", async (req, res) => {
+        try {
+            const relPath = (req.query.path as string) || "";
+            // Security check
+            if (relPath.includes("..") || path.isAbsolute(relPath)) {
+                return res.status(400).json({ error: "Invalid path" });
+            }
+
+            const absPath = path.join(musicDir, relPath);
+
+            if (!(await fs.pathExists(absPath))) {
+                return res.status(404).json({ error: "File not found" });
+            }
+
+            const stats = await fs.stat(absPath);
+            if (!stats.isFile()) {
+                return res.status(400).json({ error: "Not a file" });
+            }
+
+            res.sendFile(absPath);
+        } catch (error) {
+            console.error("Error serving file:", error);
+            res.status(500).json({ error: "Failed to serve file" });
+        }
+    });
+
     return router;
 }

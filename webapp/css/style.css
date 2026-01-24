@@ -216,9 +216,9 @@ body {
 
 /* Main Content */
 .main-content {
-  padding: 3rem;
+  padding: 1.5rem;
   padding-bottom: 140px;
-  max-width: 1600px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 

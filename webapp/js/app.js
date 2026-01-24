@@ -1336,46 +1336,75 @@ const App = {
     try {
       const data = await API.getBrowser(currentPath);
 
-      const parentPath = data.parent !== null ? `<div class="browser-item folder-item" onclick="window.location.hash='#/browser/${data.parent}'">
-        <div class="browser-icon">📁</div>
-        <div class="browser-name">..</div>
+      const parentPath = data.parent !== null ? `
+      <div class="browser-item folder-item" onclick="window.location.hash='#/browser/${data.parent}'" style="border-bottom: 1px solid var(--border);">
+        <div class="browser-icon">🔙</div>
+        <div class="browser-name">.. (Up)</div>
       </div>` : '';
+
+      const content = data.entries.length ? data.entries.map(entry => {
+        const encodedPath = encodeURIComponent(entry.path);
+
+        if (entry.type === 'directory') {
+          return `
+            <div class="browser-item folder-item" onclick="window.location.hash='#/browser/${entry.path}'">
+              <div class="browser-icon">📁</div>
+              <div class="browser-name">${App.escapeHtml(entry.name)}</div>
+              <div class="browser-actions"></div>
+            </div>
+          `;
+        } else if (entry.type === 'image') {
+          const imgUrl = `/api/browser/file?path=${encodedPath}`;
+          return `
+            <div class="browser-item file-item">
+              <div class="browser-icon">🖼️</div>
+              <div class="browser-name">
+                <a href="${imgUrl}" target="_blank" style="color: inherit; text-decoration: none;">${App.escapeHtml(entry.name)}</a>
+              </div>
+              <div class="browser-meta">${entry.ext}</div>
+            </div>
+          `;
+        } else if (entry.type === 'file') {
+          // Audio file
+          const streamUrl = `/api/browser/file?path=${encodedPath}`;
+          const trackData = JSON.stringify({
+            title: entry.name,
+            artist_name: 'File Browser',
+            audioUrl: streamUrl,
+            isExternal: true
+          }).replace(/'/g, "&apos;");
+
+          return `
+            <div class="browser-item file-item">
+              <div class="browser-icon">🎵</div>
+              <div class="browser-name">${App.escapeHtml(entry.name)}</div>
+              <div class="browser-actions" style="margin-left: auto; display: flex; gap: 0.5rem;">
+                <button class="btn btn-sm btn-ghost" onclick='event.stopPropagation(); Player.play(${trackData})'>▶ Play</button>
+                <button class="btn btn-sm btn-ghost" onclick='event.stopPropagation(); Player.addToQueue(${trackData})'>☰ Queue</button>
+                <a href="${streamUrl}" download class="btn btn-sm btn-ghost">⬇</a>
+              </div>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="browser-item file-item">
+              <div class="browser-icon">📄</div>
+              <div class="browser-name">${App.escapeHtml(entry.name)}</div>
+            </div>
+            `;
+        }
+      }).join('') : '<div class="empty-state">Folder is empty</div>';
 
       container.innerHTML = `
         <div class="browser-container">
-          <div class="page-header">
+          <div class="page-header" style="flex-direction: column; align-items: flex-start; gap: 0.5rem;">
             <h2>File Browser</h2>
-            <div class="browser-path">root/${data.path}</div>
+            <div class="browser-path" style="font-family: monospace; color: var(--text-muted);">/${data.path}</div>
           </div>
 
-          <div class="browser-list">
+          <div class="browser-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
             ${parentPath}
-            ${data.entries.length ? data.entries.map(entry => {
-        if (entry.type === 'directory') {
-          return `
-                  <div class="browser-item folder-item" onclick="window.location.hash='#/browser/${entry.path}'">
-                    <div class="browser-icon">📁</div>
-                    <div class="browser-name">${App.escapeHtml(entry.name)}</div>
-                  </div>
-                `;
-        } else if (entry.type === 'image') {
-          return `
-                  <div class="browser-item file-item">
-                    <div class="browser-icon">🖼️</div>
-                    <div class="browser-name">${App.escapeHtml(entry.name)}</div>
-                    <div class="browser-meta">${entry.ext}</div>
-                  </div>
-                `;
-        } else {
-          return `
-                  <div class="browser-item file-item">
-                    <div class="browser-icon">🎵</div>
-                    <div class="browser-name">${App.escapeHtml(entry.name)}</div>
-                    <div class="browser-meta">${entry.ext}</div>
-                  </div>
-                `;
-        }
-      }).join('') : '<div class="empty-state">Folder is empty</div>'}
+            ${content}
           </div>
         </div>
       `;
