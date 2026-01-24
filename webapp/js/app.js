@@ -917,10 +917,29 @@ const App = {
 
       linksHtml = '<div class="artist-links" style="display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">';
       for (const linkObj of artist.links) {
-        for (const [key, url] of Object.entries(linkObj)) {
-          const icon = linkIcons[key] || '🔗';
-          const name = key.charAt(0).toUpperCase() + key.slice(1);
-          linksHtml += `<a href="${url}" target="_blank" class="btn btn-outline" style="gap: 0.5rem;"><span>${icon}</span> ${name}</a>`;
+        // Handle new structured format { type, label, url }
+        if (linkObj.url && (linkObj.label || linkObj.type)) {
+          const url = linkObj.url;
+          const label = linkObj.label || linkObj.type;
+
+          let icon = '🔗';
+          // Icon detection
+          const searchStr = (label + ' ' + (linkObj.type || '') + ' ' + url).toLowerCase();
+          for (const [key, iconChar] of Object.entries(linkIcons)) {
+            if (searchStr.includes(key)) {
+              icon = iconChar;
+              break;
+            }
+          }
+
+          linksHtml += `<a href="${url}" target="_blank" class="btn btn-outline" style="gap: 0.5rem;"><span>${icon}</span> ${label}</a>`;
+        } else {
+          // Handle legacy format { platform: url }
+          for (const [key, url] of Object.entries(linkObj)) {
+            const icon = linkIcons[key] || '🔗';
+            const name = key.charAt(0).toUpperCase() + key.slice(1);
+            linksHtml += `<a href="${url}" target="_blank" class="btn btn-outline" style="gap: 0.5rem;"><span>${icon}</span> ${name}</a>`;
+          }
         }
       }
       linksHtml += '</div>';
