@@ -4,6 +4,7 @@ import fs from "fs-extra";
 import { stringify } from "yaml";
 import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
+import { slugify } from "../../utils/audioUtils.js";
 
 interface CreateReleaseBody {
     title: string;
@@ -20,15 +21,7 @@ interface UpdateReleaseBody extends Partial<CreateReleaseBody> {
     isPublic?: boolean;
 }
 
-/**
- * Generate a URL-safe slug from a title
- */
-function slugify(text: string): string {
-    return text
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-}
+import { slugify } from "../../utils/audioUtils.js";
 
 export function createReleaseRoutes(
     database: DatabaseService,

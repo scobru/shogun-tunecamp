@@ -13,6 +13,7 @@ import {
   writeFile,
   getRelativePath,
 } from "../utils/fileUtils.js";
+import { normalizeUrl } from "../utils/audioUtils.js";
 
 /**
  * Generates static HTML site from catalog
@@ -473,7 +474,7 @@ export class SiteGenerator {
       for (const track of release.tracks) {
         const duration = track.duration ? Math.round(track.duration) : -1;
         const trackUrl = siteUrl
-          ? `${siteUrl.replace(/\/$/, "")}${basePath}/releases/${release.slug}/${path.basename(track.file)}`
+          ? `${normalizeUrl(siteUrl)}${basePath}/releases/${release.slug}/${path.basename(track.file)}`
           : `releases/${release.slug}/${path.basename(track.file)}`;
 
         lines.push(`#EXTINF:${duration},${artistName} - ${track.title}`);

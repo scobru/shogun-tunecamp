@@ -761,6 +761,16 @@ const App = {
   },
 
   formatTimeAgo(timestamp) {
+    // Use Gleam implementation for type safety
+    if (typeof GleamUtils !== 'undefined' && GleamUtils.format_time_ago) {
+      const result = GleamUtils.format_time_ago(timestamp, Date.now());
+      // If Gleam returns empty string, fall back to JavaScript date formatting
+      if (result === '') {
+        return new Date(timestamp).toLocaleDateString();
+      }
+      return result;
+    }
+    // Fallback implementation
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
     if (seconds < 60) return 'just now';
     if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
@@ -770,8 +780,13 @@ const App = {
   },
 
   escapeHtml(text) {
+    // Use Gleam implementation for type safety
+    if (typeof GleamUtils !== 'undefined' && GleamUtils.escape_html) {
+      return GleamUtils.escape_html(text || '');
+    }
+    // Fallback implementation (DOM-based)
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = text || '';
     return div.innerHTML;
   },
 

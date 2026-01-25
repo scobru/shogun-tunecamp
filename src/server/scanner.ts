@@ -5,6 +5,7 @@ import { parseFile } from "music-metadata";
 import { parse } from "yaml";
 import type { DatabaseService } from "./database.js";
 import { WaveformService } from "./waveform.js";
+import { slugify } from "../utils/audioUtils.js";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import ffprobePath from "ffprobe-static";
@@ -181,7 +182,7 @@ export function createScanner(database: DatabaseService): ScannerService {
             }
 
             // Check for existing album by SLUG to avoid duplicates (race condition between watcher/scanner)
-            const slug = config.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            const slug = slugify(config.title);
             const existingAlbum = database.getAlbumBySlug(slug);
             let albumId: number;
 

@@ -5,6 +5,7 @@
 
 import path from "path";
 import { Catalog, Release } from "../types/index.js";
+import { escapeHtml, normalizeUrl } from "../utils/audioUtils.js";
 
 export interface EmbedOptions {
     siteUrl: string;
@@ -27,7 +28,7 @@ export class EmbedGenerator {
      * Get the full URL for a path
      */
     private getUrl(relativePath: string): string {
-        const base = this.options.siteUrl.replace(/\/$/, "");
+        const base = normalizeUrl(this.options.siteUrl);
         const basePath = this.options.basePath || "";
         return `${base}${basePath}/${relativePath}`.replace(/([^:]\/)\/+/g, "$1");
     }
@@ -77,10 +78,10 @@ export class EmbedGenerator {
 
         return `<!-- Tunecamp Compact Embed -->
 <a href="${releaseUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:0.75rem;padding:0.5rem;background:#1e293b;border-radius:8px;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:300px;">
-  ${coverUrl ? `<img src="${coverUrl}" alt="${this.escapeHtml(release.config.title)}" style="width:48px;height:48px;border-radius:4px;object-fit:cover;">` : `<div style="width:48px;height:48px;border-radius:4px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.5);">♪</div>`}
+  ${coverUrl ? `<img src="${coverUrl}" alt="${escapeHtml(release.config.title)}" style="width:48px;height:48px;border-radius:4px;object-fit:cover;">` : `<div style="width:48px;height:48px;border-radius:4px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.5);">♪</div>`}
   <div style="min-width:0;">
-    <div style="font-size:0.9rem;font-weight:500;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.escapeHtml(release.config.title)}</div>
-    <div style="font-size:0.75rem;color:#94a3b8;">${this.escapeHtml(artistName)}</div>
+    <div style="font-size:0.9rem;font-weight:500;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(release.config.title)}</div>
+    <div style="font-size:0.75rem;color:#94a3b8;">${escapeHtml(artistName)}</div>
   </div>
 </a>`;
     }
@@ -93,15 +94,4 @@ export class EmbedGenerator {
         return `<iframe src="${embedUrl}" width="${width}" height="${height}" frameborder="0" allowtransparency="true" allow="encrypted-media"></iframe>`;
     }
 
-    /**
-     * Escape HTML special characters
-     */
-    private escapeHtml(str: string): string {
-        return str
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
 }

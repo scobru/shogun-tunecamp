@@ -17,9 +17,10 @@ export function createUsersRoutes(gundbService: GunDBService) {
             }
 
             // Validate username format
-            if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+            const validation = validateUsername(username);
+            if (!validation.valid) {
                 return res.status(400).json({
-                    error: "Username must be 3-20 characters, alphanumeric and underscores only"
+                    error: validation.error || "Invalid username format"
                 });
             }
 

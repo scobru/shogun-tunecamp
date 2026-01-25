@@ -41,6 +41,17 @@ import {
   format_file_size as formatFileSizeGleam
 } from '../gleam_generated/audio_utils.js';
 
+import {
+  escape_html as escapeHtmlGleam,
+  slugify as slugifyGleam,
+  generate_track_slug as generateTrackSlugGleam,
+  format_time_ago as formatTimeAgoGleam,
+  sanitize_filename as sanitizeFilenameGleam,
+  normalize_url as normalizeUrlGleam,
+  get_file_extension as getFileExtensionGleam,
+  validate_username as validateUsernameGleam
+} from '../gleam_generated/string_utils.js';
+
 export function formatDuration(seconds?: number): string {
   if (!seconds) return '0:00';
   return formatDurationGleam(seconds);
@@ -59,7 +70,7 @@ export function formatFileSize(bytes?: number): string {
 }
 
 export function getAudioFormat(filename: string): string {
-  const ext = path.extname(filename).toLowerCase().slice(1);
+  const ext = getFileExtension(filename);
   const formats: Record<string, string> = {
     'mp3': 'MP3',
     'flac': 'FLAC',
@@ -71,5 +82,88 @@ export function getAudioFormat(filename: string): string {
   };
 
   return formats[ext] || ext.toUpperCase();
+}
+
+/**
+ * Escapes HTML special characters to prevent XSS attacks
+ * Uses Gleam implementation for type safety
+ */
+export function escapeHtml(text: string | null | undefined): string {
+  if (!text) return '';
+  return escapeHtmlGleam(text);
+}
+
+/**
+ * Converts text to a URL-safe slug
+ * Uses Gleam implementation for type safety
+ */
+export function slugify(text: string): string {
+  if (!text) return '';
+  return slugifyGleam(text);
+}
+
+/**
+ * Generates a track slug from album title and track title
+ * Uses Gleam implementation for type safety
+ */
+export function generateTrackSlug(albumTitle: string, trackTitle: string): string {
+  return generateTrackSlugGleam(albumTitle || '', trackTitle || '');
+}
+
+/**
+ * Formats a timestamp as relative time
+ * Uses Gleam implementation for type safety
+ */
+export function formatTimeAgo(timestamp: number): string {
+  const result = formatTimeAgoGleam(timestamp, Date.now());
+  // If Gleam returns empty string, fall back to JavaScript date formatting
+  if (result === '') {
+    return new Date(timestamp).toLocaleDateString();
+  }
+  return result;
+}
+
+/**
+ * Sanitizes a filename by keeping only safe characters
+ * Uses Gleam implementation for type safety
+ */
+export function sanitizeFilename(filename: string): string {
+  if (!filename) return '';
+  return sanitizeFilenameGleam(filename);
+}
+
+/**
+ * Normalizes a URL by removing trailing slash
+ * Uses Gleam implementation for type safety
+ */
+export function normalizeUrl(url: string): string {
+  if (!url) return '';
+  return normalizeUrlGleam(url);
+}
+
+/**
+ * Extracts file extension from filename (without the dot, lowercase)
+ * Uses Gleam implementation for type safety
+ */
+export function getFileExtension(filename: string): string {
+  if (!filename) return '';
+  return getFileExtensionGleam(filename);
+}
+
+/**
+ * Validates username format
+ * Uses Gleam implementation for type safety
+ * Returns { valid: boolean, error?: string }
+ */
+export function validateUsername(username: string): { valid: boolean; error?: string } {
+  if (!username) {
+    return { valid: false, error: 'Username is required' };
+  }
+  const result = validateUsernameGleam(username);
+  if (result[0] === 'ok') {
+    return { valid: true };
+  } else {
+    return { valid: false, error: result[1] };
+  }
 }
 

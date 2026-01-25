@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs-extra";
 import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
+import { sanitizeFilename } from "../../utils/audioUtils.js";
 
 const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
@@ -41,7 +42,7 @@ function createStorage(musicDir: string) {
         },
         filename: (req, file, cb) => {
             // Use original filename, sanitized
-            const sanitized = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const sanitized = sanitizeFilename(file.originalname);
             cb(null, sanitized);
         },
     });

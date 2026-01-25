@@ -5,6 +5,7 @@
 
 import path from "path";
 import { Catalog, Release } from "../types/index.js";
+import { normalizeUrl } from "../utils/audioUtils.js";
 
 export interface FeedOptions {
     siteUrl: string;
@@ -27,7 +28,7 @@ export class FeedGenerator {
      * Get the full URL for a path
      */
     private getUrl(relativePath: string): string {
-        const base = this.options.siteUrl.replace(/\/$/, "");
+        const base = normalizeUrl(this.options.siteUrl);
         const basePath = this.options.basePath || "";
         return `${base}${basePath}/${relativePath}`.replace(/([^:]\/)\/+/g, "$1");
     }

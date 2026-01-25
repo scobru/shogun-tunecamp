@@ -1,6 +1,7 @@
 import Gun from "gun";
 import "gun/sea.js";
 import type { DatabaseService, Album, Track } from "./database.js";
+import { generateTrackSlug, normalizeUrl } from "../utils/audioUtils.js";
 
 // Public GunDB peers for the community registry
 const REGISTRY_PEERS = [
@@ -63,16 +64,6 @@ export interface GunDBService {
     // Key Management
     getIdentityKeyPair(): Promise<any>;
     setIdentityKeyPair(pair: any): Promise<boolean>;
-}
-
-/**
- * Generate a slug for track identification
- */
-function generateTrackSlug(albumTitle: string, trackTitle: string): string {
-    return (albumTitle + "-" + (trackTitle || "untitled"))
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
 }
 
 export function createGunDBService(database: DatabaseService, server?: any): GunDBService {
@@ -260,7 +251,7 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
         // Register each track
         for (const track of tracks) {
             const trackSlug = generateTrackSlug(album.title, track.title);
-            const cleanBaseUrl = baseUrl.replace(/\/$/, "");
+            const cleanBaseUrl = normalizeUrl(baseUrl);
             const audioUrl = `${cleanBaseUrl}/api/tracks/${track.id}/stream`;
             const coverUrl = album.id ? `${cleanBaseUrl}/api/albums/${album.id}/cover` : "";
 
