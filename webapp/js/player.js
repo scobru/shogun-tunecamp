@@ -6,6 +6,7 @@ const Player = {
     currentIndex: -1,
     isPlaying: false,
     playRecorded: false,
+    isDragging: false, // Flag per tracciare se l'utente sta trascinando la progress bar
 
     init() {
         this.audio = document.getElementById('audio-element');
@@ -24,11 +25,43 @@ const Player = {
         prevBtn.addEventListener('click', () => this.prev());
         nextBtn.addEventListener('click', () => this.next());
 
+        progressBar.addEventListener('mousedown', () => {
+            this.isDragging = true;
+        });
+
+        progressBar.addEventListener('mouseup', () => {
+            this.isDragging = false;
+        });
+
+        // Supporto per dispositivi touch
+        progressBar.addEventListener('touchstart', () => {
+            this.isDragging = true;
+        });
+
+        progressBar.addEventListener('touchend', () => {
+            this.isDragging = false;
+        });
+
         progressBar.addEventListener('input', (e) => {
+            this.isDragging = true;
             if (this.audio.duration && Number.isFinite(this.audio.duration)) {
                 const newTime = (e.target.value / 100) * this.audio.duration;
                 if (Number.isFinite(newTime)) {
                     this.audio.currentTime = newTime;
+                    // Aggiorna immediatamente il display durante il trascinamento
+                    requestAnimationFrame(() => this.updateProgress());
+                }
+            }
+        });
+
+        progressBar.addEventListener('change', (e) => {
+            // Fallback per quando l'utente rilascia il mouse
+            this.isDragging = false;
+            if (this.audio.duration && Number.isFinite(this.audio.duration)) {
+                const newTime = (e.target.value / 100) * this.audio.duration;
+                if (Number.isFinite(newTime)) {
+                    this.audio.currentTime = newTime;
+                    this.updateProgress();
                 }
             }
         });
@@ -38,7 +71,16 @@ const Player = {
             localStorage.setItem('tunecamp_volume', e.target.value);
         });
 
-        this.audio.addEventListener('timeupdate', () => this.updateProgress());
+        this.audio.addEventListener('timeupdate', () => {
+            // Aggiorna solo se l'utente non sta trascinando la progress bar
+            if (!this.isDragging) {
+                requestAnimationFrame(() => this.updateProgress());
+            }
+        });
+        this.audio.addEventListener('loadedmetadata', () => {
+            // Aggiorna la durata quando i metadati sono caricati
+            this.updateProgress();
+        });
         this.audio.addEventListener('ended', () => this.next());
         this.audio.addEventListener('play', () => {
             this.updatePlayButton(true);
@@ -197,6 +239,20 @@ const Player = {
     loadTrack(track) {
         this.playRecorded = false;
 
+        // Reset progress bar quando si carica un nuovo brano
+        const progressBar = document.getElementById('progress-bar');
+        if (progressBar) {
+            progressBar.value = 0;
+        }
+        const currentTimeEl = document.getElementById('current-time');
+        if (currentTimeEl) {
+            currentTimeEl.textContent = '0:00';
+        }
+        const totalTimeEl = document.getElementById('total-time');
+        if (totalTimeEl) {
+            totalTimeEl.textContent = '0:00';
+        }
+
         if (track.isExternal || track.audioUrl) {
             this.audio.src = track.audioUrl;
         } else {
@@ -260,12 +316,32 @@ const Player = {
     },
 
     updateProgress() {
-        const current = this.audio.currentTime;
+        const current = this.audio.currentTime || 0;
         const duration = this.audio.duration || 0;
 
-        document.getElementById('progress-bar').value = duration ? (current / duration) * 100 : 0;
-        document.getElementById('current-time').textContent = this.formatTime(current);
-        document.getElementById('total-time').textContent = this.formatTime(duration);
+        const progressBar = document.getElementById('progress-bar');
+        const currentTimeEl = document.getElementById('current-time');
+        const totalTimeEl = document.getElementById('total-time');
+
+        // Calcola la percentuale solo se la durata è valida
+        if (duration && Number.isFinite(duration) && duration > 0) {
+            const percent = Math.max(0, Math.min(100, (current / duration) * 100));
+            progressBar.value = percent;
+        } else {
+            progressBar.value = 0;
+        }
+
+        // Aggiorna i tempi
+        if (currentTimeEl) {
+            currentTimeEl.textContent = this.formatTime(current);
+        }
+        if (totalTimeEl) {
+            totalTimeEl.textContent = this.formatTime(duration);
+        }
+
+        // Forza un reflow per assicurarsi che il browser aggiorni la visualizzazione
+        // Questo risolve problemi di sincronizzazione del cursore visivo
+        void progressBar.offsetHeight;
     },
 
     updatePlayButton(playing) {
