@@ -64,9 +64,19 @@ Both modes can be mixed. Files with `release.yaml` are treated as releases.
 ## Web Interface Features
 
 - **Library browser**: Browse albums, artists, tracks
-- **Built-in player**: Stream music directly in browser
-- **Playlists**: Create and manage custom playlists
-- **Admin panel**: Manage releases, upload files
+- **Advanced Audio Player**: 
+    - Full playback controls (play, pause, next, previous)
+    - Progress bar with scrubbing (click or drag to seek)
+    - Queue management (add tracks, view queue, remove tracks)
+    - Lyrics display (if available for tracks)
+    - Volume control with persistence
+    - Time display (current time / total duration)
+- **Playlists**: Create and manage custom playlists via web interface
+- **Network Discovery**: Browse and play tracks from other TuneCamp instances
+- **Library Statistics**: View listening stats, play history, top tracks/artists
+- **Comments**: View and post comments on tracks (requires user authentication)
+- **Admin panel**: Manage releases, upload files, browse file system
+- **File Browser**: Navigate library directory structure (admin only)
 - **Dark mode**: Toggle between light/dark themes
 
 ## Authentication
@@ -78,10 +88,12 @@ Both modes can be mixed. Files with `release.yaml` are treated as releases.
 ## Database
 
 SQLite database (`tunecamp.db`) stores:
-- Track metadata (title, artist, duration, etc.)
+- Track metadata (title, artist, duration, waveform data, etc.)
 - Album/release information
 - Playlists and playlist tracks
+- Play history and listening statistics
 - File paths (for streaming)
+- Settings and configuration
 
 Database is automatically created on first run.
 
@@ -95,6 +107,20 @@ The server watches for file changes using `chokidar`:
 ## API
 
 Full REST API available at `/api/*`. See [API.md](./API.md) for documentation.
+
+### Key API Endpoints
+
+- **Tracks**: `/api/tracks` - List, stream, update tracks
+- **Albums**: `/api/albums` - Manage albums and releases
+- **Artists**: `/api/artists` - Artist management
+- **Playlists**: `/api/playlists` - Create and manage playlists
+- **Library Stats**: `/api/stats/library` - Listening statistics
+- **Network**: `/api/stats/network/sites` and `/api/stats/network/tracks` - Community discovery
+- **Comments**: `/api/comments` - Track comments (GunDB-based)
+- **Users**: `/api/users` - User registration and profiles (GunDB-based)
+- **Browser**: `/api/browser` - File system browser (admin only)
+- **Metadata**: `/api/metadata` - Metadata search and management (admin only)
+- **Unlock Codes**: `/api/unlock` - Unlock code validation and redemption
 
 ## Ports
 

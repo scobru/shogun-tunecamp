@@ -101,6 +101,85 @@ JWT-based authentication. Protected endpoints require `Authorization: Bearer <to
 
 ---
 
+## Library Statistics
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/stats/library/overview` | ❌ | Get listening statistics overview |
+| `GET` | `/stats/library/recent?limit=N` | ❌ | Get recent plays (default: 50) |
+| `GET` | `/stats/library/top-tracks?limit=N&days=D` | ❌ | Get top tracks (default: 20 tracks, 30 days) |
+| `GET` | `/stats/library/top-artists?limit=N&days=D` | ❌ | Get top artists (default: 10 artists, 30 days) |
+| `POST` | `/stats/library/play/:trackId` | ❌ | Record a play for a track |
+
+---
+
+## Network & Community
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/stats/network/sites` | ❌ | Get all registered TuneCamp sites |
+| `GET` | `/stats/network/tracks` | ❌ | Get all tracks shared by the community |
+| `POST` | `/stats/release/:slug/download` | ❌ | Increment release download count |
+| `POST` | `/stats/track/:releaseSlug/:trackId/download` | ❌ | Increment track download count |
+
+---
+
+## Comments
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/comments/track/:trackId` | ❌ | Get comments for a track |
+| `POST` | `/comments/track/:trackId` | ❌ | Add a comment (requires GunDB user auth) |
+| `DELETE` | `/comments/:commentId` | ❌ | Delete a comment (requires ownership) |
+
+---
+
+## Users (GunDB-based)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/users/register` | ❌ | Register a new user (username + pubKey) |
+| `GET` | `/users/check/:username` | ❌ | Check if username is available |
+| `GET` | `/users/:pubKey` | ❌ | Get user by public key |
+| `GET` | `/users/username/:username` | ❌ | Get user by username |
+
+---
+
+## Tracks (Extended)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/tracks/:id/lyrics` | ❌ | Get lyrics for a track |
+
+---
+
+## Browser (Admin Only)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/browser?path=/sub/path` | ✅ | Browse file system (admin only) |
+
+---
+
+## Metadata (Admin Only)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/metadata/search?q=query` | ✅ | Search music metadata (admin only) |
+
+---
+
+## Unlock Codes
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/unlock/validate` | ❌ | Validate an unlock code |
+| `POST` | `/unlock/redeem` | ❌ | Redeem an unlock code |
+| `GET` | `/unlock/admin/list?releaseId=N` | ✅ | List unlock codes (admin only) |
+| `POST` | `/unlock/admin/create` | ✅ | Create unlock codes (admin only) |
+
+---
+
 ## Admin
 
 | Method | Endpoint | Auth | Description |
@@ -108,6 +187,8 @@ JWT-based authentication. Protected endpoints require `Authorization: Bearer <to
 | `POST` | `/admin/scan` | ✅ | Trigger library scan |
 | `POST` | `/admin/rescan` | ✅ | Full library rescan |
 | `GET` | `/admin/config` | ✅ | Get server config |
+| `GET` | `/admin/stats` | ✅ | Get admin statistics |
+| `PUT` | `/admin/releases/:id/visibility` | ✅ | Toggle release visibility (public/private) |
 
 ---
 

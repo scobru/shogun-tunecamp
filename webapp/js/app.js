@@ -68,7 +68,7 @@ const App = {
       // Show browser link only if admin
       if (browserLink) browserLink.style.display = 'inline-block';
     } else {
-      btn.textContent = 'Login';
+      btn.textContent = '🔐 Admin';
       btn.classList.remove('btn-primary');
       // If we want to hide the admin login button entirely for regular users, uncomment next line:
       // btn.style.display = 'none'; 

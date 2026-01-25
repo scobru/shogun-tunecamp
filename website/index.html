@@ -4,10 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tunecamp - Static Site Generator for Musicians</title>
+    <title>Tunecamp - Static Site Generator & Streaming Server for Musicians</title>
     <link rel="icon" type="image/svg+xml" href="tunecamp.svg">
     <meta name="description"
-        content="Create beautiful static music websites. No servers, no databases, just pure HTML files you can host anywhere.">
+        content="Create beautiful static music websites and personal streaming servers. No databases required, just pure HTML files or a Node.js server.">
     <meta name="generator" content="Tunecamp">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,7 +21,7 @@
         <header>
             <img src="tunecamp.svg" alt="Tunecamp" class="logo">
             <h1>Tunecamp</h1>
-            <p class="subtitle">A static site generator for musicians</p>
+            <p class="subtitle">Static site generator & streaming server for musicians</p>
 
             <div class="download-buttons">
                 <a href="https://www.npmjs.com/package/tunecamp" class="btn">📦 Install from NPM</a>
@@ -43,9 +43,11 @@
                 <li>🎵 Audio-first</li>
                 <li>🚀 Static & fast</li>
                 <li>🌐 Host anywhere</li>
-                <li>💾 No database</li>
+                <li>💾 No database (static mode)</li>
                 <li>🔒 Privacy-friendly</li>
                 <li>📱 Fully responsive</li>
+                <li>🖥️ Server mode available</li>
+                <li>🔐 Type-safe (Gleam)</li>
             </ul>
         </div>
 
@@ -87,6 +89,42 @@
                     <h3>Themeable</h3>
                     <p>Customize colors and images. Works in dark and light modes.</p>
                 </div>
+
+                <div class="feature-card">
+                    <span class="icon">🖥️</span>
+                    <h3>Server Mode</h3>
+                    <p>Personal streaming server with REST API, web interface, and advanced library management.</p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="icon">💬</span>
+                    <h3>Comments</h3>
+                    <p>Decentralized comments system on tracks using GunDB. No central server required.</p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="icon">📊</span>
+                    <h3>Statistics</h3>
+                    <p>Track listening habits, play history, and top tracks/artists in Server Mode.</p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="icon">🌊</span>
+                    <h3>Waveforms</h3>
+                    <p>Visual waveform generation for audio files in Server Mode.</p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="icon">🎤</span>
+                    <h3>Lyrics</h3>
+                    <p>Display and manage lyrics for tracks in Server Mode.</p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="icon">🔍</span>
+                    <h3>Search</h3>
+                    <p>Full-text search across tracks, albums, and artists in Server Mode.</p>
+                </div>
             </div>
         </section>
 
@@ -101,6 +139,27 @@
             </ul>
         </section>
 
+        <!-- Server Mode -->
+        <section class="feature-section">
+            <h2><span class="icon">🖥️</span> Server Mode</h2>
+            <p>Tunecamp includes a powerful personal streaming server for managing and streaming your music library.</p>
+            <ul class="feature-list">
+                <li><strong>Web Interface</strong> — Browse and stream your library via modern web UI</li>
+                <li><strong>Advanced Player</strong> — Full-featured player with scrubbing, queue, lyrics, and volume control</li>
+                <li><strong>REST API</strong> — Complete API for tracks, albums, artists, playlists, comments, and more</li>
+                <li><strong>Library Management</strong> — Dual modes (Release & Library), smart scanning, file browser</li>
+                <li><strong>Uploads</strong> — Web-based upload for tracks, covers, and avatars</li>
+                <li><strong>Statistics</strong> — Track listening habits, play history, top tracks/artists</li>
+                <li><strong>Comments</strong> — Decentralized comments on tracks via GunDB</li>
+                <li><strong>Network Discovery</strong> — Browse and play tracks from other TuneCamp instances</li>
+                <li><strong>Waveform Generation</strong> — Visual waveform data for audio files</li>
+                <li><strong>User Authentication</strong> — Decentralized user accounts for comments and profiles</li>
+            </ul>
+            <p style="margin-top: var(--space-lg);">
+                <code style="background: var(--bg-surface-alt); padding: 4px 8px; border-radius: 4px;">tunecamp server ./music --port 1970</code>
+            </p>
+        </section>
+
         <!-- Community -->
         <section class="feature-section">
             <h2><span class="icon">🌐</span> Community Directory</h2>
@@ -110,6 +169,7 @@
                 <li><strong>Decentralized</strong> — Powered by GunDB peer-to-peer network</li>
                 <li><strong>Real-time</strong> — New sites appear instantly</li>
                 <li><strong>Privacy-first</strong> — Only public info shared (URL, title, artist name)</li>
+                <li><strong>Network Discovery</strong> — In Server Mode, browse and play tracks from other instances</li>
             </ul>
             <p style="margin-top: var(--space-lg);">
                 <a href="player.html" class="btn">🎵 Listen to Community Music</a>
@@ -134,6 +194,11 @@
             <div class="code-block">
                 <h4>Or build from existing catalog</h4>
                 <pre>tunecamp build ./my-catalog -o ./public</pre>
+            </div>
+
+            <div class="code-block">
+                <h4>Start Server Mode</h4>
+                <pre>tunecamp server ./music --port 1970</pre>
             </div>
 
             <p>See the <a href="https://github.com/scobru/tunecamp#readme">README</a> for full documentation.</p>

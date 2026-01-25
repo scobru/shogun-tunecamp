@@ -214,6 +214,29 @@ body {
   font-size: 0.85rem;
 }
 
+/* User vs Admin button distinction */
+.btn-user {
+  border-color: rgba(59, 130, 246, 0.5);
+  color: rgba(147, 197, 253, 0.9);
+}
+
+.btn-user:hover {
+  border-color: rgba(59, 130, 246, 0.8);
+  background: rgba(59, 130, 246, 0.1);
+  color: rgb(147, 197, 253);
+}
+
+.btn-admin {
+  border-color: rgba(139, 92, 246, 0.5);
+  color: rgba(196, 181, 253, 0.9);
+}
+
+.btn-admin:hover {
+  border-color: rgba(139, 92, 246, 0.8);
+  background: rgba(139, 92, 246, 0.1);
+  color: rgb(196, 181, 253);
+}
+
 /* Main Content */
 .main-content {
   padding: 1.5rem;

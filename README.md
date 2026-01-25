@@ -28,6 +28,14 @@ Inspired by [Faircamp](https://simonrepp.com/faircamp/), this tool helps you cre
 - 🌐 **Community Directory**: Auto-register your site to a public directory of Tunecamp sites
 - 🎧 **Community Player**: Centralized player to discover and listen to music from all Tunecamp sites
 - 🖥️ **Server Mode**: Personal streaming server with REST API and web interface
+- 🎤 **Lyrics Support**: Display and manage lyrics for tracks
+- 💬 **Comments System**: Decentralized comments on tracks via GunDB
+- 📊 **Library Statistics**: Track listening habits, play history, top tracks/artists
+- 🌊 **Waveform Generation**: Visual waveform data for audio files
+- 📁 **File Browser**: Admin file system browser for library management
+- 🔍 **Search**: Full-text search across tracks, albums, and artists
+- 👥 **User Accounts**: Decentralized user authentication for comments and profiles
+- 🎯 **Type Safety**: Gleam integration for critical utility functions
 
 ## Quick Start
 
@@ -349,7 +357,7 @@ Tunecamp automatically tracks and displays download counts for your releases usi
 
 The download counter increments when users click "Download All" or individual track download buttons.
 
-### Community Registry (Decentralized Directory)
+### Community Registry & Network (Decentralized Directory)
 
 Tunecamp includes an automatic community registry powered by GunDB. When someone visits your Tunecamp site, it gets automatically registered in a decentralized directory of Tunecamp sites.
 
@@ -358,12 +366,20 @@ Tunecamp includes an automatic community registry powered by GunDB. When someone
 - **Decentralized**: Data stored on public GunDB peers, no central server
 - **Real-time**: New sites appear instantly in the community directory
 - **Privacy-respecting**: Only public info is shared (URL, title, artist name)
+- **Network Discovery**: In Server Mode, browse and play tracks from other TuneCamp instances
+- **Cross-Site Playback**: Stream tracks from other TuneCamp sites directly in your player
 
 **How it works:**
 1. Build and deploy your Tunecamp site
 2. When a visitor loads your site, it registers automatically
 3. Your site appears in the [Tunecamp Community](https://tunecamp.dev/community.html) directory
 4. Discover other independent artists using Tunecamp!
+
+**Server Mode Network Features:**
+- Browse all registered TuneCamp sites in the community
+- Discover and play tracks shared by other instances
+- Add network tracks to your queue
+- View site information and covers from other instances
 
 You can disable auto-registration by removing the `community-registry.js` script from your build output.
 
