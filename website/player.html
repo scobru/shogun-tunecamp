@@ -490,6 +490,7 @@
 
     <!-- GunDB -->
     <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
 
     <script>
         const REGISTRY_PEERS = [
@@ -540,54 +541,98 @@
             const container = document.getElementById('tracksContainer');
             const tracksMap = new Map();
             const artistsSet = new Set();
+            let sitesProcessed = 0;
+            let totalSites = 0;
+
+            // First, count sites to process
+            gun.get(REGISTRY_ROOT)
+                .get(REGISTRY_NAMESPACE)
+                .get('sites')
+                .map()
+                .once((siteData, siteId) => {
+                    if (siteData && siteId !== "_") totalSites++;
+                });
 
             gun.get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get('sites')
                 .map()
                 .on((siteData, siteId) => {
-                    if (siteData && siteData.url) {
-                        if (siteData.url.includes('localhost')) return;
+                    if (!siteData || siteId === "_") return;
+                    if (siteData.url && (siteData.url.includes('localhost') || siteData.url.includes('127.0.0.1'))) return;
 
-                        gun.get(REGISTRY_ROOT)
-                            .get(REGISTRY_NAMESPACE)
-                            .get('sites')
-                            .get(siteId)
+                    sitesProcessed++;
+
+                    // Secure Mode: Read from user graph if pub key is available
+                    if (siteData.pub) {
+                        gun.user(siteData.pub)
+                            .get('tunecamp')
                             .get('tracks')
                             .map()
-                            .on((trackData, trackId) => {
-                                if (trackData && trackData.audioUrl) {
-                                    const uniqueKey = `${siteId}:${trackId}`;
+                            .on((trackData, slug) => {
+                                if (trackData && trackData.audioUrl && slug !== "_") {
+                                    const uniqueKey = `${siteId}:${slug}`;
                                     tracksMap.set(uniqueKey, {
-                                        id: trackId,
+                                        id: slug,
                                         siteId: siteId,
-                                        siteUrl: siteData.url,
-                                        siteName: siteData.title,
+                                        siteUrl: siteData.url || '',
+                                        siteName: siteData.title || '',
                                         ...trackData,
+                                        _secure: true
                                     });
 
                                     if (trackData.artistName) artistsSet.add(trackData.artistName);
-
-                                    // Deduplicate by title + artist
-                                    const deduped = new Map();
-                                    Array.from(tracksMap.values()).forEach(track => {
-                                        const dedupKey = `${(track.title || '').toLowerCase()}::${(track.artistName || '').toLowerCase()}`;
-                                        const existing = deduped.get(dedupKey);
-                                        if (!existing || (track.addedAt || 0) > (existing.addedAt || 0)) {
-                                            deduped.set(dedupKey, track);
-                                        }
-                                    });
-
-                                    allTracks = Array.from(deduped.values());
-                                    allTracks.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
-
-                                    updateArtistFilter(artistsSet);
-                                    filterTracks();
-                                    updateStats();
+                                    updateTracksList(tracksMap, artistsSet);
                                 }
                             });
                     }
+
+                    // Legacy Mode: Also check public graph for backward compatibility
+                    gun.get(REGISTRY_ROOT)
+                        .get(REGISTRY_NAMESPACE)
+                        .get('sites')
+                        .get(siteId)
+                        .get('tracks')
+                        .map()
+                        .on((trackData, trackId) => {
+                            if (trackData && trackData.audioUrl && trackId !== "_") {
+                                const uniqueKey = `${siteId}:${trackId}`;
+                                // Only add if not already in map (secure takes priority)
+                                if (!tracksMap.has(uniqueKey)) {
+                                    tracksMap.set(uniqueKey, {
+                                        id: trackId,
+                                        siteId: siteId,
+                                        siteUrl: siteData.url || '',
+                                        siteName: siteData.title || '',
+                                        ...trackData,
+                                        _secure: false
+                                    });
+
+                                    if (trackData.artistName) artistsSet.add(trackData.artistName);
+                                    updateTracksList(tracksMap, artistsSet);
+                                }
+                            }
+                        });
                 });
+
+            function updateTracksList(tracksMap, artistsSet) {
+                // Deduplicate by slug/title + artist (prefer secure)
+                const deduped = new Map();
+                Array.from(tracksMap.values()).forEach(track => {
+                    const dedupKey = `${(track.title || '').toLowerCase()}::${(track.artistName || '').toLowerCase()}`;
+                    const existing = deduped.get(dedupKey);
+                    if (!existing || track._secure || (track.addedAt || 0) > (existing.addedAt || 0)) {
+                        deduped.set(dedupKey, track);
+                    }
+                });
+
+                allTracks = Array.from(deduped.values());
+                allTracks.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+
+                updateArtistFilter(artistsSet);
+                filterTracks();
+                updateStats();
+            }
 
             setTimeout(() => {
                 if (allTracks.length === 0) {

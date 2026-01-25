@@ -224,6 +224,7 @@
 
     <!-- GunDB -->
     <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
     <script>
         const REGISTRY_PEERS = [
             'https://gun.defucc.me/gun',
@@ -238,34 +239,93 @@
         const sitesMap = new Map();
 
         function loadSites() {
+            const processedIds = new Set();
+
             gun.get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get('sites')
                 .map()
-                .on((data, key) => {
-                    if (data && data.url) {
-                        // Skip incomplete, untitled, or localhost sites
-                        if (
-                            data.url.includes('localhost') ||
-                            !data.coverImage ||
-                            !data.title ||
-                            data.title === 'Untitled' ||
-                            data.title === 'TuneCamp Server' // Default name, often unconfigured
-                        ) return;
+                .on((directoryData, siteId) => {
+                    if (!directoryData || siteId === "_") return;
+                    if (processedIds.has(siteId)) return;
+                    processedIds.add(siteId);
 
-                        sitesMap.set(key, {
-                            id: key,
-                            url: data.url,
-                            title: data.title,
-                            artistName: data.artistName || '',
-                            coverImage: data.coverImage,
-                            registeredAt: data.registeredAt,
-                            lastSeen: data.lastSeen,
-                        });
+                    // Skip localhost sites
+                    if (directoryData.url && (
+                        directoryData.url.includes('localhost') ||
+                        directoryData.url.includes('127.0.0.1') ||
+                        directoryData.url.startsWith('file://')
+                    )) return;
 
-                        renderSites();
+                    // Secure Mode: Read from user graph if pub key is available
+                    if (directoryData.pub) {
+                        gun.user(directoryData.pub)
+                            .get('tunecamp')
+                            .get('profile')
+                            .once((profileData) => {
+                                if (profileData) {
+                                    // Use profile data (authoritative)
+                                    const siteInfo = {
+                                        id: siteId,
+                                        url: profileData.url || directoryData.url,
+                                        title: profileData.title || directoryData.title,
+                                        artistName: profileData.artistName || directoryData.artistName || '',
+                                        coverImage: profileData.coverImage || directoryData.coverImage,
+                                        registeredAt: profileData.registeredAt || directoryData.registeredAt,
+                                        lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
+                                        _secure: true
+                                    };
+
+                                    // Validate site data - align with server filtering
+                                    if (siteInfo.url && 
+                                        !siteInfo.url.includes('localhost') &&
+                                        !siteInfo.url.includes('127.0.0.1') &&
+                                        !siteInfo.url.startsWith('file://') &&
+                                        siteInfo.url.startsWith('http') &&
+                                        siteInfo.title && 
+                                        siteInfo.title !== 'Untitled' && 
+                                        siteInfo.title !== 'TuneCamp Server' &&
+                                        siteInfo.title.trim() !== '') {
+                                        sitesMap.set(siteId, siteInfo);
+                                        renderSites();
+                                    }
+                                } else {
+                                    // Fallback to directory data if user graph not reachable
+                                    processLegacySite(siteId, directoryData);
+                                }
+                            });
+                    } else {
+                        // Legacy Mode: Use directory data directly
+                        processLegacySite(siteId, directoryData);
                     }
                 });
+
+            function processLegacySite(siteId, directoryData) {
+                // Skip incomplete, untitled, or invalid sites - align with server filtering
+                if (!directoryData.url ||
+                    directoryData.url.includes('localhost') ||
+                    directoryData.url.includes('127.0.0.1') ||
+                    directoryData.url.startsWith('file://') ||
+                    !directoryData.url.startsWith('http') ||
+                    !directoryData.title ||
+                    directoryData.title === 'Untitled' ||
+                    directoryData.title === 'TuneCamp Server' ||
+                    directoryData.title.trim() === '') return;
+
+                const siteInfo = {
+                    id: siteId,
+                    url: directoryData.url,
+                    title: directoryData.title,
+                    artistName: directoryData.artistName || '',
+                    coverImage: directoryData.coverImage,
+                    registeredAt: directoryData.registeredAt,
+                    lastSeen: directoryData.lastSeen || Date.now(),
+                    _secure: false
+                };
+
+                sitesMap.set(siteId, siteInfo);
+                renderSites();
+            }
 
             // Show empty state after timeout
             setTimeout(() => {
