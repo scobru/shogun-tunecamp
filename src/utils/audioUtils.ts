@@ -160,10 +160,12 @@ export function validateUsername(username: string): { valid: boolean; error?: st
     return { valid: false, error: 'Username is required' };
   }
   const result = validateUsernameGleam(username);
-  if (result[0] === 'ok') {
+  // Gleam Result type in JS: Ok/Error classes with isOk() method and [0] for value
+  // @ts-ignore - TS might not see isOk if types aren't perfect
+  if (result.isOk()) {
     return { valid: true };
   } else {
-    return { valid: false, error: result[1] };
+    return { valid: false, error: result[0] as string };
   }
 }
 
