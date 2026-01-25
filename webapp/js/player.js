@@ -15,6 +15,18 @@ const Player = {
         this.loadVolume();
     },
 
+    getDuration() {
+        const audioDuration = this.audio.duration;
+        if (audioDuration && Number.isFinite(audioDuration) && audioDuration > 0 && audioDuration !== Infinity) {
+            return audioDuration;
+        }
+        // Fallback to metadata
+        if (this.queue[this.currentIndex]) {
+            return this.queue[this.currentIndex].duration || 0;
+        }
+        return 0;
+    },
+
     setupEvents() {
         const playBtn = document.getElementById('play-btn');
         const prevBtn = document.getElementById('prev-btn');
@@ -56,10 +68,11 @@ const Player = {
                 this.hasDragged = false;
                 return;
             }
-            if (this.audio.duration && Number.isFinite(this.audio.duration) && this.audio.duration > 0) {
+            const duration = this.getDuration();
+            if (duration > 0) {
                 const rect = progressBar.getBoundingClientRect();
                 const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-                const newTime = (percent / 100) * this.audio.duration;
+                const newTime = (percent / 100) * duration;
                 if (Number.isFinite(newTime) && newTime >= 0) {
                     this.audio.currentTime = newTime;
                     this.updateProgress();
@@ -85,11 +98,14 @@ const Player = {
 
         progressBar.addEventListener('input', (e) => {
             this.isDragging = true;
+            const duration = this.getDuration();
             // Aspetta che la durata sia disponibile prima di permettere lo scrub
-            if (this.audio.duration && Number.isFinite(this.audio.duration) && this.audio.duration > 0) {
-                const newTime = (e.target.value / 100) * this.audio.duration;
+            if (duration > 0) {
+                const newTime = (e.target.value / 100) * duration;
                 if (Number.isFinite(newTime) && newTime >= 0) {
-                    this.audio.currentTime = newTime;
+                    // Try to update current time if supported, otherwise just UI
+                    // this.audio.currentTime = newTime; 
+
                     // Aggiorna solo il display del tempo durante il trascinamento, non la progress bar
                     const currentTimeEl = document.getElementById('current-time');
                     if (currentTimeEl) {
@@ -105,8 +121,9 @@ const Player = {
         progressBar.addEventListener('change', (e) => {
             // Quando l'utente rilascia il mouse
             this.isDragging = false;
-            if (this.audio.duration && Number.isFinite(this.audio.duration) && this.audio.duration > 0) {
-                const newTime = (e.target.value / 100) * this.audio.duration;
+            const duration = this.getDuration();
+            if (duration > 0) {
+                const newTime = (e.target.value / 100) * duration;
                 if (Number.isFinite(newTime) && newTime >= 0) {
                     this.audio.currentTime = newTime;
                     // Aggiorna tutto dopo il rilascio
@@ -155,7 +172,7 @@ const Player = {
         });
         this.audio.addEventListener('progress', () => {
             // Aggiorna periodicamente durante il caricamento
-            if (!this.isDragging && this.audio.duration && Number.isFinite(this.audio.duration) && this.audio.duration > 0) {
+            if (!this.isDragging && this.getDuration() > 0) {
                 this.updateProgress();
             }
         });
@@ -402,23 +419,19 @@ const Player = {
 
     updateProgress() {
         const current = this.audio.currentTime || 0;
-        let duration = this.audio.duration || 0;
+        let duration = this.getDuration();
 
         const progressBar = document.getElementById('progress-bar');
         const currentTimeEl = document.getElementById('current-time');
         const totalTimeEl = document.getElementById('total-time');
 
-        // Se la durata non è ancora disponibile, prova a forzare il caricamento
-        if ((!duration || !Number.isFinite(duration) || duration <= 0) && this.audio.readyState >= 1) {
-            // Se l'audio ha caricato almeno i metadati, la durata dovrebbe essere disponibile
-            duration = this.audio.duration || 0;
-        }
+        // Note: Removed the force load logic here as getDuration handles fallback
 
         // Durante il trascinamento, non aggiornare il valore della progress bar
         // (viene già aggiornato dall'utente), ma aggiorna solo i tempi se necessario
         if (this.isDragging) {
             // Aggiorna solo il tempo totale se non è ancora stato impostato
-            if (totalTimeEl && duration && Number.isFinite(duration) && duration > 0) {
+            if (totalTimeEl && duration > 0) {
                 if (!totalTimeEl.textContent || totalTimeEl.textContent === '0:00') {
                     totalTimeEl.textContent = this.formatTime(duration);
                 }
@@ -427,7 +440,7 @@ const Player = {
         }
 
         // Calcola la percentuale solo se la durata è valida
-        if (duration && Number.isFinite(duration) && duration > 0) {
+        if (duration > 0) {
             const percent = Math.max(0, Math.min(100, (current / duration) * 100));
             progressBar.value = percent;
         } else {
@@ -441,14 +454,10 @@ const Player = {
         }
         if (totalTimeEl) {
             // Aggiorna il tempo totale solo se la durata è valida
-            if (duration && Number.isFinite(duration) && duration > 0) {
+            if (duration > 0) {
                 totalTimeEl.textContent = this.formatTime(duration);
             }
         }
-
-        // Forza un reflow per assicurarsi che il browser aggiorni la visualizzazione
-        // Questo risolve problemi di sincronizzazione del cursore visivo
-        void progressBar.offsetHeight;
     },
 
     updatePlayButton(playing) {
