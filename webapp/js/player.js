@@ -33,6 +33,19 @@ const Player = {
             this.isDragging = false;
         });
 
+        // Permetti lo scrub anche cliccando direttamente sulla progress bar
+        progressBar.addEventListener('click', (e) => {
+            if (this.audio.duration && Number.isFinite(this.audio.duration) && this.audio.duration > 0) {
+                const rect = progressBar.getBoundingClientRect();
+                const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                const newTime = (percent / 100) * this.audio.duration;
+                if (Number.isFinite(newTime) && newTime >= 0) {
+                    this.audio.currentTime = newTime;
+                    this.updateProgress();
+                }
+            }
+        });
+
         // Supporto per dispositivi touch
         progressBar.addEventListener('touchstart', () => {
             this.isDragging = true;
@@ -44,22 +57,26 @@ const Player = {
 
         progressBar.addEventListener('input', (e) => {
             this.isDragging = true;
-            if (this.audio.duration && Number.isFinite(this.audio.duration)) {
+            // Aspetta che la durata sia disponibile prima di permettere lo scrub
+            if (this.audio.duration && Number.isFinite(this.audio.duration) && this.audio.duration > 0) {
                 const newTime = (e.target.value / 100) * this.audio.duration;
-                if (Number.isFinite(newTime)) {
+                if (Number.isFinite(newTime) && newTime >= 0) {
                     this.audio.currentTime = newTime;
                     // Aggiorna immediatamente il display durante il trascinamento
                     requestAnimationFrame(() => this.updateProgress());
                 }
+            } else {
+                // Se la durata non è ancora disponibile, forza il caricamento dei metadati
+                this.audio.load();
             }
         });
 
         progressBar.addEventListener('change', (e) => {
             // Fallback per quando l'utente rilascia il mouse
             this.isDragging = false;
-            if (this.audio.duration && Number.isFinite(this.audio.duration)) {
+            if (this.audio.duration && Number.isFinite(this.audio.duration) && this.audio.duration > 0) {
                 const newTime = (e.target.value / 100) * this.audio.duration;
-                if (Number.isFinite(newTime)) {
+                if (Number.isFinite(newTime) && newTime >= 0) {
                     this.audio.currentTime = newTime;
                     this.updateProgress();
                 }
@@ -79,6 +96,14 @@ const Player = {
         });
         this.audio.addEventListener('loadedmetadata', () => {
             // Aggiorna la durata quando i metadati sono caricati
+            this.updateProgress();
+        });
+        this.audio.addEventListener('durationchange', () => {
+            // Aggiorna quando la durata cambia (più affidabile di loadedmetadata)
+            this.updateProgress();
+        });
+        this.audio.addEventListener('canplay', () => {
+            // Aggiorna quando l'audio può iniziare a riprodursi
             this.updateProgress();
         });
         this.audio.addEventListener('ended', () => this.next());
@@ -253,6 +278,10 @@ const Player = {
             totalTimeEl.textContent = '0:00';
         }
 
+        // Reset audio element per assicurarsi che i metadati vengano ricaricati
+        this.audio.pause();
+        this.audio.currentTime = 0;
+
         if (track.isExternal || track.audioUrl) {
             this.audio.src = track.audioUrl;
         } else {
@@ -263,6 +292,9 @@ const Player = {
             }
             this.audio.src = API.getStreamUrl(track.id, format);
         }
+
+        // Forza il caricamento dei metadati
+        this.audio.load();
 
         document.getElementById('player-title').textContent = track.title;
         document.getElementById('player-artist').textContent = track.artist_name || '';
