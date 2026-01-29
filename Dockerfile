@@ -4,6 +4,7 @@
 # ===================================================
 
 ARG TUNECAMP_PUBLIC_URL
+ARG RELAY_CACHE_BUST=0
 
 
 # Build stage
