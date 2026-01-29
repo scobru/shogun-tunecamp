@@ -13,8 +13,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-ARG RELAY_CACHE_BUST=v1
-RUN echo "Relay cache bust: $RELAY_CACHE_BUST"
+
 
 # Install build dependencies for native modules (better-sqlite3)
 RUN apk add --no-cache python3 make g++ curl
@@ -34,6 +33,9 @@ RUN npm ci
 
 # Copy source code
 COPY . .
+
+ARG RELAY_CACHE_BUST=v2
+RUN echo "Relay cache bust: $RELAY_CACHE_BUST"
 
 # Build Gleam
 RUN npm run gleam:build

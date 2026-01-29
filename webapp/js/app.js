@@ -1123,10 +1123,10 @@ const App = {
 
         // Filter out default/placeholder titles (align with server defaults)
         const title = s.title || '';
-        if (!title || 
-            title === 'Untitled' || 
-            title === 'TuneCamp Server' ||
-            title.trim() === '') return;
+        if (!title ||
+          title === 'Untitled' ||
+          title === 'TuneCamp Server' ||
+          title.trim() === '') return;
 
         // Normalize URL (remove trailing slash)
         const normalizedUrl = s.url.replace(/\/$/, '');
@@ -1178,13 +1178,13 @@ const App = {
             siteUrl = site.url;
           }
         }
-        
+
         // Skip if still no valid siteUrl or if localhost
-        if (!siteUrl || 
-            siteUrl.includes('localhost') ||
-            siteUrl.includes('127.0.0.1') ||
-            siteUrl.startsWith('file://') ||
-            !siteUrl.startsWith('http')) return false;
+        if (!siteUrl ||
+          siteUrl.includes('localhost') ||
+          siteUrl.includes('127.0.0.1') ||
+          siteUrl.startsWith('file://') ||
+          !siteUrl.startsWith('http')) return false;
 
         // Deduplicate by audioUrl
         if (seenTrackUrls.has(t.audioUrl)) return false;
@@ -1228,12 +1228,12 @@ const App = {
                   <div class="track-title">${App.escapeHtml(t.title || 'Untitled')}</div>
                   <div style="color: var(--text-secondary); font-size: 0.875rem;">
                     ${App.escapeHtml(t.artistName || 'Unknown Artist')} · <a href="${t.siteUrl}" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">${(() => {
-                      try {
-                        return new URL(t.siteUrl).hostname;
-                      } catch (e) {
-                        return 'Unknown';
-                      }
-                    })()}</a>
+            try {
+              return new URL(t.siteUrl).hostname;
+            } catch (e) {
+              return 'Unknown';
+            }
+          })()}</a>
                   </div>
                 </div>
                 <div class="track-actions" style="display:flex; gap:10px; align-items:center;">
@@ -1298,12 +1298,12 @@ const App = {
                 <div class="card-body">
                   <div class="card-title">${App.escapeHtml(s.title || 'Untitled')}</div>
                   <div class="card-subtitle">${App.escapeHtml(s.artistName || (() => {
-                    try {
-                      return new URL(s.url).hostname;
-                    } catch (e) {
-                      return 'Unknown';
-                    }
-                  })())}</div>
+            try {
+              return new URL(s.url).hostname;
+            } catch (e) {
+              return 'Unknown';
+            }
+          })())}</div>
                 </div>
               </a>
             `}).join('')}
@@ -2890,7 +2890,7 @@ bandcamp: https://artist.bandcamp.com"></textarea>
     }
 
     container.innerHTML = tracks.map((track, index) => `
-      <div class="track-item" data-track='${JSON.stringify(track).replace(/' /g, "&apos;")}' data-index="${index}">
+      <div class="track-item" data-track='${JSON.stringify(track).replace(/'/g, "&apos;")}' data-index="${index}">
       <div class="track-num">${track.track_num || index + 1}</div>
       <div class="track-info">
         <div class="track-title">${track.title}</div>
@@ -2908,7 +2908,7 @@ bandcamp: https://artist.bandcamp.com"></textarea>
         </button>` : ''}
       <button class="btn btn-sm btn-ghost add-to-queue-btn" title="Add to Queue"
         style="margin-left: 0.5rem; padding: 4px 8px; font-size: 0.9rem;"
-        onclick="event.stopPropagation(); Player.addToQueue(${JSON.stringify(track).replace(/" /g, '&quot;')})">
+        onclick="event.stopPropagation(); Player.addToQueue(${JSON.stringify(track).replace(/"/g, '&quot;')})">
       ➕
     </button>
       </div >
