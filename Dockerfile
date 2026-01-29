@@ -5,14 +5,16 @@
 
 ARG TUNECAMP_PUBLIC_URL
 
-ARG RELAY_CACHE_BUST=v1
-RUN echo "Relay cache bust: $RELAY_CACHE_BUST"
+
 
 
 # Build stage
 FROM node:20-alpine AS builder
 
 WORKDIR /app
+
+ARG RELAY_CACHE_BUST=v1
+RUN echo "Relay cache bust: $RELAY_CACHE_BUST"
 
 # Install build dependencies for native modules (better-sqlite3)
 RUN apk add --no-cache python3 make g++ curl
@@ -24,6 +26,8 @@ RUN curl -fsSL https://github.com/gleam-lang/gleam/releases/download/${GLEAM_VER
 # Copy package files
 COPY package*.json ./
 COPY gleam.toml ./
+
+
 
 # Install all dependencies (including dev)
 RUN npm ci
