@@ -4,7 +4,9 @@
 # ===================================================
 
 ARG TUNECAMP_PUBLIC_URL
-ARG RELAY_CACHE_BUST=1
+
+ARG RELAY_CACHE_BUST=v1
+RUN echo "Relay cache bust: $RELAY_CACHE_BUST"
 
 
 # Build stage
