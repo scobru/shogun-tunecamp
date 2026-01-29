@@ -10,6 +10,7 @@ const Player = {
     hasDragged: false, // Flag per distinguere tra click e drag
 
     init() {
+        console.log('TuneCamp Player v1.1 loaded - Debugging Timing');
         this.audio = document.getElementById('audio-element');
         this.setupEvents();
         this.loadVolume();

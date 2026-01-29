@@ -99,7 +99,7 @@ body {
 .brand-name {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: white !important; /* Force white for visibility */
   letter-spacing: -0.02em;
 }
 
