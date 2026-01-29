@@ -21,10 +21,18 @@ const Player = {
             return audioDuration;
         }
         // Fallback to metadata
+        let duration = 0;
         if (this.queue[this.currentIndex]) {
-            return this.queue[this.currentIndex].duration || 0;
+            duration = this.queue[this.currentIndex].duration || 0;
         }
-        return 0;
+
+        // If current time is greater than metadata duration, assume metadata is wrong
+        // and use current time as duration (so progress doesn't get stuck or overflow badly)
+        if (this.audio && this.audio.currentTime > duration) {
+            return this.audio.currentTime;
+        }
+
+        return duration;
     },
 
     setupEvents() {
