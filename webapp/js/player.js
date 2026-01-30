@@ -407,10 +407,8 @@ const Player = {
 
     togglePlay() {
         if (this.audio.paused) {
-            if (this.audio.paused) {
-                this.safePlay();
-            } else {
-            } else {
+            this.safePlay();
+        } else {
             this.audio.pause();
         }
     },
@@ -419,7 +417,6 @@ const Player = {
         if (this.currentIndex > 0) {
             this.currentIndex--;
             this.loadTrack(this.queue[this.currentIndex]);
-            this.loadTrack(this.queue[this.currentIndex]);
             this.safePlay();
         }
     },
@@ -427,7 +424,6 @@ const Player = {
     next() {
         if (this.currentIndex < this.queue.length - 1) {
             this.currentIndex++;
-            this.loadTrack(this.queue[this.currentIndex]);
             this.loadTrack(this.queue[this.currentIndex]);
             this.safePlay();
         }
