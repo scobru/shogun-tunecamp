@@ -320,7 +320,9 @@ const Player = {
         if (index >= 0 && index < this.queue.length) {
             this.currentIndex = index;
             this.loadTrack(this.queue[this.currentIndex]);
-            this.audio.play();
+            this.loadTrack(this.queue[this.currentIndex]);
+            this.safePlay();
+            this.renderQueue();
             this.renderQueue();
         }
     },
@@ -337,7 +339,8 @@ const Player = {
         this.queue = queue || [track];
         this.currentIndex = index || 0;
         this.loadTrack(track);
-        this.audio.play();
+        this.loadTrack(track);
+        this.safePlay();
     },
 
     loadTrack(track) {
@@ -404,8 +407,10 @@ const Player = {
 
     togglePlay() {
         if (this.audio.paused) {
-            this.audio.play();
-        } else {
+            if (this.audio.paused) {
+                this.safePlay();
+            } else {
+            } else {
             this.audio.pause();
         }
     },
@@ -414,7 +419,8 @@ const Player = {
         if (this.currentIndex > 0) {
             this.currentIndex--;
             this.loadTrack(this.queue[this.currentIndex]);
-            this.audio.play();
+            this.loadTrack(this.queue[this.currentIndex]);
+            this.safePlay();
         }
     },
 
@@ -422,7 +428,8 @@ const Player = {
         if (this.currentIndex < this.queue.length - 1) {
             this.currentIndex++;
             this.loadTrack(this.queue[this.currentIndex]);
-            this.audio.play();
+            this.loadTrack(this.queue[this.currentIndex]);
+            this.safePlay();
         }
     },
 
@@ -473,6 +480,17 @@ const Player = {
         const btn = document.getElementById('play-btn');
         btn.textContent = playing ? '⏸' : '▶';
         this.isPlaying = playing;
+    },
+
+    async safePlay() {
+        try {
+            await this.audio.play();
+        } catch (err) {
+            // Ignore AbortError which happens when pausing/loading quickly
+            if (err.name !== 'AbortError') {
+                console.error('Playback failed:', err);
+            }
+        }
     },
 
     formatTime(seconds) {

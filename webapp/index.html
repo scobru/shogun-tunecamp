@@ -39,8 +39,10 @@
           <span class="user-name" id="user-name"></span>
           <button class="btn btn-sm btn-ghost" id="user-logout-btn" title="Logout">👋</button>
         </div>
-        <button class="btn btn-outline btn-sm btn-user" id="user-login-btn" title="Login as user (for comments and community features)">👤 User</button>
-        <button class="btn btn-outline btn-admin" id="admin-btn" title="Login as administrator (for server management)">🔐 Admin</button>
+        <button class="btn btn-outline btn-sm btn-user" id="user-login-btn"
+          title="Login as user (for comments and community features)">👤 User</button>
+        <button class="btn btn-outline btn-admin" id="admin-btn"
+          title="Login as administrator (for server management)">🔐 Admin</button>
       </div>
     </nav>
 
@@ -114,7 +116,8 @@
         <form id="login-form">
           <div class="form-group">
             <label for="password">Password</label>
-            <input type="password" id="password" placeholder="Enter admin password" required>
+            <input type="password" id="password" placeholder="Enter admin password" required
+              autocomplete="current-password">
           </div>
           <button type="submit" class="btn btn-primary btn-block">Login</button>
         </form>
