@@ -297,10 +297,11 @@ export function createScanner(database: DatabaseService): ScannerService {
                     });
             }
 
-            // Check if duration is missing (0 or null)
-            if (!existing.duration) {
+            // Check if duration is missing or suspiciously short (likely wrong metadata)
+            const needsDurationBackfill = !existing.duration || (existing.duration > 0 && existing.duration < 90);
+            if (needsDurationBackfill) {
                 getDurationFromFfmpeg(filePath).then((duration) => {
-                    if (duration) {
+                    if (duration && duration > 0) {
                         database.updateTrackDuration(existing.id, duration);
                         console.log(`    [Backfill] Updated duration for: ${path.basename(filePath)} -> ${duration}s`);
                     }
@@ -406,12 +407,14 @@ export function createScanner(database: DatabaseService): ScannerService {
             }
 
 
-            let duration = format.duration;
-            if (!duration) {
-                // Fallback to ffprobe
-                duration = (await getDurationFromFfmpeg(filePath)) ?? undefined;
-                if (duration) {
-                    console.log(`    [Scanner] Recovered duration via ffprobe: ${duration}s`);
+            // Prefer ffprobe for duration (reads actual stream; metadata tags are often wrong)
+            let duration: number | null = await getDurationFromFfmpeg(filePath);
+            if (duration == null || !Number.isFinite(duration) || duration <= 0) {
+                const metaDuration = format.duration;
+                const parsed = metaDuration != null ? parseFloat(String(metaDuration)) : NaN;
+                duration = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+                if (duration != null) {
+                    console.log(`    [Scanner] Using metadata duration: ${duration}s`);
                 }
             }
 
