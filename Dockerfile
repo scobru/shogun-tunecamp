@@ -26,16 +26,11 @@ RUN curl -fsSL https://github.com/gleam-lang/gleam/releases/download/${GLEAM_VER
 COPY package*.json ./
 COPY gleam.toml ./
 
-
-
 # Install all dependencies (including dev)
 RUN npm ci
 
 # Copy source code
 COPY . .
-
-ARG RELAY_CACHE_BUST=v2
-RUN echo "Relay cache bust: $RELAY_CACHE_BUST"
 
 # Build Gleam
 RUN npm run gleam:build
@@ -49,6 +44,9 @@ RUN npm run build
 FROM node:20-alpine
 
 WORKDIR /app
+
+ARG RELAY_CACHE_BUST=v2
+RUN echo "Relay cache bust: $RELAY_CACHE_BUST"
 
 # Install runtime dependencies for better-sqlite3
 RUN apk add --no-cache python3 make g++
