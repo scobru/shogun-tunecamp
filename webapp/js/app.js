@@ -2,6 +2,7 @@
 
 const App = {
   isAdmin: false,
+  isRootAdmin: false,
 
   async init() {
     Player.init();
@@ -49,6 +50,16 @@ const App = {
     try {
       const status = await API.getAuthStatus();
       this.isAdmin = status.authenticated;
+      if (this.isAdmin) {
+        try {
+          const me = await API.getCurrentAdmin();
+          this.isRootAdmin = me.isRootAdmin || false;
+        } catch {
+          this.isRootAdmin = false;
+        }
+      } else {
+        this.isRootAdmin = false;
+      }
       this.updateAuthUI(status);
     } catch (e) {
       console.error('Auth check failed:', e);
@@ -1688,9 +1699,6 @@ const App = {
             <button class="btn btn-primary" id="new-release-btn">New Release</button>
             <button class="btn btn-outline" id="new-artist-btn">New Artist</button>
             <button class="btn btn-outline" id="upload-btn">Upload Tracks</button>
-            <button class="btn btn-primary" id="new-release-btn">New Release</button>
-            <button class="btn btn-outline" id="new-artist-btn">New Artist</button>
-            <button class="btn btn-outline" id="upload-btn">Upload Tracks</button>
             <button class="btn btn-outline" id="users-btn">Users</button>
             <button class="btn btn-outline" id="rescan-btn">Rescan</button>
             <button class="btn btn-outline" id="network-settings-btn">Network</button>
@@ -1783,7 +1791,7 @@ const App = {
         <div id="users-panel" class="admin-panel" style="display: none;">
             <h3>Access Management</h3>
             <div class="row" style="display: flex; gap: 2rem; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 300px;">
+                <div id="create-admin-form-container" style="flex: 1; min-width: 300px;">
                     <h4>Create New Admin</h4>
                     <form id="create-user-form">
                         <div class="form-group">
@@ -2100,6 +2108,10 @@ const App = {
     // Users Panel Toggle
     document.getElementById('users-btn')?.addEventListener('click', async () => {
       togglePanel('users-panel');
+      const createFormContainer = document.getElementById('create-admin-form-container');
+      if (createFormContainer) {
+        createFormContainer.style.display = this.isRootAdmin ? '' : 'none';
+      }
       await this.renderUsersList();
     });
 
@@ -3059,6 +3071,10 @@ bandcamp: https://artist.bandcamp.com"></textarea>
       body.innerHTML = `
         <form id="login-form">
           <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="Enter username" required autocomplete="username">
+          </div>
+          <div class="form-group">
             <label for="password">Password</label>
             <input type="password" id="password" placeholder="Enter admin password" required autocomplete="current-password">
           </div>
@@ -3098,6 +3114,7 @@ bandcamp: https://artist.bandcamp.com"></textarea>
       const result = await API.login(username, password);
 
       this.isAdmin = true;
+      this.isRootAdmin = result.isRootAdmin || false;
       this.hideModal();
 
       // Update UI
@@ -3143,6 +3160,7 @@ bandcamp: https://artist.bandcamp.com"></textarea>
 
       await API.setup(username, password);
       this.isAdmin = true;
+      this.isRootAdmin = true;
       this.hideModal();
       await this.checkAuth();
       window.location.hash = '#/admin';
@@ -3160,17 +3178,22 @@ bandcamp: https://artist.bandcamp.com"></textarea>
     container.innerHTML = 'Loading...';
     try {
       const users = await API.getAdmins();
-      container.innerHTML = users.map(u => `
+      const canDelete = this.isRootAdmin;
+      container.innerHTML = users.map(u => {
+        const isRootAdmin = u.id === 1;
+        const showDelete = canDelete && users.length > 1 && !isRootAdmin;
+        return `
               <div class="list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid var(--border-color);">
                   <div>
                       <strong>${this.escapeHtml(u.username)}</strong>
-                      <div style="font-size: 0.8rem; color: var(--text-muted);">ID: ${u.id} • Created: ${new Date(u.created_at).toLocaleDateString()}</div>
+                      <div style="font-size: 0.8rem; color: var(--text-muted);">ID: ${u.id} • Created: ${new Date(u.created_at).toLocaleDateString()}${isRootAdmin ? ' (Primary Admin)' : ''}</div>
                   </div>
                   <div>
-                      ${users.length > 1 ? `<button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}">Delete</button>` : '<span style="font-size: 0.8rem; color: var(--text-muted);">(Last Admin)</span>'}
+                      ${showDelete ? `<button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}">Delete</button>` : isRootAdmin ? '<span style="font-size: 0.8rem; color: var(--text-muted);">(Primary Admin)</span>' : users.length <= 1 ? '<span style="font-size: 0.8rem; color: var(--text-muted);">(Last Admin)</span>' : '<span style="font-size: 0.8rem; color: var(--text-muted);">—</span>'}
                   </div>
               </div>
-          `).join('');
+          `;
+      }).join('');
 
       container.querySelectorAll('.delete-user-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {

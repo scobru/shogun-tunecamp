@@ -229,6 +229,20 @@ export function createAdminRoutes(
     });
 
     /**
+     * GET /api/admin/system/me
+     * Get current admin user info (username, isRootAdmin)
+     */
+    router.get("/system/me", (req: any, res) => {
+        try {
+            const username = req.username || "";
+            res.json({ username, isRootAdmin: authService.isRootAdmin(username) });
+        } catch (error) {
+            console.error("Error getting current admin:", error);
+            res.status(500).json({ error: "Failed to get current admin" });
+        }
+    });
+
+    /**
      * GET /api/admin/system/users
      * List all admin users
      */
@@ -244,10 +258,13 @@ export function createAdminRoutes(
 
     /**
      * POST /api/admin/system/users
-     * Create new admin user
+     * Create new admin user (root admin only)
      */
-    router.post("/system/users", async (req, res) => {
+    router.post("/system/users", async (req: any, res) => {
         try {
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only the primary admin can create new admins" });
+            }
             const { username, password } = req.body;
             if (!username || !password || password.length < 6) {
                 return res.status(400).json({ error: "Invalid username or password (min 6 chars)" });
@@ -266,10 +283,13 @@ export function createAdminRoutes(
 
     /**
      * DELETE /api/admin/system/users/:id
-     * Delete admin user
+     * Delete admin user (root admin only)
      */
-    router.delete("/system/users/:id", (req, res) => {
+    router.delete("/system/users/:id", (req: any, res) => {
         try {
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only the primary admin can remove admins" });
+            }
             const id = parseInt(req.params.id, 10);
             authService.deleteAdmin(id);
             res.json({ message: "Admin user deleted" });

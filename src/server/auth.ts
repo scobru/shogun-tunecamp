@@ -17,6 +17,8 @@ export interface AuthService {
     deleteAdmin(id: number): void;
     changePassword(username: string, newPassword: string): Promise<void>;
     isFirstRun(): boolean;
+    /** Returns true if the username belongs to the root admin (id=1, first created). */
+    isRootAdmin(username: string): boolean;
 }
 
 export function createAuthService(
@@ -112,6 +114,10 @@ export function createAuthService(
         },
 
         deleteAdmin(id: number): void {
+            // Prevent deleting the root admin (id=1)
+            if (id === 1) {
+                throw new Error("Cannot delete the primary admin");
+            }
             // Prevent deleting the last admin
             const count = (db.prepare("SELECT COUNT(*) as count FROM admin").get() as any).count;
             if (count <= 1) {
@@ -128,6 +134,11 @@ export function createAuthService(
         isFirstRun(): boolean {
             const count = (db.prepare("SELECT COUNT(*) as count FROM admin").get() as any).count;
             return count === 0;
+        },
+
+        isRootAdmin(username: string): boolean {
+            const row = db.prepare("SELECT id FROM admin WHERE username = ?").get(username) as { id: number } | undefined;
+            return row?.id === 1;
         },
     };
 }

@@ -36,7 +36,7 @@ export function createAuthRoutes(authService: AuthService) {
             }
 
             const token = authService.generateToken({ isAdmin: true, username: userToAuth });
-            res.json({ token, expiresIn: "7d", username: userToAuth });
+            res.json({ token, expiresIn: "7d", username: userToAuth, isRootAdmin: authService.isRootAdmin(userToAuth) });
         } catch (error) {
             console.error("Login error:", error);
             res.status(500).json({ error: "Login failed" });
@@ -70,7 +70,8 @@ export function createAuthRoutes(authService: AuthService) {
                 message: "Admin account created successfully",
                 token,
                 expiresIn: "7d",
-                username: userToCreate
+                username: userToCreate,
+                isRootAdmin: true
             });
         } catch (error) {
             console.error("Setup error:", error);

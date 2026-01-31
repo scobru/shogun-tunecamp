@@ -285,6 +285,10 @@ const API = {
     },
 
     // User Management
+    async getCurrentAdmin() {
+        return this.get('/admin/system/me');
+    },
+
     async getAdmins() {
         return this.get('/admin/system/users');
     },
