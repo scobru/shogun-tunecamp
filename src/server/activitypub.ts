@@ -17,7 +17,11 @@ export class ActivityPubService {
 
     public getBaseUrl(): string {
         const publicUrl = this.db.getSetting("publicUrl") || this.config.publicUrl;
-        return publicUrl || `http://localhost:${this.config.port}`;
+        let url = publicUrl || `http://localhost:${this.config.port}`;
+        if (url.endsWith("/")) {
+            url = url.slice(0, -1);
+        }
+        return url;
     }
 
     // Key Management
