@@ -209,8 +209,6 @@ export function createDatabase(dbPath: string): DatabaseService {
       bio TEXT,
       photo_path TEXT,
       links TEXT,
-      photo_path TEXT,
-      links TEXT,
       public_key TEXT,
       private_key TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
