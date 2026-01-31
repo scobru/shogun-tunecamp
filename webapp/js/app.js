@@ -68,7 +68,7 @@ const App = {
       // Show browser link only if admin
       if (browserLink) browserLink.style.display = 'inline-block';
     } else {
-      btn.textContent = '🔐 Admin';
+      btn.textContent = 'Admin';
       btn.classList.remove('btn-primary');
       // If we want to hide the admin login button entirely for regular users, uncomment next line:
       // btn.style.display = 'none'; 
@@ -431,10 +431,10 @@ const App = {
                </p>
                <div style="display: flex; flex-direction: column; gap: 1rem;">
                   <a href="https://buymeacoffee.com/scobru" target="_blank" class="btn btn-outline" style="justify-content: center;">
-                    ☕ Buy us a coffee
+                    Buy us a coffee
                   </a>
                   <a href="https://github.com/scobru/tunecamp" target="_blank" class="btn btn-outline" style="justify-content: center;">
-                    ❤️ GitHub Sponsors
+                    GitHub Sponsors
                   </a>
                </div>
              </div>
@@ -522,14 +522,7 @@ const App = {
       }
 
       function getIconForPlatform(platform) {
-        const p = platform.toLowerCase();
-        if (p.includes('paypal')) return '💳';
-        if (p.includes('ko-fi') || p.includes('coffee')) return '☕';
-        if (p.includes('patreon')) return '🧡';
-        if (p.includes('bandcamp')) return '🎵';
-        if (p.includes('instagram')) return '📸';
-        if (p.includes('twitter') || p.includes('x')) return '🐦';
-        return '❤️';
+        return '';
       }
 
     } catch (e) {
@@ -604,8 +597,8 @@ const App = {
             ${album.date ? '<p style="color: var(--text-muted);">' + album.date + '</p>' : ''}
             ${album.genre ? '<p style="color: var(--text-muted);">' + album.genre + '</p>' : ''}
             ${album.description ? '<p style="color: var(--text-secondary); margin-top: 1rem; max-width: 500px; white-space: pre-wrap;">' + album.description + '</p>' : ''}
-            ${album.download === 'free' ? '<a href="/api/albums/' + (album.slug || album.id) + '/download" class="btn btn-primary" style="margin-top: 1rem;">⬇️ Free Download</a>'
-        : album.download === 'codes' ? '<button class="btn btn-primary" onclick="App.showUnlockModal(' + album.id + ')" style="margin-top: 1rem;">🔐 Unlock Download</button>'
+            ${album.download === 'free' ? '<a href="/api/albums/' + (album.slug || album.id) + '/download" class="btn btn-primary" style="margin-top: 1rem;">Free Download</a>'
+        : album.download === 'codes' ? '<button class="btn btn-primary" onclick="App.showUnlockModal(' + album.id + ')" style="margin-top: 1rem;">Unlock Download</button>'
           : ''}
             
             ${(() => {
@@ -613,7 +606,7 @@ const App = {
           try {
             const links = JSON.parse(album.external_links);
             return links.map(link =>
-              `<a href="${link.url}" target="_blank" class="btn btn-outline" style="margin-top: 1rem; margin-right: 0.5rem;">🔗 ${link.label}</a>`
+              `<a href="${link.url}" target="_blank" class="btn btn-outline" style="margin-top: 1rem; margin-right: 0.5rem;">${link.label}</a>`
             ).join('');
           } catch (e) { return ''; }
         }
@@ -628,7 +621,7 @@ const App = {
         <!-- Comments Section -->
         <div class="comments-section" id="comments-section">
           <div class="comments-header">
-            <h3 class="comments-title">💬 Comments</h3>
+            <h3 class="comments-title">Comments</h3>
             <span class="comments-count" id="comments-count"></span>
           </div>
           <div id="comment-form-container"></div>
@@ -1361,7 +1354,7 @@ const App = {
           <div class="stats-grid">
             <div class="stats-section">
               <h3>Recently Played</h3>
-              <div class="track-list">
+              <div class="track-list scrollable-list">
                 ${recent.length ? recent.map(play => `
                   <div class="track-item" onclick="Player.play({id: ${play.track_id}, title: '${App.escapeHtml(play.track_title).replace(/'/g, "\\'")}', artist_name: '${App.escapeHtml(play.artist_name || '').replace(/'/g, "\\'")}'})">
                     <div class="track-info">
@@ -1442,7 +1435,7 @@ const App = {
         if (entry.type === 'directory') {
           return `
             <div class="browser-item folder-item" onclick="window.location.hash='#/browser/${entry.path}'">
-              <div class="browser-icon">📁</div>
+              <div class="browser-icon"></div>
               <div class="browser-name">${App.escapeHtml(entry.name)}</div>
               <div class="browser-actions"></div>
             </div>
@@ -1682,11 +1675,11 @@ const App = {
         <div class="admin-header">
           <h1 class="section-title">Admin Panel</h1>
           <div>
-            <button class="btn btn-primary" id="new-release-btn">+ New Release</button>
-            <button class="btn btn-outline" id="new-artist-btn">+ New Artist</button>
-            <button class="btn btn-outline" id="upload-btn">📤 Upload Tracks</button>
-            <button class="btn btn-outline" id="rescan-btn">🔄 Rescan</button>
-            <button class="btn btn-outline" id="network-settings-btn">🌐 Network</button>
+            <button class="btn btn-primary" id="new-release-btn">New Release</button>
+            <button class="btn btn-outline" id="new-artist-btn">New Artist</button>
+            <button class="btn btn-outline" id="upload-btn">Upload Tracks</button>
+            <button class="btn btn-outline" id="rescan-btn">Rescan</button>
+            <button class="btn btn-outline" id="network-settings-btn">Network</button>
             <button class="btn btn-outline" id="logout-btn">Logout</button>
           </div>
         </div>
@@ -1841,16 +1834,16 @@ const App = {
     list.innerHTML = releases.map(r => `
       <div class="release-row" data-release-id="${r.id}">
         <div class="release-cover-small album-cover-placeholder" data-src="${API.getAlbumCoverUrl(r.id)}">
-          <div class="placeholder-icon" style="font-size: 1.5rem;">🎵</div>
+          <div class="placeholder-icon" style="font-size: 1.5rem;"></div>
         </div>
         <div class="release-info">
           <div class="release-title">${r.title}</div>
           <div class="release-artist">${r.artist_name || 'Unknown Artist'}</div>
         </div>
         <div class="release-actions">
-          <button class="btn btn-sm btn-outline edit-release" data-id="${r.id}">✏️ Edit</button>
-          <button class="btn btn-sm btn-outline upload-to-release" data-slug="${r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}">+ Add Tracks</button>
-          <button class="btn btn-sm btn-outline btn-danger delete-release">🗑️</button>
+          <button class="btn btn-sm btn-outline edit-release" data-id="${r.id}">Edit</button>
+          <button class="btn btn-sm btn-outline upload-to-release" data-slug="${r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}">Add Tracks</button>
+          <button class="btn btn-sm btn-outline btn-danger delete-release">Delete</button>
         </div>
         <div class="release-status">
           <span class="status-badge ${r.is_public ? 'status-public' : 'status-private'}">
@@ -1878,14 +1871,14 @@ const App = {
     artistsList.innerHTML = allArtists.map(a => `
       <div class="release-row" data-artist-id="${a.id}">
         <div class="release-cover-small artist-cover-placeholder" data-src="${API.getArtistCoverUrl(a.id)}">
-          <div class="placeholder-icon" style="font-size: 1.5rem;">👤</div>
+          <div class="placeholder-icon" style="font-size: 1.5rem;"></div>
         </div>
         <div class="release-info">
           <div class="release-title">${a.name}</div>
           <div class="release-artist">${a.bio ? a.bio.substring(0, 50) + '...' : 'No bio'}</div>
         </div>
         <div class="release-actions">
-          <button class="btn btn-sm btn-outline edit-artist" data-id="${a.id}">✏️ Edit</button>
+          <button class="btn btn-sm btn-outline edit-artist" data-id="${a.id}">Edit</button>
         </div>
       </div>
   `).join('');

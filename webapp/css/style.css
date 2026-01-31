@@ -99,8 +99,9 @@ body {
 .brand-name {
   font-size: 1.5rem;
   font-weight: 700;
-  color: white !important; /* Force white for visibility */
+  color: #ffffff;
   letter-spacing: -0.02em;
+  text-decoration: none;
 }
 
 .nav-links {
@@ -150,6 +151,8 @@ body {
   border: none;
   transition: var(--transition);
   font-family: var(--font-family);
+  text-decoration: none !important;
+  box-shadow: none;
 }
 
 .btn-primary {
@@ -772,10 +775,8 @@ body {
 .brand-name {
   font-size: 1.25rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #ffffff;
+  text-decoration: none;
 }
 
 .nav-links {
@@ -817,6 +818,7 @@ body {
   cursor: pointer;
   border: none;
   transition: var(--transition);
+  text-decoration: none !important;
 }
 
 .btn-primary {
@@ -942,15 +944,17 @@ body {
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+  padding: 1rem;
 }
 
 .stat-card {
   background: linear-gradient(135deg, var(--bg-card), var(--bg-tertiary));
-  padding: 1.5rem;
+  padding: 2.5rem;
   border-radius: var(--radius);
   border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-value {
@@ -1135,8 +1139,9 @@ body {
   background: var(--bg-card);
   border-radius: var(--radius);
   width: 100%;
-  max-width: 400px;
+  max-width: 450px;
   border: 1px solid var(--border);
+  padding: 1.5rem;
 }
 
 .modal-header {
@@ -2347,4 +2352,27 @@ body {
   .track-waveform {
     display: none;
   }
+}
+
+/* Utilities */
+.scrollable-list {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--bg-tertiary);
+}
+
+.scrollable-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollable-list::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+}
+
+.scrollable-list::-webkit-scrollbar-thumb {
+  background-color: var(--accent);
+  border-radius: 3px;
 }
