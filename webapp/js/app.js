@@ -1702,6 +1702,7 @@ const App = {
             <button class="btn btn-outline" id="users-btn">Users</button>
             <button class="btn btn-outline" id="rescan-btn">Rescan</button>
             <button class="btn btn-outline" id="network-settings-btn">Network</button>
+            <button class="btn btn-outline" id="backup-btn">Backup</button>
             <button class="btn btn-outline" id="logout-btn">Logout</button>
           </div>
         </div>
@@ -1771,6 +1772,45 @@ const App = {
 
             <button type="submit" class="btn btn-primary">Save Network Settings</button>
           </form>
+        </div>
+
+        <!-- Backup Panel (hidden by default) -->
+        <div id="backup-panel" class="admin-panel" style="display: none;">
+          <h3>System Backup & Restore</h3>
+          <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Manage system backups and data portability.</p>
+          
+          <div class="row" style="display: flex; gap: 2rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 300px;">
+                <h4>📦 Export</h4>
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    <button class="btn btn-primary" onclick="window.location.href='/api/admin/backup/full'">
+                       Download Full Backup (ZIP)
+                    </button>
+                    <small style="color: var(--text-muted);">Includes Database, Audio Files, Covers, and Config.</small>
+                    
+                    <button class="btn btn-outline" onclick="window.location.href='/api/admin/backup/audio'">
+                       Download Audio Only (ZIP)
+                    </button>
+                    <small style="color: var(--text-muted);">Includes only the music library.</small>
+                </div>
+            </div>
+
+            <div style="flex: 1; min-width: 300px; border-left: 1px solid var(--border); padding-left: 2rem;">
+                <h4>⚠️ Restore</h4>
+                <p style="color: var(--danger); margin-bottom: 1rem;">
+                    Warning: Restoring a backup will <strong>overwrite</strong> the current database and music library. 
+                    The server will restart automatically.
+                </p>
+                <form id="restore-form">
+                    <div class="form-group">
+                        <label>Select Backup File (.zip)</label>
+                        <input type="file" id="restore-file-input" accept=".zip" required>
+                    </div>
+                    <button type="submit" class="btn btn-danger" id="restore-btn">Upload & Restore</button>
+                </form>
+                <div id="restore-status" style="margin-top: 1rem; font-weight: bold;"></div>
+            </div>
+          </div>
         </div>
 
         <!-- Upload Panel (hidden by default) -->
@@ -2124,6 +2164,64 @@ const App = {
       } finally {
         btn.textContent = originalText;
         btn.disabled = false;
+      }
+    });
+
+    // Backup Panel Toggle
+    document.getElementById('backup-btn').addEventListener('click', () => {
+      togglePanel('backup-panel');
+    });
+
+    // Restore Form Handler
+    document.getElementById('restore-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('restore-file-input');
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      if (!confirm('DANGER: This will overwrite your current database and library. Are you absolutely sure?')) {
+        return;
+      }
+
+      const btn = document.getElementById('restore-btn');
+      const status = document.getElementById('restore-status');
+
+      btn.disabled = true;
+      btn.textContent = 'Restoring... (Do not close)';
+      status.textContent = 'Uploading and processing... This may take a while.';
+      status.style.color = 'var(--accent)';
+
+      try {
+        const formData = new FormData();
+        formData.append('backup', file);
+
+        // We use fetch directly here to handle the potentially long request better
+        const response = await fetch('/api/admin/backup/restore', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + API.token
+          },
+          body: formData
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(errText);
+        }
+
+        const result = await response.json();
+        status.textContent = '✅ ' + (result.message || 'Restore complete.');
+        status.style.color = 'var(--success)';
+
+        alert('Restore complete! The server is restarting. Page will reload in 5 seconds.');
+        setTimeout(() => window.location.reload(), 5000);
+
+      } catch (err) {
+        console.error(err);
+        status.textContent = '❌ Restore failed: ' + err.message;
+        status.style.color = 'var(--danger)';
+        btn.disabled = false;
+        btn.textContent = 'Upload & Restore';
       }
     });
 

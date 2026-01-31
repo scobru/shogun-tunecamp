@@ -28,6 +28,7 @@ import { createMetadataRoutes } from "./routes/metadata.js";
 import { createUnlockRoutes } from "./routes/unlock.js";
 import { createActivityPubService } from "./activitypub.js";
 import { createActivityPubRoutes, createWebFingerRoute } from "./routes/activitypub.js";
+import { createBackupRoutes } from "./routes/backup.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,6 +69,10 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // API Routes
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService));
     app.use("/api/admin", authMiddleware.requireAdmin, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService, apService));
+    app.use("/api/admin/backup", authMiddleware.requireAdmin, createBackupRoutes(database, config, () => {
+        console.log("🔄 Restarting server...");
+        process.exit(0); // Docker/PM2 should handle restart
+    }));
     app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(database));
     app.use("/api/artists", authMiddleware.optionalAuth, createArtistsRoutes(database));
     app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database));
