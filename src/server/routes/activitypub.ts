@@ -55,6 +55,67 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
         res.status(202).send("Accepted");
     });
 
+    // Outbox Endpoint
+    router.get("/users/:slug/outbox", async (req, res) => {
+        const { slug } = req.params;
+        const artist = db.getArtistBySlug(slug);
+
+        if (!artist) return res.status(404).send("Not found");
+
+        const baseUrl = apService.getBaseUrl();
+        const userUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+
+        res.setHeader("Content-Type", "application/activity+json");
+        res.json({
+            "@context": "https://www.w3.org/ns/activitystreams",
+            id: `${userUrl}/outbox`,
+            type: "OrderedCollection",
+            totalItems: 0,
+            orderedItems: []
+        });
+    });
+
+    // Followers Endpoint
+    router.get("/users/:slug/followers", async (req, res) => {
+        const { slug } = req.params;
+        const artist = db.getArtistBySlug(slug);
+
+        if (!artist) return res.status(404).send("Not found");
+
+        const baseUrl = apService.getBaseUrl();
+        const userUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        const followers = db.getFollowers(artist.id);
+
+        res.setHeader("Content-Type", "application/activity+json");
+        res.json({
+            "@context": "https://www.w3.org/ns/activitystreams",
+            id: `${userUrl}/followers`,
+            type: "OrderedCollection",
+            totalItems: followers.length,
+            orderedItems: followers.map(f => f.actor_uri)
+        });
+    });
+
+    // Following Endpoint
+    router.get("/users/:slug/following", async (req, res) => {
+        const { slug } = req.params;
+        const artist = db.getArtistBySlug(slug);
+
+        if (!artist) return res.status(404).send("Not found");
+
+        const baseUrl = apService.getBaseUrl();
+        const userUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+
+        res.setHeader("Content-Type", "application/activity+json");
+        res.json({
+            "@context": "https://www.w3.org/ns/activitystreams",
+            id: `${userUrl}/following`,
+            type: "OrderedCollection",
+            totalItems: 0,
+            orderedItems: []
+        });
+    });
+
     // Shared Inbox (Optional placeholder)
     router.post("/inbox", (req, res) => {
         res.status(202).send("Accepted");
