@@ -3,6 +3,7 @@ import type { AuthService } from "../auth.js";
 
 export interface AuthenticatedRequest extends Request {
     isAdmin?: boolean;
+    username?: string;
 }
 
 /**
@@ -32,6 +33,7 @@ export function createAuthMiddleware(authService: AuthService) {
             }
 
             req.isAdmin = true;
+            req.username = payload.username;
             next();
         },
 
@@ -49,6 +51,7 @@ export function createAuthMiddleware(authService: AuthService) {
                 const token = authHeader.substring(7);
                 const payload = authService.verifyToken(token);
                 req.isAdmin = payload?.isAdmin || false;
+                if (payload?.username) req.username = payload.username;
             } else {
                 req.isAdmin = false;
             }

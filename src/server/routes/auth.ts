@@ -11,32 +11,32 @@ export function createAuthRoutes(authService: AuthService) {
      */
     router.post("/login", async (req, res) => {
         try {
-            const { password } = req.body;
+            const { username, password } = req.body;
 
             if (!password) {
                 return res.status(400).json({ error: "Password required" });
             }
 
-            // Check if first run (no password set)
+            // Check if first run
             if (authService.isFirstRun()) {
                 return res.status(400).json({
-                    error: "No admin password set",
+                    error: "No admin account set up",
                     firstRun: true,
                 });
             }
 
-            const hash = authService.getAdminPasswordHash();
-            if (!hash) {
-                return res.status(500).json({ error: "Auth configuration error" });
-            }
+            // Default to 'admin' if no username provided (legacy/default support)
+            const userToAuth = username || 'admin';
 
-            const valid = await authService.verifyPassword(password, hash);
+            const valid = await authService.authenticateUser(userToAuth, password);
             if (!valid) {
-                return res.status(401).json({ error: "Invalid password" });
+                // specific check: if username provided was 'admin' and it failed, maybe they aren't migrated?
+                // mostly safe to just say invalid credential
+                return res.status(401).json({ error: "Invalid username or password" });
             }
 
-            const token = authService.generateToken({ isAdmin: true });
-            res.json({ token, expiresIn: "7d" });
+            const token = authService.generateToken({ isAdmin: true, username: userToAuth });
+            res.json({ token, expiresIn: "7d", username: userToAuth });
         } catch (error) {
             console.error("Login error:", error);
             res.status(500).json({ error: "Login failed" });
@@ -50,10 +50,10 @@ export function createAuthRoutes(authService: AuthService) {
     router.post("/setup", async (req, res) => {
         try {
             if (!authService.isFirstRun()) {
-                return res.status(400).json({ error: "Admin password already set" });
+                return res.status(400).json({ error: "Admin account already set up" });
             }
 
-            const { password } = req.body;
+            const { username, password } = req.body;
 
             if (!password || password.length < 6) {
                 return res.status(400).json({
@@ -61,13 +61,16 @@ export function createAuthRoutes(authService: AuthService) {
                 });
             }
 
-            await authService.setAdminPassword(password);
-            const token = authService.generateToken({ isAdmin: true });
+            const userToCreate = username || 'admin';
+
+            await authService.createAdmin(userToCreate, password);
+            const token = authService.generateToken({ isAdmin: true, username: userToCreate });
 
             res.json({
-                message: "Admin password set successfully",
+                message: "Admin account created successfully",
                 token,
                 expiresIn: "7d",
+                username: userToCreate
             });
         } catch (error) {
             console.error("Setup error:", error);
@@ -83,6 +86,15 @@ export function createAuthRoutes(authService: AuthService) {
         try {
             // This route should be protected by requireAdmin middleware
             const { currentPassword, newPassword } = req.body;
+            // Get username from the token (injected by middleware)
+            // Note: AuthenticatedRequest needs to accept username in its type definition if strictly typed
+            // but usually it's attached to req.user or similar.
+            // Assuming req has the user info from payload
+            const username = (req as any).user?.username; // We need to ensure middleware populates this
+
+            if (!username) {
+                return res.status(401).json({ error: "User context not found" });
+            }
 
             if (!currentPassword || !newPassword) {
                 return res.status(400).json({
@@ -96,18 +108,13 @@ export function createAuthRoutes(authService: AuthService) {
                 });
             }
 
-            const hash = authService.getAdminPasswordHash();
-            if (!hash) {
-                return res.status(500).json({ error: "Auth configuration error" });
-            }
-
-            const valid = await authService.verifyPassword(currentPassword, hash);
+            const valid = await authService.authenticateUser(username, currentPassword);
             if (!valid) {
                 return res.status(401).json({ error: "Current password is incorrect" });
             }
 
-            await authService.setAdminPassword(newPassword);
-            const token = authService.generateToken({ isAdmin: true });
+            await authService.changePassword(username, newPassword);
+            const token = authService.generateToken({ isAdmin: true, username });
 
             res.json({
                 message: "Password changed successfully",

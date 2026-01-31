@@ -62,14 +62,19 @@ const API = {
         return this.get('/auth/status');
     },
 
-    async login(password) {
-        const result = await this.post('/auth/login', { password });
+    async login(username, password) {
+        // Handle legacy call login(password)
+        if (!password && username) {
+            password = username;
+            username = 'admin';
+        }
+        const result = await this.post('/auth/login', { username, password });
         this.setToken(result.token);
         return result;
     },
 
-    async setup(password) {
-        const result = await this.post('/auth/setup', { password });
+    async setup(username, password) {
+        const result = await this.post('/auth/setup', { username, password });
         this.setToken(result.token);
         return result;
     },
@@ -277,6 +282,23 @@ const API = {
 
     async importIdentity(pair) {
         return this.post('/admin/system/identity', pair);
+    },
+
+    // User Management
+    async getAdmins() {
+        return this.get('/admin/system/users');
+    },
+
+    async createAdmin(username, password) {
+        return this.post('/admin/system/users', { username, password });
+    },
+
+    async deleteAdmin(id) {
+        return this.delete('/admin/system/users/' + id);
+    },
+
+    async resetAdminPassword(id, password) {
+        return this.put('/admin/system/users/' + id + '/password', { password });
     },
 
     // Library Statistics

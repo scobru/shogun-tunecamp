@@ -59,7 +59,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     // API Routes
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService));
-    app.use("/api/admin", authMiddleware.requireAdmin, createAdminRoutes(database, scanner, config.musicDir, gundbService, config));
+    app.use("/api/admin", authMiddleware.requireAdmin, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService));
     app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(database));
     app.use("/api/artists", authMiddleware.optionalAuth, createArtistsRoutes(database));
     app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database));

@@ -34,6 +34,11 @@ const App = {
       this.siteName = settings.siteName || 'TuneCamp';
       document.querySelector('.brand-name').textContent = this.siteName;
       document.title = this.siteName;
+
+      if (settings.backgroundImage) {
+        document.body.style.setProperty('--custom-bg', `url('${settings.backgroundImage}')`);
+        document.body.classList.add('has-custom-bg');
+      }
     } catch (e) {
       console.error('Failed to load site settings:', e);
       this.siteName = 'TuneCamp';
@@ -99,7 +104,12 @@ const App = {
     // Login form
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      await this.handleLogin();
+      const usernameInput = document.getElementById('username');
+      // legacy support: if username input doesn't exist (shouldn't happen with updated html), it will be null
+      const username = usernameInput ? usernameInput.value.trim() : null;
+      const password = document.getElementById('password').value;
+
+      await this.handleLogin(username, password);
     });
 
     // Nav links
@@ -1678,6 +1688,10 @@ const App = {
             <button class="btn btn-primary" id="new-release-btn">New Release</button>
             <button class="btn btn-outline" id="new-artist-btn">New Artist</button>
             <button class="btn btn-outline" id="upload-btn">Upload Tracks</button>
+            <button class="btn btn-primary" id="new-release-btn">New Release</button>
+            <button class="btn btn-outline" id="new-artist-btn">New Artist</button>
+            <button class="btn btn-outline" id="upload-btn">Upload Tracks</button>
+            <button class="btn btn-outline" id="users-btn">Users</button>
             <button class="btn btn-outline" id="rescan-btn">Rescan</button>
             <button class="btn btn-outline" id="network-settings-btn">Network</button>
             <button class="btn btn-outline" id="logout-btn">Logout</button>
@@ -1765,6 +1779,31 @@ const App = {
           </div>
         </div>
 
+        <!-- Users Panel (hidden by default) -->
+        <div id="users-panel" class="admin-panel" style="display: none;">
+            <h3>Access Management</h3>
+            <div class="row" style="display: flex; gap: 2rem; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 300px;">
+                    <h4>Create New Admin</h4>
+                    <form id="create-user-form">
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" id="new-user-name" required minlength="3">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="new-user-pass" required minlength="6">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create User</button>
+                    </form>
+                </div>
+                <div style="flex: 1; min-width: 300px;">
+                    <h4>Existing Admins</h4>
+                    <div id="users-list-container" class="list-group">Loading...</div>
+                </div>
+            </div>
+        </div>
+
         <!-- New Release Panel (hidden by default) -->
         <div id="release-panel" class="admin-panel" style="display: none;">
           <h3>Create New Release</h3>
@@ -1822,6 +1861,11 @@ const App = {
             <label>Site Name</label>
             <input type="text" id="setting-site-name" placeholder="TuneCamp" value="${this.siteName || 'TuneCamp'}">
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">This name appears in the header and browser tab.</p>
+          </div>
+          <div class="form-group">
+            <label>Background Image URL</label>
+            <input type="text" id="setting-background-image" placeholder="https://..." value="">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">URL for the main background (transparent overlay will be applied).</p>
           </div>
           <div class="form-actions">
             <button class="btn btn-primary" id="save-settings-btn">Save Settings</button>
@@ -1983,6 +2027,28 @@ const App = {
       togglePanel(null);
     });
 
+
+
+    // Settings Save Button (for the main settings panel at bottom)
+    document.getElementById('save-settings-btn').addEventListener('click', async (e) => {
+      const btn = e.target;
+      btn.textContent = 'Saving...';
+      btn.disabled = true;
+      try {
+        await API.updateSettings({
+          siteName: document.getElementById('setting-site-name').value,
+          backgroundImage: document.getElementById('setting-background-image').value
+        });
+        alert('Settings saved!');
+        window.location.reload();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        btn.textContent = 'Save Settings';
+        btn.disabled = false;
+      }
+    });
+
     document.getElementById('network-settings-btn').addEventListener('click', async () => {
       togglePanel('network-settings-panel');
       // Load current settings
@@ -1992,7 +2058,15 @@ const App = {
         document.getElementById('setting-site-name').value = settings.siteName || '';
         document.getElementById('setting-site-description').value = settings.siteDescription || '';
         document.getElementById('setting-artist-name').value = settings.artistName || '';
+        document.getElementById('setting-artist-name').value = settings.artistName || '';
         document.getElementById('setting-cover-image').value = settings.coverImage || '';
+
+        // Also load site settings for the main settings panel if we are opening it via network settings or just generally ensuring they are loaded.
+        // Actually, let's load them when the main settings panel saves.
+        // But we need to populate the background image field in the main settings panel as well
+        const bgInput = document.getElementById('setting-background-image');
+        if (bgInput) bgInput.value = settings.backgroundImage || '';
+
       } catch (err) {
         console.error('Failed to load settings:', err);
       }
@@ -2020,6 +2094,28 @@ const App = {
       } finally {
         btn.textContent = originalText;
         btn.disabled = false;
+      }
+    });
+
+    // Users Panel Toggle
+    document.getElementById('users-btn')?.addEventListener('click', async () => {
+      togglePanel('users-panel');
+      await this.renderUsersList();
+    });
+
+    // Create User Form
+    document.getElementById('create-user-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('new-user-name').value;
+      const password = document.getElementById('new-user-pass').value;
+      try {
+        await API.createAdmin(username, password);
+        document.getElementById('new-user-name').value = '';
+        document.getElementById('new-user-pass').value = '';
+        await this.renderUsersList();
+        alert('User created!');
+      } catch (e) {
+        alert('Error: ' + e.message);
       }
     });
 
@@ -2984,44 +3080,112 @@ bandcamp: https://artist.bandcamp.com"></textarea>
     document.getElementById('login-modal').classList.remove('active');
   },
 
-  async handleLogin() {
-    const password = document.getElementById('password').value;
-    const error = document.getElementById('login-error');
+  async handleLogin(username, password) {
+    const errorMsg = document.getElementById('login-error');
+    const submitBtn = document.querySelector('#login-form button[type="submit"]');
 
     try {
-      await API.login(password);
+      if (!password && !username) {
+        // Manual fallback if needed
+        password = document.getElementById('password').value;
+        username = document.getElementById('username')?.value;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Logging in...';
+      errorMsg.textContent = '';
+
+      const result = await API.login(username, password);
+
       this.isAdmin = true;
       this.hideModal();
-      await this.checkAuth();
-      window.location.hash = '#/admin';
+
+      // Update UI
+      this.checkAuth().then(() => {
+        if (this.isAdmin) window.location.hash = '#/admin';
+      });
+
     } catch (e) {
-      error.textContent = 'Invalid password';
+      errorMsg.textContent = 'Login failed: ' + (e.message || 'Check your credentials');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Login';
     }
   },
 
   async handleSetup() {
+    // We need to get values from the form manually as arguments might not be passed correctly if bound directly
+    const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     const confirm = document.getElementById('password-confirm').value;
-    const error = document.getElementById('login-error');
+
+    const errorMsg = document.getElementById('login-error');
+    const submitBtn = document.querySelector('#login-form button[type="submit"]');
 
     if (password !== confirm) {
-      error.textContent = 'Passwords do not match';
+      errorMsg.textContent = 'Passwords do not match';
       return;
     }
 
     if (password.length < 6) {
-      error.textContent = 'Password must be at least 6 characters';
+      errorMsg.textContent = 'Password must be at least 6 characters';
+      return;
+    }
+
+    if (username.length < 3) {
+      errorMsg.textContent = 'Username must be at least 3 characters';
       return;
     }
 
     try {
-      await API.setup(password);
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating account...';
+      errorMsg.textContent = '';
+
+      await API.setup(username, password);
       this.isAdmin = true;
       this.hideModal();
       await this.checkAuth();
       window.location.hash = '#/admin';
     } catch (e) {
-      error.textContent = 'Setup failed';
+      errorMsg.textContent = 'Setup failed: ' + (e.message || 'Please try again.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create Admin Account';
+    }
+  },
+
+  async renderUsersList() {
+    const container = document.getElementById('users-list-container');
+    if (!container) return;
+
+    container.innerHTML = 'Loading...';
+    try {
+      const users = await API.getAdmins();
+      container.innerHTML = users.map(u => `
+              <div class="list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid var(--border-color);">
+                  <div>
+                      <strong>${this.escapeHtml(u.username)}</strong>
+                      <div style="font-size: 0.8rem; color: var(--text-muted);">ID: ${u.id} • Created: ${new Date(u.created_at).toLocaleDateString()}</div>
+                  </div>
+                  <div>
+                      ${users.length > 1 ? `<button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}">Delete</button>` : '<span style="font-size: 0.8rem; color: var(--text-muted);">(Last Admin)</span>'}
+                  </div>
+              </div>
+          `).join('');
+
+      container.querySelectorAll('.delete-user-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          if (confirm('Delete this admin user?')) {
+            try {
+              await API.deleteAdmin(e.target.dataset.id);
+              await this.renderUsersList();
+            } catch (err) {
+              alert('Failed to delete: ' + err.message);
+            }
+          }
+        });
+      });
+    } catch (e) {
+      container.innerHTML = '<div class="error-message">Failed to load users</div>';
     }
   },
 
@@ -3046,14 +3210,14 @@ bandcamp: https://artist.bandcamp.com"></textarea>
         playlistSelection.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 1rem;">No playlists yet. Create one!</p>';
       } else {
         playlistSelection.innerHTML = playlists.map(p => `
-  < div class="playlist-item" data - playlist - id="${p.id}" style = "padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer; transition: all 0.2s;" >
+          <div class="playlist-item" data-playlist-id="${p.id}" style="padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer; transition: all 0.2s;">
             <div style="font-weight: 500;">${this.escapeHtml(p.name)}</div>
             <div style="font-size: 0.875rem; color: var(--text-secondary);">${this.escapeHtml(p.description || '')}</div>
             <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
               ${p.is_public ? '🌐 Public' : '🔒 Private'}
             </div>
-          </div >
-  `).join('');
+          </div>
+        `).join('');
 
         // Add click listeners
         playlistSelection.querySelectorAll('.playlist-item').forEach(item => {
@@ -3091,7 +3255,7 @@ bandcamp: https://artist.bandcamp.com"></textarea>
       alert('Failed to add track to playlist');
     }
   }
-}
+};
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', () => App.init());

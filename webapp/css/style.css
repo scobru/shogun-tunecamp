@@ -65,6 +65,39 @@ body {
   min-height: 100vh;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  position: relative;
+  z-index: 0;
+}
+
+/* Custom Background Overlay */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%;
+  background-image: var(--custom-bg);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: -1;
+  pointer-events: none;
+}
+
+body.has-custom-bg::before {
+  opacity: 0.3; /* Slight transparency as requested (image is faint) */
+}
+
+/* Ensure content on top is readable */
+body.has-custom-bg .main-content {
+  background: rgba(10, 10, 10, 0.85); /* Darker backdrop for content */
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-lg);
+  margin-top: 2rem;
+  box-shadow: 0 0 50px rgba(0,0,0,0.5);
 }
 
 /* Navbar */
@@ -616,6 +649,7 @@ body {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   overflow: hidden;
+  padding: 1rem 0; /* Add vertical padding */
 }
 
 .track-item {

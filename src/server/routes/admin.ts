@@ -3,13 +3,15 @@ import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
 import type { GunDBService } from "../gundb.js";
 import type { ServerConfig } from "../config.js";
+import type { AuthService } from "../auth.js";
 
 export function createAdminRoutes(
     database: DatabaseService,
     scanner: ScannerService,
     musicDir: string,
     gundbService: GunDBService,
-    config: ServerConfig
+    config: ServerConfig,
+    authService: AuthService
 ) {
     const router = Router();
 
@@ -150,6 +152,10 @@ export function createAdminRoutes(
                 database.setSetting("coverImage", coverImage);
                 settingsChanged = true;
             }
+            if (req.body.backgroundImage !== undefined) {
+                database.setSetting("backgroundImage", req.body.backgroundImage);
+                // Background image doesn't affect network registration, so no settingsChanged update needed for this one alone
+            }
 
             // Re-register on GunDB if settings changed and publicUrl is available
             const currentPublicUrl = publicUrl !== undefined ? publicUrl : database.getSetting("publicUrl") || config.publicUrl;
@@ -219,6 +225,91 @@ export function createAdminRoutes(
         } catch (error) {
             console.error("Error setting identity:", error);
             res.status(500).json({ error: "Failed to set identity" });
+        }
+    });
+
+    /**
+     * GET /api/admin/system/users
+     * List all admin users
+     */
+    router.get("/system/users", (req, res) => {
+        try {
+            const admins = authService.listAdmins();
+            res.json(admins);
+        } catch (error) {
+            console.error("Error listing admins:", error);
+            res.status(500).json({ error: "Failed to list admins" });
+        }
+    });
+
+    /**
+     * POST /api/admin/system/users
+     * Create new admin user
+     */
+    router.post("/system/users", async (req, res) => {
+        try {
+            const { username, password } = req.body;
+            if (!username || !password || password.length < 6) {
+                return res.status(400).json({ error: "Invalid username or password (min 6 chars)" });
+            }
+
+            await authService.createAdmin(username, password);
+            res.json({ message: "Admin user created" });
+        } catch (error: any) {
+            console.error("Error creating admin:", error);
+            if (error.code === "SQLITE_CONSTRAINT_UNIQUE") {
+                return res.status(409).json({ error: "Username already exists" });
+            }
+            res.status(500).json({ error: "Failed to create admin" });
+        }
+    });
+
+    /**
+     * DELETE /api/admin/system/users/:id
+     * Delete admin user
+     */
+    router.delete("/system/users/:id", (req, res) => {
+        try {
+            const id = parseInt(req.params.id, 10);
+            authService.deleteAdmin(id);
+            res.json({ message: "Admin user deleted" });
+        } catch (error: any) {
+            console.error("Error deleting admin:", error);
+            if (error.message.includes("last admin")) {
+                return res.status(400).json({ error: error.message });
+            }
+            res.status(500).json({ error: "Failed to delete admin" });
+        }
+    });
+
+    /**
+     * PUT /api/admin/system/users/:id/password
+     * Reset admin user password
+     */
+    router.put("/system/users/:id/password", async (req, res) => {
+        try {
+            // We need username to reset password. 
+            // Ideally we'd look up by ID, but authService.changePassword takes username.
+            // We can find username from the list.
+            const id = parseInt(req.params.id, 10);
+            const { password } = req.body;
+
+            if (!password || password.length < 6) {
+                return res.status(400).json({ error: "Password must be at least 6 chars" });
+            }
+
+            const admins = authService.listAdmins();
+            const admin = admins.find(a => a.id === id);
+
+            if (!admin) {
+                return res.status(404).json({ error: "User not found" });
+            }
+
+            await authService.changePassword(admin.username, password);
+            res.json({ message: "Password updated" });
+        } catch (error) {
+            console.error("Error resetting password:", error);
+            res.status(500).json({ error: "Failed to reset password" });
         }
     });
 
