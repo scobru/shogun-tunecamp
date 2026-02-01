@@ -2,6 +2,8 @@
 import { Router } from 'express';
 import { create } from 'xmlbuilder2';
 import md5 from 'md5';
+import path from 'path';
+import fs from 'fs-extra';
 import type { DatabaseService } from '../database';
 import type { AuthService } from '../auth';
 
@@ -9,6 +11,7 @@ import type { AuthService } from '../auth';
 interface SubsonicContext {
     db: DatabaseService;
     auth: AuthService;
+    musicDir: string;
 }
 
 export const createSubsonicRouter = (context: SubsonicContext) => {
@@ -301,6 +304,156 @@ export const createSubsonicRouter = (context: SubsonicContext) => {
 
     router.get('/getMusicDirectory.view', getMusicDirectory);
     router.post('/getMusicDirectory.view', getMusicDirectory);
+
+    // --- Media ---
+
+    const getCoverArt = async (req: any, res: any) => {
+        const { id } = req.query as any;
+        if (!id) return sendError(res, 10, 'Missing parameter id');
+
+        let imagePath: string | null = null;
+
+        if (id.startsWith('ar_')) {
+            const artist = db.getArtist(parseInt(id.substring(3)));
+            if (artist?.photo_path) imagePath = artist.photo_path;
+        } else if (id.startsWith('al_')) {
+            const album = db.getAlbum(parseInt(id.substring(3)));
+            if (album?.cover_path) imagePath = album.cover_path;
+        }
+
+        if (imagePath) {
+            const fullPath = path.resolve(context.musicDir, imagePath);
+            if (await fs.pathExists(fullPath)) {
+                return res.sendFile(fullPath);
+            }
+        }
+
+        // Return 404 or a placeholder? Subsonic spec says generic image or 404.
+        // Let's return 404 for now, client handles fallback.
+        // Or send empty?
+        return sendError(res, 70, 'Cover art not found'); // Code 70 = Data not found
+    };
+
+    const stream = async (req: any, res: any) => {
+        const { id } = req.query as any;
+        if (!id) return sendError(res, 10, 'Missing parameter id');
+
+        if (id.startsWith('tr_')) {
+            const track = db.getTrack(parseInt(id.substring(3)));
+            if (track) {
+                const fullPath = path.resolve(context.musicDir, track.file_path);
+                if (await fs.pathExists(fullPath)) {
+                    // res.sendFile handles Range headers automatically
+                    return res.sendFile(fullPath);
+                }
+            }
+        }
+
+        return sendError(res, 70, 'File not found');
+    };
+
+    const scrobble = (req: any, res: any) => {
+        // TODO: Implement actual scrobbling logic (update play count)
+        const { id, submission } = req.query as any;
+        if (id && submission === 'true') {
+            if (id.startsWith('tr_')) {
+                const trackId = parseInt(id.substring(3));
+                db.recordPlay(trackId);
+            }
+        }
+        sendXML(res, {});
+    };
+
+    router.get('/getCoverArt.view', getCoverArt);
+    router.post('/getCoverArt.view', getCoverArt);
+
+    router.get('/stream.view', stream);
+    router.post('/stream.view', stream);
+
+    router.get('/scrobble.view', scrobble);
+    router.post('/scrobble.view', scrobble);
+
+    const getArtist = (req: any, res: any) => {
+        const { id } = req.query as any;
+        if (!id) return sendError(res, 10, 'Missing parameter id');
+
+        if (id.startsWith('ar_')) {
+            const artistId = parseInt(id.substring(3));
+            const artist = db.getArtist(artistId);
+            if (artist) {
+                const albums = db.getAlbumsByArtist(artistId);
+                sendXML(res, {
+                    artist: {
+                        '@id': id,
+                        '@name': artist.name,
+                        '@coverArt': `ar_${artist.id}`,
+                        '@albumCount': albums.length,
+                        '@artistImageUrl': `/api/artists/${artist.id}/cover`,
+                        album: albums.map(a => ({
+                            '@id': `al_${a.id}`,
+                            '@name': a.title,
+                            '@coverArt': `al_${a.id}`,
+                            '@artistId': id,
+                            '@artist': artist.name,
+                            '@year': a.date ? new Date(a.date).getFullYear() : undefined
+                        }))
+                    }
+                });
+                return;
+            }
+        }
+        return sendError(res, 70, 'Artist not found');
+    };
+
+    const getAlbum = (req: any, res: any) => {
+        const { id } = req.query as any;
+        if (!id) return sendError(res, 10, 'Missing parameter id');
+
+        if (id.startsWith('al_')) {
+            const albumId = parseInt(id.substring(3));
+            const album = db.getAlbum(albumId);
+            if (album) {
+                const tracks = db.getTracks(albumId);
+                sendXML(res, {
+                    album: {
+                        '@id': id,
+                        '@name': album.title,
+                        '@artist': album.artist_name,
+                        '@artistId': `ar_${album.artist_id}`,
+                        '@coverArt': `al_${album.id}`,
+                        '@songCount': tracks.length,
+                        '@duration': tracks.reduce((acc, t) => acc + (t.duration || 0), 0),
+                        '@created': album.created_at,
+                        '@year': album.date ? new Date(album.date).getFullYear() : undefined,
+                        song: tracks.map((track: any) => ({
+                            '@id': `tr_${track.id}`,
+                            '@title': track.title,
+                            '@isDir': 'false',
+                            '@album': album.title,
+                            '@artist': track.artist_name || album.artist_name,
+                            '@track': track.track_num,
+                            '@coverArt': `al_${album.id}`,
+                            '@artistId': `ar_${album.artist_id}`,
+                            '@albumId': id,
+                            '@path': track.file_path,
+                            '@suffix': track.format || 'mp3',
+                            '@contentType': 'audio/mpeg',
+                            '@duration': Math.floor(track.duration || 0),
+                            '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128
+                        }))
+                    }
+                });
+                return;
+            }
+        }
+        return sendError(res, 70, 'Album not found');
+    };
+
+    router.get('/getArtist.view', getArtist);
+    router.post('/getArtist.view', getArtist);
+
+    router.get('/getAlbum.view', getAlbum);
+    router.post('/getAlbum.view', getAlbum);
 
     return router;
 };
