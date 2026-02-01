@@ -44,10 +44,36 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
             // 2. Music Directory
             archive.directory(config.musicDir, "music");
 
-            // 3. Config file (if not env based)
-            const configPath = path.join(path.dirname(config.dbPath), "..", "config.json"); // Approximate
-            // Or just dump current config object
+            // 3. Config file
             archive.append(JSON.stringify(config, null, 2), { name: "config_dump.json" });
+
+            // 4. Keys (Artists and System)
+            try {
+                // Artists Keys
+                const artists = database.getArtists();
+                const artistsKeys: any = {};
+                artists.forEach(a => {
+                    if (a.public_key && a.private_key) {
+                        artistsKeys[a.slug] = {
+                            id: a.id,
+                            name: a.name,
+                            slug: a.slug,
+                            publicKey: a.public_key,
+                            privateKey: a.private_key
+                        };
+                    }
+                });
+                archive.append(JSON.stringify(artistsKeys, null, 2), { name: "keys/artists_keys.json" });
+
+                // System Identity (GunDB)
+                const systemKeys = database.getSetting("gunPair");
+                if (systemKeys) {
+                    archive.append(systemKeys, { name: "keys/system_identity.json" });
+                }
+            } catch (e) {
+                console.warn("Failed to backup keys:", e);
+                archive.append(JSON.stringify({ error: String(e) }), { name: "keys/error.log" });
+            }
 
             await archive.finalize();
 

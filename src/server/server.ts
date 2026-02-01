@@ -29,6 +29,7 @@ import { createUnlockRoutes } from "./routes/unlock.js";
 import { createActivityPubService } from "./activitypub.js";
 import { createActivityPubRoutes, createWebFingerRoute } from "./routes/activitypub.js";
 import { createBackupRoutes } from "./routes/backup.js";
+import { createPostsRoutes } from "./routes/posts.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -88,6 +89,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/comments", createCommentsRoutes(gundbService));
     app.use("/api/unlock", createUnlockRoutes(database));
     app.use("/api/ap", createActivityPubRoutes(apService, database));
+    app.use("/api/posts", createPostsRoutes(database));
     app.use("/.well-known", createWebFingerRoute(apService));
 
     // Human-readable profile redirect (for ActivityPub/WebFinger links)

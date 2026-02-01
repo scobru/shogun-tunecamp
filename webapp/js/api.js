@@ -403,6 +403,10 @@ const API = {
         return this.get('/artists/' + idOrSlug + '/posts');
     },
 
+    async getPostBySlug(slug) {
+        return this.get('/posts/' + slug);
+    },
+
     async createPost(artistId, content) {
         return this.post('/admin/posts', { artistId, content });
     },

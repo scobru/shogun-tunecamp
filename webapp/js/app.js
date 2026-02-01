@@ -405,6 +405,12 @@ const App = {
         await this.renderPlaylist(main, id);
       } else if (path === '/stats') {
         await this.renderStats(main);
+      } else if (path.startsWith('/artist/')) {
+        const id = path.split('/')[2];
+        await this.renderArtist(main, id);
+      } else if (path.startsWith('/post/')) {
+        const slug = path.split('/')[2];
+        await this.renderPost(main, slug);
       } else if (path === '/admin') {
         if (this.isAdmin) {
           await this.renderAdmin(main);
@@ -1034,6 +1040,108 @@ const App = {
 
     if (hasTracks) {
       this.renderTrackList(document.getElementById('artist-tracks'), artist.tracks);
+    }
+  },
+
+  async renderPost(container, slug) {
+    try {
+      const post = await API.getPostBySlug(slug);
+
+      container.innerHTML = `
+            <div class="page-header" style="text-align: center; padding: 4rem 0;">
+                <h1 style="font-size: 2rem; margin-bottom: 2rem;">Post from ${post.artist_name || 'an artist'}</h1>
+                <div class="card" style="max-width: 800px; margin: 0 auto; padding: 2rem; text-align: left;">
+                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+                        <div class="artist-cover-placeholder" style="width: 50px; height: 50px; font-size: 1.2rem;" data-src="${API.getArtistCoverUrl(post.artist_slug || post.artist_id)}">
+                            <div class="placeholder-icon">👤</div>
+                        </div>
+                        <div>
+                            <a href="/#/artist/${post.artist_slug || post.artist_id}" style="font-weight: bold; font-size: 1.1rem; color: var(--text-main); text-decoration: none;">${post.artist_name || 'Unknown Artist'}</a>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">${new Date(post.created_at).toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <div style="white-space: pre-wrap; font-size: 1.1rem; line-height: 1.6; margin-bottom: 2rem;">${App.escapeHtml(post.content)}</div>
+                    
+                    <div style="display: flex; gap: 1rem;">
+                        <a href="/#/artist/${post.artist_slug || post.artist_id}" class="btn btn-primary">View Artist Profile</a>
+                    </div>
+                </div>
+            </div>
+        `;
+
+      // Load avatar
+      const cover = container.querySelector('.artist-cover-placeholder');
+      if (cover) {
+        const img = new Image();
+        img.onload = () => {
+          cover.innerHTML = '';
+          cover.style.backgroundImage = `url(${cover.dataset.src})`;
+          cover.style.backgroundSize = 'cover';
+          cover.style.backgroundPosition = 'center';
+        };
+        img.src = cover.dataset.src;
+      }
+
+    } catch (e) {
+      console.error(e);
+      container.innerHTML = `
+            <div class="page-header">
+                <h1>Post Not Found</h1>
+                <p>The post you are looking for does not exist or has been deleted.</p>
+                <a href="/#/" class="btn btn-primary">Go Home</a>
+            </div>
+        `;
+    }
+  },
+
+  async renderPost(container, slug) {
+    try {
+      const post = await API.getPostBySlug(slug);
+
+      container.innerHTML = `
+            <div class="page-header" style="text-align: center; padding: 4rem 0;">
+                <h1 style="font-size: 2rem; margin-bottom: 2rem;">Post from ${post.artist_name || 'an artist'}</h1>
+                <div class="card" style="max-width: 800px; margin: 0 auto; padding: 2rem; text-align: left;">
+                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+                        <div class="artist-cover-placeholder" style="width: 50px; height: 50px; font-size: 1.2rem;" data-src="${API.getArtistCoverUrl(post.artist_slug || post.artist_id)}">
+                            <div class="placeholder-icon">👤</div>
+                        </div>
+                        <div>
+                            <a href="/#/artist/${post.artist_slug || post.artist_id}" style="font-weight: bold; font-size: 1.1rem; color: var(--text-main); text-decoration: none;">${post.artist_name || 'Unknown Artist'}</a>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">${new Date(post.created_at).toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <div style="white-space: pre-wrap; font-size: 1.1rem; line-height: 1.6; margin-bottom: 2rem;">${App.escapeHtml(post.content)}</div>
+                    
+                    <div style="display: flex; gap: 1rem;">
+                        <a href="/#/artist/${post.artist_slug || post.artist_id}" class="btn btn-primary">View Artist Profile</a>
+                    </div>
+                </div>
+            </div>
+        `;
+
+      // Load avatar
+      const cover = container.querySelector('.artist-cover-placeholder');
+      if (cover) {
+        const img = new Image();
+        img.onload = () => {
+          cover.innerHTML = '';
+          cover.style.backgroundImage = `url(${cover.dataset.src})`;
+          cover.style.backgroundSize = 'cover';
+          cover.style.backgroundPosition = 'center';
+        };
+        img.src = cover.dataset.src;
+      }
+
+    } catch (e) {
+      console.error(e);
+      container.innerHTML = `
+            <div class="page-header">
+                <h1>Post Not Found</h1>
+                <p>The post you are looking for does not exist or has been deleted.</p>
+                <a href="/#/" class="btn btn-primary">Go Home</a>
+            </div>
+        `;
     }
   },
 
@@ -2447,7 +2555,7 @@ const App = {
                         </div>
                         <div style="white-space: pre-wrap;">${App.escapeHtml(p.content)}</div>
                          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
-                            <a href="/#/activity/post/${p.slug}" target="_blank">View Activity</a>
+                            <a href="/#/post/${p.slug}" target="_blank">View Post</a>
                         </div>
                     </div>
                 `).join('');
