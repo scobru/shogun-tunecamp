@@ -40,26 +40,30 @@ export class CatalogParser {
 
   private async findReleases(): Promise<Release[]> {
     const releases: Release[] = [];
-    const releasesDir = path.join(this.inputDir, 'releases');
+    const searchDirs = [
+      path.join(this.inputDir, 'releases'),
+      path.join(this.inputDir, 'library'),
+    ];
 
-    if (!(await fs.pathExists(releasesDir))) {
-      console.warn('⚠️  No releases directory found');
-      return releases;
-    }
+    for (const releasesDir of searchDirs) {
+      if (!(await fs.pathExists(releasesDir))) {
+        continue;
+      }
 
-    const entries = await fs.readdir(releasesDir, { withFileTypes: true });
+      const entries = await fs.readdir(releasesDir, { withFileTypes: true });
 
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const releaseDir = path.join(releasesDir, entry.name);
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const releaseDir = path.join(releasesDir, entry.name);
 
-        try {
-          const release = await this.parseRelease(releaseDir, entry.name);
-          if (release) {
-            releases.push(release);
+          try {
+            const release = await this.parseRelease(releaseDir, entry.name);
+            if (release) {
+              releases.push(release);
+            }
+          } catch (error) {
+            console.error(`❌ Error parsing release ${entry.name}:`, error);
           }
-        } catch (error) {
-          console.error(`❌ Error parsing release ${entry.name}:`, error);
         }
       }
     }

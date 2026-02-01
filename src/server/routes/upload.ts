@@ -158,6 +158,13 @@ export function createUploadRoutes(
 
             // If release slug provided, update release.yaml and database
             if (releaseSlug) {
+                // Permission Check
+                const targetAlbum = database.getAlbumBySlug(releaseSlug);
+                if ((req as any).artistId && targetAlbum && targetAlbum.artist_id !== (req as any).artistId) {
+                    await fs.remove(file.path);
+                    return res.status(403).json({ error: "Access denied: Cannot upload cover for another artist's release" });
+                }
+
                 const releaseDir = path.join(musicDir, "releases", releaseSlug);
                 const releaseYamlPath = path.join(releaseDir, "release.yaml");
 
@@ -212,6 +219,12 @@ export function createUploadRoutes(
                 return res.status(400).json({ error: "Artist ID required" });
             }
 
+            // Permission Check
+            if ((req as any).artistId && (req as any).artistId !== parseInt(artistId, 10)) {
+                await fs.remove(file.path);
+                return res.status(403).json({ error: "Access denied: You can only upload avatars for your own artist" });
+            }
+
             // Check file type
             const ext = path.extname(file.originalname).toLowerCase();
             if (!IMAGE_EXTENSIONS.includes(ext)) {
@@ -257,8 +270,12 @@ export function createUploadRoutes(
      * POST /api/admin/upload/background
      * Upload site background image (saved to server, URL stored in settings)
      */
-    router.post("/background", uploadBackground.single("file"), async (req, res) => {
+    router.post("/background", uploadBackground.single("file"), async (req: any, res) => {
         try {
+            if (req.artistId) {
+                if (req.file) await fs.remove(req.file.path);
+                return res.status(403).json({ error: "Restricted admins cannot change site background" });
+            }
             const file = req.file;
             if (!file) {
                 return res.status(400).json({ error: "No file uploaded" });

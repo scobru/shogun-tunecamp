@@ -213,6 +213,11 @@ export function createTracksRoutes(database: DatabaseService) {
                 return res.status(404).json({ error: "Track not found" });
             }
 
+            // Permission Check: Restricted admin can only update their own tracks
+            if (req.artistId && track.artist_id && track.artist_id !== req.artistId) {
+                return res.status(403).json({ error: "Access denied: You can only edit your own tracks" });
+            }
+
             const { title, artist, album, trackNumber, genre } = req.body;
 
             // Update ID3 tags for MP3 files
@@ -291,6 +296,11 @@ export function createTracksRoutes(database: DatabaseService) {
             const track = database.getTrack(id);
             if (!track) {
                 return res.status(404).json({ error: "Track not found" });
+            }
+
+            // Permission Check: Restricted admin can only delete their own tracks
+            if (req.artistId && track.artist_id && track.artist_id !== req.artistId) {
+                return res.status(403).json({ error: "Access denied: You can only delete your own tracks" });
             }
 
             if (deleteFile) {

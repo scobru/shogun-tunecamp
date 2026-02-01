@@ -40,6 +40,11 @@ export function createArtistsRoutes(database: DatabaseService) {
             return res.status(401).json({ error: "Unauthorized" });
         }
 
+        // Only Root Admin can create new artists
+        if (req.artistId) {
+            return res.status(403).json({ error: "Restricted admins cannot create new artists" });
+        }
+
         try {
             const { name, bio, links } = req.body;
 
@@ -92,6 +97,11 @@ export function createArtistsRoutes(database: DatabaseService) {
                 return res.status(404).json({ error: "Artist not found" });
             }
 
+            // Permission Check: Restricted admin can only update their own artist
+            if (req.artistId && req.artistId !== id) {
+                return res.status(403).json({ error: "Access denied: You can only manage your assigned artist" });
+            }
+
             // Parse links if it's a string or array
             let parsedLinks = links;
             if (typeof links === 'string') {
@@ -127,6 +137,11 @@ export function createArtistsRoutes(database: DatabaseService) {
             const artist = database.getArtist(id);
             if (!artist) {
                 return res.status(404).json({ error: "Artist not found" });
+            }
+
+            // Only Root Admin can delete artists
+            if (req.artistId) {
+                return res.status(403).json({ error: "Restricted admins cannot delete artists" });
             }
 
             database.deleteArtist(id);

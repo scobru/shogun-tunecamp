@@ -833,12 +833,29 @@ function validate_username(username) {
     }
   }
 }
+function pad_left(loop$text, loop$length, loop$char) {
+  while (true) {
+    let text = loop$text;
+    let length2 = loop$length;
+    let char = loop$char;
+    let current_len = string_length(text);
+    let $ = current_len < length2;
+    if ($) {
+      loop$text = char + text;
+      loop$length = length2;
+      loop$char = char;
+    } else {
+      return text;
+    }
+  }
+}
 export {
   escape_html,
   format_time_ago,
   generate_track_slug,
   get_file_extension,
   normalize_url,
+  pad_left,
   sanitize_filename,
   slugify,
   validate_username

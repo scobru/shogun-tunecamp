@@ -26,6 +26,7 @@ var GleamUtils = (() => {
     generate_track_slug: () => generate_track_slug,
     get_file_extension: () => get_file_extension,
     normalize_url: () => normalize_url,
+    pad_left: () => pad_left,
     sanitize_filename: () => sanitize_filename,
     slugify: () => slugify,
     validate_username: () => validate_username
@@ -851,6 +852,22 @@ var GleamUtils = (() => {
             "Username must contain only letters, numbers, and underscores"
           );
         }
+      }
+    }
+  }
+  function pad_left(loop$text, loop$length, loop$char) {
+    while (true) {
+      let text = loop$text;
+      let length2 = loop$length;
+      let char = loop$char;
+      let current_len = string_length(text);
+      let $ = current_len < length2;
+      if ($) {
+        loop$text = char + text;
+        loop$length = length2;
+        loop$char = char;
+      } else {
+        return text;
       }
     }
   }

@@ -1824,13 +1824,13 @@ const App = {
           <h1 class="section-title">Admin Panel</h1>
           <div>
             <button class="btn btn-primary" id="new-release-btn">New Release</button>
-            <button class="btn btn-outline" id="new-artist-btn">New Artist</button>
+            ${this.isRootAdmin ? '<button class="btn btn-outline" id="new-artist-btn">New Artist</button>' : ''}
             <button class="btn btn-outline" id="upload-btn">Upload Tracks</button>
-            <button class="btn btn-outline" id="users-btn">Users</button>
+            ${this.isRootAdmin ? '<button class="btn btn-outline" id="users-btn">Users</button>' : ''}
             <button class="btn btn-outline" id="posts-btn">Posts</button>
-            <button class="btn btn-outline" id="rescan-btn">Rescan</button>
-            <button class="btn btn-outline" id="network-settings-btn">Network</button>
-            <button class="btn btn-outline" id="backup-btn">Backup</button>
+            ${this.isRootAdmin ? '<button class="btn btn-outline" id="rescan-btn">Rescan</button>' : ''}
+            ${this.isRootAdmin ? '<button class="btn btn-outline" id="network-settings-btn">Network</button>' : ''}
+            ${this.isRootAdmin ? '<button class="btn btn-outline" id="backup-btn">Backup</button>' : ''}
             <button class="btn btn-outline" id="logout-btn">Logout</button>
           </div>
         </div>
@@ -1856,91 +1856,9 @@ const App = {
 
         
         <!-- Network Settings Panel (hidden by default) -->
-        <div id="network-settings-panel" class="admin-panel" style="display: none;">
-          <h3>Network Settings</h3>
-          <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Configure how your server appears on the TuneCamp network.</p>
-          <form id="network-settings-form">
-            <div class="form-group">
-              <label>Public URL</label>
-              <input type="url" id="network-setting-public-url" placeholder="https://your-tunecamp.com">
-              <small style="display: block; color: var(--text-muted); margin-top: 0.5rem;">The public URL where this server is accessible. Required for network registration.</small>
-            </div>
-            <div class="form-group">
-              <label>Site Name</label>
-              <input type="text" id="network-setting-site-name" placeholder="My TuneCamp Server">
-            </div>
-            <div class="form-group">
-              <label>Site Description</label>
-              <textarea id="network-setting-site-description" rows="2" placeholder="Short description of your server..."></textarea>
-            </div>
-            <div class="form-group">
-              <label>Artist Name (for Network)</label>
-              <input type="text" id="network-setting-artist-name" placeholder="Artist Name">
-              <small style="display: block; color: var(--text-muted); margin-top: 0.5rem;">The primary artist name to show in the network registry.</small>
-            </div>
-            <div class="form-group">
-              <label>Cover Image URL</label>
-              <input type="url" id="network-setting-cover-image" placeholder="https://...">
-              <small style="display: block; color: var(--text-muted); margin-top: 0.5rem;">URL to square image for network listing.</small>
-            </div>
-            <div class="form-group">
-                <label>Troubleshooting</label>
-                <button type="button" class="btn btn-outline btn-sm" id="reset-hidden-tracks">👁️ Reset Hidden Tracks</button>
-                <small style="display: block; color: var(--text-muted); margin-top: 0.5rem;">If you accidentally removed a network track, this will restore it.</small>
-            </div>
-            
-            ${this.isRootAdmin ? `
-            <div class="form-group" style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 1rem;">
-                <label>Identity Management</label>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button type="button" class="btn btn-outline btn-sm" id="export-identity-btn">🔑 Export Keys</button>
-                    <button type="button" class="btn btn-outline btn-sm" id="import-identity-btn">📥 Import Keys</button>
-                </div>
-                <small style="display: block; color: var(--text-muted); margin-top: 0.5rem;">Backup your server identity or move it to another instance. <strong>Warning: Keep your keys secret!</strong></small>
-            </div>
-            ` : ''}
-
-            <button type="submit" class="btn btn-primary">Save Network Settings</button>
-          </form>
         </div>
 
         <!-- Backup Panel (hidden by default) -->
-        <div id="backup-panel" class="admin-panel" style="display: none;">
-          <h3>System Backup & Restore</h3>
-          <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Manage system backups and data portability.</p>
-          
-          <div class="row" style="display: flex; gap: 2rem; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 300px;">
-                <h4>📦 Export</h4>
-                <div style="display: flex; flex-direction: column; gap: 1rem;">
-                    <button class="btn btn-primary" onclick="window.location.href='/api/admin/backup/full'">
-                       Download Full Backup (ZIP)
-                    </button>
-                    <small style="color: var(--text-muted);">Includes Database, Audio Files, Covers, and Config.</small>
-                    
-                    <button class="btn btn-outline" onclick="window.location.href='/api/admin/backup/audio'">
-                       Download Audio Only (ZIP)
-                    </button>
-                    <small style="color: var(--text-muted);">Includes only the music library.</small>
-                </div>
-            </div>
-
-            <div style="flex: 1; min-width: 300px; border-left: 1px solid var(--border); padding-left: 2rem;">
-                <h4>⚠️ Restore</h4>
-                <p style="color: var(--danger); margin-bottom: 1rem;">
-                    Warning: Restoring a backup will <strong>overwrite</strong> the current database and music library. 
-                    The server will restart automatically.
-                </p>
-                <form id="restore-form">
-                    <div class="form-group">
-                        <label>Select Backup File (.zip)</label>
-                        <input type="file" id="restore-file-input" accept=".zip" required>
-                    </div>
-                    <button type="submit" class="btn btn-danger" id="restore-btn">Upload & Restore</button>
-                </form>
-                <div id="restore-status" style="margin-top: 1rem; font-weight: bold;"></div>
-            </div>
-          </div>
         </div>
 
         <!-- Upload Panel (hidden by default) -->
@@ -1987,81 +1905,114 @@ const App = {
         </div>
 
         <!-- Users Panel (hidden by default) -->
-        <div id="users-panel" class="admin-panel" style="display: none;">
-            <h3>Access Management</h3>
-            <div class="row" style="display: flex; gap: 2rem; flex-wrap: wrap;">
-                <div id="create-admin-form-container" style="flex: 1; min-width: 300px;">
-                    <h4>Create New Admin</h4>
-                    <form id="create-user-form">
-                        <div class="form-group">
-                            <label>Username</label>
-                            <input type="text" id="new-user-name" required minlength="3">
-                        </div>
-                        <div class="form-group">
-                            <label>Password</label>
-                            <input type="password" id="new-user-pass" required minlength="6">
-                        </div>
-                        <div class="form-group">
-                            <label>Link to Artist (Optional)</label>
-                            <select id="new-user-artist">
-                                <option value="">None (General Admin)</option>
-                            </select>
-                            <small style="color: var(--text-muted); display: block; margin-top: 5px;">Linked admins can only manage their assigned artist.</small>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Create User</button>
-                    </form>
-                </div>
-                <div style="flex: 1; min-width: 300px;">
-                    <h4>Existing Admins</h4>
-                    <div id="users-list-container" class="list-group">Loading...</div>
-                </div>
-            </div>
         </div>
 
-        <!-- New Release Panel (hidden by default) -->
+        <!-- Unified Release Editor Panel (hidden by default) -->
         <div id="release-panel" class="admin-panel" style="display: none;">
-          <h3>Create New Release</h3>
+          <h3 id="release-panel-title">Create New Release</h3>
           <form id="release-form">
-            <div class="form-row">
-              <div class="form-group">
-                <label>Title *</label>
-                <input type="text" id="release-title" required placeholder="Album title">
+            <div class="editor-layout">
+              <div class="editor-main">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" id="release-title" required placeholder="Album title">
+                  </div>
+                  <div class="form-group">
+                    <label>Artist *</label>
+                    <select id="release-artist" required>
+                      <option value="">Select Artist...</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Release Date</label>
+                    <input type="date" id="release-date" value="${new Date().toISOString().split('T')[0]}">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Description</label>
+                  <textarea id="release-description" rows="3" placeholder="Optional description..."></textarea>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Genres (comma separated)</label>
+                    <input type="text" id="release-genres" placeholder="Electronic, Ambient, etc.">
+                  </div>
+                  <div class="form-group">
+                    <label>Download Type</label>
+                    <select id="release-download">
+                      <option value="free">Free Download</option>
+                      <option value="paycurtain">Pay What You Want</option>
+                      <option value="none">No Download</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- External Links -->
+                <div class="form-group">
+                  <label>External Links</label>
+                  <div id="release-external-links" class="list-group mb-2"></div>
+                  <button type="button" class="btn btn-outline btn-sm" id="add-release-link">＋ Add Link</button>
+                </div>
+
+                <!-- Tracks Section (Visible in Edit Mode) -->
+                <div id="release-tracks-section" style="display: none; margin-top: 2rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h4>Tracks</h4>
+                    <button type="button" class="btn btn-outline btn-sm" id="release-upload-tracks-btn">Add Tracks</button>
+                  </div>
+                  <div id="release-tracks-list" class="list-group">
+                    <!-- Tracks injected here -->
+                  </div>
+                </div>
               </div>
-              <div class="form-group">
-                <label>Artist *</label>
-                <select id="release-artist" required>
-                  <option value="">Select Artist...</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Release Date</label>
-                <input type="date" id="release-date" value="${new Date().toISOString().split('T')[0]}">
+
+              <div class="editor-sidebar">
+                <div class="form-group">
+                  <label>Cover Image</label>
+                  <div class="cover-editor">
+                    <div id="release-cover-preview" class="cover-preview-large">
+                      <span>🎵</span>
+                    </div>
+                    <label class="btn btn-outline btn-block mt-2">
+                      Upload Cover
+                      <input type="file" id="release-cover-input" accept="image/*" style="display: none;">
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="form-group">
-              <label>Description</label>
-              <textarea id="release-description" rows="3" placeholder="Optional description..."></textarea>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Genres (comma separated)</label>
-                <input type="text" id="release-genres" placeholder="Electronic, Ambient, etc.">
-              </div>
-              <div class="form-group">
-                <label>Download Type</label>
-                <select id="release-download">
-                  <option value="free">Free Download</option>
-                  <option value="paycurtain">Pay What You Want</option>
-                  <option value="none">No Download</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary">Create Release</button>
+
+            <div class="form-actions mt-3">
+              <button type="submit" class="btn btn-primary" id="save-release-btn">Create Release</button>
               <button type="button" class="btn btn-outline" id="cancel-release">Cancel</button>
+              <button type="button" class="btn btn-outline btn-danger" id="delete-release-editor-btn" style="display: none; margin-left: auto;">Delete</button>
             </div>
           </form>
         </div>
+
+        <style>
+          .editor-layout { display: flex; gap: 2.5rem; flex-wrap: wrap; }
+          .editor-main { flex: 2; min-width: 300px; }
+          .editor-sidebar { flex: 1; min-width: 250px; }
+          .cover-preview-large { 
+            width: 100%; aspect-ratio: 1; border-radius: 8px; 
+            background: var(--bg-secondary); border: 2px dashed var(--border-color);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 4rem; background-size: cover; background-position: center;
+          }
+          .list-group { display: flex; flex-direction: column; gap: 0.5rem; }
+          .track-item { 
+            display: flex; align-items: center; gap: 1rem; padding: 0.75rem;
+            background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color);
+          }
+          .track-item .track-handle { cursor: grab; color: var(--text-muted); }
+          .track-item .track-title { flex: 1; font-weight: 500; }
+          .mt-2 { margin-top: 1rem; }
+          .mt-3 { margin-top: 1.5rem; }
+          .mb-2 { margin-bottom: 1rem; }
+          .btn-block { width: 100%; }
+        </style>
         
         <h2 class="section-title" style="font-size: 1.25rem; margin: 2rem 0 1rem;">Manage Releases</h2>
         <div id="releases-list"></div>
@@ -2106,9 +2057,11 @@ const App = {
           <div class="release-artist">${r.artist_name || 'Unknown Artist'}</div>
         </div>
         <div class="release-actions">
-          <button class="btn btn-sm btn-outline edit-release" data-id="${r.id}">Edit</button>
-          <button class="btn btn-sm btn-outline upload-to-release" data-slug="${r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}">Add Tracks</button>
-          <button class="btn btn-sm btn-outline btn-danger delete-release">Delete</button>
+          ${this.isRootAdmin || (this.artistId && r.artist_id === this.artistId) ? `
+            <button class="btn btn-sm btn-outline edit-release" data-id="${r.id}">Edit</button>
+            <button class="btn btn-sm btn-outline upload-to-release" data-slug="${r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}">Add Tracks</button>
+            <button class="btn btn-sm btn-outline btn-danger delete-release">Delete</button>
+          ` : ''}
         </div>
         <div class="release-status">
           <span class="status-badge ${r.is_public ? 'status-public' : 'status-private'}">
@@ -2143,8 +2096,10 @@ const App = {
           <div class="release-artist">${a.bio ? a.bio.substring(0, 50) + '...' : 'No bio'}</div>
         </div>
         <div class="release-actions">
-          <button class="btn btn-sm btn-outline view-keys-btn" data-id="${a.id}">keys</button>
-          <button class="btn btn-sm btn-outline edit-artist" data-id="${a.id}">Edit</button>
+          ${this.isRootAdmin ? '<button class="btn btn-sm btn-outline view-keys-btn" data-id="${a.id}">keys</button>' : ''}
+          ${this.isRootAdmin || (this.artistId && a.id === this.artistId) ? `
+            <button class="btn btn-sm btn-outline edit-artist" data-id="${a.id}">Edit</button>
+          ` : ''}
         </div>
       </div>
   `).join('');
@@ -2208,13 +2163,15 @@ const App = {
       });
     });
 
-    // Edit release handlers
+    // Unified Release Editor Open Handlers
     list.querySelectorAll('.edit-release').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const id = e.target.dataset.id;
-        this.showEditReleaseModal(id);
+        this.openReleaseEditor(id);
       });
     });
+
+    // Delete release handlers
 
     // Add tracks to release handlers
     list.querySelectorAll('.upload-to-release').forEach(btn => {
@@ -2236,31 +2193,34 @@ const App = {
     };
 
     // Upload panel toggle
-    document.getElementById('upload-btn').addEventListener('click', () => {
+    document.getElementById('upload-btn')?.addEventListener('click', () => {
       togglePanel('upload-panel');
     });
 
-    // New Release toggle
-    document.getElementById('new-release-btn').addEventListener('click', () => {
-      togglePanel('release-panel');
-      // Populate artists dropdown
-      const select = document.getElementById('release-artist');
-      if (select.children.length <= 1) { // Only load if not loaded
-        API.getArtists().then(artists => {
-          select.innerHTML = '<option value="">Select Artist...</option>' +
-            artists.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
-        });
-      }
+    // New Artist toggle
+    document.getElementById('new-artist-btn')?.addEventListener('click', () => {
+      this.showEditArtistModal();
     });
 
-    document.getElementById('cancel-release').addEventListener('click', () => {
+    // New Release toggle
+    document.getElementById('new-release-btn')?.addEventListener('click', () => {
+      this.openReleaseEditor(null);
+    });
+
+    document.getElementById('cancel-release')?.addEventListener('click', () => {
       togglePanel(null);
     });
 
 
 
     // Settings Save Button (for the main settings panel at bottom)
-    document.getElementById('save-settings-btn').addEventListener('click', async (e) => {
+    const settingsPanel = document.getElementById('settings-panel');
+    if (!this.isRootAdmin && settingsPanel) {
+      settingsPanel.style.display = 'none';
+      settingsPanel.previousElementSibling.style.display = 'none'; // Hide "Site Settings" H2
+    }
+
+    document.getElementById('save-settings-btn')?.addEventListener('click', async (e) => {
       const btn = e.target;
       btn.textContent = 'Saving...';
       btn.disabled = true;
@@ -2295,7 +2255,7 @@ const App = {
       }
     });
 
-    document.getElementById('network-settings-btn').addEventListener('click', async () => {
+    document.getElementById('network-settings-btn')?.addEventListener('click', async () => {
       togglePanel('network-settings-panel');
       // Load current settings
       try {
@@ -2317,7 +2277,7 @@ const App = {
       }
     });
 
-    document.getElementById('network-settings-form').addEventListener('submit', async (e) => {
+    document.getElementById('network-settings-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = e.target.querySelector('button');
       const originalText = btn.textContent;
@@ -2343,12 +2303,12 @@ const App = {
     });
 
     // Backup Panel Toggle
-    document.getElementById('backup-btn').addEventListener('click', () => {
+    document.getElementById('backup-btn')?.addEventListener('click', () => {
       togglePanel('backup-panel');
     });
 
     // Restore Form Handler
-    document.getElementById('restore-form').addEventListener('submit', async (e) => {
+    document.getElementById('restore-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const fileInput = document.getElementById('restore-file-input');
       const file = fileInput.files[0];
@@ -2517,17 +2477,135 @@ const App = {
         }
       };
     });
-    // Release form
-    document.getElementById('release-form').addEventListener('submit', async (e) => {
+    // === Unified Release Editor Event listeners ===
+
+    // Add Link button
+    document.getElementById('add-release-link')?.addEventListener('click', () => {
+      this.addLinkInputToEditor();
+    });
+
+    // Cover upload handler
+    document.getElementById('release-cover-input')?.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Preview
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const preview = document.getElementById('release-cover-preview');
+        preview.style.backgroundImage = `url(${ev.target.result})`;
+        preview.innerHTML = '';
+      };
+      reader.readAsDataURL(file);
+
+      // If editing existing, upload immediately? 
+      // Actually let's follow the existing pattern: save metadata first, then upload cover.
+    });
+
+    // Track upload button logic
+    document.getElementById('release-upload-tracks-btn')?.addEventListener('click', () => {
+      if (!this.currentEditingReleaseId) return;
+
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.accept = 'audio/*';
+
+      input.onchange = async (e) => {
+        const files = e.target.files;
+        if (files.length === 0) return;
+
+        const release = await API.getAlbum(this.currentEditingReleaseId);
+        await this.uploadFiles(files, { releaseSlug: release.slug });
+        this.openReleaseEditor(this.currentEditingReleaseId);
+      };
+      input.click();
+    });
+
+    // Main Form Submit (Create or Update)
+    document.getElementById('release-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      await this.handleCreateRelease();
+      const isEdit = !!this.currentEditingReleaseId;
+      const btn = document.getElementById('save-release-btn');
+      const originalText = btn.textContent;
+
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      const title = document.getElementById('release-title').value;
+      const artistName = document.getElementById('release-artist').value;
+      const date = document.getElementById('release-date').value;
+      const description = document.getElementById('release-description').value;
+      const genresRaw = document.getElementById('release-genres').value;
+      const genres = genresRaw ? genresRaw.split(',').map(g => g.trim()).filter(g => g) : [];
+      const download = document.getElementById('release-download').value;
+      const coverFile = document.getElementById('release-cover-input').files[0];
+
+      // External Links
+      const externalLinks = Array.from(document.querySelectorAll('#release-external-links > div')).map(div => ({
+        label: div.querySelector('.link-label').value.trim(),
+        url: div.querySelector('.link-url').value.trim()
+      })).filter(l => l.label && l.url);
+
+      const data = {
+        title,
+        artistName: artistName || undefined,
+        date: date || undefined,
+        description: description || undefined,
+        genres: genres.length > 0 ? genres : undefined,
+        download: download || undefined,
+        externalLinks
+      };
+
+      try {
+        let releaseSlug;
+        if (isEdit) {
+          const release = await API.getAlbum(this.currentEditingReleaseId);
+          releaseSlug = release.slug;
+          await API.updateRelease(this.currentEditingReleaseId, data);
+        } else {
+          const result = await API.createRelease(data);
+          releaseSlug = result.slug;
+          // After create, maybe switch to edit mode? 
+          // Existing behavior: alert and reload. Let's keep it simple first.
+        }
+
+        // Upload cover if provided
+        if (coverFile && releaseSlug) {
+          await API.uploadCover(coverFile, releaseSlug);
+        }
+
+        alert(isEdit ? 'Release updated!' : 'Release created!');
+        window.location.reload();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    });
+
+    // Delete button logic
+    document.getElementById('delete-release-editor-btn')?.addEventListener('click', async () => {
+      if (!this.currentEditingReleaseId) return;
+      const title = document.getElementById('release-title').value;
+
+      if (confirm(`Are you sure you want to delete "${title}" and ALL its files?`)) {
+        try {
+          await API.deleteRelease(this.currentEditingReleaseId);
+          alert('Release deleted');
+          window.location.reload();
+        } catch (err) {
+          alert('Failed to delete release');
+        }
+      }
     });
 
     // Upload handlers
     this.setupUploadHandlers();
 
     // Rescan button
-    document.getElementById('rescan-btn').addEventListener('click', async () => {
+    document.getElementById('rescan-btn')?.addEventListener('click', async () => {
       const btn = document.getElementById('rescan-btn');
       btn.disabled = true;
       btn.textContent = 'Scanning...';
@@ -2811,75 +2889,128 @@ const App = {
     input.click();
   },
 
-  async handleCreateRelease() {
-    const title = document.getElementById('release-title').value;
-    const artistName = document.getElementById('release-artist').value;
-    const date = document.getElementById('release-date').value;
-    const description = document.getElementById('release-description').value;
-    const genresRaw = document.getElementById('release-genres').value;
-    const download = document.getElementById('release-download').value;
+  // handleCreateRelease removed
 
-    const genres = genresRaw ? genresRaw.split(',').map(g => g.trim()).filter(g => g) : [];
-
-    try {
-      await API.createRelease({
-        title,
-        artistName,
-        date,
-        description: description || undefined,
-        genres: genres.length > 0 ? genres : undefined,
-        download
-      });
-
-      alert('Release created! Add tracks and cover via the release actions.');
-      window.location.reload();
-    } catch (err) {
-      alert('Failed to create release: ' + err.message);
-    }
-  },
 
   // Helpers
-  async showAddToReleaseModal(trackId, trackTitle) {
-    const releases = await API.getAdminReleases();
+  async openReleaseEditor(releaseId = null) {
+    this.currentEditingReleaseId = releaseId;
+    const isEdit = !!releaseId;
+    const panel = document.getElementById('release-panel');
+    const titleEl = document.getElementById('release-panel-title');
+    const submitBtn = document.getElementById('save-release-btn');
+    const tracksSection = document.getElementById('release-tracks-section');
+    const deleteBtn = document.getElementById('delete-release-editor-btn');
 
-    // Create modal content
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.style.display = 'flex';
-    modal.id = 'add-track-modal';
+    // Reset Panel
+    titleEl.textContent = isEdit ? 'Edit Release' : 'Create New Release';
+    submitBtn.textContent = isEdit ? 'Save Changes' : 'Create Release';
+    tracksSection.style.display = isEdit ? 'block' : 'none';
+    deleteBtn.style.display = isEdit ? 'block' : 'none';
+    document.getElementById('release-external-links').innerHTML = '';
+    document.getElementById('release-cover-preview').style.backgroundImage = '';
+    document.getElementById('release-cover-preview').innerHTML = '🎵';
 
-    const options = releases.map(r => `<option value="${r.id}">${r.title}</option>`).join('');
+    // Toggle Panel
+    const togglePanel = (targetId) => {
+      document.querySelectorAll('.admin-panel').forEach(p => {
+        p.style.display = p.id === targetId ? 'block' : 'none';
+      });
+    };
+    togglePanel('release-panel');
 
-    modal.innerHTML = `
-      <div class="modal-content" style="max-width: 400px;">
-          <h2 class="section-title">Add Track to Release</h2>
-          <p>Track: <strong>${trackTitle}</strong></p>
-          <div class="form-group">
-            <label>Select Target Release:</label>
-            <select id="target-release-select" style="width: 100%; padding: 0.5rem; margin: 1rem 0;">
-              ${options}
-            </select>
-          </div>
-          <div class="form-actions">
-            <button class="btn btn-primary" id="confirm-add-track">Add to Release</button>
-            <button class="btn btn-outline" onclick="document.getElementById('add-track-modal').remove()">Cancel</button>
-          </div>
-        </div>
-  `;
+    // Load Artists
+    const select = document.getElementById('release-artist');
+    const artists = await API.getArtists();
+    let filtered = artists;
+    if (!this.isRootAdmin && this.artistId) {
+      filtered = artists.filter(a => a.id === this.artistId);
+    }
+    select.innerHTML = (this.isRootAdmin ? '<option value="">Select Artist...</option>' : '') +
+      filtered.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
 
-    document.body.appendChild(modal);
+    if (isEdit) {
+      const release = await API.getAlbum(releaseId);
+      document.getElementById('release-title').value = release.title;
+      document.getElementById('release-artist').value = release.artist_name || '';
+      document.getElementById('release-date').value = release.date || '';
+      document.getElementById('release-description').value = release.description || '';
+      document.getElementById('release-genres').value = release.genre || '';
+      document.getElementById('release-download').value = release.download || 'none';
 
-    document.getElementById('confirm-add-track').addEventListener('click', async () => {
-      const releaseId = document.getElementById('target-release-select').value;
-      try {
-        await API.addTrackToRelease(releaseId, trackId);
-        document.getElementById('add-track-modal').remove();
-        alert('Track added to release!');
-        // Ideally refresh UI or remove row, for now reload
-        window.location.reload();
-      } catch (e) {
-        alert('Failed to add track: ' + e.message);
+      // Load Tracks
+      this.renderReleaseTracks(release.tracks || []);
+
+      // Load Cover
+      if (release.cover_path) {
+        const coverUrl = API.getAlbumCoverUrl(release.slug || release.id);
+        document.getElementById('release-cover-preview').style.backgroundImage = `url(${coverUrl})`;
+        document.getElementById('release-cover-preview').innerHTML = '';
       }
+
+      // Load Links
+      const links = release.external_links ? JSON.parse(release.external_links) : [];
+      links.forEach(l => this.addLinkInputToEditor(l.label, l.url));
+    } else {
+      // Clear for new
+      document.getElementById('release-title').value = '';
+      if (!this.isRootAdmin && filtered.length > 0) {
+        select.value = filtered[0].name;
+      } else {
+        select.value = '';
+      }
+      document.getElementById('release-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('release-description').value = '';
+      document.getElementById('release-genres').value = '';
+      document.getElementById('release-download').value = 'free';
+    }
+
+    // Scroll to panel
+    panel.scrollIntoView({ behavior: 'smooth' });
+  },
+
+  addLinkInputToEditor(label = '', url = '') {
+    const container = document.getElementById('release-external-links');
+    const div = document.createElement('div');
+    div.className = 'track-item';
+    div.style.padding = '0.5rem';
+    div.innerHTML = `
+      <input type="text" placeholder="Label" class="link-label" value="${label}" style="width: 30%;">
+      <input type="text" placeholder="URL" class="link-url" value="${url}" style="flex: 1;">
+      <button type="button" class="btn btn-outline btn-sm btn-danger remove-link">✕</button>
+    `;
+    div.querySelector('.remove-link').onclick = () => div.remove();
+    container.appendChild(div);
+  },
+
+  renderReleaseTracks(tracks) {
+    const list = document.getElementById('release-tracks-list');
+    if (tracks.length === 0) {
+      list.innerHTML = '<p class="text-secondary p-3">No tracks uploaded yet.</p>';
+      return;
+    }
+
+    list.innerHTML = tracks.map(t => `
+      <div class="track-item" data-id="${t.id}">
+        <span class="track-handle">::</span>
+        <span class="track-title">${App.escapeHtml(t.title)}</span>
+        <button type="button" class="btn btn-outline btn-sm btn-danger delete-track-editor" data-id="${t.id}">Delete</button>
+      </div>
+    `).join('');
+
+    // Delete Handlers
+    list.querySelectorAll('.delete-track-editor').forEach(btn => {
+      btn.onclick = async (e) => {
+        const tid = e.target.dataset.id;
+        if (confirm('Delete this track?')) {
+          try {
+            await API.deleteTrack(tid);
+            this.openReleaseEditor(this.currentEditingReleaseId);
+          } catch (err) {
+            alert('Failed to delete track');
+          }
+        }
+      };
     });
   },
 

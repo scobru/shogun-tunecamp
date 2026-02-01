@@ -5,7 +5,7 @@ import { parseFile } from "music-metadata";
 import { parse } from "yaml";
 import type { DatabaseService } from "./database.js";
 import { WaveformService } from "./waveform.js";
-import { slugify } from "../utils/audioUtils.js";
+import { slugify, getStandardCoverFilename } from "../utils/audioUtils.js";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import ffprobePath from "ffprobe-static";
@@ -170,8 +170,10 @@ export function createScanner(database: DatabaseService): ScannerService {
             if (config.cover) {
                 coverPath = path.resolve(dir, config.cover);
             } else {
-                // Try common cover names
-                const coverNames = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png"];
+                // Try common cover names, starting with Gleam-defined standard
+                const standardCoverJpg = getStandardCoverFilename("jpg");
+                const standardCoverPng = getStandardCoverFilename("png");
+                const coverNames = [standardCoverJpg, standardCoverPng, "cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png"];
                 for (const name of coverNames) {
                     const p = path.resolve(dir, name);
                     if (await fs.pathExists(p)) {

@@ -1,6 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { glob } from 'glob';
+import { getStandardCoverFilename } from './audioUtils.js';
 
 /**
  * File utility functions
@@ -35,7 +36,14 @@ export async function findImageFiles(directory: string, name?: string): Promise<
 }
 
 export async function findCover(directory: string): Promise<string | undefined> {
-  const coverNames = ['cover', 'artwork', 'folder', 'album'];
+  const coverNames = [
+    getStandardCoverFilename('jpg').replace('.jpg', ''),
+    getStandardCoverFilename('png').replace('.png', ''),
+    'cover',
+    'artwork',
+    'folder',
+    'album'
+  ];
 
   for (const name of coverNames) {
     const covers = await findImageFiles(directory, name);

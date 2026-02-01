@@ -15,8 +15,11 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
      * GET /api/admin/backup/full
      * Download full backup (Database + Music + Config)
      */
-    router.get("/full", async (req, res) => {
+    router.get("/full", async (req: any, res) => {
         try {
+            if (req.artistId) {
+                return res.status(403).send("Unauthorized: Backups restricted to Root Admin");
+            }
             const archive = archiver("zip", { zlib: { level: 9 } });
 
             res.setHeader("Content-Type", "application/zip");
@@ -92,8 +95,11 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
      * GET /api/admin/backup/audio
      * Download audio only
      */
-    router.get("/audio", async (req, res) => {
+    router.get("/audio", async (req: any, res) => {
         try {
+            if (req.artistId) {
+                return res.status(403).send("Unauthorized: Backups restricted to Root Admin");
+            }
             const archive = archiver("zip", { zlib: { level: 0 } }); // Store only, faster for audio
 
             res.setHeader("Content-Type", "application/zip");
@@ -115,6 +121,9 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
      * Upload and restore backup
      */
     router.post("/restore", upload.single("backup"), async (req: any, res) => {
+        if (req.artistId) {
+            return res.status(403).send("Unauthorized: Restore restricted to Root Admin");
+        }
         if (!req.file) {
             return res.status(400).send("No file uploaded");
         }

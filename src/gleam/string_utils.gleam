@@ -237,3 +237,12 @@ fn is_alphanumeric_or_underscore(char: String) -> Bool {
     _ -> False
   }
 }
+
+/// Pads a string on the left with a given character until it reaches a target length
+pub fn pad_left(text: String, length: Int, char: String) -> String {
+  let current_len = string.length(text)
+  case current_len < length {
+    True -> pad_left(char <> text, length, char)
+    False -> text
+  }
+}

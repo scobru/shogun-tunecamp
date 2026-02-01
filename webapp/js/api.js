@@ -192,6 +192,10 @@ const API = {
         return this.post('/admin/scan', {});
     },
 
+    async consolidate() {
+        return this.post('/admin/consolidate', {});
+    },
+
     async getAdminStats() {
         return this.get('/admin/stats');
     },

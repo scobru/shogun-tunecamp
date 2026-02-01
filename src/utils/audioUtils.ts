@@ -49,8 +49,15 @@ import {
   sanitize_filename as sanitizeFilenameGleam,
   normalize_url as normalizeUrlGleam,
   get_file_extension as getFileExtensionGleam,
-  validate_username as validateUsernameGleam
+  validate_username as validateUsernameGleam,
+  pad_left as padLeftGleam
 } from '../gleam_generated/string_utils.js';
+
+import {
+  format_audio_filename as formatAudioFilenameGleam,
+  format_album_directory as formatAlbumDirectoryGleam,
+  get_standard_cover_filename as getStandardCoverFilenameGleam
+} from '../gleam_generated/library.js';
 
 export function formatDuration(seconds?: number): string {
   if (!seconds) return '0:00';
@@ -167,5 +174,26 @@ export function validateUsername(username: string): { valid: boolean; error?: st
   } else {
     return { valid: false, error: result[0] as string };
   }
+}
+
+/**
+ * Formats an audio filename using Gleam logic: "01 - Title.mp3"
+ */
+export function formatAudioFilename(trackNum: number, title: string, extension: string): string {
+  return formatAudioFilenameGleam(trackNum || 0, title || 'Unknown', extension || 'mp3');
+}
+
+/**
+ * Formats an album directory using Gleam logic: "Artist - Album (Year)"
+ */
+export function formatAlbumDirectory(artist: string, album: string, year?: number): string {
+  return formatAlbumDirectoryGleam(artist || 'Unknown Artist', album || 'Unknown Album', year || 0);
+}
+
+/**
+ * Returns the standard cover filename: "cover.jpg" or "cover.png"
+ */
+export function getStandardCoverFilename(extension: string): string {
+  return getStandardCoverFilenameGleam(extension || 'jpg');
 }
 

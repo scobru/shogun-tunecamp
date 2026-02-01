@@ -5,6 +5,7 @@ import type { GunDBService } from "../gundb.js";
 import type { ServerConfig } from "../config.js";
 import type { AuthService } from "../auth.js";
 import type { ActivityPubService } from "../activitypub.js";
+import { ConsolidationService } from "../consolidate.js";
 
 export function createAdminRoutes(
     database: DatabaseService,
@@ -103,8 +104,11 @@ export function createAdminRoutes(
      * POST /api/admin/scan
      * Force library rescan
      */
-    router.post("/scan", async (req, res) => {
+    router.post("/scan", async (req: any, res) => {
         try {
+            if (req.artistId) {
+                return res.status(403).json({ error: "Restricted admins cannot trigger manual scans" });
+            }
             await scanner.scanDirectory(musicDir);
             const stats = database.getStats();
             res.json({
@@ -114,6 +118,38 @@ export function createAdminRoutes(
         } catch (error) {
             console.error("Error scanning:", error);
             res.status(500).json({ error: "Scan failed" });
+        }
+    });
+
+    /**
+     * POST /api/admin/consolidate
+     * Consolidate library into universal format (runs in background)
+     */
+    router.post("/consolidate", async (req: any, res) => {
+        try {
+            if (req.artistId) {
+                return res.status(403).json({ error: "Restricted admins cannot trigger consolidation" });
+            }
+
+            const consolidator = new ConsolidationService(database, musicDir);
+
+            // Start in background
+            consolidator.consolidateAll()
+                .then(result => {
+                    console.log(`✅ Library consolidated: ${result.success} moved, ${result.failed} failed.`);
+                    // Trigger a scan after consolidation to update paths in memory/watcher
+                    scanner.scanDirectory(musicDir).catch(e => console.error("Scan after consolidation failed:", e));
+                })
+                .catch(error => {
+                    console.error("❌ Consolidation background process failed:", error);
+                });
+
+            res.json({
+                message: "Consolidation started in background",
+            });
+        } catch (error) {
+            console.error("Error starting consolidation:", error);
+            res.status(500).json({ error: "Failed to start consolidation" });
         }
     });
 
@@ -220,8 +256,11 @@ export function createAdminRoutes(
      * GET /api/admin/system/identity
      * Get server identity keypair (ADMIN ONLY)
      */
-    router.get("/system/identity", async (req, res) => {
+    router.get("/system/identity", async (req: any, res) => {
         try {
+            if (req.artistId) {
+                return res.status(403).json({ error: "Restricted admins cannot access system identity" });
+            }
             const pair = await gundbService.getIdentityKeyPair();
             res.json(pair);
         } catch (error) {
@@ -234,8 +273,11 @@ export function createAdminRoutes(
      * POST /api/admin/system/identity
      * Import server identity keypair (ADMIN ONLY)
      */
-    router.post("/system/identity", async (req, res) => {
+    router.post("/system/identity", async (req: any, res) => {
         try {
+            if (req.artistId) {
+                return res.status(403).json({ error: "Restricted admins cannot import system identity" });
+            }
             const pair = req.body;
             const success = await gundbService.setIdentityKeyPair(pair);
             if (success) {
@@ -303,8 +345,11 @@ export function createAdminRoutes(
      * GET /api/admin/system/users
      * List all admin users
      */
-    router.get("/system/users", (req, res) => {
+    router.get("/system/users", (req: any, res) => {
         try {
+            if (req.artistId) {
+                return res.status(403).json({ error: "Restricted admins cannot list users" });
+            }
             const admins = authService.listAdmins();
             res.json(admins);
         } catch (error) {

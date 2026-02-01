@@ -293,5 +293,36 @@ See https://github.com/scobru/tunecamp for full documentation.
   await fs.writeFile(path.join(targetDir, 'README.md'), readme);
 }
 
+program
+  .command('consolidate')
+  .description('Consolidate the music library into a universal format')
+  .argument('[music-dir]', 'Directory containing music files', './music')
+  .option('-d, --db <path>', 'Database file path', './tunecamp.db')
+  .action(async (musicDir: string, options: any) => {
+    try {
+      const { createDatabase } = await import('./server/database.js');
+      const { ConsolidationService } = await import('./server/consolidate.js');
+
+      const dbPath = path.resolve(options.db);
+      const absMusicDir = path.resolve(musicDir);
+
+      if (!await fs.pathExists(dbPath)) {
+        console.error(chalk.red(`Error: Database file not found at ${dbPath}`));
+        process.exit(1);
+      }
+
+      const database = createDatabase(dbPath);
+      const consolidator = new ConsolidationService(database, absMusicDir);
+
+      console.log(chalk.blue('📁 Consolidating library...'));
+      const result = await consolidator.consolidateAll();
+
+      console.log(chalk.green(`✅ Consolidation complete: ${result.success} success, ${result.failed} failed.`));
+    } catch (error) {
+      console.error(chalk.red('Error during consolidation:'), error);
+      process.exit(1);
+    }
+  });
+
 program.parse();
 
