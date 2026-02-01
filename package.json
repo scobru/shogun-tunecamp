@@ -33,6 +33,7 @@
     "@types/archiver": "^7.0.0",
     "@types/fluent-ffmpeg": "^2.1.28",
     "@types/inquirer": "^9.0.9",
+    "@types/md5": "^2.3.6",
     "@types/multer": "^2.0.0",
     "adm-zip": "^0.5.16",
     "archiver": "^7.0.1",
@@ -52,11 +53,13 @@
     "handlebars": "^4.7.8",
     "inquirer": "^13.2.0",
     "jsonwebtoken": "^9.0.3",
+    "md5": "^2.3.0",
     "multer": "^2.0.2",
     "music-metadata": "^8.1.4",
     "node-fetch": "^3.3.2",
     "node-id3": "^0.2.9",
     "vercel": "^50.4.4",
+    "xmlbuilder2": "^4.0.3",
     "yaml": "^2.3.4"
   },
   "devDependencies": {

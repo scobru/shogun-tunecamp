@@ -4,9 +4,13 @@ import App from './App';
 import './index.css';
 import { AuthModal } from './components/auth/AuthModal';
 
+import { BrowserRouter } from 'react-router-dom';
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
-    <AuthModal />
+    <BrowserRouter>
+      <App />
+      <AuthModal />
+    </BrowserRouter>
   </React.StrictMode>,
 );
