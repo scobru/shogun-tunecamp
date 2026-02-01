@@ -13,7 +13,7 @@ const REGISTRY_PEERS = [
 
 const REGISTRY_ROOT = "shogun";
 const REGISTRY_NAMESPACE = "tunecamp-community";
-const REGISTRY_VERSION = "1.1"; // Bumped version for secure nodes
+const REGISTRY_VERSION = "2.0"; // Bumped version for secure nodes
 
 export interface SiteInfo {
     url: string;
@@ -77,6 +77,7 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
                 peers: REGISTRY_PEERS,
                 localStorage: false,
                 radisk: true,
+                file: "./music/radata",
                 web: server,
                 axe: true,
                 wire: true,

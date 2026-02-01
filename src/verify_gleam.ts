@@ -1,25 +1,29 @@
 import {
     formatAudioFilename,
     formatAlbumDirectory,
-    getStandardCoverFilename,
-    getFileExtension
+    getStandardCoverFilename
 } from "./utils/audioUtils.js";
 
 async function runTests() {
     console.log("Testing Gleam-based naming logic:");
 
-    const audioName = formatAudioFilename("Song Title", 1, ".mp3");
+    // formatAudioFilename(trackNum, title, ext)
+    const audioName = formatAudioFilename(1, "Song Title", "mp3");
     console.log(`Audio: ${audioName} (expected: 01-song-title.mp3)`);
 
+    // formatAlbumDirectory(artist, album, year?)
     const albumDir = formatAlbumDirectory("The Artist", "The Album");
     console.log(`Album: ${albumDir} (expected: the-artist/the-album)`);
 
-    const coverName = getStandardCoverFilename("The Album", ".png");
-    console.log(`Cover: ${coverName} (expected: the-album-cover.png)`);
+    // getStandardCoverFilename(ext)
+    const coverName = getStandardCoverFilename("png");
+    console.log(`Cover: ${coverName} (expected: cover.png)`);
 
-    if (audioName === "01-song-title.mp3" &&
+    const success = audioName === "01-song-title.mp3" &&
         albumDir === "the-artist/the-album" &&
-        coverName === "the-album-cover.png") {
+        coverName === "cover.png";
+
+    if (success) {
         console.log("\n✅ Verification SUCCESS");
     } else {
         console.log("\n❌ Verification FAILED");

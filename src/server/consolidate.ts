@@ -29,8 +29,7 @@ export class ConsolidationService {
         // 1. Calculate target directory: library/Artist - Album (Year)
         const targetDirName = formatAlbumDirectory(
             artist.name,
-            album.title,
-            album.date ? parseInt(album.date) : 0
+            album.title
         );
         const targetDir = path.join(this.rootDir, "library", targetDirName);
 

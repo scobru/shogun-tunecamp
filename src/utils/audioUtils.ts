@@ -186,8 +186,8 @@ export function formatAudioFilename(trackNum: number, title: string, extension: 
 /**
  * Formats an album directory using Gleam logic: "Artist - Album (Year)"
  */
-export function formatAlbumDirectory(artist: string, album: string, year?: number): string {
-  return formatAlbumDirectoryGleam(artist || 'Unknown Artist', album || 'Unknown Album', year || 0);
+export function formatAlbumDirectory(artist: string, album: string): string {
+  return formatAlbumDirectoryGleam(artist || 'Unknown Artist', album || 'Unknown Album');
 }
 
 /**

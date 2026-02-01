@@ -33,7 +33,8 @@ const App = {
     try {
       const settings = await API.getSiteSettings();
       this.siteName = settings.siteName || 'TuneCamp';
-      document.querySelector('.brand-name').textContent = this.siteName;
+      const brandName = document.querySelector('.brand-name');
+      if (brandName) brandName.textContent = this.siteName;
       document.title = this.siteName;
 
       if (settings.backgroundImage) {
@@ -131,7 +132,7 @@ const App = {
 
         // Close mobile menu on link click
         const navLinks = document.getElementById('nav-links');
-        if (navLinks.classList.contains('active')) {
+        if (navLinks && navLinks.classList.contains('active')) {
           navLinks.classList.remove('active');
         }
       });
@@ -142,7 +143,7 @@ const App = {
     if (mobileMenuToggle) {
       mobileMenuToggle.addEventListener('click', () => {
         const navLinks = document.getElementById('nav-links');
-        navLinks.classList.toggle('active');
+        if (navLinks) navLinks.classList.toggle('active');
       });
     }
 
