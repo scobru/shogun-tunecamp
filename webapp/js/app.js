@@ -1971,6 +1971,53 @@ const App = {
           </div>
         </div>
 
+        <!-- Upload Panel (hidden by default) -->
+        <div id="upload-panel" class="admin-panel" style="display: none;">
+          <h3 class="mb-4">Upload Tracks to Library</h3>
+          <div class="upload-zone border-2 border-dashed border-white/10 rounded-2xl p-12 text-center bg-base-300/30 hover:bg-base-300/50 transition-colors cursor-pointer" id="upload-zone">
+            <input type="file" id="file-input" multiple accept="audio/*" style="display: none;">
+            <div class="text-5xl mb-4">📁</div>
+            <p class="text-lg font-medium mb-1">Drag & drop audio files here</p>
+            <p class="text-sm opacity-50 mb-6">or <button class="btn btn-outline btn-sm" id="browse-btn">Browse Files</button></p>
+            <p class="text-xs opacity-30">Supports: MP3, FLAC, OGG, WAV, M4A, AAC, OPUS</p>
+          </div>
+          <div id="upload-progress" class="mt-8 bg-base-300 rounded-xl p-6 border border-white/5" style="display: none;">
+            <div class="progress-bar h-2 w-full bg-base-100 rounded-full overflow-hidden mb-3">
+              <div class="progress-fill h-full bg-primary transition-all duration-300" id="progress-fill" style="width: 0%"></div>
+            </div>
+            <p id="upload-status" class="text-sm font-medium"></p>
+          </div>
+        </div>
+
+        <!-- Posts Panel (hidden by default) -->
+        <div id="posts-panel" class="admin-panel" style="display: none;">
+            <h3>Manage Posts</h3>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
+                <div class="bg-base-300/30 p-6 rounded-2xl border border-white/5">
+                    <h4 class="text-lg font-bold mb-4">Create New Post</h4>
+                    <form id="create-post-form">
+                        <div class="form-group">
+                            <label class="label"><span class="label-text">Artist</span></label>
+                            <select id="post-artist" class="select select-bordered w-full" required>
+                                <option value="">Select Artist...</option>
+                            </select>
+                        </div>
+                        <div class="form-group mt-4">
+                            <label class="label"><span class="label-text">Content</span></label>
+                            <textarea id="post-content" class="textarea textarea-bordered w-full h-32" required placeholder="Write something to your followers..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-full mt-6">Publish Post</button>
+                    </form>
+                </div>
+                <div class="bg-base-300/30 p-6 rounded-2xl border border-white/5">
+                    <h4 class="text-lg font-bold mb-4">Recent Posts</h4>
+                    <div id="posts-list" class="space-y-4">
+                        <p class="text-sm opacity-50 text-center py-12">Select an artist to view their posts.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Users Panel (hidden by default) -->
         <div id="users-panel" class="admin-panel" style="display: none;">
           <div class="flex justify-between items-center mb-6">
