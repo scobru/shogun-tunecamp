@@ -1228,16 +1228,23 @@ const App = {
 
   async renderNetwork(container) {
     container.innerHTML = `
-      <section class="section">
-        <h1 class="section-title">🌐 TuneCamp Network</h1>
-        <p style="color: var(--text-secondary); margin-bottom: 2rem;">
-          Explore tracks shared by other TuneCamp instances on the decentralized network.
-        </p>
-        <div id="network-loading" style="text-align: center; padding: 2rem;">
-          <p>Loading community tracks...</p>
+      <section class="section p-4 lg:p-8 max-w-7xl mx-auto">
+        <div class="mb-8">
+          <h1 class="text-3xl font-bold flex items-center gap-3">
+            <span class="text-primary">🌐</span> TuneCamp Network
+          </h1>
+          <p class="text-base-content/60 mt-2 max-w-2xl">
+            Discover music shared by other TuneCamp instances across the decentralized network.
+          </p>
         </div>
-        <div id="network-tracks" style="display: none;"></div>
-        <div id="network-sites" style="display: none; margin-top: 2rem;"></div>
+
+        <div id="network-loading" class="flex flex-col items-center justify-center py-20 opacity-50">
+          <span class="loading loading-bars loading-lg text-primary"></span>
+          <p class="mt-4 text-sm">Scanning the frequency...</p>
+        </div>
+
+        <div id="network-tracks" class="hidden mb-12"></div>
+        <div id="network-sites" class="hidden"></div>
       </section>
     `;
 
@@ -1247,87 +1254,23 @@ const App = {
         API.getNetworkSites()
       ]);
 
-      // Deduplicate sites by URL, keeping the most recent
+      // Deduplicate sites logic...
       const uniqueSites = new Map();
       sitesRaw.forEach(s => {
-        // Validate site data - align with server structure
-        if (!s.url ||
-          s.url.includes('localhost') ||
-          s.url.includes('127.0.0.1') ||
-          s.url.startsWith('file://') ||
-          !s.url.startsWith('http')) return;
-
-        // Filter out default/placeholder titles (align with server defaults)
-        const title = s.title || '';
-        if (!title ||
-          title === 'Untitled' ||
-          title === 'TuneCamp Server' ||
-          title.trim() === '') return;
-
-        // Normalize URL (remove trailing slash)
+        if (!s.url || !s.url.startsWith('http')) return;
         const normalizedUrl = s.url.replace(/\/$/, '');
-
         if (!uniqueSites.has(normalizedUrl)) {
-          uniqueSites.set(normalizedUrl, {
-            ...s,
-            url: normalizedUrl,
-            title: title,
-            artistName: s.artistName || '',
-            coverImage: s.coverImage || null,
-            lastSeen: s.lastSeen || Date.now()
-          });
-        } else {
-          // If duplicate, keep the one seen most recently
-          const existing = uniqueSites.get(normalizedUrl);
-          const existingLastSeen = existing.lastSeen || 0;
-          const newLastSeen = s.lastSeen || 0;
-          if (newLastSeen > existingLastSeen) {
-            uniqueSites.set(normalizedUrl, {
-              ...s,
-              url: normalizedUrl,
-              title: title,
-              artistName: s.artistName || '',
-              coverImage: s.coverImage || null,
-              lastSeen: newLastSeen
-            });
-          }
+          uniqueSites.set(normalizedUrl, { ...s, url: normalizedUrl });
         }
       });
       const sites = Array.from(uniqueSites.values());
 
-      // Filter valid tracks and deduplicate by audioUrl
-      // Align with server track structure: slug, title, audioUrl, duration, artistName, coverUrl, siteUrl, etc.
-      const blocked = JSON.parse(localStorage.getItem('tunecamp_blocked_tracks') || '[]');
+      // Deduplicate tracks logic...
       const seenTrackUrls = new Set();
       const tracks = tracksRaw.filter(t => {
-        // Validate required fields (align with server structure)
-        if (!t.audioUrl ||
-          !t.title ||
-          blocked.includes(t.audioUrl)) return false;
-
-        // Validate siteUrl - derive from siteId if not present, or skip if invalid
-        let siteUrl = t.siteUrl;
-        if (!siteUrl && t.siteId && t.siteId !== 'local') {
-          // Try to find site URL from sites list
-          const site = sites.find(s => s.id === t.siteId);
-          if (site) {
-            siteUrl = site.url;
-          }
-        }
-
-        // Skip if still no valid siteUrl or if localhost
-        if (!siteUrl ||
-          siteUrl.includes('localhost') ||
-          siteUrl.includes('127.0.0.1') ||
-          siteUrl.startsWith('file://') ||
-          !siteUrl.startsWith('http')) return false;
-
-        // Deduplicate by audioUrl
+        if (!t.audioUrl || !t.title) return false;
         if (seenTrackUrls.has(t.audioUrl)) return false;
         seenTrackUrls.add(t.audioUrl);
-
-        // Add normalized siteUrl to track
-        t.siteUrl = siteUrl;
         return true;
       });
 
@@ -1337,123 +1280,104 @@ const App = {
       const tracksContainer = document.getElementById('network-tracks');
       const sitesContainer = document.getElementById('network-sites');
 
-      if (!tracksContainer || !sitesContainer) return; // User navigated away
+      if (!tracksContainer || !sitesContainer) return;
 
+      // Render Tracks
       if (tracks && tracks.length > 0) {
-        tracksContainer.style.display = 'block';
+        tracksContainer.classList.remove('hidden');
         tracksContainer.innerHTML = `
-          <h2 class="section-title" style="font-size: 1.25rem; margin-bottom: 1rem;">
-            🎵 Community Tracks (${tracks.length})
-          </h2>
-          <div class="track-list">
-            ${tracks.map((t, i) => `
-              <div class="track-item network-track" data-audio-url="${t.audioUrl}" data-index="${i}"
-                   data-track='${JSON.stringify({
-          id: t.slug,
-          title: t.title,
-          artist_name: t.artistName,
-          duration: t.duration,
-          audioUrl: t.audioUrl,
-          coverUrl: t.coverUrl,
-          isExternal: true
-        }).replace(/'/g, "&apos;")}'>
-                <div class="track-cover-small" style="width: 40px; height: 40px; border-radius: 4px; background: var(--bg-tertiary); margin-right: 1rem; flex-shrink: 0; background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                  ${t.coverUrl ? `<div style="width:100%; height:100%; background-image: url('${t.coverUrl}'); background-size: cover; background-position: center;"></div>` : '<span style="font-size: 1.2rem; opacity: 0.5;">🎵</span>'}
-                </div>
-                <div class="track-info">
-                  <div class="track-title">${App.escapeHtml(t.title || 'Untitled')}</div>
-                  <div style="color: var(--text-secondary); font-size: 0.875rem;">
-                    ${App.escapeHtml(t.artistName || 'Unknown Artist')} · <a href="${t.siteUrl}" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">${(() => {
-            try {
-              return new URL(t.siteUrl).hostname;
-            } catch (e) {
-              return 'Unknown';
-            }
-          })()}</a>
+          <div class="flex items-center gap-2 mb-6">
+            <h2 class="text-xl font-bold">Community Tracks</h2>
+            <span class="badge badge-primary badge-outline">${tracks.length}</span>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            ${tracks.map((t, i) => {
+          const trackData = JSON.stringify({
+            id: t.slug,
+            title: t.title,
+            artist_name: t.artistName,
+            duration: t.duration,
+            audioUrl: t.audioUrl,
+            coverUrl: t.coverUrl,
+            isExternal: true
+          }).replace(/'/g, "&apos;");
+
+          return `
+              <div class="card bg-base-200/50 border border-white/5 hover:bg-base-200 transition-all cursor-pointer group network-track shadow-sm hover:shadow-md" 
+                   data-track='${trackData}' data-index="${i}">
+                <div class="p-3 flex items-center gap-4">
+                  <div class="relative w-12 h-12 rounded-lg bg-base-300 flex-shrink-0 overflow-hidden">
+                    ${t.coverUrl ? `<img src="${t.coverUrl}" class="w-full h-full object-cover">` : '<div class="w-full h-full flex items-center justify-center text-xl opacity-30">🎵</div>'}
+                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <span class="text-white">▶</span>
+                    </div>
                   </div>
-                </div>
-                <div class="track-actions" style="display:flex; gap:10px; align-items:center;">
-                    <div class="track-duration">${Player.formatTime(t.duration)}</div>
+                  
+                  <div class="flex-1 min-w-0">
+                    <div class="font-bold text-sm truncate pr-2">${App.escapeHtml(t.title || 'Untitled')}</div>
+                    <div class="text-xs opacity-60 truncate flex items-center gap-1">
+                      <span>${App.escapeHtml(t.artistName || 'Unknown')}</span>
+                      ${t.siteUrl ? `• <a href="${t.siteUrl}" target="_blank" onclick="event.stopPropagation()" class="hover:text-primary hover:underline">${new URL(t.siteUrl).hostname}</a>` : ''}
+                    </div>
+                  </div>
+
+                  <div class="text-xs font-mono opacity-40">${Player.formatTime(t.duration)}</div>
                 </div>
               </div>
-            `).join('')}
+              `;
+        }).join('')}
           </div>
         `;
 
-        // Add click handlers for network tracks
+        // Click handlers
         tracksContainer.querySelectorAll('.network-track').forEach(item => {
           item.addEventListener('click', () => {
             try {
               const track = JSON.parse(item.dataset.track.replace(/&apos;/g, "'"));
-              const index = parseInt(item.dataset.index, 10);
-
-              // Build queue from all network tracks
-              const allTracks = tracks.map(t => ({
-                id: t.slug,
-                title: t.title,
-                artist_name: t.artistName,
-                duration: t.duration,
-                audioUrl: t.audioUrl,
-                coverUrl: t.coverUrl,
-                isExternal: true
-              }));
-
-              this.playExternalTrack(track, allTracks, index);
-            } catch (e) {
-              console.error('Failed to play network track:', e);
-            }
+              this.playExternalTrack(track, tracks, parseInt(item.dataset.index));
+            } catch (e) { console.error(e); }
           });
         });
       } else {
-        tracksContainer.style.display = 'block';
+        tracksContainer.classList.remove('hidden');
         tracksContainer.innerHTML = `
-          <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
-            <p>No tracks found in the network yet.</p>
-            <p style="font-size: 0.875rem; margin-top: 0.5rem;">
-              Make your releases public to share them with the community!
-            </p>
-          </div>
-        `;
+           <div class="text-center py-12 opacity-50 border-2 border-dashed border-white/5 rounded-xl">
+             <p>No community tracks found yet.</p>
+           </div>
+         `;
       }
 
+      // Render Sites
       if (sites && sites.length > 0) {
-        sitesContainer.style.display = 'block';
+        sitesContainer.classList.remove('hidden');
         sitesContainer.innerHTML = `
-          <h2 class="section-title" style="font-size: 1.25rem; margin-bottom: 1rem;">
-            🏠 TuneCamp Instances (${sites.length})
-          </h2>
-          <div class="grid">
-            ${sites.map(s => {
-          const coverHtml = s.coverImage
-            ? `<div class="card-cover" style="background-image: url('${s.coverImage}'); background-size: cover; background-position: center;"></div>`
-            : `<div class="card-cover" style="display: flex; align-items: center; justify-content: center; font-size: 3rem; background: var(--bg-secondary);">🏠</div>`;
-
-          return `
-              <a href="${s.url}" target="_blank" rel="noopener noreferrer" class="card" style="text-decoration: none;">
-                ${coverHtml}
-                <div class="card-body">
-                  <div class="card-title">${App.escapeHtml(s.title || 'Untitled')}</div>
-                  <div class="card-subtitle">${App.escapeHtml(s.artistName || (() => {
-            try {
-              return new URL(s.url).hostname;
-            } catch (e) {
-              return 'Unknown';
-            }
-          })())}</div>
+          <div class="flex items-center gap-2 mb-6">
+            <h2 class="text-xl font-bold">Active Instances</h2>
+            <span class="badge badge-secondary badge-outline">${sites.length}</span>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            ${sites.map(s => `
+              <a href="${s.url}" target="_blank" rel="noopener noreferrer" class="card bg-base-200 border border-white/5 hover:border-primary/30 transition-all hover:scale-[1.01] group">
+                <figure class="h-32 bg-base-300 relative overflow-hidden">
+                  ${s.coverImage ? `<img src="${s.coverImage}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity">` : '<div class="w-full h-full flex items-center justify-center text-4xl opacity-20">🏠</div>'}
+                  <div class="absolute bottom-2 right-2 badge badge-neutral badge-sm bg-black/50 border-none backdrop-blur-md">
+                    ${new URL(s.url).hostname}
+                  </div>
+                </figure>
+                <div class="card-body p-4">
+                  <h3 class="font-bold text-lg group-hover:text-primary transition-colors">${App.escapeHtml(s.title || 'Untitled')}</h3>
+                  <p class="text-sm opacity-60 line-clamp-2">${App.escapeHtml(s.siteDescription || 'No description provided.')}</p>
                 </div>
               </a>
-            `}).join('')}
+            `).join('')}
           </div>
         `;
       }
     } catch (e) {
-      console.error('Failed to load network data:', e);
-      const loadingEl = document.getElementById('network-loading');
-      if (loadingEl) {
-        loadingEl.innerHTML = `
-        <div class="error-message">Failed to load network data. Try again later.</div>
-      `;
-      }
+      console.error('Network load error:', e);
+      document.getElementById('network-loading').innerHTML = '<p class="text-error">Failed to load network.</p>';
     }
   },
 
@@ -2485,6 +2409,7 @@ const App = {
 
   async renderUsersList() {
     const list = document.getElementById('users-list-container');
+    if (!list) return;
 
     list.innerHTML = '<div class="loading">Loading users...</div>';
 
@@ -2492,23 +2417,27 @@ const App = {
       const users = await API.getAdmins();
 
       list.innerHTML = users.map(u => `
-  < div class="card mb-2" style = "padding: 1rem; display: flex; justify-content: space-between; align-items: center;" >
-            <div>
-                <div style="font-weight: bold;">${App.escapeHtml(u.username)}</div>
-                <div style="font-size: 0.8rem; color: var(--text-muted);">
-                    ID: ${u.id} • Created: ${new Date(u.created_at).toLocaleDateString('en-GB')}
-                    ${u.is_root ? ' (Primary Admin)' : ''}
-                    ${u.artist_name ? ` • 🎵 ${App.escapeHtml(u.artist_name)}` : ''}
+        <div class="card bg-base-200 border border-white/5 mb-2">
+            <div class="card-body p-4 flex-row items-center justify-between">
+                <div>
+                    <div class="font-bold flex items-center gap-2">
+                      ${App.escapeHtml(u.username)}
+                      ${u.is_root ? '<span class="badge badge-primary badge-xs">Root</span>' : ''}
+                    </div>
+                    <div class="text-xs opacity-50 mt-1">
+                        ID: ${u.id} • Joined: ${new Date(u.created_at).toLocaleDateString()}
+                        ${u.artist_name ? ` • 🎵 ${App.escapeHtml(u.artist_name)}` : ''}
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    ${this.isRootAdmin && !u.isRootAdmin ? `
+                        <button class="btn btn-xs btn-outline edit-user-link" data-id="${u.id}" data-artist-id="${u.artist_id || ''}">Link Artist</button>
+                        <button class="btn btn-xs btn-error btn-outline delete-user" data-id="${u.id}">Delete</button>
+                    ` : ''}
                 </div>
             </div>
-            <div style="display: flex; gap: 0.5rem;">
-                ${this.isRootAdmin && !u.isRootAdmin ? `
-                    <button class="btn btn-sm btn-outline edit-user-link" data-id="${u.id}" data-artist-id="${u.artist_id || ''}">Link Artist</button>
-                    <button class="btn btn-sm btn-danger delete-user" data-id="${u.id}">Delete</button>
-                ` : ''}
-            </div>
-        </div >
-  `).join('');
+        </div>
+      `).join('');
 
       // Delete handlers
       list.querySelectorAll('.delete-user').forEach(btn => {
@@ -2535,46 +2464,49 @@ const App = {
 
     } catch (err) {
       console.error(err);
-      list.innerHTML = '<div class="error-message">Failed to load users</div>';
+      list.innerHTML = '<div class="text-error text-sm">Failed to load users</div>';
     }
   },
 
   async showLinkArtistModal(userId, currentArtistId) {
     const artists = await API.getArtists();
 
+    const modalId = 'link-artist-modal';
+    const existing = document.getElementById(modalId);
+    if (existing) existing.remove();
+
     const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.style.display = 'flex';
-    modal.id = 'link-artist-modal';
+    modal.id = modalId;
+    modal.className = 'modal modal-open bg-black/50 backdrop-blur-sm';
     modal.style.zIndex = '10010';
 
     const options = '<option value="">None (General Admin)</option>' +
-      artists.map(a => `< option value = "${a.id}" ${String(a.id) === String(currentArtistId) ? 'selected' : ''}> ${a.name}</option > `).join('');
+      artists.map(a => `<option value="${a.id}" ${String(a.id) === String(currentArtistId) ? 'selected' : ''}>${a.name}</option>`).join('');
 
     modal.innerHTML = `
-  < div class="modal-content" style = "max-width: 400px;" >
-            <h3>Link Admin to Artist</h3>
-            <p style="margin-bottom: 1rem;">Select an artist to restrict this admin's access.</p>
-            <div class="form-group">
-                <select id="link-artist-select" style="width: 100%; padding: 0.5rem; background: var(--bg-secondary); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px;">
-                    ${options}
-                </select>
-            </div>
-            <div class="form-actions">
-                <button class="btn btn-primary" id="save-link-artist">Save</button>
-                <button class="btn btn-outline" id="cancel-link-artist">Cancel</button>
-            </div>
-        </div >
-  `;
+      <div class="modal-box bg-base-200 border border-white/10">
+          <h3 class="font-bold text-lg mb-4">Link Admin to Artist</h3>
+          <p class="text-sm opacity-70 mb-4">Select an artist to restrict this admin's access.</p>
+          <div class="form-control mb-6">
+              <select id="link-artist-select" class="select select-bordered w-full">
+                  ${options}
+              </select>
+          </div>
+          <div class="modal-action">
+              <button class="btn btn-primary" id="save-link-artist">Save</button>
+              <button class="btn btn-ghost" id="cancel-link-artist">Cancel</button>
+          </div>
+      </div>
+    `;
     document.body.appendChild(modal);
 
-    document.getElementById('cancel-link-artist').onclick = () => document.getElementById('link-artist-modal').remove();
+    document.getElementById('cancel-link-artist').onclick = () => modal.remove();
 
     document.getElementById('save-link-artist').onclick = async () => {
       const newArtistId = document.getElementById('link-artist-select').value || null;
       try {
         await API.updateAdmin(userId, { artistId: newArtistId });
-        document.getElementById('link-artist-modal').remove();
+        modal.remove();
         alert('User updated!');
         this.renderUsersList();
       } catch (err) {
@@ -3364,34 +3296,62 @@ const App = {
 
   renderTrackList(container, tracks) {
     if (!tracks || tracks.length === 0) {
-      container.innerHTML = '<p style="padding: 1rem; color: var(--text-secondary);">No tracks</p>';
+      container.innerHTML = '<p class="p-4 text-center text-base-content/50">No tracks found</p>';
       return;
     }
 
-    container.innerHTML = tracks.map((track, index) => `
-              <div class="track-item" data-track='${JSON.stringify(track).replace(/' /g, "&apos;")}' data-index="${index}">
-              <div class="track-num">${track.track_num || index + 1}</div>
-              <div class="track-info">
-                <div class="track-title">${track.title}</div>
-              </div>
-              <div class="track-waveform">
-                <canvas width="100" height="30" data-waveform="${track.waveform || ''}"></canvas>
-              </div>
-              <div class="track-duration">${Player.formatTime(track.duration)}</div>
-              ${this.isAdmin ? `
-        <button class="btn btn-sm btn-ghost add-to-playlist-btn" 
-                title="Add to Playlist" 
-                style="margin-left: 0.5rem; padding: 4px 8px; font-size: 0.9rem;"
-                onclick="event.stopPropagation(); App.showAddToPlaylistModal(${track.id})">
-          📋
-        </button>` : ''}
-              <button class="btn btn-sm btn-ghost add-to-queue-btn" title="Add to Queue"
-                style="margin-left: 0.5rem; padding: 4px 8px; font-size: 0.9rem;"
-                onclick="event.stopPropagation(); Player.addToQueue(${JSON.stringify(track).replace(/"/g, '&quot;')})">
+    container.innerHTML = tracks.map((track, index) => {
+      // Use album cover for track if available, fallback to placeholder
+      const coverUrl = track.cover || (track.album_id ? API.getAlbumCoverUrl(track.album_id) : '/img/album-placeholder.png');
+
+      return `
+        <div class="track-item group flex items-center gap-4 p-3 rounded-xl hover:bg-base-100/50 transition-colors cursor-pointer border-b border-white/5 last:border-0" 
+             data-track='${JSON.stringify(track).replace(/'/g, "&apos;")}' 
+             data-index="${index}">
+             
+          <!-- Track Number -->
+          <div class="w-8 text-center text-sm opacity-50 font-mono">${track.track_num || index + 1}</div>
+          
+          <!-- Cover Thumbnail -->
+          <div class="w-12 h-12 flex-shrink-0 rounded-md overflow-hidden bg-base-300 relative">
+             <img src="${coverUrl}" class="w-full h-full object-cover" onerror="this.src='/img/album-placeholder.png'">
+             <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+               <span class="text-white text-lg">▶</span>
+             </div>
+          </div>
+
+          <!-- Track Info & Waveform -->
+          <div class="flex-1 min-w-0 flex flex-col justify-center gap-1">
+            <div class="font-bold text-sm truncate pr-2">${track.title}</div>
+            <div class="h-8 w-full opacity-60 relative track-waveform-container">
+               <canvas width="600" height="60" class="w-full h-full object-contain" data-waveform="${track.waveform || ''}"></canvas>
+            </div>
+          </div>
+
+          <!-- Duration & Actions -->
+          <div class="flex items-center gap-2">
+            <div class="text-xs font-mono opacity-50 w-10 text-right">${Player.formatTime(track.duration)}</div>
+            
+            ${this.isAdmin ? `
+            <button class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity" 
+                    title="Add to Playlist" 
+                    onclick="event.stopPropagation(); App.showAddToPlaylistModal(${track.id})">
+              📋
+            </button>` : ''}
+            
+            <button class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity" 
+                    title="Add to Queue"
+                    onclick="event.stopPropagation(); Player.addToQueue(${JSON.stringify(track).replace(/"/g, '&quot;')})">
               ➕
             </button>
+            <button class="btn btn-ghost btn-xs btn-square md:hidden" 
+                    onclick="event.stopPropagation(); Player.play(JSON.parse(this.closest('.track-item').dataset.track), null)">
+              ▶
+            </button>
           </div>
-          `).join('');
+        </div>
+      `;
+    }).join('');
 
     this.attachTrackListeners(tracks);
     this.drawWaveforms(container);
