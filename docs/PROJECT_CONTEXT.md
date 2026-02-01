@@ -26,7 +26,12 @@ The project operates in two main modes:
     -   Runs a long-lived Express server.
     -   Provides a dynamic interface for streaming and managing the library.
     -   Supports ActivityPub for federation (Mastodon-compatible).
-    -   Includes a "Studio" for administrative tasks.
+    -   Includes a "Studio" for administrative tasks with granular permissions (Root vs Artist Admins).
+
+3.  **Security & Identity**:
+    -   **Root Admins**: Have full system access, including global server identity keys.
+    -   **Artist Admins**: Restricted to managing specific artists and viewing their own keys.
+    -   **ActivityPub Identity**: Each artist has a unique RSA keypair for federation.
 
 ## Key Directories
 -   `src/`: Main source code.

@@ -2448,7 +2448,7 @@ const App = {
     });
 
     // Identity Export
-    document.getElementById('export-identity-btn').addEventListener('click', async () => {
+    document.getElementById('export-identity-btn')?.addEventListener('click', async () => {
       try {
         const keys = await API.getIdentity();
         const json = JSON.stringify(keys, null, 2);
@@ -2483,7 +2483,7 @@ const App = {
     });
 
     // Identity Import
-    document.getElementById('import-identity-btn').addEventListener('click', () => {
+    document.getElementById('import-identity-btn')?.addEventListener('click', () => {
       const modal = document.createElement('div');
       modal.className = 'modal';
       modal.style.display = 'flex';

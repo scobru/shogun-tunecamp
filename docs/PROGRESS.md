@@ -10,6 +10,8 @@
 -   **Docker**: Dockerfile available for containerized deployment.
 -   **Web Interface**: Improved Reactivity and UI in `webapp/`.
 -   **Admin-Artist Linking**: Granular permissions allowing admins to be linked to specific artists.
+-   **ActivityPub Privacy**: Automatic deletion broadcast for private tracks.
+-   **Key Management**: Secure Identity management for Root Admins and viewing keys for Artists.
 
 ## Active Areas
 -   **ActivityPub**: Federation features (Inbox/Outbox, Follows, Posts) are largely implemented and functional.

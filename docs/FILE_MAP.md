@@ -20,6 +20,8 @@
     -   `routes/`: API and page routes.
         -   `posts.ts`: Custom posts API.
         -   `backup.ts`: Backup system logic.
+        -   `admin.ts`: Admin dashboard routes.
+        -   `releases.ts`: Release management routes.
 -   `studio/`: Admin interface logic.
 -   `gleam/`: Gleam source code.
 -   `gleam_generated/`: Compiled Gleam JS interface.
