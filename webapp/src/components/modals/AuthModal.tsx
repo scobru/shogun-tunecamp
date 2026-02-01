@@ -85,7 +85,7 @@ export const AuthModal = () => {
                                 className="input input-bordered w-full" 
                                 value={username}
                                 onChange={e => setUsername(e.target.value)}
-                                required={mode !== 'admin'}
+                                required
                                 autoComplete="username"
                             />
                         </div>
