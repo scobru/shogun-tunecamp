@@ -89,7 +89,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
         // Handle Repeat One
         if (repeatMode === 'one' && queueIndex !== -1) {
-            const track = queue[queueIndex];
+            // const track = queue[queueIndex];
             // Just restart functionality is usually handled by audio element, 
             // but if called explicitly via button, we might want to skip anyway?
             // Standard behavior: Next button skips even in repeat one.

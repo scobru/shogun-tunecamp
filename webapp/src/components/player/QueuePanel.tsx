@@ -3,7 +3,7 @@ import { X, Trash2 } from 'lucide-react';
 import { GleamUtils } from '../../utils/gleam';
 
 export const QueuePanel = () => {
-    const { queue, queueIndex, playQueue, removeFromQueue, toggleQueue, isQueueOpen, currentTrack } = usePlayerStore();
+    const { queue, queueIndex, playQueue, removeFromQueue, toggleQueue, isQueueOpen } = usePlayerStore();
 
     if (!isQueueOpen) return null;
 

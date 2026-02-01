@@ -125,7 +125,7 @@ export const Search = () => {
                         <section>
                             <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Music size={20}/> Tracks</h2>
                             <div className="flex flex-col gap-1">
-                                {results.tracks.map((track, i) => (
+                                {results.tracks.map((track) => (
                                     <div key={track.id} className="flex items-center gap-4 p-2 hover:bg-white/5 rounded-lg group">
                                         <button onClick={() => playTrack(track, results.tracks)} className="relative w-10 h-10 shrink-0">
                                              <img src={API.getAlbumCoverUrl(track.albumId)} className="w-full h-full rounded object-cover opacity-70 group-hover:opacity-100" />

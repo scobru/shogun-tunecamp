@@ -2,15 +2,15 @@ import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useNavigate } from 'react-router-dom';
-import { BarChart2, Users, Settings, Database, Server, RefreshCw } from 'lucide-react';
-import { GleamUtils } from '../utils/gleam';
+import { BarChart2, Settings, Database, RefreshCw } from 'lucide-react';
+// import { GleamUtils } from '../utils/gleam';
 
 export const Admin = () => {
     const { user, isAuthenticated } = useAuthStore();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'users' | 'settings' | 'system'>('overview');
     const [stats, setStats] = useState<any>(null);
-    const [loading, setLoading] = useState(false);
+    // const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (!isAuthenticated || !user?.isAdmin) {
@@ -21,14 +21,14 @@ export const Admin = () => {
     }, [isAuthenticated, user]);
 
     const loadStats = async () => {
-        setLoading(true);
+        // setLoading(true);
         try {
             const data = await API.getAdminStats();
             setStats(data);
         } catch (e) {
             console.error(e);
         } finally {
-            setLoading(false);
+            // setLoading(false);
         }
     };
 

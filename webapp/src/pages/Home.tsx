@@ -65,7 +65,7 @@ export const Home = () => {
                     <div key={album.id} className="group relative bg-base-200 rounded-xl overflow-hidden hover:bg-base-300 transition-colors shadow-lg">
                         <div className="aspect-square w-full relative">
                             <img 
-                                src={API.getCoverUrl(album.slug || album.id)} 
+                                src={API.getAlbumCoverUrl(album.slug || album.id)} 
                                 alt={album.title} 
                                 className="w-full h-full object-cover"
                             />

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useSearchParams } from 'react-router-dom';
-import { Folder, File, ArrowLeft, Play, Music, Image as ImageIcon, FileText, Download } from 'lucide-react';
+import { Folder, File, ArrowLeft, Music, Image as ImageIcon } from 'lucide-react';
 import { GleamUtils } from '../utils/gleam';
 import { usePlayerStore } from '../stores/usePlayerStore';
 import type { Track } from '../types';

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useAuthStore } from '../../stores/useAuthStore';
-import { X, LogIn, UserPlus } from 'lucide-react';
+import { LogIn, UserPlus } from 'lucide-react';
 
 export const AuthModal = () => {
     const dialogRef = useRef<HTMLDialogElement>(null);

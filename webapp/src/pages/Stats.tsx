@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
-import { BarChart2, TrendingUp, User, Music } from 'lucide-react';
-import type { Track } from '../types';
+import { BarChart2, User, Music } from 'lucide-react';
+// import type { Track } from '../types';
 
 export const Stats = () => {
     const [topTracks, setTopTracks] = useState<any[]>([]);

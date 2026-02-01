@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import API from '../../services/api';
-import { Lock, Unlock } from 'lucide-react';
+import { Unlock } from 'lucide-react';
 
 export const UnlockModal = () => {
     const dialogRef = useRef<HTMLDialogElement>(null);

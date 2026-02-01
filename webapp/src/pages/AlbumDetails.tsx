@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useParams, Link } from 'react-router-dom';
-import { Play, Clock, Heart, MoreHorizontal, Disc, Calendar, Share2, Plus } from 'lucide-react';
+import { Play, Clock, Heart, MoreHorizontal, Disc, Share2, Plus } from 'lucide-react';
 import { usePlayerStore } from '../stores/usePlayerStore';
-import { GleamUtils } from '../utils/gleam';
-import type { Album, Track } from '../types';
+// import { GleamUtils } from '../utils/gleam';
+import type { Album } from '../types';
 
 export const AlbumDetails = () => {
     const { id } = useParams();

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useParams, Link } from 'react-router-dom';
-import { Play, Disc, Twitter, Globe, Instagram, Music } from 'lucide-react';
+import { Play, Disc, Globe } from 'lucide-react';
 import { usePlayerStore } from '../stores/usePlayerStore';
 import type { Artist, Album } from '../types';
 
