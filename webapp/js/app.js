@@ -1870,413 +1870,396 @@ const App = {
     ]);
 
     container.innerHTML = `
-      <section class="section">
-        <div class="admin-header">
-          <h1 class="section-title">Admin Panel</h1>
+      <section class="admin-section p-4 lg:p-8 max-w-7xl mx-auto">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <button class="btn btn-primary" id="new-release-btn">New Release</button>
-            ${this.isRootAdmin ? '<button class="btn btn-outline" id="new-artist-btn">New Artist</button>' : ''}
-            <button class="btn btn-outline" id="upload-btn">Upload Tracks</button>
-            ${this.isRootAdmin ? '<button class="btn btn-outline" id="users-btn">Users</button>' : ''}
-            <button class="btn btn-outline" id="posts-btn">Posts</button>
-            ${this.isRootAdmin ? '<button class="btn btn-outline" id="rescan-btn">Rescan</button>' : ''}
-            ${this.isRootAdmin ? '<button class="btn btn-outline" id="consolidate-btn">Consolidate Library</button>' : ''}
-            ${this.isRootAdmin ? '<button class="btn btn-outline" id="network-settings-btn">Network</button>' : ''}
-            ${this.isRootAdmin ? '<button class="btn btn-outline" id="backup-btn">Backup</button>' : ''}
+            <h1 class="text-3xl font-bold">Admin Panel</h1>
+            <p class="text-sm opacity-50">Manage your server, library, and community.</p>
+          </div>
+          <div class="flex gap-2">
             <button class="btn btn-outline" id="logout-btn">Logout</button>
           </div>
         </div>
-        
-        <div class="stats stats-vertical lg:stats-horizontal shadow bg-base-200 border border-white/5 w-full mb-12">
-          <div class="stat">
-            <div class="stat-title">Artists</div>
-            <div class="stat-value text-primary">${stats.artists}</div>
-          </div>
-          <div class="stat">
-            <div class="stat-title">Albums</div>
-            <div class="stat-value text-secondary">${stats.albums}</div>
-          </div>
-          <div class="stat">
-            <div class="stat-title">Tracks</div>
-            <div class="stat-value text-accent">${stats.tracks}</div>
-          </div>
-          <div class="stat">
-            <div class="stat-title">Public</div>
-            <div class="stat-value">${stats.publicAlbums}</div>
-          </div>
+
+        <div class="tabs tabs-lifted mb-8" id="admin-tabs">
+          <button class="tab tab-active" data-tab="dashboard-panel">Dashboard</button>
+          <button class="tab" data-tab="library-panel">Library</button>
+          <button class="tab" data-tab="posts-panel">Community</button>
+          <button class="tab" data-tab="config-panel">Config</button>
+          <button class="tab" data-tab="system-panel">System</button>
         </div>
 
-        
-        <!-- Network Settings Panel (hidden by default) -->
-        <div id="network-settings-panel" class="admin-panel" style="display: none;">
-          <h3>Network & Social Settings</h3>
-          <form id="network-settings-form">
-            <div class="form-group">
-              <label>Public Server URL</label>
-              <input type="url" id="network-setting-public-url" placeholder="https://tunecamp.example.com">
-              <p class="text-xs opacity-50">Used for federation and links.</p>
+        <!-- Dashboard Panel -->
+        <div id="dashboard-panel" class="admin-tab-panel">
+          <div class="stats stats-vertical lg:stats-horizontal shadow bg-base-200 border border-white/5 w-full mb-8">
+            <div class="stat">
+              <div class="stat-title">Artists</div>
+              <div class="stat-value text-primary">${stats.artists}</div>
             </div>
-            <div class="form-group">
-              <label>Site Name</label>
-              <input type="text" id="network-setting-site-name">
+            <div class="stat">
+              <div class="stat-title">Albums</div>
+              <div class="stat-value text-secondary">${stats.albums}</div>
             </div>
-            <div class="form-group">
-              <label>Description</label>
-              <textarea id="network-setting-site-description"></textarea>
+            <div class="stat">
+              <div class="stat-title">Tracks</div>
+              <div class="stat-value text-accent">${stats.tracks}</div>
             </div>
-            <div class="form-group">
-              <label>Primary Artist Name</label>
-              <input type="text" id="network-setting-artist-name">
+            <div class="stat">
+              <div class="stat-title">Public</div>
+              <div class="stat-value">${stats.publicAlbums}</div>
             </div>
-            <div class="form-group">
-                <label>Server Cover/Avatar URL</label>
-                <input type="text" id="network-setting-cover-image">
-            </div>
-            <div class="divider"></div>
-            <div class="form-group">
-              <label>Federation Controls</label>
-              <button type="button" class="btn btn-outline btn-sm btn-error" id="reset-hidden-tracks">Reinposta Tracce Nascoste</button>
-              <p class="text-xs opacity-50 mt-1">Cancella la lista delle tracce rimosse manualmente dal Feed Network.</p>
-            </div>
-            <button type="submit" class="btn btn-primary mt-4">Save Network Settings</button>
-          </form>
-        </div>
+          </div>
 
-        <!-- Backup Panel (hidden by default) -->
-        <div id="backup-panel" class="admin-panel" style="display: none;">
-          <h3>Data Backup & Restore</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="p-4 bg-base-300 rounded-lg">
-              <h4>Export Backup</h4>
-              <p class="text-sm opacity-70 mb-4">Scarica un archivio ZIP contenente il database e tutta la libreria audio.</p>
-              <a href="/api/admin/backup/export" class="btn btn-outline btn-block" target="_blank">Download Full Backup</a>
-              
-              <div class="divider"></div>
-              <h4>Identity Management</h4>
-              <p class="text-sm opacity-70 mb-4">Esporta o importa le chiavi d'identità del server.</p>
-              <div class="flex gap-2">
-                <button class="btn btn-sm btn-outline flex-1" id="export-identity-btn">Esporta Chiavi</button>
-                <button class="btn btn-sm btn-outline flex-1" id="import-identity-btn">Importa Chiavi</button>
+            <div class="card bg-base-200 border border-white/5">
+              <div class="card-body">
+                <h2 class="card-title">Quick Actions</h2>
+                <div class="flex flex-wrap gap-2 mt-4">
+                  <button class="btn btn-primary btn-sm" id="new-release-quick-btn">New Release</button>
+                  <button class="btn btn-outline btn-sm" id="upload-quick-btn">Upload Tracks</button>
+                  <button class="btn btn-outline btn-sm" id="new-artist-quick-btn">New Artist</button>
+                  <button class="btn btn-outline btn-sm" id="posts-quick-btn">New Post</button>
+                </div>
               </div>
             </div>
-            <div class="p-4 bg-base-300 rounded-lg">
-              <h4>Restore Backup</h4>
-              <p class="text-sm opacity-70 mb-4">Carica un backup precedente per ripristinare il server. <strong>Attenzione: sovrascrive i dati attuali!</strong></p>
-              <form id="restore-form">
-                <input type="file" id="restore-file-input" accept=".zip" class="file-input file-input-bordered w-full mb-4" required>
-                <button type="submit" class="btn btn-error btn-block" id="restore-btn">Esegui Ripristino</button>
-              </form>
-              <div id="restore-status" class="mt-2 text-sm"></div>
+            <div class="card bg-base-200 border border-white/5">
+              <div class="card-body">
+                <h2 class="card-title">Recent Activity</h2>
+                <div class="text-sm opacity-50 py-4">Recent system logs and activity will appear here.</div>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Upload Panel (hidden by default) -->
-        <div id="upload-panel" class="admin-panel" style="display: none;">
-          <h3 class="mb-4">Upload Tracks to Library</h3>
-          <div class="upload-zone border-2 border-dashed border-white/10 rounded-2xl p-12 text-center bg-base-300/30 hover:bg-base-300/50 transition-colors cursor-pointer" id="upload-zone">
-            <input type="file" id="file-input" multiple accept="audio/*" style="display: none;">
-            <div class="text-5xl mb-4">📁</div>
-            <p class="text-lg font-medium mb-1">Drag & drop audio files here</p>
-            <p class="text-sm opacity-50 mb-6">or <button class="btn btn-outline btn-sm" id="browse-btn">Browse Files</button></p>
-            <p class="text-xs opacity-30">Supports: MP3, FLAC, OGG, WAV, M4A, AAC, OPUS</p>
-          </div>
-          <div id="upload-progress" class="mt-8 bg-base-300 rounded-xl p-6 border border-white/5" style="display: none;">
-            <div class="progress-bar h-2 w-full bg-base-100 rounded-full overflow-hidden mb-3">
-              <div class="progress-fill h-full bg-primary transition-all duration-300" id="progress-fill" style="width: 0%"></div>
+        <!-- Library Panel -->
+        <div id="library-panel" class="admin-tab-panel" style="display: none;">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold">Manage Library</h2>
+            <div class="flex gap-2">
+                <button class="btn btn-primary btn-sm" id="new-release-btn">＋ New Release</button>
+                <button class="btn btn-secondary btn-sm" id="new-artist-btn">＋ New Artist</button>
             </div>
-            <p id="upload-status" class="text-sm font-medium"></p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2">
+              <div class="card bg-base-300/30 border border-white/5">
+                <div class="card-body p-0">
+                  <div class="overflow-x-auto">
+                    <table class="table table-zebra w-full text-sm">
+                      <thead>
+                        <tr>
+                          <th>Release</th>
+                          <th>Artist</th>
+                          <th>Status</th>
+                          <th class="text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${releases.map(r => `
+                          <tr class="hover">
+                            <td>
+                              <div class="flex items-center gap-3">
+                                <div class="avatar">
+                                  <div class="mask mask-squircle w-10 h-10 bg-base-300">
+                                    <img src="${API.getAlbumCoverUrl(r.slug || r.id)}" alt="${r.title}" onerror="this.src='/img/album-placeholder.png'">
+                                  </div>
+                                </div>
+                                <div>
+                                    <div class="font-bold cursor-pointer hover:text-primary transition-colors edit-release-btn" data-id="${r.id}">${App.escapeHtml(r.title)}</div>
+                                    <div class="text-[10px] opacity-40 uppercase tracking-tighter">${r.slug || r.id}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td class="opacity-70">${App.escapeHtml(r.artist_name || 'Various')}</td>
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <input type="checkbox" class="toggle toggle-success toggle-xs visibility-toggle" 
+                                    ${r.is_public ? 'checked' : ''} data-id="${r.id}">
+                                <span class="badge ${r.is_public ? 'badge-success' : 'badge-ghost'} badge-xs">
+                                  ${r.is_public ? 'Public' : 'Hidden'}
+                                </span>
+                              </div>
+                            </td>
+                            <th class="text-right">
+                                <div class="dropdown dropdown-left">
+                                    <button tabindex="0" class="btn btn-ghost btn-xs">Actions</button>
+                                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-300 rounded-box w-40 z-50">
+                                        <li><a class="edit-release-btn" data-id="${r.id}">Edit Metadata</a></li>
+                                        <li><a class="upload-to-release-btn" data-slug="${r.slug || r.id}">Upload Tracks</a></li>
+                                        <li><a class="delete-release-btn text-error" data-id="${r.id}">Delete Release</a></li>
+                                    </ul>
+                                </div>
+                            </th>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div class="card bg-base-200 border border-white/5 mb-8">
+                <div class="card-body">
+                  <h3 class="font-bold mb-4 text-sm uppercase opacity-50">Manual Upload</h3>
+                  <div class="upload-zone border-2 border-dashed border-white/10 rounded-xl p-8 text-center bg-base-300/30 hover:bg-base-300/50 transition-colors cursor-pointer" id="upload-zone">
+                    <input type="file" id="file-input" multiple accept="audio/*" style="display: none;">
+                    <div class="text-3xl mb-2">📁</div>
+                    <p class="text-sm font-medium">Drag & drop files</p>
+                    <button class="btn btn-xs btn-outline mt-3" id="browse-btn">Browse Files</button>
+                  </div>
+                  <div id="upload-progress" class="mt-4" style="display: none;">
+                    <progress class="progress progress-primary w-full" id="progress-fill" value="0" max="100"></progress>
+                    <p id="upload-status" class="text-[10px] mt-1 text-center font-mono uppercase"></p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card bg-base-200 border border-white/5">
+                 <div class="card-body">
+                    <h3 class="font-bold mb-4 text-sm uppercase opacity-50">Artists</h3>
+                    <div id="admin-artists-list" class="space-y-1">
+                        <!-- Artists list loaded here -->
+                    </div>
+                 </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Posts Panel (hidden by default) -->
-        <div id="posts-panel" class="admin-panel" style="display: none;">
-            <h3>Manage Posts</h3>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
-                <div class="bg-base-300/30 p-6 rounded-2xl border border-white/5">
-                    <h4 class="text-lg font-bold mb-4">Create New Post</h4>
-                    <form id="create-post-form">
-                        <div class="form-group">
-                            <label class="label"><span class="label-text">Artist</span></label>
-                            <select id="post-artist" class="select select-bordered w-full" required>
-                                <option value="">Select Artist...</option>
+        <!-- Community Panel -->
+        <div id="posts-panel" class="admin-tab-panel" style="display: none;">
+            <h2 class="text-xl font-bold mb-6">Social & Community</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="card bg-base-200 border border-white/5">
+                    <div class="card-body">
+                        <h4 class="card-title mb-4">Create New Post</h4>
+                        <form id="create-post-form">
+                            <div class="form-control w-full">
+                                <label class="label"><span class="label-text">Artist</span></label>
+                                <select id="post-artist" class="select select-bordered w-full" required>
+                                    <option value="">Select Artist...</option>
+                                </select>
+                            </div>
+                            <div class="form-control w-full mt-4">
+                                <label class="label"><span class="label-text">Content</span></label>
+                                <textarea id="post-content" class="textarea textarea-bordered w-full h-32" required placeholder="Write something to your followers..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-full mt-6">Publish Post</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="card bg-base-200 border border-white/5">
+                    <div class="card-body">
+                        <h4 class="card-title mb-4">Recent Posts</h4>
+                        <div id="posts-list" class="space-y-4">
+                            <p class="text-sm opacity-50 text-center py-12">Select an artist to view their posts.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Config Panel -->
+        <div id="config-panel" class="admin-tab-panel" style="display: none;">
+          <h2 class="text-xl font-bold mb-6">Configuration</h2>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="card bg-base-200 border border-white/5">
+              <div class="card-body">
+                <h3 class="card-title mb-4">Network & Social</h3>
+                <form id="network-settings-form" class="space-y-4">
+                  <div class="form-control">
+                    <label class="label"><span class="label-text">Public Server URL</span></label>
+                    <input type="url" id="network-setting-public-url" class="input input-bordered" placeholder="https://tunecamp.example.com">
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text">Site Name</span></label>
+                    <input type="text" id="network-setting-site-name" class="input input-bordered">
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text">Description</span></label>
+                    <textarea id="network-setting-site-description" class="textarea textarea-bordered"></textarea>
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text">Primary Artist Name</span></label>
+                    <input type="text" id="network-setting-artist-name" class="input input-bordered">
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text">Cover/Avatar URL</span></label>
+                    <input type="text" id="network-setting-cover-image" class="input input-bordered">
+                  </div>
+                  <button type="submit" class="btn btn-primary mt-4">Save Configuration</button>
+                </form>
+              </div>
+            </div>
+
+            <div class="card bg-base-200 border border-white/5">
+              <div class="card-body">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="card-title">Site Settings</h3>
+                </div>
+                
+                <form id="site-settings-form" class="space-y-4">
+                  <div class="form-control">
+                    <label class="label"><span class="label-text">Background Image URL</span></label>
+                    <input type="text" id="setting-background-image" class="input input-bordered" placeholder="/api/settings/background">
+                  </div>
+                  <div class="form-control">
+                    <label class="label"><span class="label-text">Upload Background</span></label>
+                    <input type="file" id="setting-background-file" class="file-input file-input-bordered w-full" accept="image/*">
+                  </div>
+                  <button type="submit" class="btn btn-primary mt-4" id="save-settings-btn">Save Site Settings</button>
+                </form>
+
+                <div class="divider mt-8">Admins</div>
+                
+                <div class="bg-base-300/30 p-4 rounded-xl border border-white/5 mb-6">
+                    <h4 class="text-sm font-bold opacity-50 mb-4 uppercase">Add New User</h4>
+                    <form id="create-user-form" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="form-control">
+                                <label class="label p-0"><span class="label-text text-xs">Username</span></label>
+                                <input type="text" id="new-user-name" class="input input-sm input-bordered" required>
+                            </div>
+                            <div class="form-control">
+                                <label class="label p-0"><span class="label-text text-xs">Password</span></label>
+                                <input type="password" id="new-user-pass" class="input input-sm input-bordered" required>
+                            </div>
+                        </div>
+                        <div class="form-control">
+                            <label class="label p-0"><span class="label-text text-xs">Artist Link (Optional)</span></label>
+                            <select id="new-user-artist" class="select select-sm select-bordered">
+                                <option value="">None</option>
                             </select>
                         </div>
-                        <div class="form-group mt-4">
-                            <label class="label"><span class="label-text">Content</span></label>
-                            <textarea id="post-content" class="textarea textarea-bordered w-full h-32" required placeholder="Write something to your followers..."></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-full mt-6">Publish Post</button>
+                        <button type="submit" class="btn btn-sm btn-primary btn-block">Create Admin</button>
                     </form>
                 </div>
-                <div class="bg-base-300/30 p-6 rounded-2xl border border-white/5">
-                    <h4 class="text-lg font-bold mb-4">Recent Posts</h4>
-                    <div id="posts-list" class="space-y-4">
-                        <p class="text-sm opacity-50 text-center py-12">Select an artist to view their posts.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- Users Panel (hidden by default) -->
-        <div id="users-panel" class="admin-panel" style="display: none;">
-          <div class="flex justify-between items-center mb-6">
-            <h3>Manage Administrators</h3>
-            <div id="create-admin-form-container" style="display: none;">
-               <h4 class="mb-2">Create New Admin</h4>
-               <form id="create-user-form" class="flex gap-2 items-end flex-wrap">
-                  <div class="form-group mb-0">
-                    <label class="label p-0"><span class="label-text text-xs">Username</span></label>
-                    <input type="text" id="new-user-name" class="input input-sm input-bordered" required>
-                  </div>
-                  <div class="form-group mb-0">
-                    <label class="label p-0"><span class="label-text text-xs">Password</span></label>
-                    <input type="password" id="new-user-pass" class="input input-sm input-bordered" required>
-                  </div>
-                  <div class="form-group mb-0">
-                    <label class="label p-0"><span class="label-text text-xs">Artist Link</span></label>
-                    <select id="new-user-artist" class="select select-sm select-bordered">
-                        <option value="">None</option>
-                    </select>
-                  </div>
-                  <button type="submit" class="btn btn-sm btn-primary">Create</button>
-               </form>
-            </div>
-          </div>
-          <div id="users-list-container" class="space-y-2"></div>
-        </div>
-
-        <!-- Unified Release Editor Panel (hidden by default) -->
-        <div id="release-panel" class="admin-panel" style="display: none;">
-          <h3 id="release-panel-title">Create New Release</h3>
-          <form id="release-form">
-            <div class="editor-layout">
-              <div class="editor-main">
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>Title *</label>
-                    <input type="text" id="release-title" required placeholder="Album title">
-                  </div>
-                  <div class="form-group">
-                    <label>Artist *</label>
-                    <select id="release-artist" required>
-                      <option value="">Select Artist...</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label>Release Date</label>
-                    <input type="date" id="release-date" value="${new Date().toISOString().split('T')[0]}">
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label>Description</label>
-                  <textarea id="release-description" rows="3" placeholder="Optional description..."></textarea>
-                </div>
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>Genres (comma separated)</label>
-                    <input type="text" id="release-genres" placeholder="Electronic, Ambient, etc.">
-                  </div>
-                  <div class="form-group">
-                    <label>Download Type</label>
-                    <select id="release-download">
-                      <option value="free">Free Download</option>
-                      <option value="paycurtain">Pay What You Want</option>
-                      <option value="none">No Download</option>
-                    </select>
-                  </div>
-                </div>
-
-                <!-- External Links -->
-                <div class="form-group">
-                  <label>External Links</label>
-                  <div id="release-external-links" class="list-group mb-2"></div>
-                  <button type="button" class="btn btn-outline btn-sm" id="add-release-link">＋ Add Link</button>
-                </div>
-
-                <!-- Tracks Section (Visible in Edit Mode) -->
-                <div id="release-tracks-section" style="display: none; margin-top: 2rem;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h4>Tracks</h4>
-                    <button type="button" class="btn btn-outline btn-sm" id="release-upload-tracks-btn">Add Tracks</button>
-                  </div>
-                  <div id="release-tracks-list" class="list-group">
-                    <!-- Tracks injected here -->
-                  </div>
-                </div>
-              </div>
-
-              <div class="editor-sidebar">
-                <div class="form-group">
-                  <label>Cover Image</label>
-                  <div class="cover-editor">
-                    <div id="release-cover-preview" class="cover-preview-large">
-                      <span>🎵</span>
-                    </div>
-                    <label class="btn btn-outline btn-block mt-2">
-                      Upload Cover
-                      <input type="file" id="release-cover-input" accept="image/*" style="display: none;">
-                    </label>
-                  </div>
+                <div id="users-list-container" class="space-y-2">
+                    <!-- Users list loaded here -->
                 </div>
               </div>
             </div>
-
-            <div class="form-actions mt-3">
-              <button type="submit" class="btn btn-primary" id="save-release-btn">Create Release</button>
-              <button type="button" class="btn btn-outline" id="cancel-release">Cancel</button>
-              <button type="button" class="btn btn-outline btn-danger" id="delete-release-editor-btn" style="display: none; margin-left: auto;">Delete</button>
-            </div>
-          </form>
-        </div>
-
-        <style>
-          .editor-layout { display: flex; gap: 2.5rem; flex-wrap: wrap; }
-          .editor-main { flex: 2; min-width: 300px; }
-          .editor-sidebar { flex: 1; min-width: 250px; }
-          .cover-preview-large { 
-            width: 100%; aspect-ratio: 1; border-radius: 8px; 
-            background: var(--bg-secondary); border: 2px dashed var(--border-color);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 4rem; background-size: cover; background-position: center;
-          }
-          .list-group { display: flex; flex-direction: column; gap: 0.5rem; }
-          .track-item { 
-            display: flex; align-items: center; gap: 1rem; padding: 0.75rem;
-            background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color);
-          }
-          .track-item .track-handle { cursor: grab; color: var(--text-muted); }
-          .track-item .track-title { flex: 1; font-weight: 500; }
-          .mt-2 { margin-top: 1rem; }
-          .mt-3 { margin-top: 1.5rem; }
-          .mb-2 { margin-bottom: 1rem; }
-          .btn-block { width: 100%; }
-        </style>
-        
-        <h2 class="section-title" style="font-size: 1.25rem; margin: 2rem 0 1rem;">Manage Releases</h2>
-        <div id="releases-list"></div>
-        
-        <h2 class="section-title" style="font-size: 1.25rem; margin: 2rem 0 1rem;">Manage Artists</h2>
-        <div id="artists-list"></div>
-
-        <h2 class="section-title" style="font-size: 1.25rem; margin: 2rem 0 1rem;">⚙️ Site Settings</h2>
-        <div class="admin-panel" id="settings-panel">
-          <div class="form-group">
-            <label>Site Name</label>
-            <input type="text" id="setting-site-name" placeholder="TuneCamp" value="${this.siteName || 'TuneCamp'}">
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">This name appears in the header and browser tab.</p>
-          </div>
-          <div class="form-group">
-            <label>Background Image</label>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-              <input type="text" id="setting-background-image" placeholder="URL or upload file below" value="" style="flex: 1; min-width: 200px;">
-              <span style="color: var(--text-muted); font-size: 0.875rem;">oppure</span>
-              <label class="btn btn-outline" style="margin: 0; cursor: pointer;">
-                Carica file
-                <input type="file" id="setting-background-file" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;">
-              </label>
-            </div>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">URL esterna oppure carica un'immagine (JPG, PNG, GIF, WebP). Sfondo con overlay trasparente.</p>
-          </div>
-          <div class="form-actions">
-            <button class="btn btn-primary" id="save-settings-btn">Save Settings</button>
           </div>
         </div>
-      </section>
-  `;
 
-    const list = document.getElementById('releases-list');
-    list.innerHTML = releases.map(r => `
-      <div class="release-row" data-release-id="${r.id}">
-        <div class="release-cover-small album-cover-placeholder" data-src="${API.getAlbumCoverUrl(r.id)}">
-          <div class="placeholder-icon" style="font-size: 1.5rem;"></div>
-        </div>
-        <div class="release-info">
-          <div class="release-title">${r.title}</div>
-          <div class="release-artist">${r.artist_name || 'Unknown Artist'}</div>
-        </div>
-        <div class="release-actions">
-          ${this.isRootAdmin || (this.artistId && r.artist_id === this.artistId) ? `
-            <button class="btn btn-sm btn-outline edit-release" data-id="${r.id}">Edit</button>
-            <button class="btn btn-sm btn-outline upload-to-release" data-slug="${r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}">Add Tracks</button>
-            <button class="btn btn-sm btn-outline btn-danger delete-release">Delete</button>
-          ` : ''}
-        </div>
-        <div class="release-status">
-          <span class="status-badge ${r.is_public ? 'status-public' : 'status-private'}">
-            ${r.is_public ? 'Public' : 'Private'}
-          </span>
-          <label class="toggle">
-            <input type="checkbox" ${r.is_public ? 'checked' : ''} data-album-id="${r.id}">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
-  `).join('');
+        <!-- System Panel -->
+        <div id="system-panel" class="admin-tab-panel" style="display: none;">
+          <h2 class="text-xl font-bold mb-6">System Management</h2>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="card bg-base-200 border border-white/5">
+              <div class="card-body">
+                <h3 class="card-title mb-4">Maintenance</h3>
+                <div class="space-y-4">
+                    <div class="p-4 bg-base-300/50 rounded-xl border border-white/5">
+                        <h4 class="font-bold mb-1">Rescan Library</h4>
+                        <p class="text-xs opacity-50 mb-3">Re-scan the music folder for new files.</p>
+                        <button class="btn btn-sm btn-outline" id="rescan-btn">🔄 Start Rescan</button>
+                    </div>
+                    <div class="p-4 bg-base-300/50 rounded-xl border border-white/5">
+                        <h4 class="font-bold mb-1">Consolidate Library</h4>
+                        <p class="text-xs opacity-50 mb-3">Organize files into Artist/Album folder structure.</p>
+                        <button class="btn btn-sm btn-outline" id="consolidate-btn">🚀 Consolidate</button>
+                    </div>
+                    <div class="p-4 bg-base-300/50 rounded-xl border border-white/5">
+                        <h4 class="font-bold mb-1">Reset Hidden Tracks</h4>
+                        <p class="text-xs opacity-50 mb-3">Clear the list of tracks hidden from the network feed.</p>
+                        <button class="btn btn-sm btn-outline btn-error" id="reset-hidden-tracks">Reset Hidden Tracks</button>
+                  </section>
+    `;
 
-    // Load release covers with fallback
-    list.querySelectorAll('.album-cover-placeholder').forEach(el => {
-      const img = new Image();
-      img.onload = () => { el.innerHTML = ''; el.style.backgroundImage = `url(${el.dataset.src})`; el.style.backgroundSize = 'cover'; };
-      img.onerror = () => { /* keep placeholder */ };
-      img.src = el.dataset.src;
-    });
+    this.setupAdminHandlers(container, releases);
+  },
 
-    // Render artists list
-    const artistsList = document.getElementById('artists-list');
-    const allArtists = await API.getArtists();
-    artistsList.innerHTML = allArtists.map(a => `
-      <div class="release-row" data-artist-id="${a.id}">
-        <div class="release-cover-small artist-cover-placeholder" data-src="${API.getArtistCoverUrl(a.id)}">
-          <div class="placeholder-icon" style="font-size: 1.5rem;"></div>
-        </div>
-        <div class="release-info">
-          <div class="release-title">${a.name}</div>
-          <div class="release-artist">${a.bio ? a.bio.substring(0, 50) + '...' : 'No bio'}</div>
-        </div>
-        <div class="release-actions">
-          ${this.isRootAdmin ? '<button class="btn btn-sm btn-outline view-keys-btn" data-id="${a.id}">keys</button>' : ''}
-          ${this.isRootAdmin || (this.artistId && a.id === this.artistId) ? `
-            <button class="btn btn-sm btn-outline edit-artist" data-id="${a.id}">Edit</button>
-          ` : ''}
-        </div>
-      </div>
-  `).join('');
+  setupAdminHandlers(container, releases) {
+    const tabs = container.querySelectorAll('.tab');
+    const panels = container.querySelectorAll('.admin-tab-panel');
 
-    // Load artist images
-    artistsList.querySelectorAll('.artist-cover-placeholder').forEach(el => {
-      const img = new Image();
-      img.onload = () => { el.innerHTML = ''; el.style.backgroundImage = `url(${el.dataset.src})`; el.style.backgroundSize = 'cover'; };
-      img.onerror = () => { /* keep placeholder */ };
-      img.src = el.dataset.src;
-    });
+    // Tab switching
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.tab;
+        tabs.forEach(t => t.classList.remove('tab-active'));
+        tab.classList.add('tab-active');
+        panels.forEach(p => p.style.display = p.id === target ? 'block' : 'none');
 
-    // Edit artist handlers
-    artistsList.querySelectorAll('.edit-artist').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = e.target.dataset.id;
-        this.showEditArtistModal(id);
+        if (target === 'posts-panel') {
+          container.querySelector('#post-artist')?.dispatchEvent(new Event('change'));
+        } else if (target === 'config-panel') {
+          this.renderUsersList();
+        }
       });
     });
 
-    // View Keys handlers
-    artistsList.querySelectorAll('.view-keys-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = e.target.dataset.id;
-        this.showArtistKeysModal(id);
-      });
+    // Quick Action Handlers
+    container.querySelector('#new-release-quick-btn')?.addEventListener('click', () => {
+      this.openReleaseEditor(null);
+      const libTab = Array.from(tabs).find(t => t.dataset.tab === 'library-panel');
+      if (libTab) libTab.click();
     });
 
-    // Toggle visibility handlers
-    list.querySelectorAll('input[type="checkbox"]').forEach(input => {
-      input.addEventListener('change', async (e) => {
-        const id = e.target.dataset.albumId;
+    container.querySelector('#upload-quick-btn')?.addEventListener('click', () => {
+      const libTab = Array.from(tabs).find(t => t.dataset.tab === 'library-panel');
+      if (libTab) libTab.click();
+      container.querySelector('#browse-btn')?.click();
+    });
+
+    container.querySelector('#new-artist-quick-btn')?.addEventListener('click', () => {
+      this.showEditArtistModal();
+    });
+
+    container.querySelector('#posts-quick-btn')?.addEventListener('click', () => {
+      const postsTab = Array.from(tabs).find(t => t.dataset.tab === 'posts-panel');
+      if (postsTab) postsTab.click();
+    });
+
+    // Library Handlers
+    container.querySelector('#new-release-btn')?.addEventListener('click', () => this.openReleaseEditor(null));
+    container.querySelector('#new-artist-btn')?.addEventListener('click', () => this.showEditArtistModal());
+
+    // Release Action Handlers (Delegation)
+    container.addEventListener('click', async (e) => {
+      const editBtn = e.target.closest('.edit-release-btn');
+      if (editBtn) {
+        this.openReleaseEditor(editBtn.dataset.id);
+        return;
+      }
+
+      const uploadBtn = e.target.closest('.upload-to-release-btn');
+      if (uploadBtn) {
+        this.showUploadToRelease(uploadBtn.dataset.slug);
+        return;
+      }
+
+      const deleteBtn = e.target.closest('.delete-release-btn');
+      if (deleteBtn) {
+        const id = deleteBtn.dataset.id;
+        if (confirm('Are you sure you want to delete this release and ALL its files?')) {
+          try {
+            await API.deleteRelease(id);
+            window.location.reload();
+          } catch (err) {
+            alert('Delete failed');
+          }
+        }
+      }
+    });
+
+    // Visibility Toggles
+    container.querySelectorAll('.visibility-toggle').forEach(toggle => {
+      toggle.addEventListener('change', async (e) => {
+        const id = e.target.dataset.id;
         const isPublic = e.target.checked;
         try {
           await API.toggleVisibility(id, isPublic);
-          const badge = e.target.closest('.release-row').querySelector('.status-badge');
-          badge.className = 'status-badge ' + (isPublic ? 'status-public' : 'status-private');
-          badge.textContent = isPublic ? 'Public' : 'Private';
+          const badge = e.target.nextElementSibling;
+          if (badge) {
+            badge.className = `badge ${isPublic ? 'badge-success' : 'badge-ghost'} badge-xs`;
+            badge.textContent = isPublic ? 'Public' : 'Hidden';
+          }
         } catch (err) {
           e.target.checked = !isPublic;
           alert('Failed to update visibility');
@@ -2284,604 +2267,273 @@ const App = {
       });
     });
 
-    // Delete release handlers
-    list.querySelectorAll('.delete-release').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const row = e.target.closest('.release-row');
-        const id = row.dataset.releaseId;
-        const title = row.querySelector('.release-title').textContent;
-
-        if (confirm(`Delete "${title}" ? This will remove all files!`)) {
-          try {
-            await API.deleteRelease(id);
-            row.remove();
-          } catch (err) {
-            alert('Failed to delete release');
-          }
-        }
-      });
-    });
-
-    // Unified Release Editor Open Handlers
-    list.querySelectorAll('.edit-release').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const id = e.target.dataset.id;
-        this.openReleaseEditor(id);
-      });
-    });
-
-    // Delete release handlers
-
-    // Add tracks to release handlers
-    list.querySelectorAll('.upload-to-release').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const slug = e.target.dataset.slug;
-        this.showUploadToRelease(slug);
-      });
-    });
-
-    // Helper to toggle panels
-    const togglePanel = (targetId) => {
-      document.querySelectorAll('.admin-panel').forEach(p => {
-        if (p.id === targetId) {
-          p.style.display = p.style.display === 'none' ? 'block' : 'none';
-        } else {
-          p.style.display = 'none';
-        }
-      });
-    };
-
-    // Upload panel toggle
-    document.getElementById('upload-btn')?.addEventListener('click', () => {
-      togglePanel('upload-panel');
-    });
-
-    // New Artist toggle
-    document.getElementById('new-artist-btn')?.addEventListener('click', () => {
-      this.showEditArtistModal();
-    });
-
-    // New Release toggle
-    document.getElementById('new-release-btn')?.addEventListener('click', () => {
-      this.openReleaseEditor(null);
-    });
-
-    document.getElementById('cancel-release')?.addEventListener('click', () => {
-      togglePanel(null);
-    });
-
-
-
-    // Settings Save Button (for the main settings panel at bottom)
-    const settingsPanel = document.getElementById('settings-panel');
-    if (!this.isRootAdmin && settingsPanel) {
-      settingsPanel.style.display = 'none';
-      settingsPanel.previousElementSibling.style.display = 'none'; // Hide "Site Settings" H2
-    }
-
-    document.getElementById('save-settings-btn')?.addEventListener('click', async (e) => {
-      const btn = e.target;
-      btn.textContent = 'Saving...';
-      btn.disabled = true;
-      try {
-        await API.updateSettings({
-          siteName: document.getElementById('setting-site-name').value,
-          backgroundImage: document.getElementById('setting-background-image').value
-        });
-        alert('Settings saved!');
-        window.location.reload();
-      } catch (err) {
-        alert('Error: ' + err.message);
-      } finally {
-        btn.textContent = 'Save Settings';
-        btn.disabled = false;
-      }
-    });
-
-    // Background image upload (saves on server, sets URL automatically)
-    document.getElementById('setting-background-file')?.addEventListener('change', async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      try {
-        const result = await API.uploadBackgroundImage(file);
-        const bgInput = document.getElementById('setting-background-image');
-        if (bgInput) bgInput.value = result.url || '/api/settings/background';
-        e.target.value = '';
-        alert('Immagine caricata e salvata sul server.');
-        window.location.reload();
-      } catch (err) {
-        alert('Errore upload: ' + err.message);
-      }
-    });
-
-    document.getElementById('network-settings-btn')?.addEventListener('click', async () => {
-      togglePanel('network-settings-panel');
-      // Load current settings
-      try {
-        const settings = await API.getAdminSettings();
-        document.getElementById('network-setting-public-url').value = settings.publicUrl || '';
-        document.getElementById('network-setting-site-name').value = settings.siteName || '';
-        document.getElementById('network-setting-site-description').value = settings.siteDescription || '';
-        document.getElementById('network-setting-artist-name').value = settings.artistName || '';
-        document.getElementById('network-setting-cover-image').value = settings.coverImage || '';
-
-        // Also load site settings for the main settings panel if we are opening it via network settings or just generally ensuring they are loaded.
-        // Actually, let's load them when the main settings panel saves.
-        // But we need to populate the background image field in the main settings panel as well
-        const bgInput = document.getElementById('setting-background-image');
-        if (bgInput) bgInput.value = settings.backgroundImage || '';
-
-      } catch (err) {
-        console.error('Failed to load settings:', err);
-      }
-    });
-
-    document.getElementById('network-settings-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = e.target.querySelector('button');
-      const originalText = btn.textContent;
-      btn.textContent = 'Saving...';
-      btn.disabled = true;
-
-      try {
-        await API.updateSettings({
-          publicUrl: document.getElementById('network-setting-public-url').value,
-          siteName: document.getElementById('network-setting-site-name').value,
-          siteDescription: document.getElementById('network-setting-site-description').value,
-          artistName: document.getElementById('network-setting-artist-name').value,
-          coverImage: document.getElementById('network-setting-cover-image').value
-        });
-        alert('Network settings saved! Server registered on community.');
-        togglePanel(null); // Close panel
-      } catch (err) {
-        alert('Failed to save settings: ' + err.message);
-      } finally {
-        btn.textContent = originalText;
-        btn.disabled = false;
-      }
-    });
-
-    // Backup Panel Toggle
-    document.getElementById('backup-btn')?.addEventListener('click', () => {
-      togglePanel('backup-panel');
-    });
-
-    // Restore Form Handler
-    document.getElementById('restore-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fileInput = document.getElementById('restore-file-input');
-      const file = fileInput.files[0];
-      if (!file) return;
-
-      if (!confirm('DANGER: This will overwrite your current database and library. Are you absolutely sure?')) {
-        return;
-      }
-
-      const btn = document.getElementById('restore-btn');
-      const status = document.getElementById('restore-status');
-
-      btn.disabled = true;
-      btn.textContent = 'Restoring... (Do not close)';
-      status.textContent = 'Uploading and processing... This may take a while.';
-      status.style.color = 'var(--accent)';
-
-      try {
-        const formData = new FormData();
-        formData.append('backup', file);
-
-        // We use fetch directly here to handle the potentially long request better
-        const response = await fetch('/api/admin/backup/restore', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + API.token
-          },
-          body: formData
-        });
-
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(errText);
-        }
-
-        const result = await response.json();
-        status.textContent = '✅ ' + (result.message || 'Restore complete.');
-        status.style.color = 'var(--success)';
-
-        alert('Restore complete! The server is restarting. Page will reload in 5 seconds.');
-        setTimeout(() => window.location.reload(), 5000);
-
-      } catch (err) {
-        console.error(err);
-        status.textContent = '❌ Restore failed: ' + err.message;
-        status.style.color = 'var(--danger)';
-        btn.disabled = false;
-        btn.textContent = 'Upload & Restore';
-      }
-    });
-
-    // Users Panel Toggle
-    document.getElementById('users-btn')?.addEventListener('click', async () => {
-      togglePanel('users-panel');
-      const createFormContainer = document.getElementById('create-admin-form-container');
-      if (createFormContainer) {
-        createFormContainer.style.display = this.isRootAdmin ? '' : 'none';
-      }
-
-      // Populate artist dropdown
-      if (this.isRootAdmin) {
-        const artistSelect = document.getElementById('new-user-artist');
-        if (artistSelect) {
-          const artists = await API.getArtists();
-          artistSelect.innerHTML = '<option value="">None (General Admin)</option>' +
-            artists.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
-        }
-      }
-
-      await this.renderUsersList();
-    });
-
-    // Create User Form
-    document.getElementById('create-user-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('new-user-name').value;
-      const password = document.getElementById('new-user-pass').value;
-      const artistId = document.getElementById('new-user-artist').value || null;
-      try {
-        await API.createAdmin(username, password, artistId);
-        document.getElementById('new-user-name').value = '';
-        document.getElementById('new-user-pass').value = '';
-        await this.renderUsersList();
-        alert('User created!');
-      } catch (e) {
-        alert('Error: ' + e.message);
-      }
-    });
-
-    // Reset Hidden Tracks
-    document.getElementById('reset-hidden-tracks').addEventListener('click', () => {
-      if (confirm('Unhide all network tracks you have removed?')) {
-        localStorage.removeItem('tunecamp_blocked_tracks');
-        alert('Hidden tracks list cleared. Refreshing...');
-        window.location.reload();
-      }
-    });
-
-    // Identity Export
-    document.getElementById('export-identity-btn')?.addEventListener('click', async () => {
-      try {
-        const keys = await API.getIdentity();
-        const json = JSON.stringify(keys, null, 2);
-
-        // Create modal
-        const modal = document.createElement('div');
-        modal.className = 'modal';
-        modal.style.display = 'flex';
-        modal.style.zIndex = '10005';
-        modal.innerHTML = `
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2>Server Identity Keys</h2>
-                        <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <p style="color: var(--color-danger); margin-bottom: 1rem;">⚠️ these keys grant full control over your server's identity. Do not share them publicly.</p>
-                        <textarea style="width: 100%; height: 200px; font-family: monospace; margin-bottom: 1rem;" readonly>${json}</textarea>
-                        <button class="btn btn-primary btn-block" id="copy-keys-btn">Copy to Clipboard</button>
-                    </div>
-                </div>
-            `;
-        document.body.appendChild(modal);
-
-        document.getElementById('copy-keys-btn').onclick = () => {
-          navigator.clipboard.writeText(json);
-          alert('Copied to clipboard!');
-        };
-      } catch (e) {
-        alert('Failed to get keys: ' + e.message);
-      }
-    });
-
-    // Identity Import
-    document.getElementById('import-identity-btn')?.addEventListener('click', () => {
-      const modal = document.createElement('div');
-      modal.className = 'modal';
-      modal.style.display = 'flex';
-      modal.style.zIndex = '10005';
-      modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Import Identity Keys</h2>
-                    <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <p style="margin-bottom: 1rem;">Paste your exported keypair JSON below.</p>
-                    <textarea id="import-keys-input" style="width: 100%; height: 200px; font-family: monospace; margin-bottom: 1rem;" placeholder="{ ... }"></textarea>
-                    <button class="btn btn-primary btn-block" id="confirm-import-keys">Import & Restart Identity</button>
-                </div>
-            </div>
-        `;
-      document.body.appendChild(modal);
-
-      document.getElementById('confirm-import-keys').onclick = async () => {
-        const val = document.getElementById('import-keys-input').value;
-        try {
-          const json = JSON.parse(val);
-          if (confirm('Are you sure? This will replace your current server identity. Existing private data may become inaccessible if not backed up.')) {
-            await API.importIdentity(json);
-            alert('Identity imported successfully! The page will reload.');
-            window.location.reload();
-          }
-        } catch (e) {
-          alert('Import failed: ' + e.message);
-        }
-      };
-    });
-    // === Unified Release Editor Event listeners ===
-
-    // Add Link button
-    document.getElementById('add-release-link')?.addEventListener('click', () => {
-      this.addLinkInputToEditor();
-    });
-
-    // Cover upload handler
-    document.getElementById('release-cover-input')?.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      // Preview
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const preview = document.getElementById('release-cover-preview');
-        preview.style.backgroundImage = `url(${ev.target.result})`;
-        preview.innerHTML = '';
-      };
-      reader.readAsDataURL(file);
-
-      // If editing existing, upload immediately? 
-      // Actually let's follow the existing pattern: save metadata first, then upload cover.
-    });
-
-    // Track upload button logic
-    document.getElementById('release-upload-tracks-btn')?.addEventListener('click', () => {
-      if (!this.currentEditingReleaseId) return;
-
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.multiple = true;
-      input.accept = 'audio/*';
-
-      input.onchange = async (e) => {
-        const files = e.target.files;
-        if (files.length === 0) return;
-
-        const release = await API.getAlbum(this.currentEditingReleaseId);
-        await this.uploadFiles(files, { releaseSlug: release.slug });
-        this.openReleaseEditor(this.currentEditingReleaseId);
-      };
-      input.click();
-    });
-
-    // Main Form Submit (Create or Update)
-    document.getElementById('release-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const isEdit = !!this.currentEditingReleaseId;
-      const btn = document.getElementById('save-release-btn');
-      const originalText = btn.textContent;
-
-      btn.disabled = true;
-      btn.textContent = 'Saving...';
-
-      const title = document.getElementById('release-title').value;
-      const artistName = document.getElementById('release-artist').value;
-      const date = document.getElementById('release-date').value;
-      const description = document.getElementById('release-description').value;
-      const genresRaw = document.getElementById('release-genres').value;
-      const genres = genresRaw ? genresRaw.split(',').map(g => g.trim()).filter(g => g) : [];
-      const download = document.getElementById('release-download').value;
-      const coverFile = document.getElementById('release-cover-input').files[0];
-
-      // External Links
-      const externalLinks = Array.from(document.querySelectorAll('#release-external-links > div')).map(div => ({
-        label: div.querySelector('.link-label').value.trim(),
-        url: div.querySelector('.link-url').value.trim()
-      })).filter(l => l.label && l.url);
-
-      const data = {
-        title,
-        artistName: artistName || undefined,
-        date: date || undefined,
-        description: description || undefined,
-        genres: genres.length > 0 ? genres : undefined,
-        download: download || undefined,
-        externalLinks
-      };
-
-      try {
-        let releaseSlug;
-        if (isEdit) {
-          const release = await API.getAlbum(this.currentEditingReleaseId);
-          releaseSlug = release.slug;
-          await API.updateRelease(this.currentEditingReleaseId, data);
-        } else {
-          const result = await API.createRelease(data);
-          releaseSlug = result.slug;
-          // After create, maybe switch to edit mode? 
-          // Existing behavior: alert and reload. Let's keep it simple first.
-        }
-
-        // Upload cover if provided
-        if (coverFile && releaseSlug) {
-          await API.uploadCover(coverFile, releaseSlug);
-        }
-
-        alert(isEdit ? 'Release updated!' : 'Release created!');
-        window.location.reload();
-      } catch (err) {
-        alert('Error: ' + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = originalText;
-      }
-    });
-
-    // Delete button logic
-    document.getElementById('delete-release-editor-btn')?.addEventListener('click', async () => {
-      if (!this.currentEditingReleaseId) return;
-      const title = document.getElementById('release-title').value;
-
-      if (confirm(`Are you sure you want to delete "${title}" and ALL its files?`)) {
-        try {
-          await API.deleteRelease(this.currentEditingReleaseId);
-          alert('Release deleted');
-          window.location.reload();
-        } catch (err) {
-          alert('Failed to delete release');
-        }
-      }
-    });
-
-    // Upload handlers
+    // Upload Handlers
     this.setupUploadHandlers();
 
-    // Rescan button
-    document.getElementById('rescan-btn')?.addEventListener('click', async () => {
-      const btn = document.getElementById('rescan-btn');
-      btn.disabled = true;
-      btn.textContent = 'Scanning...';
-      try {
-        await API.rescan();
-        window.location.reload();
-      } catch (e) {
-        alert('Scan failed');
-        btn.disabled = false;
-        btn.textContent = '🔄 Rescan';
-      }
-    });
+    // Artists List Loading
+    this.renderAdminArtistsList();
 
-    // Consolidate button
-    document.getElementById('consolidate-btn')?.addEventListener('click', async () => {
-      const btn = document.getElementById('consolidate-btn');
-      if (!confirm('This will move and rename your music files according to the universal format. Are you sure?')) return;
+    // Community / Posts Handlers
+    const artistSelect = container.querySelector('#post-artist');
+    if (artistSelect) {
+      API.getArtists().then(artists => {
+        artistSelect.innerHTML = '<option value="">Select Artist...</option>' +
+          artists.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+      });
 
-      btn.disabled = true;
-      btn.textContent = 'Consolidating...';
-      try {
-        const result = await API.consolidate();
-        alert(result.message || 'Consolidation started in the background.');
-        btn.textContent = '🚀 Consolidating...';
-      } catch (e) {
-        alert('Consolidation failed to start: ' + e.message);
-        btn.disabled = false;
-        btn.textContent = 'Consolidate Library';
-      }
-    });
+      artistSelect.addEventListener('change', async (e) => {
+        const artistId = e.target.value;
+        const postsList = container.querySelector('#posts-list');
+        if (!artistId || !postsList) return;
 
-    // Logout button
-    document.getElementById('logout-btn').addEventListener('click', () => {
-      API.logout();
-      this.isAdmin = false;
-      this.checkAuth();
-      window.location.hash = '#/';
-    });
-
-    // Posts Panel Toggle
-    document.getElementById('posts-btn').addEventListener('click', () => {
-      togglePanel('posts-panel');
-      // Populate artists dropdown
-      const select = document.getElementById('post-artist');
-      if (select.children.length <= 1) {
-        API.getArtists().then(artists => {
-          select.innerHTML = '<option value="">Select Artist...</option>' +
-            artists.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
-        });
-      }
-    });
-
-    // Handle Artist Selection for Posts to load their posts
-    document.getElementById('post-artist').addEventListener('change', async (e) => {
-      const artistId = e.target.value;
-      const postsList = document.getElementById('posts-list');
-      if (!artistId) {
-        postsList.innerHTML = '<p class="text-secondary">Select an artist to view their posts.</p>';
-        return;
-      }
-
-      postsList.innerHTML = '<div class="loading">Loading posts...</div>';
-      try {
-        const posts = await API.getArtistPosts(artistId);
-        if (posts.length === 0) {
-          postsList.innerHTML = '<p class="text-secondary">No posts found for this artist.</p>';
-        } else {
-          postsList.innerHTML = posts.map(p => `
-                    <div class="card mb-2" style="padding: 1rem;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                            <span class="text-muted" style="font-size: 0.8rem;">${new Date(p.created_at).toLocaleString()}</span>
-                            <button class="btn btn-sm btn-danger delete-post-btn" data-id="${p.id}">Delete</button>
+        postsList.innerHTML = '<div class="loading loading-spinner loading-md"></div>';
+        try {
+          const posts = await API.getArtistPosts(artistId);
+          if (posts.length === 0) {
+            postsList.innerHTML = '<p class="text-sm opacity-50 py-12 text-center">No posts yet.</p>';
+          } else {
+            postsList.innerHTML = posts.map(p => `
+                        <div class="card bg-base-300/30 border border-white/5 p-4 relative group">
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="text-[10px] opacity-40">${new Date(p.created_at).toLocaleString()}</span>
+                                <button class="btn btn-ghost btn-xs text-error opacity-0 group-hover:opacity-100 transition-opacity delete-post-btn" data-id="${p.id}">Delete</button>
+                            </div>
+                            <div class="text-sm border-l-2 border-primary/20 pl-3 py-1 mb-2">${App.escapeHtml(p.content)}</div>
+                            <div class="flex justify-end pt-2 border-t border-white/5">
+                                <a href="/#/post/${p.slug}" target="_blank" class="text-[10px] hover:underline opacity-50">View Public Post ↗</a>
+                            </div>
                         </div>
-                        <div style="white-space: pre-wrap;">${App.escapeHtml(p.content)}</div>
-                         <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
-                            <a href="/#/post/${p.slug}" target="_blank">View Post</a>
-                        </div>
-                    </div>
-                `).join('');
+                    `).join('');
 
-          // Attach delete handlers
-          postsList.querySelectorAll('.delete-post-btn').forEach(btn => {
-            btn.addEventListener('click', async (evt) => {
-              if (confirm('Delete this post?')) {
-                try {
-                  await API.deletePost(evt.target.dataset.id);
-                  alert('Post deleted');
-                  // Refresh list
-                  document.getElementById('post-artist').dispatchEvent(new Event('change'));
-                } catch (err) {
-                  alert('Error deleting post: ' + err.message);
+            postsList.querySelectorAll('.delete-post-btn').forEach(btn => {
+              btn.addEventListener('click', async () => {
+                if (confirm('Delete this post?')) {
+                  try {
+                    await API.deletePost(btn.dataset.id);
+                    artistSelect.dispatchEvent(new Event('change'));
+                  } catch (err) {
+                    alert('Delete failed');
+                  }
                 }
-              }
+              });
             });
-          });
+          }
+        } catch (err) {
+          postsList.innerHTML = '<p class="text-error text-sm">Failed to load posts.</p>';
         }
-      } catch (err) {
-        console.error(err);
-        postsList.innerHTML = '<div class="error-message">Failed to load posts</div>';
-      }
-    });
+      });
+    }
 
-    // Create Post Form
-    document.getElementById('create-post-form').addEventListener('submit', async (e) => {
+    container.querySelector('#create-post-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const artistId = document.getElementById('post-artist').value;
-      const content = document.getElementById('post-content').value;
+      const artistId = container.querySelector('#post-artist').value;
+      const content = container.querySelector('#post-content').value;
       const btn = e.target.querySelector('button');
-
-      if (!artistId) return alert('Please select an artist');
 
       btn.disabled = true;
       btn.textContent = 'Publishing...';
-
       try {
         await API.createPost(artistId, content);
-        alert('Post published successfully!');
-        document.getElementById('post-content').value = '';
-        // Refresh list
-        document.getElementById('post-artist').dispatchEvent(new Event('change'));
+        container.querySelector('#post-content').value = '';
+        artistSelect.dispatchEvent(new Event('change'));
       } catch (err) {
-        alert('Error publishing post: ' + err.message);
+        alert('Post failed: ' + err.message);
       } finally {
         btn.disabled = false;
         btn.textContent = 'Publish Post';
       }
     });
 
-    // New Artist button
-    document.getElementById('new-artist-btn').addEventListener('click', () => {
-      this.showCreateArtistModal();
+    // Config Panel Handlers
+    const networkForm = container.querySelector('#network-settings-form');
+    if (networkForm) {
+      API.getAdminSettings().then(s => {
+        networkForm.querySelector('#network-setting-public-url').value = s.publicUrl || '';
+        networkForm.querySelector('#network-setting-site-name').value = s.siteName || '';
+        networkForm.querySelector('#network-setting-site-description').value = s.siteDescription || '';
+        networkForm.querySelector('#network-setting-artist-name').value = s.artistName || '';
+        networkForm.querySelector('#network-setting-cover-image').value = s.coverImage || '';
+
+        container.querySelector('#setting-background-image').value = s.backgroundImage || '';
+      });
+
+      networkForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector('button');
+        btn.disabled = true;
+        try {
+          await API.updateSettings({
+            publicUrl: networkForm.querySelector('#network-setting-public-url').value,
+            siteName: networkForm.querySelector('#network-setting-site-name').value,
+            siteDescription: networkForm.querySelector('#network-setting-site-description').value,
+            artistName: networkForm.querySelector('#network-setting-artist-name').value,
+            coverImage: networkForm.querySelector('#network-setting-cover-image').value
+          });
+          alert('Settings saved!');
+        } catch (err) {
+          alert('Save failed: ' + err.message);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+
+    container.querySelector('#site-settings-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = e.target.querySelector('button');
+      btn.disabled = true;
+      try {
+        await API.updateSettings({
+          backgroundImage: container.querySelector('#setting-background-image').value
+        });
+        alert('Site settings saved!');
+        window.location.reload();
+      } catch (err) {
+        alert('Save failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+      }
     });
+
+    container.querySelector('#setting-background-file')?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const result = await API.uploadBackgroundImage(file);
+        container.querySelector('#setting-background-image').value = result.url || '/api/settings/background';
+        alert('File uploaded. Click Save to apply.');
+      } catch (err) {
+        alert('Upload failed: ' + err.message);
+      }
+    });
+
+    // Admin List Handlers
+    container.querySelector('#create-user-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const user = container.querySelector('#new-user-name').value;
+      const pass = container.querySelector('#new-user-pass').value;
+      const artistId = container.querySelector('#new-user-artist').value || null;
+      try {
+        await API.createAdmin(user, pass, artistId);
+        container.querySelector('#new-user-name').value = '';
+        container.querySelector('#new-user-pass').value = '';
+        this.renderUsersList();
+        alert('Admin created');
+      } catch (err) {
+        alert('Failed: ' + err.message);
+      }
+    });
+
+    // System Handlers
+    container.querySelector('#rescan-btn')?.addEventListener('click', async (e) => {
+      const btn = e.target;
+      btn.disabled = true;
+      btn.textContent = 'Scanning...';
+      try {
+        await API.rescan();
+        window.location.reload();
+      } catch (err) {
+        alert('Rescan failed');
+        btn.disabled = false;
+        btn.textContent = '🔄 Start Rescan';
+      }
+    });
+
+    container.querySelector('#consolidate-btn')?.addEventListener('click', async (e) => {
+      if (!confirm('This will move your music files into a unified structure. Proceed?')) return;
+      const btn = e.target;
+      btn.disabled = true;
+      btn.textContent = 'Consolidating...';
+      try {
+        const res = await API.consolidate();
+        alert(res.message || 'Started');
+      } catch (err) {
+        alert('Failed');
+        btn.disabled = false;
+        btn.textContent = '🚀 Consolidate';
+      }
+    });
+
+    container.querySelector('#reset-hidden-tracks')?.addEventListener('click', () => {
+      if (confirm('Unhide all tracks?')) {
+        localStorage.removeItem('tunecamp_blocked_tracks');
+        window.location.reload();
+      }
+    });
+
+    container.querySelector('#logout-btn')?.addEventListener('click', () => {
+      API.logout();
+      window.location.hash = '#/';
+      window.location.reload();
+    });
+
+    // Backup & Identity Handlers omitted for brevity in this chunk, or I can add them if needed.
+    // Let's add them to be complete.
+    container.querySelector('#export-identity-btn')?.addEventListener('click', async () => {
+      try {
+        const keys = await API.getIdentity();
+        prompt('Copy your server keys (Keep them secret!):', JSON.stringify(keys));
+      } catch (e) { alert('Failed'); }
+    });
+
+    container.querySelector('#import-identity-btn')?.addEventListener('click', async () => {
+      const keys = prompt('Paste server keys JSON:');
+      if (keys && confirm('This will REPLICATE identity. Proceed?')) {
+        try {
+          await API.importIdentity(JSON.parse(keys));
+          window.location.reload();
+        } catch (e) { alert('Failed'); }
+      }
+    });
+
+    container.querySelector('#restore-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const file = container.querySelector('#restore-file-input').files[0];
+      if (!file || !confirm('DANGER: Overwrite ALL data?')) return;
+
+      const status = container.querySelector('#restore-status');
+      status.textContent = 'Restoring...';
+      try {
+        const formData = new FormData();
+        formData.append('backup', file);
+        await fetch('/api/admin/backup/restore', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + API.token },
+          body: formData
+        });
+        alert('Restore complete. Restarting.');
+        window.location.reload();
+      } catch (err) {
+        status.textContent = 'Failed: ' + err.message;
+      }
+    });
+  },
+
+  async renderAdminArtistsList() {
+    const list = document.getElementById('admin-artists-list');
+    if (!list) return;
+    try {
+      const artists = await API.getArtists();
+      list.innerHTML = artists.map(a => `
+            <div class="flex items-center justify-between p-2 rounded-lg hover:bg-base-300 transition-colors group">
+                <div class="flex items-center gap-2">
+                    <div class="avatar">
+                        <div class="w-6 h-6 rounded-full bg-base-300">
+                            <img src="${API.getArtistCoverUrl(a.id)}" onerror="this.src='/img/album-placeholder.png'">
+                        </div>
+                    </div>
+                    <span class="text-xs font-medium">${App.escapeHtml(a.name)}</span>
+                </div>
+                <button class="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100 transition-opacity" onclick="App.showEditArtistModal('${a.id}')">Edit</button>
+            </div>
+        `).join('');
+    } catch (e) {
+      list.innerHTML = '<p class="text-[10px] opacity-30 text-center">Failed to load artists</p>';
+    }
   },
 
   async renderUsersList() {
     const list = document.getElementById('users-list-container');
-    if (!list) return;
 
     list.innerHTML = '<div class="loading">Loading users...</div>';
 
@@ -2889,7 +2541,7 @@ const App = {
       const users = await API.getAdmins();
 
       list.innerHTML = users.map(u => `
-        <div class="card mb-2" style="padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
+  < div class="card mb-2" style = "padding: 1rem; display: flex; justify-content: space-between; align-items: center;" >
             <div>
                 <div style="font-weight: bold;">${App.escapeHtml(u.username)}</div>
                 <div style="font-size: 0.8rem; color: var(--text-muted);">
@@ -2904,8 +2556,8 @@ const App = {
                     <button class="btn btn-sm btn-danger delete-user" data-id="${u.id}">Delete</button>
                 ` : ''}
             </div>
-        </div>
-      `).join('');
+        </div >
+  `).join('');
 
       // Delete handlers
       list.querySelectorAll('.delete-user').forEach(btn => {
@@ -2946,10 +2598,10 @@ const App = {
     modal.style.zIndex = '10010';
 
     const options = '<option value="">None (General Admin)</option>' +
-      artists.map(a => `<option value="${a.id}" ${String(a.id) === String(currentArtistId) ? 'selected' : ''}>${a.name}</option>`).join('');
+      artists.map(a => `< option value = "${a.id}" ${String(a.id) === String(currentArtistId) ? 'selected' : ''}> ${a.name}</option > `).join('');
 
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 400px;">
+  < div class="modal-content" style = "max-width: 400px;" >
             <h3>Link Admin to Artist</h3>
             <p style="margin-bottom: 1rem;">Select an artist to restrict this admin's access.</p>
             <div class="form-group">
@@ -2961,8 +2613,8 @@ const App = {
                 <button class="btn btn-primary" id="save-link-artist">Save</button>
                 <button class="btn btn-outline" id="cancel-link-artist">Cancel</button>
             </div>
-        </div>
-      `;
+        </div >
+  `;
     document.body.appendChild(modal);
 
     document.getElementById('cancel-link-artist').onclick = () => document.getElementById('link-artist-modal').remove();
@@ -2984,6 +2636,8 @@ const App = {
     const zone = document.getElementById('upload-zone');
     const input = document.getElementById('file-input');
     const browseBtn = document.getElementById('browse-btn');
+
+    if (!zone || !input || !browseBtn) return;
 
     browseBtn.addEventListener('click', () => input.click());
 
@@ -3069,12 +2723,13 @@ const App = {
     document.getElementById('release-cover-preview').innerHTML = '🎵';
 
     // Toggle Panel
-    const togglePanel = (targetId) => {
-      document.querySelectorAll('.admin-panel').forEach(p => {
-        p.style.display = p.id === targetId ? 'block' : 'none';
+    if (this.toggleAdminPanel) {
+      this.toggleAdminPanel('release-panel');
+    } else {
+      document.querySelectorAll('.admin-panel, .admin-tab-panel').forEach(p => {
+        p.style.display = p.id === 'release-panel' ? 'block' : 'none';
       });
-    };
-    togglePanel('release-panel');
+    }
 
     // Load Artists
     const select = document.getElementById('release-artist');
@@ -3084,7 +2739,7 @@ const App = {
       filtered = artists.filter(a => a.id === this.artistId);
     }
     select.innerHTML = (this.isRootAdmin ? '<option value="">Select Artist...</option>' : '') +
-      filtered.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
+      filtered.map(a => `< option value = "${a.name}" > ${a.name}</option > `).join('');
 
     if (isEdit) {
       const release = await API.getAlbum(releaseId);
@@ -3132,10 +2787,10 @@ const App = {
     div.className = 'track-item';
     div.style.padding = '0.5rem';
     div.innerHTML = `
-      <input type="text" placeholder="Label" class="link-label" value="${label}" style="width: 30%;">
-      <input type="text" placeholder="URL" class="link-url" value="${url}" style="flex: 1;">
+  < input type = "text" placeholder = "Label" class="link-label" value = "${label}" style = "width: 30%;" >
+    <input type="text" placeholder="URL" class="link-url" value="${url}" style="flex: 1;">
       <button type="button" class="btn btn-outline btn-sm btn-danger remove-link">✕</button>
-    `;
+      `;
     div.querySelector('.remove-link').onclick = () => div.remove();
     container.appendChild(div);
   },
@@ -3153,7 +2808,7 @@ const App = {
         <span class="track-title">${App.escapeHtml(t.title)}</span>
         <button type="button" class="btn btn-outline btn-sm btn-danger delete-track-editor" data-id="${t.id}">Delete</button>
       </div>
-    `).join('');
+      `).join('');
 
     // Delete Handlers
     list.querySelectorAll('.delete-track-editor').forEach(btn => {
@@ -3189,65 +2844,65 @@ const App = {
 
     modal.innerHTML = `
       <div class="modal-content" style="max-width: 500px;">
-          <h2 class="section-title">Edit Release: ${release.title}</h2>
-          <form id="edit-release-form">
-            <div class="form-group">
-              <label>Cover Image</label>
-              <div style="display: flex; align-items: center; gap: 1rem;">
-                <div class="cover-preview" style="width: 100px; height: 100px; border-radius: 8px; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; font-size: 2rem; background-size: cover; background-position: center;" id="cover-preview">
-                  ${release.cover_path ? '' : '🎵'}
-                </div>
-                <input type="file" id="edit-release-cover" accept="image/*" style="flex: 1;">
+        <h2 class="section-title">Edit Release: ${release.title}</h2>
+        <form id="edit-release-form">
+          <div class="form-group">
+            <label>Cover Image</label>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div class="cover-preview" style="width: 100px; height: 100px; border-radius: 8px; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; font-size: 2rem; background-size: cover; background-position: center;" id="cover-preview">
+                ${release.cover_path ? '' : '🎵'}
               </div>
+              <input type="file" id="edit-release-cover" accept="image/*" style="flex: 1;">
             </div>
-            <div class="form-group">
-              <label>Title</label>
-              <input type="text" id="edit-release-title" value="${release.title}" required>
+          </div>
+          <div class="form-group">
+            <label>Title</label>
+            <input type="text" id="edit-release-title" value="${release.title}" required>
+          </div>
+          <div class="form-group">
+            <label>Artist</label>
+            <select id="edit-release-artist">
+              <option value="">Select Artist...</option>
+              ${artistOptions}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="edit-release-date" value="${release.date || ''}">
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="edit-release-description" rows="3">${release.description || ''}</textarea>
+          </div>
+          <div class="form-group">
+            <label>Genres (comma separated)</label>
+            <input type="text" id="edit-release-genres" value="${release.genre || ''}">
+          </div>
+          <div class="form-group">
+            <label>Download Type</label>
+            <select id="edit-release-download">
+              <option value="" ${!release.download ? 'selected' : ''}>Streaming Only</option>
+              <option value="free" ${release.download === 'free' ? 'selected' : ''}>Free Download</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>External Links (e.g. Bandcamp, Donation)</label>
+            <div id="external-links-container" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <!-- Links injected here -->
             </div>
-            <div class="form-group">
-              <label>Artist</label>
-              <select id="edit-release-artist">
-                <option value="">Select Artist...</option>
-                ${artistOptions}
-              </select>
+            <button type="button" class="btn btn-outline btn-sm" id="add-external-link">＋ Add Link</button>
+          </div>
+          <div class="form-actions" style="justify-content: space-between;">
+            <div>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+              <button type="button" class="btn btn-outline" id="cancel-edit-release">Cancel</button>
             </div>
-            <div class="form-group">
-              <label>Date</label>
-              <input type="date" id="edit-release-date" value="${release.date || ''}">
-            </div>
-            <div class="form-group">
-              <label>Description</label>
-              <textarea id="edit-release-description" rows="3">${release.description || ''}</textarea>
-            </div>
-            <div class="form-group">
-              <label>Genres (comma separated)</label>
-              <input type="text" id="edit-release-genres" value="${release.genre || ''}">
-            </div>
-            <div class="form-group">
-              <label>Download Type</label>
-              <select id="edit-release-download">
-                <option value="" ${!release.download ? 'selected' : ''}>Streaming Only</option>
-                <option value="free" ${release.download === 'free' ? 'selected' : ''}>Free Download</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-                <label>External Links (e.g. Bandcamp, Donation)</label>
-                <div id="external-links-container" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <!-- Links injected here -->
-                </div>
-                <button type="button" class="btn btn-outline btn-sm" id="add-external-link">＋ Add Link</button>
-            </div>
-            <div class="form-actions" style="justify-content: space-between;">
-              <div>
-                <button type="submit" class="btn btn-primary">Save Changes</button>
-                <button type="button" class="btn btn-outline" id="cancel-edit-release">Cancel</button>
-              </div>
-              <button type="button" class="btn btn-outline" id="delete-release-btn" style="border-color: var(--color-danger); color: var(--color-danger);">Delete Release</button>
-            </div>
-          </form>
-        </div>
-  `;
+            <button type="button" class="btn btn-outline" id="delete-release-btn" style="border-color: var(--color-danger); color: var(--color-danger);">Delete Release</button>
+          </div>
+        </form>
+      </div>
+      `;
 
     document.body.appendChild(modal);
 
@@ -3283,9 +2938,9 @@ const App = {
       div.style.gap = '0.5rem';
       div.innerHTML = `
       <input type="text" placeholder="Label (e.g. Bandcamp)" class="link-label" value="${label}" style="flex: 1;">
-      <input type="text" placeholder="URL (https://...)" class="link-url" value="${url}" style="flex: 2;">
-      <button type="button" class="btn btn-outline btn-sm remove-link" style="color: var(--color-danger); border-color: var(--color-danger);">✕</button>
-      `;
+        <input type="text" placeholder="URL (https://...)" class="link-url" value="${url}" style="flex: 2;">
+          <button type="button" class="btn btn-outline btn-sm remove-link" style="color: var(--color-danger); border-color: var(--color-danger);">✕</button>
+          `;
       div.querySelector('.remove-link').onclick = () => div.remove();
       linksContainer.appendChild(div);
     }
@@ -3340,20 +2995,20 @@ const App = {
       choiceModal.style.display = 'flex';
       choiceModal.style.zIndex = '10001';
       choiceModal.innerHTML = `
-      <div class="modal-content" style="max-width: 400px; text-align: center;">
-        <h3>Delete Release</h3>
-        <p>How do you want to delete this release?</p>
-        <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem;">
-          <button class="btn btn-primary" id="del-release-keep">Delete & Keep Files</button>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">Removes release metadata but keeps audio files in library.</p>
+          <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <h3>Delete Release</h3>
+            <p>How do you want to delete this release?</p>
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem;">
+              <button class="btn btn-primary" id="del-release-keep">Delete & Keep Files</button>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">Removes release metadata but keeps audio files in library.</p>
 
-          <button class="btn btn-outline" id="del-release-all" style="border-color: var(--color-danger); color: var(--color-danger);">Delete Everything</button>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">Permanently deletes release and all files from disk.</p>
+              <button class="btn btn-outline" id="del-release-all" style="border-color: var(--color-danger); color: var(--color-danger);">Delete Everything</button>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">Permanently deletes release and all files from disk.</p>
 
-          <button class="btn btn-outline" id="del-release-cancel">Cancel</button>
-        </div>
-      </div>
-      `;
+              <button class="btn btn-outline" id="del-release-cancel">Cancel</button>
+            </div>
+          </div>
+          `;
       document.body.appendChild(choiceModal);
 
       document.getElementById('del-release-cancel').onclick = () => choiceModal.remove();
@@ -3389,7 +3044,10 @@ const App = {
   },
 
   async showEditArtistModal(artistId) {
-    const artist = await API.getArtist(artistId);
+    let artist = { name: '', bio: '', photo_path: '', id: null };
+    if (artistId) {
+      artist = await API.getArtist(artistId);
+    }
 
     const modal = document.createElement('div');
     modal.className = 'modal';
@@ -3397,37 +3055,37 @@ const App = {
     modal.id = 'edit-artist-modal';
 
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 500px;">
-        <h2 class="section-title">Edit Artist: ${artist.name}</h2>
-        <form id="edit-artist-form">
-          <div class="form-group">
-            <label>Avatar</label>
-            <div style="display: flex; align-items: center; gap: 1rem;">
-              <div class="artist-avatar-preview" style="width: 80px; height: 80px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; font-size: 2rem; background-size: cover; background-position: center;" id="avatar-preview">
-                ${artist.photo_path ? '' : '👤'}
+          <div class="modal-content" style="max-width: 500px;">
+            <h2 class="text-2xl font-bold mb-6">${artist.id ? 'Edit Artist' : 'Create New Artist'}: ${artist.name || 'New'}</h2>
+            <form id="edit-artist-form">
+              <div class="form-group">
+                <label>Avatar</label>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                  <div class="artist-avatar-preview" style="width: 80px; height: 80px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; font-size: 2rem; background-size: cover; background-position: center;" id="avatar-preview">
+                    ${artist.photo_path ? '' : '👤'}
+                  </div>
+                  <input type="file" id="edit-artist-avatar" accept="image/*" style="flex: 1;">
+                </div>
               </div>
-              <input type="file" id="edit-artist-avatar" accept="image/*" style="flex: 1;">
-            </div>
+              <div class="form-group">
+                <label>Bio</label>
+                <textarea id="edit-artist-bio" rows="3">${artist.bio || ''}</textarea>
+              </div>
+              <div class="form-group">
+                <label>Support / Social Links</label>
+                <div id="artist-links-container" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem;">
+                  <!-- Links injected here -->
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" id="add-artist-link">＋ Add Link</button>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-outline" id="cancel-edit-artist">Cancel</button>
+                <button type="button" class="btn btn-danger btn-outline" id="delete-artist-btn" style="color: var(--color-danger); border-color: var(--color-danger); margin-left: auto;">Delete Artist</button>
+              </div>
+            </form>
           </div>
-          <div class="form-group">
-            <label>Bio</label>
-            <textarea id="edit-artist-bio" rows="3">${artist.bio || ''}</textarea>
-          </div>
-          <div class="form-group">
-            <label>Support / Social Links</label>
-            <div id="artist-links-container" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <!-- Links injected here -->
-            </div>
-            <button type="button" class="btn btn-outline btn-sm" id="add-artist-link">＋ Add Link</button>
-          </div>
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Save Changes</button>
-            <button type="button" class="btn btn-outline" id="cancel-edit-artist">Cancel</button>
-            <button type="button" class="btn btn-danger btn-outline" id="delete-artist-btn" style="color: var(--color-danger); border-color: var(--color-danger); margin-left: auto;">Delete Artist</button>
-          </div>
-        </form>
-      </div>
-      `;
+          `;
 
     document.body.appendChild(modal);
 
@@ -3470,7 +3128,7 @@ const App = {
     const linksContainer = document.getElementById('artist-links-container');
     let existingLinks = [];
 
-    // Parse existing links (handle old {key:val} and new {label,url} format)
+    // Parse existing links (handle old {key:val} and new {label, url} format)
     if (artist.links && Array.isArray(artist.links)) {
       existingLinks = artist.links.map(l => {
         if (l.label && l.url) return l; // New format
@@ -3485,14 +3143,14 @@ const App = {
       div.style.display = 'flex';
       div.style.gap = '0.5rem';
       div.innerHTML = `
-      <select class="link-type" style="width: 100px;">
-        <option value="social" ${type === 'social' ? 'selected' : ''}>Social</option>
-        <option value="support" ${type === 'support' ? 'selected' : ''}>Support</option>
-      </select>
-      <input type="text" placeholder="Label (e.g. Bandcamp)" class="link-label" value="${label}" style="flex: 1;">
-      <input type="text" placeholder="URL (https://...)" class="link-url" value="${url}" style="flex: 2;">
-      <button type="button" class="btn btn-outline btn-sm remove-link" style="color: var(--color-danger); border-color: var(--color-danger);">✕</button>
-      `;
+          <select class="link-type" style="width: 100px;">
+            <option value="social" ${type === 'social' ? 'selected' : ''}>Social</option>
+            <option value="support" ${type === 'support' ? 'selected' : ''}>Support</option>
+          </select>
+          <input type="text" placeholder="Label (e.g. Bandcamp)" class="link-label" value="${label}" style="flex: 1;">
+            <input type="text" placeholder="URL (https://...)" class="link-url" value="${url}" style="flex: 2;">
+              <button type="button" class="btn btn-outline btn-sm remove-link" style="color: var(--color-danger); border-color: var(--color-danger);">✕</button>
+              `;
       div.querySelector('.remove-link').onclick = () => div.remove();
       linksContainer.appendChild(div);
     }
@@ -3557,29 +3215,29 @@ const App = {
       modal.style.display = 'flex';
       modal.style.zIndex = '10006';
       modal.innerHTML = `
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Artist Keys</h2>
-                <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p style="color: var(--color-danger); margin-bottom: 1rem;">⚠️ Private keys grant full control over this artist's identity. Do not share them.</p>
-                
-                <label style="font-weight:bold;">Public Key</label>
-                <textarea style="width: 100%; height: 100px; font-family: monospace; margin-bottom: 1rem; color: var(--text-main); background: var(--bg-secondary); border: 1px solid var(--border);" readonly>${keys.publicKey || 'No key found'}</textarea>
-                
-                <label style="font-weight:bold;">Private Key</label>
-                <div style="position: relative; margin-bottom: 1rem;">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h2>Artist Keys</h2>
+                  <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                  <p style="color: var(--color-danger); margin-bottom: 1rem;">⚠️ Private keys grant full control over this artist's identity. Do not share them.</p>
+
+                  <label style="font-weight:bold;">Public Key</label>
+                  <textarea style="width: 100%; height: 100px; font-family: monospace; margin-bottom: 1rem; color: var(--text-main); background: var(--bg-secondary); border: 1px solid var(--border);" readonly>${keys.publicKey || 'No key found'}</textarea>
+
+                  <label style="font-weight:bold;">Private Key</label>
+                  <div style="position: relative; margin-bottom: 1rem;">
                     <textarea id="private-key-area" style="width: 100%; height: 150px; font-family: monospace; filter: blur(5px); transition: filter 0.3s; color: var(--text-main); background: var(--bg-secondary); border: 1px solid var(--border);" readonly>${keys.privateKey || 'No key found'}</textarea>
                     <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; background: rgba(0,0,0,0.1); z-index: 10;" onclick="document.getElementById('private-key-area').style.filter='none'; this.style.display='none';">
-                        <span style="background: var(--bg-primary); padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border); box-shadow: 0 2px 5px rgba(0,0,0,0.2);">Click to Reveal</span>
+                      <span style="background: var(--bg-primary); padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border); box-shadow: 0 2px 5px rgba(0,0,0,0.2);">Click to Reveal</span>
                     </div>
-                </div>
+                  </div>
 
-                <button class="btn btn-primary btn-block" id="copy-keys-btn">Copy Private Key to Clipboard</button>
-            </div>
-        </div>
-      `;
+                  <button class="btn btn-primary btn-block" id="copy-keys-btn">Copy Private Key to Clipboard</button>
+                </div>
+              </div>
+              `;
       document.body.appendChild(modal);
 
       document.getElementById('copy-keys-btn').onclick = () => {
@@ -3601,39 +3259,39 @@ const App = {
     modal.id = 'edit-track-modal';
 
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 500px;">
-        <h2 class="section-title">Edit Track</h2>
-        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">File: ${track.file_path.split('\\').pop() || track.file_path.split('/').pop()}</p>
-        <form id="edit-track-form">
-          <div class="form-group">
-            <label>Title</label>
-            <input type="text" id="edit-track-title" value="${track.title || ''}" required>
-          </div>
-          <div class="form-group">
-            <label>Artist</label>
-            <input type="text" id="edit-track-artist" value="${track.artist_name || ''}">
-          </div>
-          <div class="form-group">
-            <label>Genre</label>
-            <input type="text" id="edit-track-genre" value="">
-          </div>
-          <div class="form-group">
-            <label>Track Number</label>
-            <input type="number" id="edit-track-number" value="${track.track_num || ''}" min="1">
-          </div>
-          <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 1rem;">
-            ℹ️ ID3 tags will be updated for MP3 files. Other formats update database only.
-          </p>
-          <div class="form-actions" style="justify-content: space-between;">
-            <div>
-              <button type="submit" class="btn btn-primary">Save Changes</button>
-              <button type="button" class="btn btn-outline" id="cancel-edit-track">Cancel</button>
-            </div>
-            <button type="button" class="btn btn-outline" id="delete-track-btn" style="border-color: var(--color-danger); color: var(--color-danger);">Delete Track</button>
-          </div>
-        </form>
-      </div>
-      `;
+              <div class="modal-content" style="max-width: 500px;">
+                <h2 class="section-title">Edit Track</h2>
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">File: ${track.file_path.split('\\').pop() || track.file_path.split('/').pop()}</p>
+                <form id="edit-track-form">
+                  <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" id="edit-track-title" value="${track.title || ''}" required>
+                  </div>
+                  <div class="form-group">
+                    <label>Artist</label>
+                    <input type="text" id="edit-track-artist" value="${track.artist_name || ''}">
+                  </div>
+                  <div class="form-group">
+                    <label>Genre</label>
+                    <input type="text" id="edit-track-genre" value="">
+                  </div>
+                  <div class="form-group">
+                    <label>Track Number</label>
+                    <input type="number" id="edit-track-number" value="${track.track_num || ''}" min="1">
+                  </div>
+                  <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 1rem;">
+                    ℹ️ ID3 tags will be updated for MP3 files. Other formats update database only.
+                  </p>
+                  <div class="form-actions" style="justify-content: space-between;">
+                    <div>
+                      <button type="submit" class="btn btn-primary">Save Changes</button>
+                      <button type="button" class="btn btn-outline" id="cancel-edit-track">Cancel</button>
+                    </div>
+                    <button type="button" class="btn btn-outline" id="delete-track-btn" style="border-color: var(--color-danger); color: var(--color-danger);">Delete Track</button>
+                  </div>
+                </form>
+              </div>
+              `;
 
     document.body.appendChild(modal);
 
@@ -3669,20 +3327,20 @@ const App = {
       choiceModal.style.display = 'flex';
       choiceModal.style.zIndex = '10001';
       choiceModal.innerHTML = `
-      <div class="modal-content" style="max-width: 400px; text-align: center;">
-        <h3>Delete Track</h3>
-        <p>How do you want to delete this track?</p>
-        <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem;">
-          <button class="btn btn-primary" id="del-track-db">Remove from Library</button>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">Removes metadata from database only. File remains on disk.</p>
+              <div class="modal-content" style="max-width: 400px; text-align: center;">
+                <h3>Delete Track</h3>
+                <p>How do you want to delete this track?</p>
+                <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem;">
+                  <button class="btn btn-primary" id="del-track-db">Remove from Library</button>
+                  <p style="font-size: 0.8rem; color: var(--text-muted);">Removes metadata from database only. File remains on disk.</p>
 
-          <button class="btn btn-outline" id="del-track-file" style="border-color: var(--color-danger); color: var(--color-danger);">Delete File</button>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">Permanently deletes file from disk.</p>
+                  <button class="btn btn-outline" id="del-track-file" style="border-color: var(--color-danger); color: var(--color-danger);">Delete File</button>
+                  <p style="font-size: 0.8rem; color: var(--text-muted);">Permanently deletes file from disk.</p>
 
-          <button class="btn btn-outline" id="del-track-cancel">Cancel</button>
-        </div>
-      </div>
-      `;
+                  <button class="btn btn-outline" id="del-track-cancel">Cancel</button>
+                </div>
+              </div>
+              `;
       document.body.appendChild(choiceModal);
 
       document.getElementById('del-track-cancel').onclick = () => choiceModal.remove();
@@ -3722,30 +3380,30 @@ const App = {
     modal.id = 'create-artist-modal';
 
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 500px;">
-        <h2 class="section-title">Create New Artist</h2>
-        <form id="create-artist-form">
-          <div class="form-group">
-            <label>Name *</label>
-            <input type="text" id="new-artist-name" required placeholder="Artist name">
-          </div>
-          <div class="form-group">
-            <label>Bio</label>
-            <textarea id="new-artist-bio" rows="3" placeholder="Short biography..."></textarea>
-          </div>
-          <div class="form-group">
-            <label>Links (one per line, format: platform: url)</label>
-            <textarea id="new-artist-links" rows="4" placeholder="website: https://example.com
+              <div class="modal-content" style="max-width: 500px;">
+                <h2 class="section-title">Create New Artist</h2>
+                <form id="create-artist-form">
+                  <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" id="new-artist-name" required placeholder="Artist name">
+                  </div>
+                  <div class="form-group">
+                    <label>Bio</label>
+                    <textarea id="new-artist-bio" rows="3" placeholder="Short biography..."></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Links (one per line, format: platform: url)</label>
+                    <textarea id="new-artist-links" rows="4" placeholder="website: https://example.com
 instagram: https://instagram.com/artist
 bandcamp: https://artist.bandcamp.com"></textarea>
-          </div>
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Create Artist</button>
-            <button type="button" class="btn btn-outline" id="cancel-create-artist">Cancel</button>
-          </div>
-        </form>
-      </div>
-      `;
+                  </div>
+                  <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Create Artist</button>
+                    <button type="button" class="btn btn-outline" id="cancel-create-artist">Cancel</button>
+                  </div>
+                </form>
+              </div>
+              `;
 
     document.body.appendChild(modal);
 
@@ -3793,18 +3451,18 @@ bandcamp: https://artist.bandcamp.com"></textarea>
     }
 
     container.innerHTML = albums.map(album => `
-      <a href="#/album/${album.slug || album.id}" class="card bg-base-200 hover:bg-base-300 transition-all border border-white/5 group overflow-hidden">
-        <figure class="aspect-square relative overflow-hidden bg-base-300">
-          <div class="album-cover-placeholder w-full h-full group-hover:scale-105 transition-transform duration-500" data-src="${API.getAlbumCoverUrl(album.slug || album.id)}">
-            <div class="flex items-center justify-center w-full h-full text-4xl opacity-20">🎵</div>
-          </div>
-        </figure>
-        <div class="card-body p-4">
-          <h2 class="card-title text-sm font-bold truncate block">${App.escapeHtml(album.title)}</h2>
-          <p class="text-xs opacity-60 truncate">${App.escapeHtml(album.artist_name || 'Unknown Artist')}</p>
-        </div>
-      </a>
-      `).join('');
+              <a href="#/album/${album.slug || album.id}" class="card bg-base-200 hover:bg-base-300 transition-all border border-white/5 group overflow-hidden">
+                <figure class="aspect-square relative overflow-hidden bg-base-300">
+                  <div class="album-cover-placeholder w-full h-full group-hover:scale-105 transition-transform duration-500" data-src="${API.getAlbumCoverUrl(album.slug || album.id)}">
+                    <div class="flex items-center justify-center w-full h-full text-4xl opacity-20">🎵</div>
+                  </div>
+                </figure>
+                <div class="card-body p-4">
+                  <h2 class="card-title text-sm font-bold truncate block">${App.escapeHtml(album.title)}</h2>
+                  <p class="text-xs opacity-60 truncate">${App.escapeHtml(album.artist_name || 'Unknown Artist')}</p>
+                </div>
+              </a>
+              `).join('');
 
     // Load album covers with fallback
     container.querySelectorAll('.album-cover-placeholder').forEach(el => {
@@ -3827,29 +3485,29 @@ bandcamp: https://artist.bandcamp.com"></textarea>
     }
 
     container.innerHTML = tracks.map((track, index) => `
-      <div class="track-item" data-track='${JSON.stringify(track).replace(/'/g, "&apos;")}' data-index="${index}">
-      <div class="track-num">${track.track_num || index + 1}</div>
-      <div class="track-info">
-        <div class="track-title">${track.title}</div>
-      </div>
-      <div class="track-waveform">
-        <canvas width="100" height="30" data-waveform="${track.waveform || ''}"></canvas>
-      </div>
-      <div class="track-duration">${Player.formatTime(track.duration)}</div>
-      ${this.isAdmin ? `
+              <div class="track-item" data-track='${JSON.stringify(track).replace(/' /g, "&apos;")}' data-index="${index}">
+              <div class="track-num">${track.track_num || index + 1}</div>
+              <div class="track-info">
+                <div class="track-title">${track.title}</div>
+              </div>
+              <div class="track-waveform">
+                <canvas width="100" height="30" data-waveform="${track.waveform || ''}"></canvas>
+              </div>
+              <div class="track-duration">${Player.formatTime(track.duration)}</div>
+              ${this.isAdmin ? `
         <button class="btn btn-sm btn-ghost add-to-playlist-btn" 
                 title="Add to Playlist" 
                 style="margin-left: 0.5rem; padding: 4px 8px; font-size: 0.9rem;"
                 onclick="event.stopPropagation(); App.showAddToPlaylistModal(${track.id})">
           📋
         </button>` : ''}
-      <button class="btn btn-sm btn-ghost add-to-queue-btn" title="Add to Queue"
-        style="margin-left: 0.5rem; padding: 4px 8px; font-size: 0.9rem;"
-        onclick="event.stopPropagation(); Player.addToQueue(${JSON.stringify(track).replace(/"/g, '&quot;')})">
-      ➕
-    </button>
-      </div >
-  `).join('');
+              <button class="btn btn-sm btn-ghost add-to-queue-btn" title="Add to Queue"
+                style="margin-left: 0.5rem; padding: 4px 8px; font-size: 0.9rem;"
+                onclick="event.stopPropagation(); Player.addToQueue(${JSON.stringify(track).replace(/" /g, '&quot;')})">
+              ➕
+            </button>
+          </div >
+          `).join('');
 
     this.attachTrackListeners(tracks);
     this.drawWaveforms(container);
@@ -3884,19 +3542,19 @@ bandcamp: https://artist.bandcamp.com"></textarea>
     if (status.firstRun) {
       title.textContent = 'Setup Admin Password';
       body.innerHTML = `
-        <form id="login-form">
-          <div class="form-group">
-            <label for="password">Create Admin Password</label>
-            <input type="password" id="password" placeholder="Enter password (min 6 chars)" required minlength="6" autocomplete="new-password">
-          </div>
-          <div class="form-group">
-            <label for="password-confirm">Confirm Password</label>
-            <input type="password" id="password-confirm" placeholder="Confirm password" required autocomplete="new-password">
-          </div>
-          <button type="submit" class="btn btn-primary btn-block">Create Admin Account</button>
-        </form>
-        <div id="login-error" class="error-message"></div>
-      `;
+          <form id="login-form">
+            <div class="form-group">
+              <label for="password">Create Admin Password</label>
+              <input type="password" id="password" placeholder="Enter password (min 6 chars)" required minlength="6" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+              <label for="password-confirm">Confirm Password</label>
+              <input type="password" id="password-confirm" placeholder="Confirm password" required autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Create Admin Account</button>
+          </form>
+          <div id="login-error" class="error-message"></div>
+          `;
 
       document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -3905,19 +3563,19 @@ bandcamp: https://artist.bandcamp.com"></textarea>
     } else {
       title.textContent = 'Admin Login';
       body.innerHTML = `
-        <form id="login-form">
-          <div class="form-group">
-            <label for="username">Username</label>
-            <input type="text" id="username" placeholder="Enter username" required autocomplete="username">
-          </div>
-          <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" placeholder="Enter admin password" required autocomplete="current-password">
-          </div>
-          <button type="submit" class="btn btn-primary btn-block">Login</button>
-        </form>
-        <div id="login-error" class="error-message"></div>
-      `;
+          <form id="login-form">
+            <div class="form-group">
+              <label for="username">Username</label>
+              <input type="text" id="username" placeholder="Enter username" required autocomplete="username">
+            </div>
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input type="password" id="password" placeholder="Enter admin password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Login</button>
+          </form>
+          <div id="login-error" class="error-message"></div>
+          `;
 
       document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -4028,15 +3686,15 @@ bandcamp: https://artist.bandcamp.com"></textarea>
         const isRootAdmin = u.id === 1;
         const showDelete = canDelete && users.length > 1 && !isRootAdmin;
         return `
-              <div class="list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid var(--border-color);">
-                  <div>
-                      <strong>${this.escapeHtml(u.username)}</strong>
-                      <div style="font-size: 0.8rem; color: var(--text-muted);">ID: ${u.id} • Created: ${new Date(u.created_at).toLocaleDateString()}${isRootAdmin ? ' (Primary Admin)' : ''}</div>
-                  </div>
-                  <div>
-                      ${showDelete ? `<button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}">Delete</button>` : isRootAdmin ? '<span style="font-size: 0.8rem; color: var(--text-muted);">(Primary Admin)</span>' : users.length <= 1 ? '<span style="font-size: 0.8rem; color: var(--text-muted);">(Last Admin)</span>' : '<span style="font-size: 0.8rem; color: var(--text-muted);">—</span>'}
-                  </div>
-              </div>
+          <div class="list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid var(--border-color);">
+            <div>
+              <strong>${this.escapeHtml(u.username)}</strong>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">ID: ${u.id} • Created: ${new Date(u.created_at).toLocaleDateString()}${isRootAdmin ? ' (Primary Admin)' : ''}</div>
+            </div>
+            <div>
+              ${showDelete ? `<button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}">Delete</button>` : isRootAdmin ? '<span style="font-size: 0.8rem; color: var(--text-muted);">(Primary Admin)</span>' : users.length <= 1 ? '<span style="font-size: 0.8rem; color: var(--text-muted);">(Last Admin)</span>' : '<span style="font-size: 0.8rem; color: var(--text-muted);">—</span>'}
+            </div>
+          </div>
           `;
       }).join('');
 
