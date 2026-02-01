@@ -1493,8 +1493,8 @@ const App = {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${recentPlays.length ? recentPlays.map(play => `
-                                <tr class="hover cursor-pointer" onclick="Player.play({id: '${play.track_id}', title: '${play.title.replace(/'/g, "\\'")}', artist_name: '${play.artist_name.replace(/'/g, "\\'")}', cover: '${play.cover}'})">
+                                ${recent.length ? recent.map(play => `
+                                <tr class="hover cursor-pointer" onclick="Player.play({id: ${play.track_id}, title: '${App.escapeHtml(play.track_title).replace(/'/g, "\\'")}', artist_name: '${App.escapeHtml(play.artist_name).replace(/'/g, "\\'")}', cover: '${play.cover || ''}'})">
                                     <td>
                                         <div class="flex items-center gap-3">
                                             <div class="avatar">
@@ -2304,6 +2304,26 @@ const App = {
           alert('Failed to update visibility');
         }
       });
+    });
+
+    // Dashboard Quick Actions
+    container.querySelector('#new-release-quick-btn')?.addEventListener('click', () => {
+      this.openReleaseEditor();
+    });
+    container.querySelector('#upload-quick-btn')?.addEventListener('click', () => {
+      this.toggleAdminPanel('library-panel');
+      document.getElementById('browse-btn')?.click();
+    });
+    container.querySelector('#new-artist-quick-btn')?.addEventListener('click', () => {
+      // We don't have a direct "New Artist" modal yet, usually handled via creating a user or just editing metadata?
+      // Actually api.createArtist exists.
+      // For now let's just show an alert or redirect to library panel where artist list is.
+      this.toggleAdminPanel('library-panel');
+      // Maybe scroll to artists list
+      document.getElementById('admin-artists-list')?.scrollIntoView({ behavior: 'smooth' });
+    });
+    container.querySelector('#posts-quick-btn')?.addEventListener('click', () => {
+      this.toggleAdminPanel('posts-panel');
     });
 
     // Upload Handlers
@@ -3707,6 +3727,79 @@ const App = {
     } catch (error) {
       console.error('Error adding track:', error);
       alert('Failed to add track to playlist');
+    }
+  },
+
+  async showAddToReleaseModal(trackId, trackTitle) {
+    if (!this.isAdmin) {
+      alert('Admin access required');
+      return;
+    }
+
+    const modalId = 'add-to-release-modal';
+    let modal = document.getElementById(modalId);
+
+    if (modal) modal.remove();
+
+    modal = document.createElement('dialog');
+    modal.id = modalId;
+    modal.className = 'modal modal-bottom sm:modal-middle';
+
+    try {
+      const releases = await API.getAdminReleases();
+      // Filter only releases (albums that are releases) 
+      // Actually getAdminReleases returns all albums? let's assume so or filter if needed.
+
+      modal.innerHTML = `
+              <div class="modal-box bg-base-200 border border-white/10">
+                  <h3 class="font-bold text-lg mb-4">Add to Release</h3>
+                  <p class="text-sm opacity-70 mb-4">Add "<strong>${App.escapeHtml(trackTitle)}</strong>" to:</p>
+                  
+                  <div class="form-control">
+                      <select id="release-select" class="select select-bordered w-full">
+                          <option value="" disabled selected>Select a Release...</option>
+                          ${releases.map(r => `<option value="${r.id}">${App.escapeHtml(r.title)} (${r.artist_name || 'Various'})</option>`).join('')}
+                      </select>
+                  </div>
+                  
+                  <div class="modal-action">
+                      <button class="btn btn-primary" id="confirm-add-to-release">Add Track</button>
+                      <form method="dialog">
+                          <button class="btn">Cancel</button>
+                      </form>
+                  </div>
+              </div>
+              <form method="dialog" class="modal-backdrop">
+                  <button>close</button>
+              </form>
+          `;
+
+      document.body.appendChild(modal);
+      modal.showModal();
+
+      document.getElementById('confirm-add-to-release').onclick = async () => {
+        const releaseId = document.getElementById('release-select').value;
+        if (!releaseId) return;
+
+        const btn = document.getElementById('confirm-add-to-release');
+        btn.disabled = true;
+        btn.textContent = 'Adding...';
+
+        try {
+          await API.addTrackToRelease(releaseId, trackId);
+          alert('Track added to release successfully!');
+          modal.close();
+          // Ideally refresh the parent view if needed
+        } catch (e) {
+          alert('Failed: ' + e.message);
+          btn.disabled = false;
+          btn.textContent = 'Add Track';
+        }
+      };
+
+    } catch (e) {
+      alert('Failed to load releases');
+      console.error(e);
     }
   }
 };
