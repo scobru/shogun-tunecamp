@@ -393,10 +393,15 @@ const Player = {
                 cover.style.backgroundSize = 'cover';
                 cover.style.backgroundPosition = 'center';
                 if (icon) icon.style.display = 'none';
+
+                // Add glow effect
+                cover.style.boxShadow = '0 8px 32px -4px rgba(0,0,0,0.6)';
+                cover.style.borderColor = 'rgba(255,255,255,0.1)';
             };
             img.onerror = () => {
                 cover.style.backgroundImage = '';
                 if (icon) icon.style.display = 'block';
+                cover.style.boxShadow = 'none';
             };
             img.src = coverUrl;
         } else {

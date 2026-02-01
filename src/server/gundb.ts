@@ -77,6 +77,7 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
                 peers: REGISTRY_PEERS,
                 localStorage: false,
                 radisk: true,
+                file: "./radata"
                 web: server,
                 axe: true,
                 wire: true

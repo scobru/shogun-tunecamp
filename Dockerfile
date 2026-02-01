@@ -75,11 +75,12 @@ COPY --from=builder /app/templates ./templates
 
 
 # Create directories for data persistence
-RUN mkdir -p /music /data
+RUN mkdir -p /music /data /radata
 
 # Environment variables
 ENV NODE_ENV=production
 ENV TUNECAMP_DB_PATH=/data/tunecamp.db
+ENV RADATA_PATH=/radata
 
 # Expose default port
 EXPOSE 1970

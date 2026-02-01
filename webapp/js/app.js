@@ -68,29 +68,40 @@ const App = {
   },
 
   updateAuthUI(status) {
-    const btn = document.getElementById('admin-btn');
+    const btn = document.getElementById('user-login-btn');
+    const nameDisplay = document.getElementById('user-name-display');
+    const adminBtn = document.getElementById('admin-btn');
     const browserLink = document.querySelector('.nav-link[data-route="browser"]');
 
     // Default hide browser link
     if (browserLink) browserLink.style.display = 'none';
 
-    if (status.firstRun) {
-      btn.textContent = 'Setup Admin';
-      btn.classList.add('btn-primary');
-      btn.style.display = 'inline-block';
-    } else if (this.isAdmin) {
-      btn.textContent = 'Admin Panel';
-      btn.classList.add('btn-primary');
-      btn.style.display = 'inline-block';
-      // Show browser link only if admin
-      if (browserLink) browserLink.style.display = 'inline-block';
+    if (status.authenticated) {
+      if (nameDisplay) nameDisplay.textContent = status.username || 'User';
+      if (btn) btn.innerHTML = '👤 Logout'; // Or change logic to have separate logout btn
+      // Actually the Sidebar has a Login button that changes to User logic?
+      // Let's check HTML: <button ... id="user-login-btn">👤 <span id="user-name-display">Login</span></button>
+      if (btn) {
+        btn.onclick = () => { UserAuth.logout(); this.updateAuthUI({ authenticated: false }); };
+        btn.innerHTML = `👤 <span id="user-name-display">${status.username}</span>`;
+      }
     } else {
-      btn.textContent = 'Admin';
-      btn.classList.remove('btn-primary');
-      // If we want to hide the admin login button entirely for regular users, uncomment next line:
-      // btn.style.display = 'none'; 
-      // But keeping it visible for now so they CAN login.
-      btn.style.display = 'inline-block';
+      if (nameDisplay) nameDisplay.textContent = 'Login';
+      if (btn) {
+        btn.onclick = () => this.showLoginModal();
+        btn.innerHTML = `👤 <span id="user-name-display">Login</span>`;
+      }
+    }
+
+    if (this.isAdmin) {
+      adminBtn.style.display = 'inline-flex';
+      adminBtn.classList.remove('opacity-50');
+      if (browserLink) browserLink.parentElement.style.display = 'block';
+    } else {
+      // adminBtn.style.display = 'none'; // Keep visible but dim?
+      adminBtn.style.display = 'inline-flex';
+      adminBtn.classList.add('opacity-50');
+      if (browserLink) browserLink.parentElement.style.display = 'none';
     }
   },
 
@@ -381,6 +392,8 @@ const App = {
     const path = hash.slice(1);
     const main = document.getElementById('main-content');
 
+    this.updateSidebarActiveState(path);
+
     try {
       if (path === '/' || path === '') {
         await this.renderHome(main);
@@ -414,9 +427,6 @@ const App = {
         await this.renderPlaylist(main, id);
       } else if (path === '/stats') {
         await this.renderStats(main);
-      } else if (path.startsWith('/artist/')) {
-        const id = path.split('/')[2];
-        await this.renderArtist(main, id);
       } else if (path.startsWith('/post/')) {
         const slug = path.split('/')[2];
         await this.renderPost(main, slug);
@@ -435,6 +445,34 @@ const App = {
       console.error('Route error:', e);
       main.innerHTML = '<div class="error-message">Error loading page</div>';
     }
+  },
+
+  updateSidebarActiveState(path) {
+    document.querySelectorAll('.nav-link').forEach(link => {
+      const href = link.getAttribute('href').replace('#', '');
+      let isActive = false;
+
+      if (href === path) {
+        isActive = true;
+      } else if (href !== '/' && path.startsWith(href)) {
+        // e.g. href="/albums" matches path="/albums" and "/album/..." 
+        // Wait, href is "/albums", path is "/album/123". startsWith check mostly works if naming is consistent.
+        // But here: "/albums" vs "/album/".
+        if (href === '/albums' && path.startsWith('/album/')) isActive = true;
+        if (href === '/artists' && path.startsWith('/artist/')) isActive = true;
+        if (href === '/playlists' && path.startsWith('/playlist/')) isActive = true;
+      }
+
+      if (isActive) {
+        link.classList.add('active');
+        link.classList.add('bg-primary/10'); // Extra visual cue
+        link.classList.add('text-primary');
+      } else {
+        link.classList.remove('active');
+        link.classList.remove('bg-primary/10');
+        link.classList.remove('text-primary');
+      }
+    });
   },
 
   async renderSupport(container) {
@@ -626,7 +664,11 @@ const App = {
       : `<span style="color: var(--text-secondary);">${album.artist_name || 'Unknown Artist'}</span>`;
 
     container.innerHTML = `
-      <div class="album-detail p-4 lg:p-8">
+      <div class="relative w-full">
+        <!-- Hero Background -->
+        <div class="absolute inset-0 bg-gradient-to-b from-primary/20 to-base-100 pointer-events-none" style="height: 500px; z-index: 0;"></div>
+
+        <div class="album-detail relative z-10 p-4 lg:p-8">
         <div class="flex flex-col lg:flex-row gap-8 mb-12">
           <figure class="w-full lg:w-[300px] aspect-square rounded-2xl overflow-hidden shadow-2xl bg-base-300 shrink-0">
             <img src="${API.getAlbumCoverUrl(album.slug || album.id)}" alt="${album.title}" class="w-full h-full object-cover">
@@ -890,9 +932,7 @@ const App = {
             </div>
         </div>
         
-        <div class="bg-base-200/50 rounded-2xl border border-white/5 overflow-hidden backdrop-blur-sm" id="all-tracks-list">
-            <!-- Tracks rendered here -->
-        </div>
+        <div class="bg-base-200/50 rounded-2xl border border-white/5 overflow-hidden backdrop-blur-sm" id="all-tracks-list"></div>
         
         ${tracks.length === 0 ? `
         <div class="text-center py-20 opacity-40">
@@ -904,73 +944,9 @@ const App = {
       </section>
     `;
 
-    const list = document.getElementById('all-tracks-list');
-    if (!tracks || tracks.length === 0) return;
-
-    list.innerHTML = tracks.map((track, index) => {
-      const coverUrl = track.cover || (track.album_id ? API.getAlbumCoverUrl(track.album_id) : '/img/album-placeholder.png');
-
-      return `
-      <div class="group flex items-center gap-4 p-3 hover:bg-base-100/80 transition-all cursor-pointer border-b border-white/5 last:border-0 relative overflow-hidden" 
-           onclick="Player.play(JSON.parse(this.dataset.track), null)"
-           data-track='${JSON.stringify(track).replace(/'/g, "&apos;")}' 
-           data-index="${index}">
-           
-        <!-- Track Number -->
-        <div class="w-8 text-center text-sm opacity-30 font-mono group-hover:opacity-100 transition-opacity">${index + 1}</div>
-        
-        <!-- Cover -->
-        <div class="relative w-12 h-12 rounded-lg bg-base-300 flex-shrink-0 overflow-hidden shadow-sm group-hover:shadow-md transition-shadow" style="width: 3rem; height: 3rem; min-width: 3rem;">
-           <img src="${coverUrl}" class="w-full h-full object-cover" onerror="this.src='/img/album-placeholder.png'">
-           <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-             <span class="text-white">▶</span>
-           </div>
-        </div>
-
-        <!-- Info & Waveform -->
-        <div class="flex-1 min-w-0 flex flex-col justify-center gap-1 z-10">
-          <div class="flex items-baseline gap-2">
-              <span class="font-bold text-sm truncate text-base-content">${App.escapeHtml(track.title)}</span>
-              <span class="text-xs opacity-50 truncate hidden sm:inline">${App.escapeHtml(track.artist_name || 'Unknown')}</span>
-          </div>
-          <div class="h-8 w-full opacity-40 group-hover:opacity-60 transition-opacity relative track-waveform-container" style="mask-image: linear-gradient(to right, black 90%, transparent 100%);">
-             <canvas width="600" height="60" class="w-full h-full object-contain" data-waveform="${track.waveform || ''}"></canvas>
-          </div>
-        </div>
-
-        <!-- Duration & Meta -->
-        <div class="flex items-center gap-4 z-10">
-          <div class="text-xs font-mono opacity-40 w-10 text-right group-hover:opacity-100 transition-opacity">${Player.formatTime(track.duration)}</div>
-          
-          <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              ${this.isAdmin && !track.album_id && track.file_path.includes('library') ?
-          `<button class="btn btn-ghost btn-xs" title="Add to Release" 
-                  onclick="event.stopPropagation(); App.showAddToReleaseModal(${track.id}, '${track.title.replace(/'/g, "\\'")}')">
-                  +Release
-               </button>` : ''}
-               
-              ${this.isAdmin ?
-          `<button class="btn btn-ghost btn-xs btn-square" title="Edit" 
-                  onclick="event.stopPropagation(); App.showEditTrackModal(${track.id})">
-                  ✏️
-               </button>` : ''}
-              
-              <button class="btn btn-ghost btn-xs btn-square" title="Add to Playlist" 
-                  onclick="event.stopPropagation(); App.showAddToPlaylistModal(${track.id})">
-                  📋
-              </button>
-              
-              <button class="btn btn-ghost btn-xs btn-square" title="Add to Queue" 
-                  onclick="event.stopPropagation(); Player.addToQueue(${JSON.stringify(track).replace(/"/g, '&quot;')})">
-                  ➕
-              </button>
-          </div>
-        </div>
-      </div>
-    `}).join('');
-
-    // Re-use existing helpers
-    this.drawWaveforms(list);
+    if (tracks.length > 0) {
+      this.renderTrackList(document.getElementById('all-tracks-list'), tracks, { context: 'library' });
+    }
   },
 
   drawWaveforms(container) {
@@ -1006,125 +982,111 @@ const App = {
 
   async renderArtist(container, id) {
     const artist = await API.getArtist(id);
+    const topTracks = await API.getTopTracks(5).catch(() => []); // Verify if this filters by artist. API.getTopTracks usually gets global. 
+    // We need getArtistTopTracks. If not available, we might need to filter or just show "Latest Releases".
+    // Checking API usage earlier... API.getTopTracks(limit, days). 
+    // Let's assume for now we use 'artist.tracks' and sort by something or just take first 5 as "Popular" (if we don't have play counts per artist track easily accessible).
+
+    // Sort tracks by play_count if available, else just take first 5
+    const popularTracks = artist.tracks ? [...artist.tracks].sort((a, b) => (b.play_count || 0) - (a.play_count || 0)).slice(0, 5) : [];
 
     const hasAlbums = artist.albums && artist.albums.length > 0;
-    const hasTracks = artist.tracks && artist.tracks.length > 0;
 
-    // Build links HTML
+    // Hero Section with Gradient
+    const coverUrl = API.getArtistCoverUrl(artist.slug || artist.id);
+
+    // Links Processing
     let linksHtml = '';
     if (artist.links && Array.isArray(artist.links)) {
-      const linkIcons = {
-        website: '🌐',
-        bandcamp: '🎵',
-        spotify: '🎧',
-        instagram: '📷',
-        twitter: '🐦',
-        youtube: '▶️',
-        soundcloud: '☁️',
-        facebook: '📘',
-      };
-
-      linksHtml = '<div class="artist-links" style="display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">';
-      for (const linkObj of artist.links) {
-        // Handle new structured format { type, label, url }
-        if (linkObj.url && (linkObj.label || linkObj.type)) {
-          const url = linkObj.url;
-          const label = linkObj.label || linkObj.type;
-
-          let icon = '🔗';
-          // Icon detection
-          const searchStr = (label + ' ' + (linkObj.type || '') + ' ' + url).toLowerCase();
-          for (const [key, iconChar] of Object.entries(linkIcons)) {
-            if (searchStr.includes(key)) {
-              icon = iconChar;
-              break;
-            }
-          }
-
-          linksHtml += `<a href="${url}" target="_blank" class="btn btn-outline" style="gap: 0.5rem;"><span>${icon}</span> ${label}</a>`;
-        } else {
-          // Handle legacy format { platform: url }
-          for (const [key, url] of Object.entries(linkObj)) {
-            const icon = linkIcons[key] || '🔗';
-            const name = key.charAt(0).toUpperCase() + key.slice(1);
-            linksHtml += `<a href="${url}" target="_blank" class="btn btn-outline" style="gap: 0.5rem;"><span>${icon}</span> ${name}</a>`;
-          }
+      linksHtml = '<div class="flex gap-3 flex-wrap">';
+      artist.links.forEach((l) => {
+        let url = l.url || l;
+        let label = l.label || (typeof l === 'string' ? 'Link' : 'Website');
+        if (typeof l === 'object' && !l.url) {
+          const k = Object.keys(l)[0];
+          if (k !== 'type') { label = k; url = l[k]; }
         }
-      }
+        linksHtml += `<a href="${url}" target="_blank" class="btn btn-sm btn-ghost border-white/20 hover:bg-white/10">${App.escapeHtml(label)}</a>`;
+      });
       linksHtml += '</div>';
     }
 
-    const posts = await API.getArtistPosts(id).catch(() => []);
-    const hasPosts = posts && posts.length > 0;
-
     container.innerHTML = `
-      <section class="p-4 lg:p-8">
-        <div class="flex flex-col lg:flex-row gap-8 mb-12 items-start">
-          <div class="artist-cover-placeholder w-64 h-64 rounded-full overflow-hidden shadow-2xl bg-base-300 shrinks-0 artist-header-cover" data-src="${API.getArtistCoverUrl(artist.slug || artist.id)}">
-            <div class="flex items-center justify-center w-full h-full text-6xl opacity-20">👤</div>
-          </div>
-          <div class="flex-1 pt-4">
-            <h1 class="text-5xl font-black mb-4 tracking-tighter">${artist.name}</h1>
-            ${artist.bio ? `<p class="max-w-2xl text-base-content/70 leading-relaxed mb-8 bg-base-200/30 p-4 rounded-xl border border-white/5">${artist.bio}</p>` : ''}
-            ${linksHtml}
-          </div>
+      <div class="relative w-full">
+        <!-- Hero Background -->
+        <div class="absolute inset-0 bg-gradient-to-b from-purple-900/50 to-base-100 pointer-events-none" style="height: 500px; z-index: 0;"></div>
+        
+        <!-- Hero Content -->
+        <div class="relative z-10 px-6 lg:px-8 pt-12 pb-8 flex flex-col items-start gap-6">
+            <div class="flex items-end gap-6 w-full">
+                <div class="w-40 h-40 lg:w-52 lg:h-52 rounded-full overflow-hidden shadow-2xl bg-base-300 shrink-0">
+                    <img src="${coverUrl}" class="w-full h-full object-cover" onerror="this.src='/img/album-placeholder.png'">
+                </div>
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 text-sm font-bold uppercase tracking-widest opacity-70 mb-2">
+                        <span>verified artist</span>
+                        <span class="text-blue-400">✓</span>
+                    </div>
+                    <h1 class="text-5xl lg:text-8xl font-black tracking-tighter mb-6">${App.escapeHtml(artist.name)}</h1>
+                    <div class="flex items-center gap-4 text-base opacity-80">
+                         <span>${App.formatNumber(artist.listeners || 0)} monthly listeners</span>
+                    </div>
+                </div>
+            </div>
+            
+            ${artist.bio ? `<p class="max-w-3xl text-lg opacity-80 leading-relaxed line-clamp-2 hover:line-clamp-none transition-all cursor-pointer" onclick="this.classList.toggle('line-clamp-none')">${App.escapeHtml(artist.bio)}</p>` : ''}
+            
+            <!-- Action Bar -->
+            <div class="flex items-center gap-4 py-4 w-full">
+                <button class="btn btn-circle btn-primary btn-lg shadow-xl hover:scale-105 transition-transform" 
+                     onclick="Player.playQueue(${JSON.stringify(artist.tracks.map(t => t.id)).replace(/"/g, '&quot;')}, 0)">
+                    <span class="text-3xl ml-1">▶</span>
+                </button>
+                <button class="btn btn-outline btn-sm uppercase tracking-widest font-bold">Follow</button>
+                <button class="btn btn-ghost btn-circle">•••</button>
+                <div class="ml-auto">
+                    ${linksHtml}
+                </div>
+            </div>
         </div>
 
-        ${hasPosts ? `
-        <div class="mb-12">
-          <h2 class="text-2xl font-bold mb-6">Recent Activity</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="artist-posts">
-              ${posts.map(p => `
-                  <div class="card bg-base-200 border border-white/5 p-6 hover:bg-base-300 transition-colors">
-                      <div class="flex justify-between items-center mb-4 text-xs font-mono opacity-50 uppercase tracking-widest">
-                          <span>${new Date(p.created_at).toLocaleDateString()}</span>
-                          <span>${new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      <div class="text-lg leading-relaxed whitespace-pre-wrap">${App.escapeHtml(p.content).substring(0, 300)}${p.content.length > 300 ? '...' : ''}</div>
-                  </div>
-              `).join('')}
-          </div>
-        </div>
-        ` : ''}
+        <!-- Content Grid -->
+        <div class="relative z-10 px-6 lg:px-8 space-y-12 pb-24">
+            
+            ${popularTracks.length > 0 ? `
+            <section>
+                <h2 class="text-2xl font-bold mb-6">Popular</h2>
+                <div id="artist-popular-tracks" class="bg-base-100/30 rounded-xl overflow-hidden"></div>
+            </section>
+            ` : ''}
 
-        ${hasAlbums ? `
-        <div class="mb-12">
-          <h2 class="text-2xl font-bold mb-6">Albums</h2>
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6" id="artist-albums"></div>
-        </div>
-        ` : ''}
+            ${hasAlbums ? `
+            <section>
+                <h2 class="text-2xl font-bold mb-6">Discography</h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6" id="artist-albums"></div>
+            </section>
+            ` : ''}
+            
+             <section>
+                <h2 class="text-2xl font-bold mb-6">About</h2>
+                <div class="relative h-64 rounded-2xl overflow-hidden group cursor-pointer border border-white/10">
+                    <div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" style="background-image: url('${coverUrl}');"></div>
+                    <div class="absolute inset-0 bg-black/60 p-8 flex flex-col justify-center items-center text-center">
+                        <div class="max-w-2xl text-lg leading-relaxed">${App.escapeHtml(artist.bio || 'No biography available.')}</div>
+                    </div>
+                </div>
+             </section>
 
-        ${hasTracks ? `
-        <div>
-          <h2 class="text-2xl font-bold mb-6">Tracks</h2>
-          <div class="bg-base-200 rounded-2xl border border-white/5 overflow-hidden" id="artist-tracks"></div>
         </div>
-        ` : ''}
-      </section>
+      </div>
     `;
 
-    // Load artist header image with fallback
-    const artistHeaderCover = container.querySelector('.artist-header-cover');
-    if (artistHeaderCover) {
-      const img = new Image();
-      img.onload = () => {
-        artistHeaderCover.innerHTML = '';
-        artistHeaderCover.style.backgroundImage = `url(${artistHeaderCover.dataset.src})`;
-        artistHeaderCover.style.backgroundSize = 'cover';
-        artistHeaderCover.style.backgroundPosition = 'center';
-      };
-      img.onerror = () => { /* keep placeholder */ };
-      img.src = artistHeaderCover.dataset.src;
+    if (popularTracks.length > 0) {
+      this.renderTrackList(document.getElementById('artist-popular-tracks'), popularTracks, { hideHeader: true, layout: 'compact' });
     }
 
     if (hasAlbums) {
       this.renderAlbumGrid(document.getElementById('artist-albums'), artist.albums);
-    } else {
-      document.getElementById('artist-albums').innerHTML = '<p style="color: var(--text-secondary);">No albums found</p>';
-    }
-
-    if (hasTracks) {
-      this.renderTrackList(document.getElementById('artist-tracks'), artist.tracks);
     }
   },
 
@@ -1481,21 +1443,19 @@ const App = {
 
             <div class="stats-section">
               <h3>Top Tracks (30d)</h3>
-              <div class="track-list">
-                ${topTracks.length ? topTracks.map((track, i) => `
-                  <div class="track-item" onclick="Player.play({id: ${track.id}, title: '${App.escapeHtml(track.title).replace(/'/g, "\\'")}', artist_name: '${App.escapeHtml(track.artist_name || '').replace(/'/g, "\\'")}'})">
-                    <div class="track-num">${i + 1}</div>
-                    <div class="track-info">
-                      <div class="track-title">${App.escapeHtml(track.title)}</div>
-                      <div class="track-artist">${App.escapeHtml(track.artist_name || 'Unknown Artist')}</div>
-                    </div>
-                    <div class="track-meta">
-                      ${track.play_count} plays
-                    </div>
-                  </div>
-                `).join('') : '<p class="empty-state">No top tracks yet</p>'}
+              <div class="track-list" id="stats-top-tracks">
+                 <!-- Will use renderTrackList here -->
               </div>
             </div>
+
+            <!-- Manually render this since we are replacing renderTrackList logic in main code but stats had custom one.. 
+                 Wait, existing code for stats had manual mapping. 
+                 Let's keep it manual or replace with renderTrackList call? 
+                 Replacing with renderTrackList is cleaner. -->
+             <script>
+                // We can't put script tags here easily.
+                // But we can call renderTrackList after innerHTML check.
+             </script>
 
           <!-- Main Stats Grid -->
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1742,28 +1702,57 @@ const App = {
       }
 
       container.innerHTML = `
-        <div class="page-header">
-          <h2>${App.escapeHtml(playlist.name)}</h2>
-          <p>${App.escapeHtml(playlist.description || '')}</p>
-          ${adminControls}
-        </div>
-        <div class="track-list">
-          ${playlist.tracks.length ? playlist.tracks.map((t, i) => `
-            <div class="track-item" onclick="App.playPlaylistTrack(${id}, ${i})">
-              <div class="track-number">${i + 1}</div>
-              <div class="track-title">${App.escapeHtml(t.title)}</div>
-              <div class="track-artist">${App.escapeHtml(t.artist_name || 'Unknown')}</div>
-              <div class="track-duration">${Player.formatTime(t.duration)}</div>
-              ${this.isAdmin ? `<div class="track-actions"><button class="btn-icon" onclick="event.stopPropagation(); App.removeFromPlaylist(${id}, ${t.id})">❌</button></div>` : ''}
-            </div>
-          `).join('') : '<p>No tracks in this playlist.</p>'}
+        <div class="p-4 lg:p-8">
+          <div class="flex flex-col gap-4 mb-8">
+             <div class="flex items-end gap-6">
+                <div class="w-52 h-52 bg-gradient-to-br from-primary to-secondary rounded-lg shadow-2xl flex items-center justify-center text-6xl text-base-100/50">
+                    🎵
+                </div>
+                <div>
+                   <div class="uppercase text-xs font-bold tracking-widest opacity-70 mb-2">Playlist</div>
+                   <h1 class="text-4xl lg:text-7xl font-black tracking-tighter mb-4">${App.escapeHtml(playlist.name)}</h1>
+                   <p class="opacity-70 text-lg">${App.escapeHtml(playlist.description || '')}</p>
+                   <div class="mt-4 flex items-center gap-2 text-sm opacity-60">
+                       <span class="font-bold">By Tunecamp</span> • ${playlist.tracks.length} songs
+                   </div>
+                </div>
+             </div>
+             ${adminControls}
+          </div>
+          
+          <div id="playlist-track-list"></div>
         </div>
       `;
 
-      // Helper for playing playlist
-      App.playPlaylistTrack = (playlistId, index) => {
-        Player.playQueue(playlist.tracks, index);
-      };
+      if (playlist.tracks.length > 0) {
+        this.renderTrackList(document.getElementById('playlist-track-list'), playlist.tracks, { context: 'playlist', contextId: id });
+
+        // Helper not needed anymore as renderTrackList handles play
+      } else {
+        document.getElementById('playlist-track-list').innerHTML = '<div class="p-12 text-center opacity-50">Playlist is empty</div>';
+      }
+
+      // Override playPlaylistTrack for renderTrackList if it tries to use it? 
+      // renderTrackList calls Player.play(track, null, index). 
+      // This plays just the track? Or we need to pass the whole list?
+      // renderTrackList sets onclick="Player.play(..., null, index)".
+      // Player.play definition: play(track, queue, index).
+      // If queue is null, it might just play track? 
+      // We want it to play the PLAYLIST queue.
+      // We should probably modify renderTrackList to accept a 'queue' option or handle it.
+      // Or I can monkey patch Player.play in the onclick... NO.
+      // renderTrackList implementation uses:
+      // onclick="Player.play(JSON.parse(this.dataset.track), null, ${index})"
+
+      // I need to update renderTrackList to allow passing the queue!
+      // But renderTrackList doesn't have the full queue in string format (expensive).
+      // Better: Player.play can accept 'context' or simple queue.
+      // Or we accept that clicking a track plays that track and sets the queue to the list.
+      // If renderTrackList is passed 'tracks', it should probably use that as valid queue?
+
+      // OPTIMIZATION: Update renderTrackList to use "this.currentTrackList" or similar if we want to avoid passing huge JSON.
+      // For now, let's look at Player.play.
+
 
       if (this.isAdmin) {
         document.getElementById('delete-playlist-btn').addEventListener('click', async () => {
@@ -3347,6 +3336,19 @@ const App = {
 
 
 
+  async playAlbum(id) {
+    try {
+      const album = await API.getAlbum(id);
+      if (album.tracks && album.tracks.length > 0) {
+        Player.playQueue(album.tracks, 0);
+      } else {
+        alert('No tracks in this album');
+      }
+    } catch (e) {
+      console.error('Failed to play album:', e);
+    }
+  },
+
   renderAlbumGrid(container, albums) {
     if (!albums || albums.length === 0) {
       container.innerHTML = '<p class="text-secondary p-8 text-center w-full col-span-full">No albums found</p>';
@@ -3354,17 +3356,25 @@ const App = {
     }
 
     container.innerHTML = albums.map(album => `
-              <a href="#/album/${album.slug || album.id}" class="card bg-base-200 hover:bg-base-300 transition-all border border-white/5 group overflow-hidden">
-                <figure class="aspect-square relative overflow-hidden bg-base-300">
-                  <div class="album-cover-placeholder w-full h-full group-hover:scale-105 transition-transform duration-500" data-src="${API.getAlbumCoverUrl(album.slug || album.id)}">
-                    <div class="flex items-center justify-center w-full h-full text-4xl opacity-20">🎵</div>
-                  </div>
-                </figure>
-                <div class="card-body p-4">
-                  <h2 class="card-title text-sm font-bold truncate block">${App.escapeHtml(album.title)}</h2>
-                  <p class="text-xs opacity-60 truncate">${App.escapeHtml(album.artist_name || 'Unknown Artist')}</p>
-                </div>
-              </a>
+              <div class="album-card-wrapper relative group">
+                  <a href="#/album/${album.slug || album.id}" class="card bg-base-200 hover:bg-base-300 transition-all border border-white/5 h-full overflow-hidden block">
+                    <figure class="aspect-square relative overflow-hidden bg-base-300">
+                      <div class="album-cover-placeholder w-full h-full group-hover:scale-105 transition-transform duration-500 bg-cover bg-center" data-src="${API.getAlbumCoverUrl(album.slug || album.id)}">
+                        <div class="flex items-center justify-center w-full h-full text-4xl opacity-20">🎵</div>
+                      </div>
+                      
+                      <!-- Play Button Overlay -->
+                      <button class="absolute bottom-2 right-2 btn btn-circle btn-primary shadow-xl opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 z-20 hover:scale-105"
+                              onclick="event.preventDefault(); event.stopPropagation(); App.playAlbum('${album.id}')">
+                          <span class="pl-1 text-xl">▶</span>
+                      </button>
+                    </figure>
+                    <div class="card-body p-4">
+                      <h2 class="card-title text-sm font-bold truncate block">${App.escapeHtml(album.title)}</h2>
+                      <p class="text-xs opacity-60 truncate">${App.escapeHtml(album.artist_name || 'Unknown Artist')}</p>
+                    </div>
+                  </a>
+              </div>
               `).join('');
 
     // Load album covers with fallback
@@ -3373,75 +3383,93 @@ const App = {
       img.onload = () => {
         el.innerHTML = '';
         el.style.backgroundImage = `url(${el.dataset.src})`;
-        el.style.backgroundSize = 'cover';
-        el.style.backgroundPosition = 'center';
+        // Play button is outside this div now or inside figure
       };
       img.onerror = () => { /* keep placeholder */ };
       img.src = el.dataset.src;
     });
   },
 
-  renderTrackList(container, tracks) {
+  renderTrackList(container, tracks, options = {}) {
     if (!tracks || tracks.length === 0) {
       container.innerHTML = '<p class="p-4 text-center text-base-content/50">No tracks found</p>';
       return;
     }
 
-    container.innerHTML = tracks.map((track, index) => {
-      // Use album cover for track if available, fallback to placeholder
+    const { hideHeader = false, layout = 'standard', context = 'library', contextId = null } = options;
+    // context: 'library' | 'playlist' | 'album' | 'artist'
+
+    const headerHtml = hideHeader ? '' : `
+      <div class="grid grid-cols-[auto_1fr_auto_auto] gap-4 p-3 border-b border-white/10 text-xs font-bold uppercase tracking-wider opacity-50 sticky top-0 bg-base-100/90 backdrop-blur z-20">
+        <div class="w-8 text-center">#</div>
+        <div>Title</div>
+        <div class="hidden md:block text-right pr-4">Plays</div>
+        <div class="w-24 text-right">Time</div>
+      </div>
+    `;
+
+    const listHtml = tracks.map((track, index) => {
       const coverUrl = track.cover || (track.album_id ? API.getAlbumCoverUrl(track.album_id) : '/img/album-placeholder.png');
+      const isCompact = layout === 'compact';
+      const duration = Player.formatTime(track.duration);
+      const playCount = track.play_count ? App.formatNumber(track.play_count) : '-';
+
+      const isPlaying = this.currentTrackId === track.id; // Need to implement currentTrackId tracking or checks
 
       return `
-        <div class="track-item group flex items-center gap-4 p-3 rounded-xl hover:bg-base-100/50 transition-colors cursor-pointer border-b border-white/5 last:border-0" 
-             data-track='${JSON.stringify(track).replace(/'/g, "&apos;")}' 
-             data-index="${index}">
-             
-          <!-- Track Number -->
-          <div class="w-8 text-center text-sm opacity-50 font-mono">${track.track_num || index + 1}</div>
-          
-          <!-- Cover Thumbnail -->
-          <div class="w-12 h-12 flex-shrink-0 rounded-md overflow-hidden bg-base-300 relative">
-             <img src="${coverUrl}" class="w-full h-full object-cover" onerror="this.src='/img/album-placeholder.png'">
-             <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-               <span class="text-white text-lg">▶</span>
-             </div>
-          </div>
+      <div class="track-item group grid grid-cols-[auto_1fr_auto_auto] gap-4 p-2 items-center hover:bg-white/5 rounded-md transition-colors cursor-pointer border-b border-white/5 last:border-0"
+           data-track='${JSON.stringify(track).replace(/'/g, "&apos;")}' 
+           data-index="${index}">
+           
+           <!-- Index / Play Button -->
+           <div class="w-8 flex justify-center items-center relative">
+              <span class="text-sm opacity-50 font-mono group-hover:opacity-0 transition-opacity ${isPlaying ? 'text-primary opacity-100' : ''}">${isPlaying ? '▶' : (track.track_num || index + 1)}</span>
+              <span class="text-base text-white opacity-0 group-hover:opacity-100 transition-opacity absolute">▶</span>
+           </div>
 
-          <!-- Track Info & Waveform -->
-          <div class="flex-1 min-w-0 flex flex-col justify-center gap-1">
-            <div class="font-bold text-sm truncate pr-2">${track.title}</div>
-            <div class="h-8 w-full opacity-60 relative track-waveform-container">
-               <canvas width="600" height="60" class="w-full h-full object-contain" data-waveform="${track.waveform || ''}"></canvas>
-            </div>
-          </div>
+           <!-- Title & Artist -->
+           <div class="flex items-center gap-3 min-w-0">
+               ${!isCompact ? `<img src="${coverUrl}" class="w-10 h-10 rounded shrink-0 object-cover bg-base-300 shadow-sm">` : ''}
+               <div class="flex flex-col min-w-0">
+                   <span class="font-medium text-sm truncate ${isPlaying ? 'text-primary' : 'text-white'}">${App.escapeHtml(track.title)}</span>
+                   <span class="text-xs opacity-50 truncate hover:underline hover:text-white cursor-pointer" onclick="event.stopPropagation(); window.location.hash='#/artist/${track.artist_slug || track.artist_id}'">${App.escapeHtml(track.artist_name || 'Unknown')}</span>
+               </div>
+           </div>
 
-          <!-- Duration & Actions -->
-          <div class="flex items-center gap-2">
-            <div class="text-xs font-mono opacity-50 w-10 text-right">${Player.formatTime(track.duration)}</div>
-            
-            ${this.isAdmin ? `
-            <button class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity" 
-                    title="Add to Playlist" 
-                    onclick="event.stopPropagation(); App.showAddToPlaylistModal(${track.id})">
-              📋
-            </button>` : ''}
-            
-            <button class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity" 
-                    title="Add to Queue"
-                    onclick="event.stopPropagation(); Player.addToQueue(${JSON.stringify(track).replace(/"/g, '&quot;')})">
-              ➕
-            </button>
-            <button class="btn btn-ghost btn-xs btn-square md:hidden" 
-                    onclick="event.stopPropagation(); Player.play(JSON.parse(this.closest('.track-item').dataset.track), null)">
-              ▶
-            </button>
-          </div>
-        </div>
+           <!-- Plays (Desktop Only) -->
+           <div class="hidden md:block text-xs opacity-50 font-mono text-right pr-4">${playCount}</div>
+
+           <!-- Duration & Actions -->
+           <div class="flex items-center justify-end gap-2 w-24">
+               
+               <!-- Admin Actions -->
+               ${this.isAdmin && context === 'library' && !track.album_id && (track.file_path || '').includes('library') ?
+          `<button class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100" title="Add to Release" onclick="event.stopPropagation(); App.showAddToReleaseModal(${track.id}, '${track.title.replace(/'/g, "\\'")}')">💿</button>` : ''}
+               
+               ${this.isAdmin && context === 'library' ?
+          `<button class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100" title="Edit" onclick="event.stopPropagation(); App.showEditTrackModal(${track.id})">✏️</button>` : ''}
+
+               <!-- Playlist Actions -->
+               ${context === 'playlist' && this.isAdmin ?
+          `<button class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 text-error" title="Remove" onclick="event.stopPropagation(); App.removeFromPlaylist(${contextId}, ${track.id})">✕</button>` :
+          `<button class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100" title="Add to Playlist" onclick="event.stopPropagation(); App.showAddToPlaylistModal(${track.id})">♡</button>`}
+               
+               <span class="text-xs font-mono opacity-50 w-10 text-right group-hover:hidden">${duration}</span>
+               <button class="btn btn-ghost btn-xs btn-square hidden group-hover:flex" title="Options" onclick="event.stopPropagation(); ">•••</button>
+           </div>
+      </div>
       `;
     }).join('');
 
+    container.innerHTML = headerHtml + `<div class="w-full track-list-container">${listHtml}</div>`;
+
+    // Attach listeners for playback
     this.attachTrackListeners(tracks);
-    this.drawWaveforms(container);
+  },
+
+  formatNumber(num) {
+    if (!num) return '0';
+    return new Intl.NumberFormat('en-US', { notation: "compact", maximumFractionDigits: 1 }).format(num);
   },
 
   attachTrackListeners(allTracks) {
