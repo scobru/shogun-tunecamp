@@ -249,6 +249,42 @@ export function createAdminRoutes(
     });
 
     /**
+     * GET /api/admin/artists/:id/identity
+     * Get artist identity keypair (Root Admin or Assigned Artist Admin only)
+     */
+    router.get("/artists/:id/identity", async (req: any, res) => {
+        try {
+            const artistId = parseInt(req.params.id);
+            if (isNaN(artistId)) {
+                return res.status(400).json({ error: "Invalid artist ID" });
+            }
+
+            // Permission Check
+            const isRoot = authService.isRootAdmin(req.username || "");
+            if (!isRoot) {
+                // If not root, must be assigned to this artist
+                if (!req.artistId || req.artistId !== artistId) {
+                    return res.status(403).json({ error: "Access denied" });
+                }
+            }
+
+            const artist = database.getArtist(artistId);
+            if (!artist) {
+                return res.status(404).json({ error: "Artist not found" });
+            }
+
+            // Return keys (even if null/empty, let frontend handle it)
+            res.json({
+                publicKey: artist.public_key,
+                privateKey: artist.private_key
+            });
+        } catch (error) {
+            console.error("Error getting artist identity:", error);
+            res.status(500).json({ error: "Failed to get artist identity" });
+        }
+    });
+
+    /**
      * GET /api/admin/system/me
      * Get current admin user info (username, isRootAdmin)
      */

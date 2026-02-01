@@ -292,6 +292,10 @@ const API = {
         return this.get('/admin/system/identity');
     },
 
+    async getArtistIdentity(artistId) {
+        return this.get('/admin/artists/' + artistId + '/identity');
+    },
+
     async importIdentity(pair) {
         return this.post('/admin/system/identity', pair);
     },

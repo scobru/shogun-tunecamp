@@ -1889,6 +1889,7 @@ const App = {
                 <small style="display: block; color: var(--text-muted); margin-top: 0.5rem;">If you accidentally removed a network track, this will restore it.</small>
             </div>
             
+            ${this.isRootAdmin ? `
             <div class="form-group" style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 1rem;">
                 <label>Identity Management</label>
                 <div style="display: flex; gap: 0.5rem;">
@@ -1897,6 +1898,7 @@ const App = {
                 </div>
                 <small style="display: block; color: var(--text-muted); margin-top: 0.5rem;">Backup your server identity or move it to another instance. <strong>Warning: Keep your keys secret!</strong></small>
             </div>
+            ` : ''}
 
             <button type="submit" class="btn btn-primary">Save Network Settings</button>
           </form>
@@ -2141,6 +2143,7 @@ const App = {
           <div class="release-artist">${a.bio ? a.bio.substring(0, 50) + '...' : 'No bio'}</div>
         </div>
         <div class="release-actions">
+          <button class="btn btn-sm btn-outline view-keys-btn" data-id="${a.id}">keys</button>
           <button class="btn btn-sm btn-outline edit-artist" data-id="${a.id}">Edit</button>
         </div>
       </div>
@@ -2159,6 +2162,14 @@ const App = {
       btn.addEventListener('click', (e) => {
         const id = e.target.dataset.id;
         this.showEditArtistModal(id);
+      });
+    });
+
+    // View Keys handlers
+    artistsList.querySelectorAll('.view-keys-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.target.dataset.id;
+        this.showArtistKeysModal(id);
       });
     });
 
@@ -3245,6 +3256,50 @@ const App = {
         alert('Failed to update artist: ' + err.message);
       }
     });
+  },
+
+  async showArtistKeysModal(artistId) {
+    try {
+      const keys = await API.getArtistIdentity(artistId);
+
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'flex';
+      modal.style.zIndex = '10006';
+      modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Artist Keys</h2>
+                <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--color-danger); margin-bottom: 1rem;">⚠️ Private keys grant full control over this artist's identity. Do not share them.</p>
+                
+                <label style="font-weight:bold;">Public Key</label>
+                <textarea style="width: 100%; height: 100px; font-family: monospace; margin-bottom: 1rem; color: var(--text-main); background: var(--bg-secondary); border: 1px solid var(--border);" readonly>${keys.publicKey || 'No key found'}</textarea>
+                
+                <label style="font-weight:bold;">Private Key</label>
+                <div style="position: relative; margin-bottom: 1rem;">
+                    <textarea id="private-key-area" style="width: 100%; height: 150px; font-family: monospace; filter: blur(5px); transition: filter 0.3s; color: var(--text-main); background: var(--bg-secondary); border: 1px solid var(--border);" readonly>${keys.privateKey || 'No key found'}</textarea>
+                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; background: rgba(0,0,0,0.1); z-index: 10;" onclick="document.getElementById('private-key-area').style.filter='none'; this.style.display='none';">
+                        <span style="background: var(--bg-primary); padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border); box-shadow: 0 2px 5px rgba(0,0,0,0.2);">Click to Reveal</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-block" id="copy-keys-btn">Copy Private Key to Clipboard</button>
+            </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      document.getElementById('copy-keys-btn').onclick = () => {
+        navigator.clipboard.writeText(keys.privateKey || '');
+        alert('Copied Private Key to clipboard!');
+      };
+
+    } catch (err) {
+      alert('Failed to fetch keys: ' + err.message);
+    }
   },
 
   async showEditTrackModal(trackId) {
