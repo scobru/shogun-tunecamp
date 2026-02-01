@@ -431,37 +431,37 @@ const App = {
 
   async renderSupport(container) {
     container.innerHTML = `
-      <section class="section">
-        <h1 class="section-title">Support</h1>
-        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Support the artists and the platform.</p>
+      <section class="p-4 lg:p-8">
+        <h1 class="text-3xl font-bold mb-2">Support</h1>
+        <p class="text-base-content/60 mb-8">Support the artists and the platform.</p>
         
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <!-- Artist Support -->
-          <div class="card">
-             <div class="card-body" style="padding: 2rem;">
-               <h2 style="margin-bottom: 1rem; color: var(--accent);">Support the Artist</h2>
-               <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+          <div class="card bg-base-200 border border-white/5">
+             <div class="card-body">
+               <h2 class="card-title text-primary mb-2">Support the Artist</h2>
+               <p class="text-base-content/70 mb-6">
                  Directly support the artists on this server. Your contribution helps them create more music.
                </p>
-               <div id="artist-support-links">
-                 <div style="padding: 1rem; text-align: center; color: var(--text-muted);">Loading links...</div>
+               <div id="artist-support-links" class="flex flex-col gap-3">
+                 <div class="flex justify-center p-8 text-base-content/40 italic">Loading links...</div>
                </div>
              </div>
           </div>
 
           <!-- TuneCamp Support -->
-          <div class="card">
-             <div class="card-body" style="padding: 2rem;">
-               <h2 style="margin-bottom: 1rem; color: var(--success);">Support TuneCamp</h2>
-               <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+          <div class="card bg-base-200 border border-white/5">
+             <div class="card-body">
+               <h2 class="card-title text-success mb-2">Support TuneCamp</h2>
+               <p class="text-base-content/70 mb-6">
                  TuneCamp is an open-source project empowering independent musicians. 
                  Support the development of this platform.
                </p>
-               <div style="display: flex; flex-direction: column; gap: 1rem;">
-                  <a href="https://buymeacoffee.com/scobru" target="_blank" class="btn btn-outline" style="justify-content: center;">
+               <div class="flex flex-col gap-3">
+                  <a href="https://buymeacoffee.com/scobru" target="_blank" class="btn btn-outline btn-block">
                     Buy us a coffee
                   </a>
-                  <a href="https://github.com/scobru/tunecamp" target="_blank" class="btn btn-outline" style="justify-content: center;">
+                  <a href="https://github.com/scobru/tunecamp" target="_blank" class="btn btn-outline btn-block">
                     GitHub Sponsors
                   </a>
                </div>
@@ -565,25 +565,28 @@ const App = {
       const catalog = await API.getCatalog();
 
       container.innerHTML = `
-        <section class="section">
-          <h1 class="section-title">Welcome to TuneCamp</h1>
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-value">${catalog.stats.albums || 0}</div>
-              <div class="stat-label">Albums</div>
+        <section class="p-4 lg:p-8">
+          <h1 class="text-4xl font-bold mb-8 tracking-tight">Welcome to TuneCamp</h1>
+          
+          <div class="stats shadow bg-base-200 border border-white/5 w-full mb-12">
+            <div class="stat">
+              <div class="stat-title">Albums</div>
+              <div class="stat-value text-primary">${catalog.stats.albums || 0}</div>
+              <div class="stat-desc">Curated releases</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-value">${catalog.stats.tracks || 0}</div>
-              <div class="stat-label">Tracks</div>
+            
+            <div class="stat">
+              <div class="stat-title">Tracks</div>
+              <div class="stat-value text-secondary">${catalog.stats.tracks || 0}</div>
+              <div class="stat-desc">Audio files</div>
             </div>
           </div>
-        </section>
-        <section class="section">
-          <div class="section-header">
-            <h2 class="section-title">Recent Releases</h2>
-            <a href="#/albums" class="btn btn-outline">View All</a>
+
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-bold">Recent Releases</h2>
+            <a href="#/albums" class="btn btn-ghost btn-sm">View All →</a>
           </div>
-          <div class="grid" id="recent-albums"></div>
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6" id="recent-albums"></div>
         </section>
       `;
 
@@ -823,12 +826,14 @@ const App = {
 
     const grid = document.getElementById('artists-grid');
     grid.innerHTML = artists.map(artist => `
-      <a href="#/artist/${artist.slug || artist.id}" class="card">
-        <div class="card-cover artist-cover-placeholder" data-src="${API.getArtistCoverUrl(artist.slug || artist.id)}">
-          <div class="placeholder-icon">👤</div>
-        </div>
-        <div class="card-body">
-          <div class="card-title">${artist.name}</div>
+      <a href="#/artist/${artist.slug || artist.id}" class="card bg-base-200 hover:bg-base-300 transition-colors border border-white/5 group">
+        <figure class="aspect-square relative overflow-hidden">
+          <div class="artist-cover-placeholder w-full h-full flex items-center justify-center bg-base-300 group-hover:scale-105 transition-transform duration-500" data-src="${API.getArtistCoverUrl(artist.slug || artist.id)}">
+            <div class="text-4xl opacity-20">👤</div>
+          </div>
+        </figure>
+        <div class="card-body p-4">
+          <h2 class="card-title text-base justify-center">${artist.name}</h2>
         </div>
       </a>
     `).join('');
@@ -845,9 +850,9 @@ const App = {
     const tracks = await API.getTracks();
 
     container.innerHTML = `
-      <section class="section">
-        <h1 class="section-title">All Tracks</h1>
-        <div class="track-list" id="all-tracks-list"></div>
+      <section class="p-4 lg:p-8">
+        <h1 class="text-3xl font-bold mb-6">All Tracks</h1>
+        <div class="bg-base-200 rounded-xl border border-white/5 overflow-hidden" id="all-tracks-list"></div>
       </section>
     `;
 
@@ -1481,22 +1486,22 @@ const App = {
             <div class="stats-period">Last 30 Days</div>
           </div>
 
-          <div class="stats-overview">
-            <div class="stat-card">
-              <div class="stat-value">${overview.totalPlays}</div>
-              <div class="stat-label">Total Plays</div>
+          <div class="stats stats-vertical lg:stats-horizontal shadow bg-base-200 border border-white/5 w-full mb-8">
+            <div class="stat">
+              <div class="stat-title">Total Plays</div>
+              <div class="stat-value text-primary">${overview.totalPlays}</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-value">${App.formatTimeAgo(overview.totalListeningTime * 1000).replace(' ago', '')}</div>
-              <div class="stat-label">Listening Time</div>
+            <div class="stat">
+              <div class="stat-title">Listening Time</div>
+              <div class="stat-value text-secondary">${App.formatTimeAgo(overview.totalListeningTime * 1000).replace(' ago', '')}</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-value">${overview.uniqueTracks}</div>
-              <div class="stat-label">Unique Tracks</div>
+            <div class="stat">
+              <div class="stat-title">Unique Tracks</div>
+              <div class="stat-value text-accent">${overview.uniqueTracks}</div>
             </div>
-            <div class="stat-card">
+            <div class="stat">
+              <div class="stat-title">Plays Today</div>
               <div class="stat-value">${overview.playsToday}</div>
-              <div class="stat-label">Plays Today</div>
             </div>
           </div>
 
