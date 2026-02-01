@@ -9,6 +9,7 @@
 -   **Server Mode**: Enhanced with ActivityPub support (`src/server/activitypub.ts`, `src/server/routes/activitypub.ts`).
 -   **Docker**: Dockerfile available for containerized deployment.
 -   **Web Interface**: Improved Reactivity and UI in `webapp/`.
+-   **Admin-Artist Linking**: Granular permissions allowing admins to be linked to specific artists.
 
 ## Active Areas
 -   **ActivityPub**: Federation features (Inbox/Outbox, Follows, Posts) are largely implemented and functional.

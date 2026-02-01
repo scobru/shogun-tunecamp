@@ -28,5 +28,7 @@
 -   **Streaming Server**: Personal streaming server for your library.
 -   **Web Interface**: Dynamic UI for browsing and playing music.
 -   **Admin Studio**: Web-based file browser, track uploads, and management tools.
+-   **Multi-User Admin**: Create multiple admin accounts with distinct credentials.
+-   **Artist-Restricted Access**: specific admins to artists to restrict their access to only their own content.
 -   **Custom Posts**: Microblogging feature for artists to publish news and updates directly to the Fediverse.
 -   **Identity & Backup**: Full portability of server identity and keys for easy migration.

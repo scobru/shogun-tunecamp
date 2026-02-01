@@ -192,6 +192,17 @@ JWT-based authentication. Protected endpoints require `Authorization: Bearer <to
 
 ---
 
+## User Management
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/admin/system/users` | ✅ | List all admin users |
+| `POST` | `/admin/system/users` | ✅ | Create new admin user |
+| `PUT` | `/admin/system/users/:id` | ✅ | Update admin (e.g. link to artist) |
+| `DELETE` | `/admin/system/users/:id` | ✅ | Delete admin user |
+
+---
+
 ## Response Formats
 
 **Success**:
