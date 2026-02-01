@@ -38,6 +38,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
+    // Ignore unsupported schemes (like chrome-extension://)
+    if (!url.protocol.startsWith('http')) return;
+
     // 1. Handle Cover Images (Cache First)
     // Matches /api/albums/:id/cover or /api/artists/:id/cover
     if (url.pathname.match(/\/api\/(albums|artists)\/.*\/cover$/)) {

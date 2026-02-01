@@ -2085,7 +2085,10 @@ const App = {
                     <div class="p-4 bg-base-300/50 rounded-xl border border-white/5">
                         <h4 class="font-bold mb-1">Reset Hidden Tracks</h4>
                         <p class="text-xs opacity-50 mb-3">Clear the list of tracks hidden from the network feed.</p>
-          </div>
+                        <button class="btn btn-sm btn-outline btn-error" id="reset-hidden-tracks">Reset Hidden Tracks</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Release Editor Panel (Hidden by default) -->
