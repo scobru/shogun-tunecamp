@@ -75,13 +75,13 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
 
             return {
                 type: "Create",
-                id: `${baseUrl}/activity/release/${release.slug}`,
+                id: `${baseUrl}/api/ap/activity/release/${release.slug}`,
                 actor: userUrl,
                 published: published,
                 to: ["https://www.w3.org/ns/activitystreams#Public"],
                 object: {
                     type: "Note",
-                    id: `${baseUrl}/note/release/${release.slug}`,
+                    id: `${baseUrl}/api/ap/note/release/${release.slug}`,
                     attributedTo: userUrl,
                     content: `<p>New release available: <a href="${albumUrl}">${release.title}</a></p>`,
                     url: albumUrl,
@@ -145,6 +145,73 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     // Shared Inbox (Optional placeholder)
     router.post("/inbox", (req, res) => {
         res.status(202).send("Accepted");
+    });
+
+    // Resolve individual Activity (Create)
+    router.get("/activity/release/:slug", async (req, res) => {
+        const { slug } = req.params;
+        const album = db.getAlbumBySlug(slug);
+
+        if (!album || !album.is_release || !album.is_public) {
+            return res.status(404).send("Not found");
+        }
+
+        const artist = db.getArtist(album.artist_id!);
+        if (!artist) return res.status(404).send("Artist not found");
+
+        const baseUrl = apService.getBaseUrl();
+        const userUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        const albumUrl = `${baseUrl}/album/${album.slug}`;
+        const published = album.published_at || album.created_at;
+
+        res.setHeader("Content-Type", "application/activity+json");
+        res.json({
+            "@context": "https://www.w3.org/ns/activitystreams",
+            type: "Create",
+            id: `${baseUrl}/api/ap/activity/release/${album.slug}`,
+            actor: userUrl,
+            published: published,
+            to: ["https://www.w3.org/ns/activitystreams#Public"],
+            object: {
+                type: "Note",
+                id: `${baseUrl}/api/ap/note/release/${album.slug}`,
+                attributedTo: userUrl,
+                content: `<p>New release available: <a href="${albumUrl}">${album.title}</a></p>`,
+                url: albumUrl,
+                published: published,
+                to: ["https://www.w3.org/ns/activitystreams#Public"]
+            }
+        });
+    });
+
+    // Resolve individual Object (Note)
+    router.get("/note/release/:slug", async (req, res) => {
+        const { slug } = req.params;
+        const album = db.getAlbumBySlug(slug);
+
+        if (!album || !album.is_release || !album.is_public) {
+            return res.status(404).send("Not found");
+        }
+
+        const artist = db.getArtist(album.artist_id!);
+        if (!artist) return res.status(404).send("Artist not found");
+
+        const baseUrl = apService.getBaseUrl();
+        const userUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        const albumUrl = `${baseUrl}/album/${album.slug}`;
+        const published = album.published_at || album.created_at;
+
+        res.setHeader("Content-Type", "application/activity+json");
+        res.json({
+            "@context": "https://www.w3.org/ns/activitystreams",
+            type: "Note",
+            id: `${baseUrl}/api/ap/note/release/${album.slug}`, // Canonical ID
+            attributedTo: userUrl,
+            content: `<p>New release available: <a href="${albumUrl}">${album.title}</a></p>`,
+            url: albumUrl,
+            published: published,
+            to: ["https://www.w3.org/ns/activitystreams#Public"]
+        });
     });
 
     return router;
