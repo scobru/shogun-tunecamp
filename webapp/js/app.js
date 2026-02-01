@@ -875,58 +875,101 @@ const App = {
     const tracks = await API.getTracks();
 
     container.innerHTML = `
-      <section class="p-4 lg:p-8">
-        <h1 class="text-3xl font-bold mb-6">All Tracks</h1>
-        <div class="bg-base-200 rounded-xl border border-white/5 overflow-hidden" id="all-tracks-list"></div>
+      <section class="p-4 lg:p-8 max-w-7xl mx-auto">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold flex items-center gap-3">
+                    <span class="text-primary">🎵</span> All Tracks
+                </h1>
+                <p class="text-sm opacity-50 mt-1">Found ${tracks.length} tracks in your library</p>
+            </div>
+            <div class="flex gap-2">
+                <button class="btn btn-primary btn-sm" onclick="Player.playQueue(${JSON.stringify(tracks.map(t => t.id)).replace(/"/g, '&quot;')}, 0)">
+                    ▶ Play All
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-base-200/50 rounded-2xl border border-white/5 overflow-hidden backdrop-blur-sm" id="all-tracks-list">
+            <!-- Tracks rendered here -->
+        </div>
+        
+        ${tracks.length === 0 ? `
+        <div class="text-center py-20 opacity-40">
+            <div class="text-6xl mb-4">📀</div>
+            <p>Your library is empty.</p>
+            <p class="text-sm">Upload some music in the Admin Panel!</p>
+        </div>
+        ` : ''}
       </section>
     `;
 
     const list = document.getElementById('all-tracks-list');
-    if (!tracks || tracks.length === 0) {
-      list.innerHTML = '<p style="padding: 1rem; color: var(--text-secondary);">No tracks in library</p>';
-      return;
-    }
+    if (!tracks || tracks.length === 0) return;
 
-    list.innerHTML = tracks.map((track, index) => `
-      <div class="track-item" data-track='${JSON.stringify(track).replace(/'/g, "&apos;")}' data-index="${index}">
-        <div class="track-num">${index + 1}</div>
-        <div class="track-info">
-          <div class="track-title">${track.title}</div>
-          <div style="color: var(--text-secondary); font-size: 0.875rem;">
-            ${track.artist_name || 'Unknown Artist'}${track.album_title ? ' • ' + track.album_title : ''}
+    list.innerHTML = tracks.map((track, index) => {
+      const coverUrl = track.cover || (track.album_id ? API.getAlbumCoverUrl(track.album_id) : '/img/album-placeholder.png');
+
+      return `
+      <div class="group flex items-center gap-4 p-3 hover:bg-base-100/80 transition-all cursor-pointer border-b border-white/5 last:border-0 relative overflow-hidden" 
+           onclick="Player.play(JSON.parse(this.dataset.track), null)"
+           data-track='${JSON.stringify(track).replace(/'/g, "&apos;")}' 
+           data-index="${index}">
+           
+        <!-- Track Number -->
+        <div class="w-8 text-center text-sm opacity-30 font-mono group-hover:opacity-100 transition-opacity">${index + 1}</div>
+        
+        <!-- Cover -->
+        <div class="relative w-12 h-12 rounded-lg bg-base-300 flex-shrink-0 overflow-hidden shadow-sm group-hover:shadow-md transition-shadow">
+           <img src="${coverUrl}" class="w-full h-full object-cover" onerror="this.src='/img/album-placeholder.png'">
+           <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+             <span class="text-white">▶</span>
+           </div>
+        </div>
+
+        <!-- Info & Waveform -->
+        <div class="flex-1 min-w-0 flex flex-col justify-center gap-1 z-10">
+          <div class="flex items-baseline gap-2">
+              <span class="font-bold text-sm truncate text-base-content">${App.escapeHtml(track.title)}</span>
+              <span class="text-xs opacity-50 truncate hidden sm:inline">${App.escapeHtml(track.artist_name || 'Unknown')}</span>
+          </div>
+          <div class="h-8 w-full opacity-40 group-hover:opacity-60 transition-opacity relative track-waveform-container" style="mask-image: linear-gradient(to right, black 90%, transparent 100%);">
+             <canvas width="600" height="60" class="w-full h-full object-contain" data-waveform="${track.waveform || ''}"></canvas>
           </div>
         </div>
-        <div class="track-duration">${Player.formatTime(track.duration)}</div>
-        <div class="track-waveform">
-            <canvas width="300" height="50" data-waveform="${track.waveform || ''}"></canvas>
-        </div>
-        ${this.isAdmin && !track.album_id && track.file_path.includes('library') ?
-        `<button class="btn btn-sm btn-outline add-to-release-btn" title="Add to Release" 
-            style="margin-left: 1rem; padding: 2px 8px; font-size: 0.8rem;" 
-            onclick="event.stopPropagation(); App.showAddToReleaseModal(${track.id}, '${track.title.replace(/'/g, "\\'")}')">
-            + Release
-           </button>` : ''}
-        ${this.isAdmin ?
-        `<button class="btn btn-sm btn-outline edit-track-btn" title="Edit Track" 
-            style="margin-left: 0.5rem; padding: 2px 8px; font-size: 0.8rem;" 
-            onclick="event.stopPropagation(); App.showEditTrackModal(${track.id})">
-            ✏️
-           </button>` : ''}
-        ${this.isAdmin ?
-        `<button class="btn btn-sm btn-ghost add-to-playlist-btn" title="Add to Playlist" 
-            style="margin-left: 0.5rem; padding: 4px 8px; font-size: 0.9rem;" 
-            onclick="event.stopPropagation(); App.showAddToPlaylistModal(${track.id})">
-            📋
-           </button>` : ''}
-        <button class="btn btn-sm btn-ghost add-to-queue-btn" title="Add to Queue" 
-            style="margin-left: 0.5rem; padding: 4px 8px; font-size: 0.9rem;" 
-            onclick="event.stopPropagation(); Player.addToQueue(${JSON.stringify(track).replace(/"/g, '&quot;')})">
-            ➕
-        </button>
-      </div>
-    `).join('');
 
-    this.attachTrackListeners(tracks);
+        <!-- Duration & Meta -->
+        <div class="flex items-center gap-4 z-10">
+          <div class="text-xs font-mono opacity-40 w-10 text-right group-hover:opacity-100 transition-opacity">${Player.formatTime(track.duration)}</div>
+          
+          <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              ${this.isAdmin && !track.album_id && track.file_path.includes('library') ?
+          `<button class="btn btn-ghost btn-xs" title="Add to Release" 
+                  onclick="event.stopPropagation(); App.showAddToReleaseModal(${track.id}, '${track.title.replace(/'/g, "\\'")}')">
+                  +Release
+               </button>` : ''}
+               
+              ${this.isAdmin ?
+          `<button class="btn btn-ghost btn-xs btn-square" title="Edit" 
+                  onclick="event.stopPropagation(); App.showEditTrackModal(${track.id})">
+                  ✏️
+               </button>` : ''}
+              
+              <button class="btn btn-ghost btn-xs btn-square" title="Add to Playlist" 
+                  onclick="event.stopPropagation(); App.showAddToPlaylistModal(${track.id})">
+                  📋
+              </button>
+              
+              <button class="btn btn-ghost btn-xs btn-square" title="Add to Queue" 
+                  onclick="event.stopPropagation(); Player.addToQueue(${JSON.stringify(track).replace(/"/g, '&quot;')})">
+                  ➕
+              </button>
+          </div>
+        </div>
+      </div>
+    `}).join('');
+
+    // Re-use existing helpers
     this.drawWaveforms(list);
   },
 
@@ -2042,8 +2085,96 @@ const App = {
                     <div class="p-4 bg-base-300/50 rounded-xl border border-white/5">
                         <h4 class="font-bold mb-1">Reset Hidden Tracks</h4>
                         <p class="text-xs opacity-50 mb-3">Clear the list of tracks hidden from the network feed.</p>
-                        <button class="btn btn-sm btn-outline btn-error" id="reset-hidden-tracks">Reset Hidden Tracks</button>
-                  </section>
+          </div>
+        </div>
+
+        <!-- Release Editor Panel (Hidden by default) -->
+        <div id="release-panel" class="admin-panel hidden">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold" id="release-panel-title">Create New Release</h2>
+                <button class="btn btn-sm btn-ghost" onclick="App.toggleAdminPanel('library-panel')">✕ Close</button>
+            </div>
+            
+            <form id="release-editor-form" class="max-w-3xl mx-auto space-y-6">
+                <div class="card bg-base-200 border border-white/5">
+                    <div class="card-body">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- Cover Upload -->
+                            <div>
+                                <label class="label"><span class="label-text">Cover Art</span></label>
+                                <div class="relative group aspect-square rounded-xl overflow-hidden bg-base-300 border-2 border-dashed border-white/10 hover:border-primary transition-colors cursor-pointer" id="release-cover-preview">
+                                    <div class="absolute inset-0 flex items-center justify-center text-4xl opacity-20 group-hover:opacity-100 transition-opacity">📷</div>
+                                    <input type="file" id="release-cover-input" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">
+                                </div>
+                            </div>
+                            
+                            <!-- Metadata -->
+                            <div class="md:col-span-2 space-y-4">
+                                <div class="form-control">
+                                    <label class="label"><span class="label-text">Title</span></label>
+                                    <input type="text" id="release-title" class="input input-bordered w-full" required>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="form-control">
+                                        <label class="label"><span class="label-text">Artist</span></label>
+                                        <select id="release-artist" class="select select-bordered w-full" required>
+                                            <option value="">Select Artist...</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-control">
+                                        <label class="label"><span class="label-text">Date</span></label>
+                                        <input type="date" id="release-date" class="input input-bordered w-full">
+                                    </div>
+                                </div>
+                                <div class="form-control">
+                                    <label class="label"><span class="label-text">Genre (comma separated)</span></label>
+                                    <input type="text" id="release-genres" class="input input-bordered w-full" placeholder="e.g. Electronic, Ambient">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-control mt-4">
+                            <label class="label"><span class="label-text">Description</span></label>
+                            <textarea id="release-description" class="textarea textarea-bordered h-24" placeholder="About this release..."></textarea>
+                        </div>
+
+                        <div class="form-control mt-4">
+                            <label class="label"><span class="label-text">Download Options</span></label>
+                            <select id="release-download" class="select select-bordered w-full max-w-xs">
+                                <option value="none">Streaming Only</option>
+                                <option value="free">Free Download</option>
+                            </select>
+                        </div>
+
+                        <div class="divider">External Links</div>
+                        <div id="release-external-links" class="space-y-2">
+                            <!-- Links injected here -->
+                        </div>
+                        <button type="button" class="btn btn-sm btn-ghost mt-2" onclick="App.addLinkInputToEditor()">＋ Add Link</button>
+                    </div>
+                </div>
+
+                <!-- Track Management (Only for Edit Mode) -->
+                <div id="release-tracks-section" style="display: none;">
+                    <div class="card bg-base-200 border border-white/5">
+                        <div class="card-body">
+                            <h3 class="card-title text-base mb-4">Tracks</h3>
+                            <div id="release-tracks-list" class="space-y-2"></div>
+                            <button type="button" class="btn btn-sm btn-outline mt-4 w-full" onclick="document.querySelector('.upload-to-release-btn[data-slug]').click()">Upload Tracks</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center pt-4">
+                    <button type="button" class="btn btn-error btn-outline" id="delete-release-editor-btn" style="display: none;">Delete Release</button>
+                    <div class="flex gap-2">
+                        <button type="button" class="btn btn-ghost" onclick="App.toggleAdminPanel('library-panel')">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="save-release-btn">Save Release</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+      </section>
     `;
 
     this.setupAdminHandlers(container, releases);
@@ -2283,6 +2414,14 @@ const App = {
     });
 
     // Admin List Handlers
+    const newUserArtistSelect = container.querySelector('#new-user-artist');
+    if (newUserArtistSelect) {
+      API.getArtists().then(artists => {
+        newUserArtistSelect.innerHTML = '<option value="">None (General Admin)</option>' +
+          artists.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+      });
+    }
+
     container.querySelector('#create-user-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const user = container.querySelector('#new-user-name').value;
