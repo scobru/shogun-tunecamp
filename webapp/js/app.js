@@ -1136,56 +1136,7 @@ const App = {
     }
   },
 
-  async renderPost(container, slug) {
-    try {
-      const post = await API.getPostBySlug(slug);
 
-      container.innerHTML = `
-            <div class="page-header" style="text-align: center; padding: 4rem 0;">
-                <h1 style="font-size: 2rem; margin-bottom: 2rem;">Post from ${post.artist_name || 'an artist'}</h1>
-                <div class="card" style="max-width: 800px; margin: 0 auto; padding: 2rem; text-align: left;">
-                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
-                        <div class="artist-cover-placeholder" style="width: 50px; height: 50px; font-size: 1.2rem;" data-src="${API.getArtistCoverUrl(post.artist_slug || post.artist_id)}">
-                            <div class="placeholder-icon">👤</div>
-                        </div>
-                        <div>
-                            <a href="/#/artist/${post.artist_slug || post.artist_id}" style="font-weight: bold; font-size: 1.1rem; color: var(--text-main); text-decoration: none;">${post.artist_name || 'Unknown Artist'}</a>
-                            <div style="font-size: 0.85rem; color: var(--text-muted);">${new Date(post.created_at).toLocaleString()}</div>
-                        </div>
-                    </div>
-                    <div style="white-space: pre-wrap; font-size: 1.1rem; line-height: 1.6; margin-bottom: 2rem;">${App.escapeHtml(post.content)}</div>
-                    
-                    <div style="display: flex; gap: 1rem;">
-                        <a href="/#/artist/${post.artist_slug || post.artist_id}" class="btn btn-primary">View Artist Profile</a>
-                    </div>
-                </div>
-            </div>
-        `;
-
-      // Load avatar
-      const cover = container.querySelector('.artist-cover-placeholder');
-      if (cover) {
-        const img = new Image();
-        img.onload = () => {
-          cover.innerHTML = '';
-          cover.style.backgroundImage = `url(${cover.dataset.src})`;
-          cover.style.backgroundSize = 'cover';
-          cover.style.backgroundPosition = 'center';
-        };
-        img.src = cover.dataset.src;
-      }
-
-    } catch (e) {
-      console.error(e);
-      container.innerHTML = `
-            <div class="page-header">
-                <h1>Post Not Found</h1>
-                <p>The post you are looking for does not exist or has been deleted.</p>
-                <a href="/#/" class="btn btn-primary">Go Home</a>
-            </div>
-        `;
-    }
-  },
 
   async renderSearch(container) {
     container.innerHTML = `
@@ -3043,167 +2994,169 @@ const App = {
     });
   },
 
-  async showEditArtistModal(artistId) {
-    let artist = { name: '', bio: '', photo_path: '', id: null };
+  async showEditArtistModal(artistId = null) {
+    let artist = { name: '', bio: '', photo_path: '', id: null, links: [] };
     if (artistId) {
-      artist = await API.getArtist(artistId);
+      try {
+        artist = await API.getArtist(artistId);
+      } catch (e) {
+        console.error("Artist not found:", e);
+      }
     }
 
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.style.display = 'flex';
-    modal.id = 'edit-artist-modal';
+    const modalId = 'artist-editor-modal';
+    const existing = document.getElementById(modalId);
+    if (existing) existing.remove();
 
+    const modal = document.createElement('div');
+    modal.id = modalId;
+    modal.className = 'modal modal-open bg-black/60 backdrop-blur-sm z-[1000]';
     modal.innerHTML = `
-          <div class="modal-content" style="max-width: 500px;">
-            <h2 class="text-2xl font-bold mb-6">${artist.id ? 'Edit Artist' : 'Create New Artist'}: ${artist.name || 'New'}</h2>
-            <form id="edit-artist-form">
-              <div class="form-group">
-                <label>Avatar</label>
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                  <div class="artist-avatar-preview" style="width: 80px; height: 80px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; font-size: 2rem; background-size: cover; background-position: center;" id="avatar-preview">
-                    ${artist.photo_path ? '' : '👤'}
-                  </div>
-                  <input type="file" id="edit-artist-avatar" accept="image/*" style="flex: 1;">
-                </div>
-              </div>
-              <div class="form-group">
-                <label>Bio</label>
-                <textarea id="edit-artist-bio" rows="3">${artist.bio || ''}</textarea>
-              </div>
-              <div class="form-group">
-                <label>Support / Social Links</label>
-                <div id="artist-links-container" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem;">
-                  <!-- Links injected here -->
-                </div>
-                <button type="button" class="btn btn-outline btn-sm" id="add-artist-link">＋ Add Link</button>
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Save Changes</button>
-                <button type="button" class="btn btn-outline" id="cancel-edit-artist">Cancel</button>
-                <button type="button" class="btn btn-danger btn-outline" id="delete-artist-btn" style="color: var(--color-danger); border-color: var(--color-danger); margin-left: auto;">Delete Artist</button>
-              </div>
-            </form>
+      <div class="modal-box bg-base-200 border border-white/10 shadow-2xl max-w-lg">
+        <h3 class="text-xl font-bold mb-6">${artist.id ? 'Edit Artist' : 'New Artist'}</h3>
+        <form id="edit-artist-form" class="space-y-4">
+          <div class="form-control">
+            <label class="label"><span class="label-text">Artist Name</span></label>
+            <input type="text" id="edit-artist-name" class="input input-bordered w-full" value="${App.escapeHtml(artist.name)}" required>
           </div>
-          `;
+          
+          <div class="form-control">
+            <label class="label"><span class="label-text">Avatar</span></label>
+            <div class="flex items-center gap-4">
+              <div id="avatar-preview" class="w-16 h-16 rounded-full bg-base-300 border border-white/5 bg-cover bg-center flex items-center justify-center text-2xl" style="background-image: ${artist.id ? `url(${API.getArtistCoverUrl(artist.id)})` : 'none'}">
+                ${artist.id ? '' : '👤'}
+              </div>
+              <input type="file" id="edit-artist-avatar" class="file-input file-input-bordered file-input-sm flex-1" accept="image/*">
+            </div>
+          </div>
+
+          <div class="form-control">
+            <label class="label"><span class="label-text">Biography</span></label>
+            <textarea id="edit-artist-bio" class="textarea textarea-bordered h-24" placeholder="About the artist...">${App.escapeHtml(artist.bio || '')}</textarea>
+          </div>
+
+          <div class="form-control">
+            <label class="label flex justify-between">
+              <span class="label-text">Links (Social & Support)</span>
+              <button type="button" class="btn btn-xs btn-ghost text-primary" id="add-artist-link-btn">＋ Add Link</button>
+            </label>
+            <div id="artist-links-container" class="space-y-2 max-h-40 overflow-y-auto p-1">
+              <!-- Links injected here -->
+            </div>
+          </div>
+
+          <div class="modal-action justify-between mt-8">
+            <div class="flex gap-2">
+              <button type="submit" class="btn btn-primary">Save Artist</button>
+              <button type="button" class="btn btn-ghost" id="close-artist-modal">Cancel</button>
+            </div>
+            ${artist.id ? `<button type="button" id="delete-artist-btn" class="btn btn-ghost text-error btn-sm">Delete</button>` : ''}
+          </div>
+        </form>
+      </div>
+    `;
 
     document.body.appendChild(modal);
 
-    // Set avatar preview if exists
-    if (artist.photo_path) {
-      document.getElementById('avatar-preview').style.backgroundImage = `url(${API.getArtistCoverUrl(artist.id)})`;
+    const linksContainer = modal.querySelector('#artist-links-container');
+    const addLink = (label = '', url = '', type = 'social') => {
+      const div = document.createElement('div');
+      div.className = 'flex gap-2 items-center';
+      div.innerHTML = `
+        <select class="select select-bordered select-xs w-24 link-type">
+          <option value="social" ${type === 'social' ? 'selected' : ''}>Social</option>
+          <option value="support" ${type === 'support' ? 'selected' : ''}>Support</option>
+        </select>
+        <input type="text" placeholder="Label" class="input input-bordered input-xs flex-1 link-label" value="${App.escapeHtml(label)}">
+        <input type="text" placeholder="URL" class="input input-bordered input-xs flex-1 link-url" value="${App.escapeHtml(url)}">
+        <button type="button" class="btn btn-ghost btn-xs text-error remove-link">✕</button>
+      `;
+      div.querySelector('.remove-link').onclick = () => div.remove();
+      linksContainer.appendChild(div);
+    };
+
+    // Parse and populate links
+    if (artist.links) {
+      artist.links.forEach(l => {
+        let label = l.label, url = l.url, type = l.type || 'social';
+        // Handle old format fallback if needed
+        if (!label && !url && typeof l === 'object') {
+          const key = Object.keys(l)[0];
+          if (key !== 'type' && key !== 'label' && key !== 'url') {
+            label = key; url = l[key];
+          }
+        }
+        addLink(label, url, type);
+      });
     }
 
-    // Avatar file preview
-    document.getElementById('edit-artist-avatar').addEventListener('change', (e) => {
+    modal.querySelector('#add-artist-link-btn').onclick = () => addLink();
+    modal.querySelector('#close-artist-modal').onclick = () => modal.remove();
+
+    modal.querySelector('#edit-artist-avatar').onchange = (e) => {
       const file = e.target.files[0];
       if (file) {
         const reader = new FileReader();
         reader.onload = (ev) => {
-          document.getElementById('avatar-preview').style.backgroundImage = `url(${ev.target.result})`;
-          document.getElementById('avatar-preview').innerHTML = '';
+          const preview = modal.querySelector('#avatar-preview');
+          preview.style.backgroundImage = `url(${ev.target.result})`;
+          preview.innerHTML = '';
         };
         reader.readAsDataURL(file);
       }
-    });
+    };
 
-    document.getElementById('cancel-edit-artist').addEventListener('click', () => {
-      document.getElementById('edit-artist-modal').remove();
-    });
-
-    document.getElementById('delete-artist-btn').addEventListener('click', async () => {
-      if (confirm('Are you sure you want to delete this artist? This will also unlink all their albums and tracks.')) {
-        try {
-          await API.deleteArtist(artistId);
-          document.getElementById('edit-artist-modal').remove();
-          alert('Artist deleted');
-          window.location.reload();
-        } catch (err) {
-          alert('Failed to delete artist: ' + err.message);
-        }
+    if (artist.id) {
+      const deleteBtn = modal.querySelector('#delete-artist-btn');
+      if (deleteBtn) {
+        deleteBtn.onclick = async () => {
+          if (confirm('Delete artist and unlink all releases?')) {
+            try {
+              await API.deleteArtist(artist.id);
+              modal.remove();
+              window.location.reload();
+            } catch (err) { alert('Delete failed'); }
+          }
+        };
       }
-    });
-
-    // Links Logic
-    const linksContainer = document.getElementById('artist-links-container');
-    let existingLinks = [];
-
-    // Parse existing links (handle old {key:val} and new {label, url} format)
-    if (artist.links && Array.isArray(artist.links)) {
-      existingLinks = artist.links.map(l => {
-        if (l.label && l.url) return l; // New format
-        // Old format { platform: url }
-        const key = Object.keys(l)[0];
-        return { label: key.charAt(0).toUpperCase() + key.slice(1), url: l[key] };
-      });
     }
 
-    function addLinkInput(label = '', url = '', type = 'social') {
-      const div = document.createElement('div');
-      div.style.display = 'flex';
-      div.style.gap = '0.5rem';
-      div.innerHTML = `
-          <select class="link-type" style="width: 100px;">
-            <option value="social" ${type === 'social' ? 'selected' : ''}>Social</option>
-            <option value="support" ${type === 'support' ? 'selected' : ''}>Support</option>
-          </select>
-          <input type="text" placeholder="Label (e.g. Bandcamp)" class="link-label" value="${label}" style="flex: 1;">
-            <input type="text" placeholder="URL (https://...)" class="link-url" value="${url}" style="flex: 2;">
-              <button type="button" class="btn btn-outline btn-sm remove-link" style="color: var(--color-danger); border-color: var(--color-danger);">✕</button>
-              `;
-      div.querySelector('.remove-link').onclick = () => div.remove();
-      linksContainer.appendChild(div);
-    }
-
-    // Helper to auto-detect type from URL/Label if missing
-    function detectType(label, url) {
-      const lower = (label + url).toLowerCase();
-      if (lower.includes('patreon') || lower.includes('ko-fi') || lower.includes('paypal') || lower.includes('buymeacoffee') || lower.includes('liberapay') || lower.includes('donate')) {
-        return 'support';
-      }
-      return 'social';
-    }
-
-    // Populate existing
-    existingLinks.forEach(link => {
-      // If type is missing, try to detect it
-      const type = link.type || detectType(link.label || '', link.url || '');
-      addLinkInput(link.label, link.url, type);
-    });
-
-    document.getElementById('add-artist-link').onclick = () => addLinkInput();
-
-    document.getElementById('edit-artist-form').addEventListener('submit', async (e) => {
+    modal.querySelector('#edit-artist-form').onsubmit = async (e) => {
       e.preventDefault();
-      const bio = document.getElementById('edit-artist-bio').value;
-      const avatarFile = document.getElementById('edit-artist-avatar').files[0];
-
-      // Gather links
-      const links = Array.from(document.querySelectorAll('#artist-links-container > div')).map(div => ({
+      const name = modal.querySelector('#edit-artist-name').value;
+      const bio = modal.querySelector('#edit-artist-bio').value;
+      const avatarFile = modal.querySelector('#edit-artist-avatar').files[0];
+      const links = Array.from(modal.querySelectorAll('#artist-links-container > div')).map(div => ({
         type: div.querySelector('.link-type').value,
         label: div.querySelector('.link-label').value.trim(),
         url: div.querySelector('.link-url').value.trim()
       })).filter(l => l.label && l.url);
 
-      try {
-        // Update artist info
-        await API.updateArtist(artistId, {
-          bio: bio || undefined,
-          links: links.length > 0 ? links : undefined
-        });
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
 
-        // Upload avatar if provided
-        if (avatarFile) {
-          await API.uploadArtistAvatar(artistId, avatarFile);
+      try {
+        let id = artist.id;
+        if (id) {
+          await API.updateArtist(id, { name, bio, links });
+        } else {
+          const res = await API.createArtist({ name, bio, links });
+          id = res.id;
         }
 
-        document.getElementById('edit-artist-modal').remove();
-        alert('Artist updated!');
+        if (avatarFile) {
+          await API.uploadArtistAvatar(id, avatarFile);
+        }
+
+        modal.remove();
         window.location.reload();
       } catch (err) {
-        alert('Failed to update artist: ' + err.message);
+        alert('Save failed: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = 'Save Artist';
       }
-    });
+    };
   },
 
   async showArtistKeysModal(artistId) {
@@ -3373,76 +3326,7 @@ const App = {
     });
   },
 
-  showCreateArtistModal() {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.style.display = 'flex';
-    modal.id = 'create-artist-modal';
 
-    modal.innerHTML = `
-              <div class="modal-content" style="max-width: 500px;">
-                <h2 class="section-title">Create New Artist</h2>
-                <form id="create-artist-form">
-                  <div class="form-group">
-                    <label>Name *</label>
-                    <input type="text" id="new-artist-name" required placeholder="Artist name">
-                  </div>
-                  <div class="form-group">
-                    <label>Bio</label>
-                    <textarea id="new-artist-bio" rows="3" placeholder="Short biography..."></textarea>
-                  </div>
-                  <div class="form-group">
-                    <label>Links (one per line, format: platform: url)</label>
-                    <textarea id="new-artist-links" rows="4" placeholder="website: https://example.com
-instagram: https://instagram.com/artist
-bandcamp: https://artist.bandcamp.com"></textarea>
-                  </div>
-                  <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Create Artist</button>
-                    <button type="button" class="btn btn-outline" id="cancel-create-artist">Cancel</button>
-                  </div>
-                </form>
-              </div>
-              `;
-
-    document.body.appendChild(modal);
-
-    document.getElementById('cancel-create-artist').addEventListener('click', () => {
-      document.getElementById('create-artist-modal').remove();
-    });
-
-    document.getElementById('create-artist-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('new-artist-name').value;
-      const bio = document.getElementById('new-artist-bio').value;
-      const linksRaw = document.getElementById('new-artist-links').value;
-
-      // Parse links from text format
-      let links = [];
-      if (linksRaw.trim()) {
-        const lines = linksRaw.split('\n').filter(l => l.trim());
-        for (const line of lines) {
-          const match = line.match(/^([\w]+):\s*(.+)$/);
-          if (match) {
-            links.push({ [match[1].toLowerCase()]: match[2].trim() });
-          }
-        }
-      }
-
-      try {
-        await API.createArtist({
-          name,
-          bio: bio || undefined,
-          links: links.length > 0 ? links : undefined
-        });
-        document.getElementById('create-artist-modal').remove();
-        alert('Artist created!');
-        window.location.reload();
-      } catch (err) {
-        alert('Failed to create artist: ' + err.message);
-      }
-    });
-  },
 
   renderAlbumGrid(container, albums) {
     if (!albums || albums.length === 0) {
@@ -3503,10 +3387,10 @@ bandcamp: https://artist.bandcamp.com"></textarea>
         </button>` : ''}
               <button class="btn btn-sm btn-ghost add-to-queue-btn" title="Add to Queue"
                 style="margin-left: 0.5rem; padding: 4px 8px; font-size: 0.9rem;"
-                onclick="event.stopPropagation(); Player.addToQueue(${JSON.stringify(track).replace(/" /g, '&quot;')})">
+                onclick="event.stopPropagation(); Player.addToQueue(${JSON.stringify(track).replace(/"/g, '&quot;')})">
               ➕
             </button>
-          </div >
+          </div>
           `).join('');
 
     this.attachTrackListeners(tracks);
@@ -3674,46 +3558,7 @@ bandcamp: https://artist.bandcamp.com"></textarea>
     }
   },
 
-  async renderUsersList() {
-    const container = document.getElementById('users-list-container');
-    if (!container) return;
 
-    container.innerHTML = 'Loading...';
-    try {
-      const users = await API.getAdmins();
-      const canDelete = this.isRootAdmin;
-      container.innerHTML = users.map(u => {
-        const isRootAdmin = u.id === 1;
-        const showDelete = canDelete && users.length > 1 && !isRootAdmin;
-        return `
-          <div class="list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid var(--border-color);">
-            <div>
-              <strong>${this.escapeHtml(u.username)}</strong>
-              <div style="font-size: 0.8rem; color: var(--text-muted);">ID: ${u.id} • Created: ${new Date(u.created_at).toLocaleDateString()}${isRootAdmin ? ' (Primary Admin)' : ''}</div>
-            </div>
-            <div>
-              ${showDelete ? `<button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}">Delete</button>` : isRootAdmin ? '<span style="font-size: 0.8rem; color: var(--text-muted);">(Primary Admin)</span>' : users.length <= 1 ? '<span style="font-size: 0.8rem; color: var(--text-muted);">(Last Admin)</span>' : '<span style="font-size: 0.8rem; color: var(--text-muted);">—</span>'}
-            </div>
-          </div>
-          `;
-      }).join('');
-
-      container.querySelectorAll('.delete-user-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          if (confirm('Delete this admin user?')) {
-            try {
-              await API.deleteAdmin(e.target.dataset.id);
-              await this.renderUsersList();
-            } catch (err) {
-              alert('Failed to delete: ' + err.message);
-            }
-          }
-        });
-      });
-    } catch (e) {
-      container.innerHTML = '<div class="error-message">Failed to load users</div>';
-    }
-  },
 
   // Playlist Management
   currentTrackToAdd: null,
