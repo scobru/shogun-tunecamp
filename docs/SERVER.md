@@ -73,6 +73,7 @@ Both modes can be mixed. Files with `release.yaml` are treated as releases.
     - Time display (current time / total duration)
 - **Playlists**: Create and manage custom playlists via web interface
 - **Network Discovery**: Browse and play tracks from other TuneCamp instances
+- **User Management**: Create multiple admins and link them to artists for restricted access
 - **Library Statistics**: View listening stats, play history, top tracks/artists
 - **Comments**: View and post comments on tracks (requires user authentication)
 - **Admin panel**: Manage releases, upload files, browse file system
