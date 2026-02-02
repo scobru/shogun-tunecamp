@@ -31,15 +31,11 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                 setIsEditing(true);
                 setEditId(e.detail.id);
                 setTitle(e.detail.title || '');
-                setArtistId(e.detail.artistId || '');
+                setArtistId(e.detail.artist_id || ''); // Fixed property name
                 setType(e.detail.type || 'album');
-                setYear(e.detail.year || new Date().getFullYear());
-                // Handle visibility: check new field, then fallback to isPublic (boolean)
-                if (e.detail.visibility) {
-                    setVisibility(e.detail.visibility);
-                } else {
-                    setVisibility(e.detail.isPublic ? 'public' : 'private');
-                }
+                setYear(e.detail.year ? parseInt(e.detail.year) : new Date().getFullYear()); // Ensure year is a number
+                // Handle visibility: check new field, then fallback to is_public (boolean)
+                setVisibility(e.detail.visibility || (e.detail.is_public ? 'public' : 'private'));
             } else {
                 setIsEditing(false);
                 setEditId(null);

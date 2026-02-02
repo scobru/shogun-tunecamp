@@ -126,7 +126,22 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     // Serve static webapp
     const webappPath = path.join(__dirname, "..", "..", "webapp");
+    const webappPublicPath = path.join(webappPath, "public"); // Vite public dir
+    const webappDistPath = path.join(webappPath, "dist");     // Built files
+
     console.log(`📂 Serving webapp from: ${webappPath}`);
+
+    // 1. Serve built files if they exist (prod)
+    if (fs.existsSync(webappDistPath)) {
+        app.use(express.static(webappDistPath));
+    }
+
+    // 2. Serve public assets (manifest, sw, etc) at root
+    if (fs.existsSync(webappPublicPath)) {
+        app.use(express.static(webappPublicPath));
+    }
+
+    // 3. Fallback to webapp root (dev/legacy)
     app.use(express.static(webappPath));
 
     // SPA fallback - serve index.html for all non-API routes

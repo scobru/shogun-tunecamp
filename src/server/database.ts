@@ -34,6 +34,8 @@ export interface Album {
     cover_path: string | null;
     genre: string | null;
     description: string | null;
+    type: 'album' | 'single' | 'ep' | null; // Added
+    year: number | null; // Added
     download: string | null; // 'free' | 'paid' | null
     external_links: string | null; // JSON string of ExternalLink[]
     is_public: boolean;
@@ -393,6 +395,15 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Column already exists
     }
 
+    // Migration: Add type and year to albums
+    try {
+        db.exec(`ALTER TABLE albums ADD COLUMN type TEXT`);
+        db.exec(`ALTER TABLE albums ADD COLUMN year INTEGER`);
+        console.log("📦 Migrated database: added type and year to albums");
+    } catch (e) {
+        // Columns already exist
+    }
+
     return {
         db,
 
@@ -561,8 +572,8 @@ export function createDatabase(dbPath: string): DatabaseService {
                 try {
                     const result = db
                         .prepare(
-                            `INSERT INTO albums (title, slug, artist_id, date, cover_path, genre, description, download, external_links, is_public, visibility, is_release, published_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                            `INSERT INTO albums (title, slug, artist_id, date, cover_path, genre, description, type, year, download, external_links, is_public, visibility, is_release, published_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                         )
                         .run(
                             album.title,
@@ -572,6 +583,8 @@ export function createDatabase(dbPath: string): DatabaseService {
                             album.cover_path,
                             album.genre,
                             album.description,
+                            album.type || null,
+                            album.year || null,
                             album.download,
                             album.external_links,
                             album.visibility === 'public' || album.visibility === 'unlisted' ? 1 : 0,

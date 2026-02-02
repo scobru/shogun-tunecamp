@@ -30,9 +30,10 @@ export const Files = () => {
         setLoading(true);
         try {
             const data = await API.getBrowser(path);
-            setItems(data);
+            setItems(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error(e);
+            setItems([]);
         } finally {
             setLoading(false);
         }

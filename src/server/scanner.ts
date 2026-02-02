@@ -49,6 +49,8 @@ interface ReleaseConfig {
     cover?: string;
     genres?: string[];
     artist?: string; // Override artist
+    type?: 'album' | 'single' | 'ep'; // Added
+    year?: number; // Added
     download?: string; // 'free' | 'paid'
     links?: { label: string; url: string }[] | { [key: string]: string }; // Array or Object
 }
@@ -232,6 +234,8 @@ export function createScanner(database: DatabaseService): ScannerService {
                     cover_path: coverPath,
                     genre: config.genres?.join(", ") || null,
                     description: config.description || null,
+                    type: config.type || 'album',
+                    year: config.year || (config.date ? new Date(config.date).getFullYear() : null),
                     download: config.download || null,
                     external_links: linksJson,
                     is_public: false, // Default to private
@@ -394,6 +398,8 @@ export function createScanner(database: DatabaseService): ScannerService {
                         cover_path: null, // Basic fallback
                         genre: common.genre?.join(", ") || null,
                         description: null,
+                        type: 'album',
+                        year: common.year || null,
                         download: null,
                         external_links: null,
                         is_public: false,

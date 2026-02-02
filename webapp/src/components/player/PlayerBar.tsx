@@ -50,15 +50,35 @@ export const PlayerBar = () => {
              // Let store handle logic based on repeat mode
              next();
         };
+        const handlePlay = () => setIsPlaying(true);
+        const handlePause = () => setIsPlaying(false);
+        const handleDurationChange = () => {
+            if (audio.duration && Number.isFinite(audio.duration)) {
+                setProgress(audio.currentTime, audio.duration);
+            }
+        };
+        const handleLoadedMetadata = () => {
+            if (audio.duration && Number.isFinite(audio.duration)) {
+                setProgress(audio.currentTime, audio.duration);
+            }
+        };
 
         audio.addEventListener('timeupdate', updateTime);
         audio.addEventListener('ended', handleEnded);
+        audio.addEventListener('play', handlePlay);
+        audio.addEventListener('pause', handlePause);
+        audio.addEventListener('durationchange', handleDurationChange);
+        audio.addEventListener('loadedmetadata', handleLoadedMetadata);
         
         return () => {
             audio.removeEventListener('timeupdate', updateTime);
             audio.removeEventListener('ended', handleEnded);
+            audio.removeEventListener('play', handlePlay);
+            audio.removeEventListener('pause', handlePause);
+            audio.removeEventListener('durationchange', handleDurationChange);
+            audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
         };
-    }, [currentTrack]); 
+    }, [currentTrack, setIsPlaying, setProgress, next]); 
 
     // Sync play/pause state
     useEffect(() => {
@@ -68,7 +88,7 @@ export const PlayerBar = () => {
         } else if (!isPlaying && !audioRef.current.paused) {
             audioRef.current.pause();
         }
-    }, [isPlaying]);
+    }, [isPlaying, setIsPlaying]);
 
     // Sync volume
     useEffect(() => {
@@ -85,7 +105,7 @@ export const PlayerBar = () => {
     if (!currentTrack) return <div className="fixed bottom-0 w-full h-24 bg-base-200 border-t border-white/5 flex items-center justify-center text-sm opacity-50 z-50">Select a track to play</div>;
 
     // Resolve cover URL
-    const coverUrl = currentTrack.coverUrl || (currentTrack.albumId ? API.getAlbumCoverUrl(currentTrack.albumId) : undefined);
+    const coverUrl = currentTrack.coverUrl || (currentTrack.albumId ? API.getAlbumCoverUrl(currentTrack.albumId) : '');
 
     return (
         <>

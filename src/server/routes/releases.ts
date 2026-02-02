@@ -14,6 +14,8 @@ interface CreateReleaseBody {
     download?: "free" | "paycurtain" | "codes" | "none";
     price?: number;
     artistName?: string;
+    type?: 'album' | 'single' | 'ep';
+    year?: number;
     externalLinks?: { label: string; url: string }[] | { [key: string]: string };
 }
 
@@ -300,6 +302,22 @@ export function createReleaseRoutes(
             } else if (typeof body.isPublic === "boolean") {
                 // Backward compatibility
                 database.updateAlbumVisibility(id, body.isPublic ? 'public' : 'private');
+            }
+
+            // Update type and year in DB - these were recently added columns
+            if (body.type) {
+                try {
+                    database.db.prepare("UPDATE albums SET type = ? WHERE id = ?").run(body.type, id);
+                } catch (e) {
+                    console.error("Failed to update album type in DB:", e);
+                }
+            }
+            if (body.year) {
+                try {
+                    database.db.prepare("UPDATE albums SET year = ? WHERE id = ?").run(body.year, id);
+                } catch (e) {
+                    console.error("Failed to update album year in DB:", e);
+                }
             }
 
             await scanner.scanDirectory(musicDir);

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useParams, Link } from 'react-router-dom';
-import { Play, Clock, Heart, MoreHorizontal, Disc, Share2, Plus, Download, Unlock, ExternalLink, Shield } from 'lucide-react';
+import { Play, Clock, Heart, MoreHorizontal, Share2, Plus, Download, Unlock, ExternalLink, Shield } from 'lucide-react';
 import { usePlayerStore } from '../stores/usePlayerStore';
 import { useAuthStore } from '../stores/useAuthStore';
 // import { GleamUtils } from '../utils/gleam';
@@ -87,15 +87,14 @@ export const AlbumDetails = () => {
                 </div>
 
                 <div className="relative z-10 shrink-0 group">
-                    {album.coverImage ? (
-                        <img 
-                            src={API.getAlbumCoverUrl(album.id)} 
-                            alt={album.title} 
-                            className="w-48 h-48 md:w-64 md:h-64 rounded-xl shadow-2xl object-cover" 
-                        />
-                    ) : (
-                        <div className="w-48 h-48 md:w-64 md:h-64 bg-neutral rounded-xl flex items-center justify-center opacity-30 shadow-2xl"><Disc size={64}/></div>
-                    )}
+                    <img 
+                        src={API.getAlbumCoverUrl(album.id)} 
+                        alt={album.title} 
+                        className="w-48 h-48 md:w-64 md:h-64 rounded-xl shadow-2xl object-cover" 
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://via.placeholder.com/500?text=No+Cover';
+                        }}
+                    />
                 </div>
                 
                 <div className="relative z-10 flex-1 space-y-4">
