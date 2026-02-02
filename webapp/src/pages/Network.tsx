@@ -65,107 +65,117 @@ export const Network = () => {
                 </div>
             </header>
 
+            {/* Recent Remote Tracks (Top Priority like Legacy) */}
+            <section>
+                <div className="flex items-center gap-3 mb-6">
+                    <Music size={24} className="text-secondary"/> 
+                    <h2 className="text-2xl font-bold">Community Tracks</h2>
+                    <span className="badge badge-primary badge-outline">{tracks.length}</span>
+                </div>
+                
+                {tracks.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {tracks.map((item, i) => {
+                             if (!item || !item.track) return null;
+                             const track = item.track;
+                             
+                             // Resolve cover (prefer local proxy or direct remote?)
+                             // Legacy uses a proxy logic or direct url. 
+                             // We constructed basic track objects in handlePlay, let's use similar logic for display.
+                             const baseUrl = item.siteUrl.replace(/\/$/, '');
+                             const coverUrl = track.coverImage || (track.albumId ? `${baseUrl}/api/albums/${track.albumId}/cover` : undefined);
+
+                             return (
+                                <div 
+                                    key={i} 
+                                    className="card bg-base-200/50 border border-white/5 hover:bg-base-200 transition-all cursor-pointer group shadow-sm hover:shadow-md"
+                                    onClick={() => handlePlayNetworkTrack(item)}
+                                >
+                                    <div className="p-3 flex items-center gap-4">
+                                        <div className="relative w-12 h-12 rounded-lg bg-base-300 flex-shrink-0 overflow-hidden">
+                                            {coverUrl ? (
+                                                <img src={coverUrl} alt={track.title} className="w-full h-full object-cover"/>
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-xl opacity-30">🎵</div>
+                                            )}
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                <Play size={20} className="text-white fill-current"/>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-bold text-sm truncate pr-2">{track.title}</div>
+                                            <div className="text-xs opacity-60 truncate flex items-center gap-1">
+                                                <span>{track.artistName}</span>
+                                                <span className="opacity-40">•</span>
+                                                <a 
+                                                    href={item.siteUrl} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="hover:text-primary hover:underline"
+                                                >
+                                                    {new URL(item.siteUrl).hostname}
+                                                </a>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-xs font-mono opacity-40">
+                                            {new Date(track.duration * 1000).toISOString().substr(14, 5)}
+                                        </div>
+                                    </div>
+                                </div>
+                             );
+                        })}
+                    </div>
+                ) : (
+                    <div className="text-center py-12 opacity-50 border-2 border-dashed border-white/5 rounded-xl">
+                        <p>No community tracks found yet.</p>
+                    </div>
+                )}
+            </section>
+
             {/* Sites */}
             <section>
                 <div className="flex items-center gap-3 mb-6">
                     <Server size={24} className="text-primary"/> 
-                    <h2 className="text-2xl font-bold">Discovered Instances</h2>
-                    <span className="badge badge-neutral font-mono">{sites.length}</span>
+                    <h2 className="text-2xl font-bold">Active Instances</h2>
+                    <span className="badge badge-secondary badge-outline">{sites.length}</span>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {sites.map((site, i) => (
-                        <div key={i} className="group card bg-base-200/50 hover:bg-base-200 border border-white/5 hover:border-blue-400/30 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
-                            <div className="card-body p-6 relative overflow-hidden">
-                                {/* Decorative gradient */}
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-bl-full -mr-8 -mt-8 z-0 transition-transform group-hover:scale-150 duration-500"/>
+                        <a 
+                            key={i} 
+                            href={site.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="card bg-base-200 border border-white/5 hover:border-primary/30 transition-all hover:scale-[1.01] group"
+                        >
+                            <figure className="h-32 bg-base-300 relative overflow-hidden">
+                                {/* Use site cover image if available, similar to legacy */}
+                                {/* Legacy doesn't explicitly show where it gets site.coverImage from except settings. API response likely includes it. */}
+                                 {/* For now keeping decorative gradient or fallback */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10" />
+                                <div className="w-full h-full flex items-center justify-center text-4xl opacity-20">🏠</div>
                                 
-                                <div className="relative z-10">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <h3 className="font-bold text-lg flex items-center gap-2">
-                                            {site.name} 
-                                        </h3>
-                                        <a href={site.url} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-ghost btn-circle">
-                                            <ExternalLink size={16}/>
-                                        </a>
-                                    </div>
-                                    
-                                    <p className="text-sm opacity-70 line-clamp-2 mb-4 min-h-[2.5em]">{site.description || "No description provided."}</p>
-                                    
-                                    <div className="flex items-center justify-between text-xs font-mono opacity-50 border-t border-white/5 pt-4">
-                                        <div className="flex gap-3">
-                                            <span>v{site.version}</span>
-                                            <span className="opacity-30">•</span>
-                                            <span>{GleamUtils.formatTimeAgo(new Date(site.lastSeen).getTime())}</span>
-                                        </div>
-                                        <div className="badge badge-xs badge-ghost">ONLINE</div>
-                                    </div>
+                                <div className="absolute bottom-2 right-2 badge badge-neutral badge-sm bg-black/50 border-none backdrop-blur-md">
+                                    {new URL(site.url).hostname}
+                                </div>
+                            </figure>
+                            <div className="card-body p-4">
+                                <h3 className="font-bold text-lg group-hover:text-primary transition-colors flex items-center gap-2">
+                                    {site.name} <ExternalLink size={12} className="opacity-50"/>
+                                </h3>
+                                <p className="text-sm opacity-60 line-clamp-2">{site.description || "No description provided."}</p>
+                                
+                                <div className="flex items-center justify-between text-xs font-mono opacity-50 border-t border-white/5 pt-4 mt-2">
+                                    <span>v{site.version}</span>
+                                    <span>{GleamUtils.formatTimeAgo(new Date(site.lastSeen).getTime())}</span>
                                 </div>
                             </div>
-                        </div>
+                        </a>
                     ))}
-                </div>
-            </section>
-
-            {/* Recent Remote Tracks */}
-            <section>
-                <div className="flex items-center gap-3 mb-6">
-                    <Music size={24} className="text-secondary"/> 
-                    <h2 className="text-2xl font-bold">Recent Network Activity</h2>
-                </div>
-                
-                <div className="bg-base-200/30 rounded-2xl border border-white/5 overflow-hidden">
-                    <table className="table w-full">
-                        <thead>
-                            <tr className="border-b border-white/10 text-xs uppercase opacity-50 bg-base-200/50">
-                                <th className="w-16"></th>
-                                <th className="py-4 pl-4">Track</th>
-                                <th>Artist</th>
-                                <th>Instance</th>
-                                <th className="text-right pr-6">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {tracks.map((item, i) => {
-                                if (!item || !item.track) return null;
-                                return (
-                                <tr key={i} className="group hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
-                                    <td className="text-center">
-                                        <button 
-                                            onClick={() => handlePlayNetworkTrack(item)}
-                                            className="btn btn-circle btn-sm btn-ghost group-hover:bg-primary group-hover:text-white transition-all"
-                                        >
-                                            <Play size={14} fill="currentColor" className="ml-0.5"/>
-                                        </button>
-                                    </td>
-                                    <td className="font-medium text-base">
-                                        {item.track.title}
-                                    </td>
-                                    <td className="opacity-70">{item.track.artistName}</td>
-                                    <td>
-                                        <a 
-                                            href={item.siteUrl} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="badge badge-outline hover:bg-white/10 transition-colors gap-2 pl-1 pr-3"
-                                        >
-                                            <Globe size={10}/> {item.siteName}
-                                        </a>
-                                    </td>
-                                    <td className="text-right pr-6">
-                                         <a href={item.siteUrl} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm gap-2">
-                                            Visit <ExternalLink size={14} className="opacity-50"/>
-                                         </a>
-                                    </td>
-                                </tr>
-                            )})}
-                            {tracks.length === 0 && (
-                                <tr>
-                                    <td colSpan={5} className="text-center py-8 opacity-50">No recent network activity found.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
                 </div>
             </section>
         </div>

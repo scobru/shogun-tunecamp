@@ -92,7 +92,6 @@ export const PlayerBar = () => {
             <div className="fixed bottom-0 left-0 right-0 lg:h-24 bg-base-200/90 backdrop-blur-xl border-t border-white/5 lg:px-6 flex flex-col lg:flex-row items-center gap-4 z-50 shadow-2xl pb-safe lg:pb-0">
                 <audio 
                     ref={audioRef} 
-                    crossOrigin="anonymous"
                     onError={(e) => console.error("Audio Element Error:", e.currentTarget.error, e.currentTarget.src)}
                 />
                 
