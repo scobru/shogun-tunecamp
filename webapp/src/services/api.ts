@@ -64,7 +64,7 @@ export const API = {
     // --- Library (Browsing) ---
     getAlbums: () => handleResponse(api.get<Album[]>('/albums')),
     getAlbum: (id: string | number) => handleResponse(api.get<Album>(`/albums/${id}`)),
-    getAlbumCoverUrl: (id: string | number) => `${API_URL}/albums/${id}/cover`,
+    getAlbumCoverUrl: (id: string | number) => id ? `${API_URL}/albums/${id}/cover` : '',
 
     getArtists: () => handleResponse(api.get<Artist[]>('/artists')),
     getArtist: (idOrSlug: string | number) => handleResponse(api.get<Artist>(`/artists/${idOrSlug}`)),

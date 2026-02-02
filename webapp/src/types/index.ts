@@ -17,6 +17,8 @@ export interface Track {
     coverImage?: string; // helpers
     waveform?: number[]; // or string
     lyrics?: string;
+    streamUrl?: string; // For remote/network tracks
+    coverUrl?: string; // For remote/network tracks
 }
 
 export interface Artist {

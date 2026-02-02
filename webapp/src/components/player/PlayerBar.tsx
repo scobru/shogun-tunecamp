@@ -22,12 +22,12 @@ export const PlayerBar = () => {
         if (!currentTrack || !audioRef.current) return;
         
         const audio = audioRef.current;
-        const newSrc = API.getStreamUrl(currentTrack.id);
+        const newSrc = currentTrack.streamUrl || API.getStreamUrl(currentTrack.id);
         
         // Only update source if it changed to avoid reloading same track
-        if (audio.src !== newSrc && !audio.src.endsWith(newSrc)) {
-            audio.src = newSrc;
-            if (isPlaying) audio.play().catch(console.error);
+        if (audio.src !== newSrc && !audio.src.endsWith(newSrc) && audio.src !== newSrc + '/') { // Check for trailing slash issues sometimes
+             audio.src = newSrc;
+             if (isPlaying) audio.play().catch(console.error);
         }
 
         const updateTime = () => setProgress(audio.currentTime, audio.duration);
@@ -69,17 +69,26 @@ export const PlayerBar = () => {
 
     if (!currentTrack) return <div className="fixed bottom-0 w-full h-24 bg-base-200 border-t border-white/5 flex items-center justify-center text-sm opacity-50 z-50">Select a track to play</div>;
 
+    // Resolve cover URL
+    const coverUrl = currentTrack.coverUrl || (currentTrack.albumId ? API.getAlbumCoverUrl(currentTrack.albumId) : undefined);
+
     return (
         <>
             <div className="fixed bottom-0 left-0 right-0 lg:h-24 bg-base-200/90 backdrop-blur-xl border-t border-white/5 lg:px-6 flex flex-col lg:flex-row items-center gap-4 z-50 shadow-2xl pb-safe lg:pb-0">
                 <audio ref={audioRef} />
                 
                 <div className="flex items-center gap-3 lg:gap-4 w-full lg:w-64 shrink-0 px-4 lg:px-0 pt-2 lg:pt-0">
-                    <img 
-                        src={currentTrack.albumId ? API.getAlbumCoverUrl(currentTrack.albumId) : undefined} 
-                        alt="Cover" 
-                        className="w-12 h-12 lg:w-14 lg:h-14 rounded-lg bg-base-300 shadow-lg object-cover"
-                    />
+                    {coverUrl ? (
+                        <img 
+                            src={coverUrl} 
+                            alt="Cover" 
+                            className="w-12 h-12 lg:w-14 lg:h-14 rounded-lg bg-base-300 shadow-lg object-cover"
+                        />
+                    ) : (
+                         <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-lg bg-base-300 shadow-lg flex items-center justify-center">
+                            <span className="text-xs opacity-50">?</span>
+                         </div>
+                    )}
                     <div className="min-w-0">
                         <div className="font-bold truncate text-sm lg:text-base">{currentTrack.title}</div>
                         <div className="text-xs lg:text-sm opacity-60 truncate">{currentTrack.artistName}</div>
