@@ -81,6 +81,21 @@ export const PlaylistDetails = () => {
 
                     {isAdminAuthenticated && (
                         <div className="mt-6 flex gap-2">
+                             <button 
+                                className={`btn btn-sm btn-outline gap-2 ${playlist.isPublic ? 'btn-secondary' : 'btn-ghost'}`} 
+                                onClick={async () => {
+                                    if (!playlist) return;
+                                    try {
+                                        await API.updatePlaylist(playlist.id, { isPublic: !playlist.isPublic });
+                                        loadPlaylist(playlist.id);
+                                    } catch (e) {
+                                        console.error(e);
+                                    }
+                                }}
+                            >
+                                {playlist.isPublic ? <Globe size={16}/> : <Lock size={16}/>}
+                                {playlist.isPublic ? 'Make Private' : 'Make Public'}
+                            </button>
                             <button className="btn btn-error btn-sm btn-outline gap-2" onClick={handleDelete}>
                                 <Trash2 size={16}/> Delete Playlist
                             </button>

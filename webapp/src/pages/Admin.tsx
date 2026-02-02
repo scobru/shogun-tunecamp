@@ -272,12 +272,25 @@ const AdminSettingsPanel = () => {
 // Sub-components for Admin Tabs (Internal for now)
 const AdminUsersList = () => {
     const [users, setUsers] = useState<any[]>([]);
+    
+    const loadUsers = () => API.getUsers().then(setUsers).catch(console.error);
+
     useEffect(() => {
-        const loadUsers = () => API.getUsers().then(setUsers).catch(console.error);
         loadUsers();
         window.addEventListener('refresh-admin-users', loadUsers);
         return () => window.removeEventListener('refresh-admin-users', loadUsers);
     }, []);
+
+    const handleDelete = async (id: string, username: string) => {
+        if (!confirm(`Are you sure you want to delete user ${username}? This cannot be undone.`)) return;
+        try {
+            await API.deleteUser(id);
+            loadUsers();
+        } catch (e) {
+            console.error(e);
+            alert('Failed to delete user');
+        }
+    };
 
     if (users.length === 0) return <div className="opacity-50 text-center py-4">No users found.</div>;
 
@@ -304,7 +317,12 @@ const AdminUsersList = () => {
                             >
                                 Edit
                             </button>
-                            <button className="btn btn-xs btn-ghost text-error">Delete</button>
+                            <button 
+                                className="btn btn-xs btn-ghost text-error"
+                                onClick={() => handleDelete(u.id, u.username)}
+                            >
+                                Delete
+                            </button>
                         </td>
                     </tr>
                 ))}

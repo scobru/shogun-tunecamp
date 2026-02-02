@@ -35,15 +35,7 @@ export const Comments = ({ trackId }: CommentsProps) => {
         if (!trackId) return;
         setLoading(true);
         try {
-            // Reusing legacy endpoint structure if possible, or adapting
-            // The legacy api.js had `getComments(trackId)` fetching `/api/comments/track/${trackId}`
-            // We need to ensure we have this method in our new API service or add it.
-            // Looking at API service previously, it does NOT have comments methods yet.
-            // I'll need to update API service first or cast to any here for now.
-            
-            // Using a direct fetch here if API is missing, but better to update API.
-            // Assuming I will add it to API service shortly.
-            const data = await (API as any).getComments(trackId);
+            const data = await API.getComments(trackId);
             setComments(data || []);
         } catch (e) {
             console.warn('Failed to load comments', e);
@@ -57,7 +49,7 @@ export const Comments = ({ trackId }: CommentsProps) => {
         if (!newComment.trim() || !trackId) return;
         setSubmitting(true);
         try {
-            await (API as any).postComment(trackId, newComment);
+            await API.postComment(trackId, newComment);
             setNewComment('');
             loadComments(); // Reload to see new comment
         } catch (e) {
@@ -71,7 +63,7 @@ export const Comments = ({ trackId }: CommentsProps) => {
     const handleDelete = async (commentId: string) => {
         if (!confirm('Delete this comment?')) return;
         try {
-            await (API as any).deleteComment(commentId);
+            await API.deleteComment(commentId);
             loadComments();
         } catch (e) {
             console.error(e);
