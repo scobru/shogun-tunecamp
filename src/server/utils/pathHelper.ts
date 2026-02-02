@@ -5,7 +5,7 @@ import path from "path";
  * Tries to resolve a file path that might be from a different OS or absolute path structure.
  * Useful when DB has Windows paths (D:\...) but running on Linux/Docker.
  */
-export function resolveFile(storedPath: string): string | null {
+export function resolveFile(storedPath: string | null | undefined): string | null {
     if (!storedPath) return null;
 
     // 1. Try as is
