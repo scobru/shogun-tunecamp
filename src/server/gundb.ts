@@ -424,15 +424,17 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
                                     sites.push({
                                         ...profileData,
                                         id: siteId,
-                                        // Ensure lastSeen is always present (use directoryData as fallback)
+                                        name: profileData.title || profileData.name || directoryData.title || "Untitled",
+                                        // Ensure lastSeen is always present
                                         lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
-                                        _secure: true // Flag to UI
+                                        _secure: true
                                     });
                                 } else {
                                     // Fallback to directory data if user graph not reachable
                                     sites.push({
                                         id: siteId,
                                         ...directoryData,
+                                        name: directoryData.title || directoryData.name || "Untitled",
                                         lastSeen: directoryData.lastSeen || Date.now(),
                                         _secure: false
                                     });
@@ -443,13 +445,17 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
                         sites.push({
                             id: siteId,
                             ...directoryData,
+                            name: directoryData.title || directoryData.name || "Untitled",
                             lastSeen: directoryData.lastSeen || Date.now()
                         });
                     }
                 });
 
             // Wait for data to collect
-            setTimeout(() => resolve(sites), 4000);
+            setTimeout(() => {
+                console.log(`⏱️ Discovery: Found ${sites.length} potential community sites`);
+                resolve(sites);
+            }, 6000);
         });
     }
 
@@ -477,9 +483,17 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
                     .once((trackData: any, slug: string) => {
                         if (trackData && trackData.audioUrl && slug !== "_") {
                             tracks.push({
-                                ...trackData,
-                                slug: slug,
-                                siteId: 'local', // Placeholder or fetch real ID
+                                siteId: 'local',
+                                siteUrl: '/', // Self
+                                track: {
+                                    ...trackData,
+                                    id: slug,
+                                    artistId: "local",
+                                    artistName: trackData.artistName || "Me",
+                                    albumId: trackData.releaseTitle || "local",
+                                    playCount: 0,
+                                    coverUrl: trackData.coverUrl || ""
+                                },
                                 _secure: true,
                                 _isSelf: true
                             });
@@ -505,16 +519,30 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
                             .map()
                             .once((trackData: any, slug: string) => {
                                 if (trackData && trackData.audioUrl && slug !== "_") {
+                                    // Map to NetworkTrack structure
                                     tracks.push({
-                                        ...trackData,
-                                        slug: slug,
                                         siteId: siteId,
+                                        siteUrl: siteData.url,
+                                        track: {
+                                            id: slug,
+                                            title: trackData.title || "Untitled",
+                                            artistId: "remote",
+                                            artistName: trackData.artistName || siteData.artistName || "Unknown Artist",
+                                            albumId: trackData.releaseTitle || "remote",
+                                            albumName: trackData.releaseTitle || "Remote Album",
+                                            duration: trackData.duration || 0,
+                                            path: trackData.audioUrl || "",
+                                            filename: slug,
+                                            playCount: 0,
+                                            coverUrl: trackData.coverUrl || siteData.coverImage || "",
+                                            coverImage: trackData.coverUrl || siteData.coverImage || ""
+                                        },
                                         _secure: true
                                     });
                                 }
                             });
                     }
-                    // Legacy Mode (Public Graph)
+                    // 2nd source: Legacy Mode (Public Graph)
                     else {
                         gun.get(REGISTRY_ROOT)
                             .get(REGISTRY_NAMESPACE)
@@ -525,9 +553,22 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
                             .once((trackData: any, slug: string) => {
                                 if (trackData && trackData.audioUrl && slug !== "_") {
                                     tracks.push({
-                                        ...trackData,
-                                        slug: slug,
                                         siteId: siteId,
+                                        siteUrl: siteData.url,
+                                        track: {
+                                            id: slug,
+                                            title: trackData.title || "Untitled",
+                                            artistId: "remote",
+                                            artistName: trackData.artistName || siteData.artistName || "Unknown Artist",
+                                            albumId: trackData.releaseTitle || "remote",
+                                            albumName: trackData.releaseTitle || "Remote Album",
+                                            duration: trackData.duration || 0,
+                                            path: trackData.audioUrl || "",
+                                            filename: slug,
+                                            playCount: 0,
+                                            coverUrl: trackData.coverUrl || siteData.coverImage || "",
+                                            coverImage: trackData.coverUrl || siteData.coverImage || ""
+                                        },
                                         _secure: false
                                     });
                                 }
@@ -540,15 +581,17 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
                 console.log(`⏱️ Network scan finished. Raw tracks found: ${tracks.length}`);
                 // Deduplicate by slug (prefer secure)
                 const uniqueTracks = new Map();
-                for (const t of tracks) {
-                    if (!uniqueTracks.has(t.slug) || t._secure) {
-                        uniqueTracks.set(t.slug, t);
+                for (const item of tracks) {
+                    const track = item.track;
+                    const key = `${item.siteUrl}::${track.id}`;
+                    if (!uniqueTracks.has(key) || item._secure) {
+                        uniqueTracks.set(key, item);
                     }
                 }
                 const result = Array.from(uniqueTracks.values());
                 console.log(`🌐 Found ${result.length} unique community tracks`);
                 resolve(result);
-            }, 4000);
+            }, 8000);
         });
     }
 

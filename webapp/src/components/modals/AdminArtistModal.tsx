@@ -16,6 +16,10 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
     const [mastodonInstance, setMastodonInstance] = useState('');
     const [mastodonToken, setMastodonToken] = useState('');
     
+    // Links
+    const [donationUrl, setDonationUrl] = useState('');
+    const [socialLinks, setSocialLinks] = useState<{platform: string, url: string}[]>([]);
+    
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -35,7 +39,6 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 
                 // Parse postParams for Mastodon
                 if (artist.postParams) {
-                    // Start by assuming it's an object, handle if it's a JSON string
                     let params = artist.postParams;
                     if (typeof params === 'string') {
                         try { params = JSON.parse(params); } catch (e) { params = {}; }
@@ -47,6 +50,25 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                     setMastodonToken('');
                 }
 
+                // Parse links
+                if (artist.links) {
+                    let linksArr = artist.links;
+                    if (typeof linksArr === 'string') {
+                        try { linksArr = JSON.parse(linksArr); } catch (e) { linksArr = []; }
+                    }
+                    if (Array.isArray(linksArr)) {
+                        const donation = (linksArr as any[]).find(l => l.type === 'support' || l.platform?.toLowerCase() === 'donation');
+                        setDonationUrl(donation ? donation.url : '');
+                        setSocialLinks((linksArr as any[]).filter(l => l.type !== 'support' && l.platform?.toLowerCase() !== 'donation').map(l => ({
+                            platform: l.platform || 'Social',
+                            url: l.url
+                        })));
+                    }
+                } else {
+                    setDonationUrl('');
+                    setSocialLinks([]);
+                }
+
             } else {
                 // Create Mode
                 setIsEditing(false);
@@ -56,6 +78,8 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 setDescription('');
                 setMastodonInstance('');
                 setMastodonToken('');
+                setDonationUrl('');
+                setSocialLinks([]);
             }
             
             setAvatarFile(null);
@@ -78,6 +102,11 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 token: mastodonToken
             } : null;
 
+            const allLinks: any[] = socialLinks.map(l => ({ ...l, type: 'social' }));
+            if (donationUrl) {
+                allLinks.unshift({ platform: 'Donation', url: donationUrl, type: 'support' });
+            }
+
             let artist;
             
             if (isEditing && editId) {
@@ -85,6 +114,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                     name,
                     slug: slug || undefined,
                     description,
+                    links: allLinks,
                     postParams: postParamsValue
                 });
             } else {
@@ -92,6 +122,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                     name, 
                     slug: slug || undefined, 
                     description,
+                    links: allLinks,
                     postParams: postParamsValue
                 });
             }
@@ -152,7 +183,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
 
                     <div className="form-control">
                         <label className="label">
-                            <span className="label-text">Description</span>
+                            <span className="label-text">Description / Bio</span>
                         </label>
                         <textarea 
                             className="textarea textarea-bordered h-24" 
@@ -160,12 +191,54 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                             onChange={e => setDescription(e.target.value)}
                         />
                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="form-control">
+                            <label className="label">
+                                <span className="label-text font-bold text-success">Donation / Support URL</span>
+                            </label>
+                            <input 
+                                type="url" 
+                                className="input input-bordered w-full border-success/30" 
+                                value={donationUrl}
+                                onChange={e => setDonationUrl(e.target.value)}
+                                placeholder="https://ko-fi.com/..."
+                            />
+                        </div>
+                        <div className="form-control">
+                            <label className="label">
+                                <span className="label-text">Social Links (comma separated URLs)</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                className="input input-bordered w-full" 
+                                value={socialLinks.map(l => l.url).join(', ')}
+                                onChange={e => {
+                                    const urls = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                    setSocialLinks(urls.map(url => {
+                                        let platform = 'Social';
+                                        if (url.includes('twitter')) platform = 'Twitter';
+                                        if (url.includes('x.com')) platform = 'X';
+                                        if (url.includes('instagram')) platform = 'Instagram';
+                                        if (url.includes('facebook')) platform = 'Facebook';
+                                        if (url.includes('youtube')) platform = 'YouTube';
+                                        return { platform, url };
+                                    }));
+                                }}
+                                placeholder="twitter.com/..., instagram.com/..."
+                            />
+                        </div>
+                    </div>
                     
-                    <div className="divider">ActivityPub / Mastodon Config</div>
+                    <div className="divider text-xs opacity-50 uppercase tracking-widest">ActivityPub / Mastodon Config</div>
                     <div className="bg-base-200 p-4 rounded-lg space-y-4">
-                         <div className="flex items-center gap-2 text-sm opacity-70 mb-2">
+                         <div className="alert alert-info py-2 text-xs bg-info/10 border-info/20 mb-2">
                             <Globe size={16}/> 
-                            <span>Configure auto-posting to Mastodon/ActivityPub</span>
+                            <div>
+                                <p className="font-bold">Mastodon Auto-Posting</p>
+                                <p>This section is for cross-posting your releases to an <strong>external</strong> Mastodon account. 
+                                Internal ActivityPub federation uses keys automatically managed by the system.</p>
+                            </div>
                         </div>
                         <div className="form-control">
                             <label className="label">
