@@ -212,9 +212,9 @@ export const API = {
     getAdminSettings: () => handleResponse(api.get<SiteSettings>('/admin/settings')),
     updateSettings: (data: Partial<SiteSettings>) => handleResponse(api.put<SiteSettings>('/admin/settings', data)),
 
-    // --- Admin: Artist identity (export keys per artist) ---
+    // --- Admin: Artist identity (ActivityPub keys per artist) ---
     getArtistIdentity: (artistId: string) =>
-        handleResponse(api.get<{ pub: string, epub: string, alias: string }>(`/admin/artists/${artistId}/identity`)),
+        handleResponse(api.get<{ publicKey: string, privateKey: string }>(`/admin/artists/${artistId}/identity`)),
 };
 
 export default API;

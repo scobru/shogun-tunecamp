@@ -4,6 +4,7 @@ import { PlayerBar } from '../player/PlayerBar';
 import { AuthModal } from '../modals/AuthModal';
 import { PlaylistModal } from '../modals/PlaylistModal';
 import { UnlockModal } from '../modals/UnlockModal';
+import { ArtistKeysModal } from '../modals/ArtistKeysModal';
 
 export const MainLayout = () => {
     return (
@@ -22,6 +23,7 @@ export const MainLayout = () => {
             <AuthModal />
             <PlaylistModal />
             <UnlockModal />
+            <ArtistKeysModal />
         </div>
     );
 };

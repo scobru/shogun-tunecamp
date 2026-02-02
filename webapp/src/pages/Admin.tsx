@@ -389,6 +389,13 @@ const AdminArtistsList = () => {
                             </div>
                         </td>
                         <td className="flex gap-2">
+                            <button
+                                className="btn btn-xs btn-ghost"
+                                onClick={() => document.dispatchEvent(new CustomEvent('open-artist-keys-modal', { detail: { artistId: String(a.id), artistName: a.name } }))}
+                                title="Chiavi ActivityPub"
+                            >
+                                Keys
+                            </button>
                             <button 
                                 className="btn btn-xs btn-ghost" 
                                 onClick={() => document.dispatchEvent(new CustomEvent('open-admin-artist-modal', { detail: a }))}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import API from '../../services/api';
-import { Shield, Key, AlertTriangle, Save } from 'lucide-react';
+import { Shield, Key, AlertTriangle, Save, Copy, Download } from 'lucide-react';
 
 export const IdentityPanel = () => {
     const [identity, setIdentity] = useState<{ pub: string, epub: string, alias: string } | null>(null);
@@ -91,6 +91,32 @@ export const IdentityPanel = () => {
                                     <div className="p-3 bg-base-300 rounded font-mono text-sm">
                                         {identity.alias || 'N/A'}
                                     </div>
+                                </div>
+                                <div className="flex gap-2 pt-2">
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline gap-2"
+                                        onClick={() => {
+                                            const json = JSON.stringify(identity, null, 2);
+                                            navigator.clipboard.writeText(json);
+                                        }}
+                                    >
+                                        <Copy size={14} /> Copy JSON
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline gap-2"
+                                        onClick={() => {
+                                            const blob = new Blob([JSON.stringify(identity, null, 2)], { type: 'application/json' });
+                                            const a = document.createElement('a');
+                                            a.href = URL.createObjectURL(blob);
+                                            a.download = `tunecamp-identity-${identity.alias || 'node'}.json`;
+                                            a.click();
+                                            URL.revokeObjectURL(a.href);
+                                        }}
+                                    >
+                                        <Download size={14} /> Export
+                                    </button>
                                 </div>
                             </div>
                         ) : (
