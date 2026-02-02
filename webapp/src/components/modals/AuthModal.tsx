@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuthStore } from '../../stores/useAuthStore';
-import { LogIn, UserPlus } from 'lucide-react';
+import API from '../../services/api';
+import { LogIn, UserPlus, Shield } from 'lucide-react';
 
 export const AuthModal = () => {
     const dialogRef = useRef<HTMLDialogElement>(null);
-    const [mode, setMode] = useState<'admin' | 'user' | 'register'>('admin');
+    const [mode, setMode] = useState<'admin' | 'user' | 'register' | 'setup'>('admin');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPass, setConfirmPass] = useState('');
-    const { login, register, loginAdmin, error, clearError } = useAuthStore();
+    const { login, register, loginAdmin, checkAdminAuth, error, clearError } = useAuthStore();
     const [localError, setLocalError] = useState('');
+    const [showSetupOffer, setShowSetupOffer] = useState(false);
 
     useEffect(() => {
         const handleOpen = () => {
@@ -22,10 +24,11 @@ export const AuthModal = () => {
         return () => document.removeEventListener('open-auth-modal', handleOpen);
     }, []);
 
-    const switchMode = (newMode: 'admin' | 'user' | 'register') => {
+    const switchMode = (newMode: 'admin' | 'user' | 'register' | 'setup') => {
         setMode(newMode);
         clearError();
         setLocalError('');
+        setShowSetupOffer(false);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -63,8 +66,8 @@ export const AuthModal = () => {
                 </form>
                 
                 <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
-                    {mode === 'register' ? <UserPlus size={20}/> : <LogIn size={20}/>} 
-                    {mode === 'register' ? 'Create Account' : (mode === 'admin' ? 'Admin Login' : 'Community Login')}
+                    {mode === 'register' ? <UserPlus size={20}/> : mode === 'setup' ? <Shield size={20}/> : <LogIn size={20}/>}
+                    {mode === 'register' ? 'Create Account' : mode === 'setup' ? 'Create First Admin' : (mode === 'admin' ? 'Admin Login' : 'Community Login')}
                 </h3>
 
                 <div className="tabs tabs-boxed bg-base-200 p-1 mb-6">
@@ -134,9 +137,37 @@ export const AuthModal = () => {
                         <div className="text-error text-sm text-center">{localError || error}</div>
                     )}
 
-                    <button type="submit" className="btn btn-primary w-full mt-2">
-                        {mode === 'register' ? 'Sign Up' : 'Sign In'}
-                    </button>
+                    {showSetupOffer && (
+                        <p className="text-sm opacity-80 text-center">
+                            No admin account yet. Create the first admin with the credentials above.
+                        </p>
+                    )}
+                    {showSetupOffer ? (
+                        <button
+                            type="button"
+                            className="btn btn-primary w-full mt-2"
+                            onClick={async () => {
+                                setLocalError('');
+                                try {
+                                    const result = await API.setup(username, password);
+                                    API.setToken(result.token);
+                                    await checkAdminAuth();
+                                    dialogRef.current?.close();
+                                    setUsername('');
+                                    setPassword('');
+                                    setShowSetupOffer(false);
+                                } catch (e: any) {
+                                    setLocalError(e?.message ?? 'Setup failed');
+                                }
+                            }}
+                        >
+                            Create Admin Account
+                        </button>
+                    ) : (
+                        <button type="submit" className="btn btn-primary w-full mt-2">
+                            {mode === 'register' ? 'Sign Up' : mode === 'setup' ? 'Create Admin' : 'Sign In'}
+                        </button>
+                    )}
                 </form>
             </div>
 

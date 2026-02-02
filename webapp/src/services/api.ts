@@ -51,6 +51,9 @@ export const API = {
         handleResponse(api.post<{ token: string, user: User }>('/auth/login', { username, password })),
     register: (username: string, password: string) =>
         handleResponse(api.post<{ token: string, user: User }>('/auth/register', { username, password })),
+    /** First-time admin setup when no admin exists yet */
+    setup: (username: string, password: string) =>
+        handleResponse(api.post<{ token: string, user: User }>('/auth/setup', { username, password })),
     logout: () => {
         API.setToken(null);
     },
@@ -206,7 +209,12 @@ export const API = {
     },
 
     // --- Admin: Settings ---
+    getAdminSettings: () => handleResponse(api.get<SiteSettings>('/admin/settings')),
     updateSettings: (data: Partial<SiteSettings>) => handleResponse(api.put<SiteSettings>('/admin/settings', data)),
+
+    // --- Admin: Artist identity (export keys per artist) ---
+    getArtistIdentity: (artistId: string) =>
+        handleResponse(api.get<{ pub: string, epub: string, alias: string }>(`/admin/artists/${artistId}/identity`)),
 };
 
 export default API;

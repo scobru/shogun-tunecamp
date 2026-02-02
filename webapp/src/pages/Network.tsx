@@ -79,6 +79,7 @@ export const Network = () => {
     if (loading) return <div className="p-12 text-center opacity-50 flex flex-col items-center gap-4"><Globe className="animate-pulse" size={48}/>Scanning the universe...</div>;
 
     const filteredTracks = tracks.filter(item => {
+        if (!item || !item.track) return false;
         // We need a unique identifier for the track across network. 
         // Best approach: Use siteUrl + trackId.
         const uniqueId = item.siteUrl + '::' + item.track.id;

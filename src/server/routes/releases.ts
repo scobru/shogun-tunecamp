@@ -18,6 +18,7 @@ interface CreateReleaseBody {
 }
 
 interface UpdateReleaseBody extends Partial<CreateReleaseBody> {
+    artistId?: number;
     isPublic?: boolean;
     visibility?: 'public' | 'private' | 'unlisted';
 }
@@ -269,7 +270,21 @@ export function createReleaseRoutes(
                     console.error("Failed to update album title in DB:", e);
                 }
             }
-            if (body.artistName) {
+            if (body.artistId) {
+                // If restricted, we already checked this in permission check above/below 
+                // actually we need to verify permission if changing artist
+                if (req.artistId && req.artistId !== body.artistId) {
+                    return res.status(403).json({ error: "Cannot assign to another artist" });
+                }
+
+                const artist = database.getArtist(body.artistId);
+                if (artist) {
+                    database.updateAlbumArtist(id, artist.id);
+                    // Also update artist name in release.yaml if possible
+                    // But release.yaml only stores name. 
+                    // We should probably sync name too if we have the artist object.
+                }
+            } else if (body.artistName) {
                 let artist = database.getArtistByName(body.artistName);
                 if (!artist) {
                     const artistId = database.createArtist(body.artistName);
@@ -279,6 +294,7 @@ export function createReleaseRoutes(
                     database.updateAlbumArtist(id, artist.id);
                 }
             }
+
             if (body.visibility) {
                 database.updateAlbumVisibility(id, body.visibility);
             } else if (typeof body.isPublic === "boolean") {
