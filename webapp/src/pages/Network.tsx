@@ -85,7 +85,9 @@ export const Network = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {tracks.map((item, i) => (
+                            {tracks.map((item, i) => {
+                                if (!item || !item.track) return null;
+                                return (
                                 <tr key={i} className="hover:bg-white/5">
                                     <td className="font-bold">{item.track.title}</td>
                                     <td>{item.track.artistName}</td>
@@ -100,7 +102,7 @@ export const Network = () => {
                                          </a>
                                     </td>
                                 </tr>
-                            ))}
+                            )})}
                         </tbody>
                     </table>
                  </div>

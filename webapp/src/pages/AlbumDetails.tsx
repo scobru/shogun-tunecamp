@@ -98,7 +98,9 @@ export const AlbumDetails = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {album.tracks?.map((track, i) => (
+                        {album.tracks?.map((track, i) => {
+                            if (!track) return null;
+                            return (
                             <tr key={track.id} className="hover:bg-white/5 group border-b border-white/5 last:border-0 transition-colors">
                                 <td className="text-center opacity-50 font-mono w-12 group-hover:text-primary">
                                     <span className="group-hover:hidden">{i + 1}</span>
@@ -131,7 +133,7 @@ export const AlbumDetails = () => {
                                     </div>
                                 </td>
                             </tr>
-                        ))}
+                        )})}
                     </tbody>
                 </table>
             </div>
