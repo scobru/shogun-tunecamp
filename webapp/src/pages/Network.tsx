@@ -29,8 +29,16 @@ export const Network = () => {
         loadData();
     }, []);
 
+    const getHostname = (url: string) => {
+        try {
+            return new URL(url).hostname;
+        } catch {
+            return url || 'Unknown';
+        }
+    };
+
     const handlePlayNetworkTrack = (networkTrack: NetworkTrack) => {
-        if (!networkTrack.track) return;
+        if (!networkTrack.track || !networkTrack.siteUrl) return;
         
         // Construct a playable track object with remote URLs
         // Remove trailing slash from siteUrl if present
@@ -82,8 +90,8 @@ export const Network = () => {
                              // Resolve cover (prefer local proxy or direct remote?)
                              // Legacy uses a proxy logic or direct url. 
                              // We constructed basic track objects in handlePlay, let's use similar logic for display.
-                             const baseUrl = item.siteUrl.replace(/\/$/, '');
-                             const coverUrl = track.coverImage || (track.albumId ? `${baseUrl}/api/albums/${track.albumId}/cover` : undefined);
+                             const baseUrl = item.siteUrl ? item.siteUrl.replace(/\/$/, '') : '';
+                             const coverUrl = track.coverImage || (track.albumId && baseUrl ? `${baseUrl}/api/albums/${track.albumId}/cover` : undefined);
 
                              return (
                                 <div 
@@ -115,7 +123,7 @@ export const Network = () => {
                                                     onClick={(e) => e.stopPropagation()}
                                                     className="hover:text-primary hover:underline"
                                                 >
-                                                    {new URL(item.siteUrl).hostname}
+                                                    {getHostname(item.siteUrl)}
                                                 </a>
                                             </div>
                                         </div>
@@ -160,7 +168,7 @@ export const Network = () => {
                                 <div className="w-full h-full flex items-center justify-center text-4xl opacity-20">🏠</div>
                                 
                                 <div className="absolute bottom-2 right-2 badge badge-neutral badge-sm bg-black/50 border-none backdrop-blur-md">
-                                    {new URL(site.url).hostname}
+                                    {getHostname(site.url)}
                                 </div>
                             </figure>
                             <div className="card-body p-4">
