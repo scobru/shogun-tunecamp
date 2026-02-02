@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import API from '../../services/api';
-import { UserPlus, UserCog, User } from 'lucide-react';
+import { UserPlus, UserCog } from 'lucide-react';
 // import type { User as UserType } from '../../types';
 
 interface AdminUserModalProps {
@@ -22,10 +22,6 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
         // Fetch artists for dropdown
         const loadArtists = async () => {
              try {
-                // Assuming we have an API to get simple list of artists for admin usage
-                // API.getArtists() usually returns public artist list.
-                // In Admin context we might want all artists? 
-                // For now use public getArtists.
                 const data = await API.getArtists();
                 setArtists(data);
              } catch (e) {
@@ -37,33 +33,26 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
 
     useEffect(() => {
         const handleOpen = () => {
-            if (user) {
-                // Edit mode
+             // Basic prop-based open handling if needed, 
+             // but we primarily rely on the event listener below for dynamic data.
+             if (user) {
                 setUsername(user.username);
-                setPassword(''); // Leave blank to keep unchanged
                 setIsAdmin(user.isAdmin);
                 setArtistId(user.artistId || '');
             } else {
-                // Create mode
                 setUsername('');
-                setPassword('');
                 setIsAdmin(false);
                 setArtistId('');
             }
+            setPassword('');
             setError('');
             dialogRef.current?.showModal();
         };
-
-        // Listen for internal event OR just rely on prop change if we controlled it from parent?
-        // The parent uses `document.dispatchEvent` to open. 
-        // But if we pass `user` prop, we need to know when that prop changes to open?
-        // Actually the parent architecture uses `CustomEvent` to open modals. 
-        // We should probably stick to that or refactor parent to control open state.
-        // Given the existing pattern in Admin.tsx:
-        // <AdminUserModal onUserUpdated={...} /> 
-        // and dispatching 'open-admin-user-modal'.
-        // We should listen to the event, and maybe the event detail contains the user to edit?
         
+        // If parent controls it purely via props/boolean, this would be used.
+        // But the architecture seems to use events.
+        
+        const eventListener = (e: CustomEvent) => {
              if (!dialogRef.current) return;
 
              const userToEdit = e.detail;
@@ -73,9 +62,7 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
                 setPassword('');
                 setIsAdmin(userToEdit.isAdmin);
                 setArtistId(userToEdit.artistId || '');
-                // We need to persist the ID of user being edited if we want to update
-                // But `user` prop in this component signature is likely stale if we use event.
-                // Let's store user ID in state or ref.
+                
                 dialogRef.current.dataset.userId = userToEdit.id;
                 dialogRef.current.dataset.mode = 'edit';
              } else {
@@ -92,17 +79,15 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
 
         document.addEventListener('open-admin-user-modal', eventListener as EventListener);
         return () => document.removeEventListener('open-admin-user-modal', eventListener as EventListener);
-    }, [user]); // user dependency might be irrelevant if we use event, but let's keep it clean
+    }, [user]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
-        if (dialogRef.current) {
-            dialogRef.current.dataset.mode = mode;
-            if (targetUserId) dialogRef.current.dataset.userId = targetUserId;
-        }
+        const mode = dialogRef.current?.dataset.mode || 'create';
+        const targetUserId = dialogRef.current?.dataset.userId;
 
         try {
             const payload: any = { username, isAdmin };
@@ -119,7 +104,7 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
             onUserUpdated();
             dialogRef.current?.close();
         } catch (e: any) {
-             console.error(e);
+            console.error(e);
             setError(e.message || 'Failed to save user');
         } finally {
             setLoading(false);
@@ -218,4 +203,3 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
         </dialog>
     );
 };
-
