@@ -63,15 +63,15 @@ export const Sidebar = () => {
 
       {/* User Footer */}
       <div className="p-4 border-t border-white/5 mt-auto">
-        {isAuthenticated ? (
+        {isAuthenticated || isAdminAuthenticated ? (
             <div className="flex items-center gap-3">
                 <div className="avatar placeholder">
                     <div className="bg-neutral text-neutral-content rounded-full w-8">
-                        <span>{user?.alias?.charAt(0).toUpperCase()}</span>
+                        <span>{(user?.alias || (isAdminAuthenticated ? 'A' : '?'))?.charAt(0).toUpperCase()}</span>
                     </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate">{user?.alias}</p>
+                    <p className="text-sm font-bold truncate">{user?.alias || (isAdminAuthenticated ? 'Admin' : 'User')}</p>
                     {isAdminAuthenticated && <span className="text-xs opacity-50 text-primary">Admin Active</span>}
                 </div>
                 <div className="flex items-center gap-1">
