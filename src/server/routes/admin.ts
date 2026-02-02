@@ -167,9 +167,9 @@ export function createAdminRoutes(
      * GET /api/admin/stats
      * Get admin statistics
      */
-    router.get("/stats", (req, res) => {
+    router.get("/stats", async (req, res) => {
         try {
-            const stats = database.getStats();
+            const stats = await database.getStats();
             res.json(stats);
         } catch (error) {
             console.error("Error getting stats:", error);

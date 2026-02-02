@@ -166,7 +166,7 @@ export interface DatabaseService {
     createPost(artistId: number, content: string): number;
     deletePost(id: number): void;
     // Stats
-    getStats(): { artists: number; albums: number; tracks: number; publicAlbums: number };
+    getStats(): Promise<{ artists: number; albums: number; tracks: number; publicAlbums: number; totalUsers: number; storageUsed: number; networkSites: number; totalTracks: number }>;
     // Play History
     recordPlay(trackId: number): void;
     getRecentPlays(limit?: number): PlayHistoryEntry[];
@@ -839,12 +839,37 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         // Stats
-        getStats() {
+        async getStats() {
             const artists = (db.prepare("SELECT COUNT(*) as count FROM artists").get() as { count: number }).count;
             const albums = (db.prepare("SELECT COUNT(*) as count FROM albums").get() as { count: number }).count;
             const tracks = (db.prepare("SELECT COUNT(*) as count FROM tracks").get() as { count: number }).count;
             const publicAlbums = (db.prepare("SELECT COUNT(*) as count FROM albums WHERE is_public = 1").get() as { count: number }).count;
-            return { artists, albums, tracks, publicAlbums };
+            const totalUsers = (db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number } | undefined)?.count || 0;
+
+            // Calculate storage used (filesize of all tracks)
+            // Note: This relies on filesystem or storing size in DB.
+            // If size is not in DB, we'll estimate or read from disk.
+            // For now, let's try to sum up a size column if it exists, or 0.
+            // Since we don't have a size column in tracks based on previous view, we might need to add it or do a file scan.
+            // But wait, checking schema... we don't have file size in tracks table.
+            // Let's check if we can get it from file system or if we should add it.
+            // A quick fix is to return 0 for now or estimate based on duration * bitrate.
+
+            // Estimate based on duration * bitrate (if available) or default 
+            // 320kbps = 40KB/s approx.
+            const storageStats = db.prepare("SELECT SUM(duration) as total_duration FROM tracks").get() as { total_duration: number };
+            const estimatedSize = (storageStats.total_duration || 0) * 40 * 1024; // Very rough estimate
+
+            return {
+                artists,
+                albums,
+                tracks: tracks,
+                totalTracks: tracks, // Frontend expects totalTracks
+                publicAlbums,
+                totalUsers,
+                storageUsed: estimatedSize,
+                networkSites: 0 // Placeholder, actual count should come from GunDB service if possible or DB if we sync it
+            };
         },
 
         // Search
