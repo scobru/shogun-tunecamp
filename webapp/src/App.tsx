@@ -14,6 +14,13 @@ function App() {
 
   useEffect(() => {
     checkAuth();
+    
+    const handleUnauthorized = () => {
+        checkAuth(); // This will eventually set user to null
+    };
+    
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, []);
 
   return (

@@ -28,6 +28,12 @@ const handleResponse = async <T>(request: Promise<{ data: T }>): Promise<T> => {
         const response = await request;
         return response.data;
     } catch (error: any) {
+        if (error.response?.status === 401) {
+            // Token expired or invalid
+            localStorage.removeItem('tunecamp_token');
+            // Trigger an event so the app knows to update auth state
+            window.dispatchEvent(new Event('auth:unauthorized'));
+        }
         throw new Error(error.response?.data?.message || error.response?.data || error.message);
     }
 };

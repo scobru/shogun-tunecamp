@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
-import { Music, Play, Heart, Plus, MoreHorizontal, Clock, Search } from 'lucide-react';
+import { Music, Play, Heart, Plus, MoreHorizontal, Clock, Search, LogIn } from 'lucide-react';
 import { usePlayerStore } from '../stores/usePlayerStore';
+import { useAuthStore } from '../stores/useAuthStore';
 import type { Track } from '../types';
 
 export const Tracks = () => {
@@ -10,16 +11,23 @@ export const Tracks = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('');
     const { playTrack } = usePlayerStore();
+    const { isAuthenticated } = useAuthStore();
 
     useEffect(() => {
+        if (!isAuthenticated) return;
+        
+        setLoading(true);
         API.getTracks()
             .then(data => {
                 setTracks(data);
                 setFilteredTracks(data);
+                setLoading(false);
             })
-            .catch(console.error)
-            .finally(() => setLoading(false));
-    }, []);
+            .catch(error => {
+                console.error(error);
+                setLoading(false);
+            });
+    }, [isAuthenticated]);
 
     useEffect(() => {
         const lower = filter.toLowerCase();
@@ -33,6 +41,21 @@ export const Tracks = () => {
     const handleAddToPlaylist = (trackId: string) => {
         document.dispatchEvent(new CustomEvent('open-playlist-modal', { detail: { trackId } }));
     };
+
+    };
+
+    if (!isAuthenticated) {
+        return (
+            <div className="p-12 text-center opacity-70 animate-fade-in">
+                <Music size={48} className="mx-auto mb-4 text-primary opacity-50"/>
+                <h2 className="text-xl font-bold mb-2">Login Required</h2>
+                <p className="mb-4">Please login to view specific tracks.</p>
+                <button className="btn btn-primary btn-sm gap-2" onClick={() => document.dispatchEvent(new CustomEvent('open-auth-modal'))}>
+                    <LogIn size={16}/> Login
+                </button>
+            </div>
+        );
+    }
 
     if (loading) return <div className="p-12 text-center opacity-50">Loading tracks...</div>;
 
