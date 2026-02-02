@@ -9,11 +9,16 @@ export const UnlockModal = () => {
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const [albumId, setAlbumId] = useState<string | null>(null);
+
     useEffect(() => {
-        const handleOpen = () => {
+        const handleOpen = (e: any) => {
             setCode('');
             setError('');
             setSuccess('');
+            if (e.detail && e.detail.albumId) {
+                setAlbumId(e.detail.albumId);
+            }
             dialogRef.current?.showModal();
         };
 
@@ -29,8 +34,13 @@ export const UnlockModal = () => {
 
         try {
             await API.redeemUnlockCode(code);
-            setSuccess('Code redeemed successfully! Downloads unlocked.');
-            // Maybe refresh page or trigger download?
+            setSuccess('Code redeemed successfully! Starting download...');
+            
+            if (albumId) {
+                // Trigger download
+                window.location.href = `/api/albums/${albumId}/download?code=${encodeURIComponent(code)}`;
+            }
+
             setTimeout(() => dialogRef.current?.close(), 2000);
         } catch (e: any) {
             setError(e.message || 'Invalid code');

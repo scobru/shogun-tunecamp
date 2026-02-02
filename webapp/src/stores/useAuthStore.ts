@@ -28,6 +28,7 @@ interface AuthState {
     loginAdmin: (username: string, password?: string) => Promise<void>;
     logoutAdmin: () => void;
     checkAdminAuth: () => Promise<void>;
+    clearError: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -42,6 +43,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     isAdminLoading: true,
 
     error: null,
+
+    clearError: () => set({ error: null }),
 
     init: async () => {
         set({ isInitializing: true, isAdminLoading: true });

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
+import { useAuthStore } from '../stores/useAuthStore';
 import { Globe, Server, Music, ExternalLink, Play } from 'lucide-react';
 import { usePlayerStore } from '../stores/usePlayerStore';
 import { GleamUtils } from '../utils/gleam';
@@ -10,6 +11,9 @@ export const Network = () => {
     const [tracks, setTracks] = useState<NetworkTrack[]>([]);
     const [loading, setLoading] = useState(true);
     const { playTrack } = usePlayerStore();
+    const { isAdminAuthenticated } = useAuthStore();
+    const [hiddenTracks, setHiddenTracks] = useState<string[]>([]);
+    const [showHidden, setShowHidden] = useState(false);
 
     useEffect(() => {
         const loadData = async () => {
@@ -27,7 +31,24 @@ export const Network = () => {
             }
         };
         loadData();
+        
+        // Load hidden tracks
+        const stored = localStorage.getItem('tunecamp_blocked_tracks');
+        if (stored) {
+            try {
+                setHiddenTracks(JSON.parse(stored));
+            } catch {}
+        }
     }, []);
+
+    const toggleTrackVisibility = (url: string) => {
+        const newHidden = hiddenTracks.includes(url) 
+            ? hiddenTracks.filter(u => u !== url)
+            : [...hiddenTracks, url];
+        
+        setHiddenTracks(newHidden);
+        localStorage.setItem('tunecamp_blocked_tracks', JSON.stringify(newHidden));
+    };
 
     const getHostname = (url: string) => {
         try {
@@ -57,6 +78,15 @@ export const Network = () => {
 
     if (loading) return <div className="p-12 text-center opacity-50 flex flex-col items-center gap-4"><Globe className="animate-pulse" size={48}/>Scanning the universe...</div>;
 
+    const filteredTracks = tracks.filter(item => {
+        // We need a unique identifier for the track across network. 
+        // Best approach: Use siteUrl + trackId.
+        const uniqueId = item.siteUrl + '::' + item.track.id;
+        
+        if (showHidden) return true;
+        return !hiddenTracks.includes(uniqueId);
+    });
+
     return (
         <div className="space-y-12 animate-fade-in pb-12">
             <header className="flex flex-col gap-4 border-b border-white/5 pb-8">
@@ -75,18 +105,37 @@ export const Network = () => {
 
             {/* Recent Remote Tracks (Top Priority like Legacy) */}
             <section>
-                <div className="flex items-center gap-3 mb-6">
-                    <Music size={24} className="text-secondary"/> 
-                    <h2 className="text-2xl font-bold">Community Tracks</h2>
-                    <span className="badge badge-primary badge-outline">{tracks.length}</span>
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <Music size={24} className="text-secondary"/> 
+                        <h2 className="text-2xl font-bold">Community Tracks</h2>
+                        <span className="badge badge-primary badge-outline">{filteredTracks.length}</span>
+                    </div>
+                    {isAdminAuthenticated && (
+                        <div className="form-control">
+                            <label className="label cursor-pointer gap-2">
+                                <span className="label-text text-xs uppercase font-bold opacity-50">Show Hidden</span>
+                                <input 
+                                    type="checkbox" 
+                                    className="toggle toggle-xs toggle-neutral" 
+                                    checked={showHidden} 
+                                    onChange={e => setShowHidden(e.target.checked)}
+                                />
+                            </label>
+                        </div>
+                    )}
                 </div>
                 
-                {tracks.length > 0 ? (
+                {filteredTracks.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {tracks.map((item, i) => {
+                        {filteredTracks.map((item, i) => {
                              if (!item || !item.track) return null;
                              const track = item.track;
-                             
+                             const uniqueId = item.siteUrl + '::' + item.track.id;
+                             const isHidden = hiddenTracks.includes(uniqueId);
+
+                             if (isHidden && !showHidden) return null;
+
                              // Resolve cover (prefer local proxy or direct remote?)
                              // Legacy uses a proxy logic or direct url. 
                              // We constructed basic track objects in handlePlay, let's use similar logic for display.
@@ -96,7 +145,7 @@ export const Network = () => {
                              return (
                                 <div 
                                     key={i} 
-                                    className="card bg-base-200/50 border border-white/5 hover:bg-base-200 transition-all cursor-pointer group shadow-sm hover:shadow-md"
+                                    className={`card border hover:bg-base-200 transition-all cursor-pointer group shadow-sm hover:shadow-md ${isHidden ? 'bg-error/10 border-error/20 opacity-70' : 'bg-base-200/50 border-white/5'}`}
                                     onClick={() => handlePlayNetworkTrack(item)}
                                 >
                                     <div className="p-3 flex items-center gap-4">
@@ -112,7 +161,10 @@ export const Network = () => {
                                         </div>
                                         
                                         <div className="flex-1 min-w-0">
-                                            <div className="font-bold text-sm truncate pr-2">{track.title}</div>
+                                            <div className="font-bold text-sm truncate pr-2 flex items-center gap-2">
+                                                {track.title}
+                                                {isHidden && <span className="badge badge-error badge-xs">Hidden</span>}
+                                            </div>
                                             <div className="text-xs opacity-60 truncate flex items-center gap-1">
                                                 <span>{track.artistName}</span>
                                                 <span className="opacity-40">•</span>
@@ -128,8 +180,26 @@ export const Network = () => {
                                             </div>
                                         </div>
 
-                                        <div className="text-xs font-mono opacity-40">
-                                            {new Date(track.duration * 1000).toISOString().substr(14, 5)}
+                                        <div className="flex flex-col items-end gap-1">
+                                            <div className="text-xs font-mono opacity-40">
+                                                {new Date(track.duration * 1000).toISOString().substr(14, 5)}
+                                            </div>
+                                            {isAdminAuthenticated && (
+                                                <button 
+                                                    className={`btn btn-xs btn-ghost btn-circle ${isHidden ? 'text-primary' : 'text-error opacity-0 group-hover:opacity-100'}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleTrackVisibility(uniqueId);
+                                                    }}
+                                                    title={isHidden ? "Unhide Track" : "Hide Track"}
+                                                >
+                                                    {isHidden ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>
+                                                    )}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

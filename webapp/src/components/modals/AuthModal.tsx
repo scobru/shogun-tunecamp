@@ -8,21 +8,30 @@ export const AuthModal = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPass, setConfirmPass] = useState('');
-    const { login, register, loginAdmin, error } = useAuthStore();
+    const { login, register, loginAdmin, error, clearError } = useAuthStore();
     const [localError, setLocalError] = useState('');
 
     useEffect(() => {
         const handleOpen = () => {
             dialogRef.current?.showModal();
             setMode('user'); 
+            clearError();
+            setLocalError('');
         };
         document.addEventListener('open-auth-modal', handleOpen);
         return () => document.removeEventListener('open-auth-modal', handleOpen);
     }, []);
 
+    const switchMode = (newMode: 'admin' | 'user' | 'register') => {
+        setMode(newMode);
+        clearError();
+        setLocalError('');
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLocalError('');
+        clearError();
         
         try {
             if (mode === 'register') {
@@ -61,15 +70,15 @@ export const AuthModal = () => {
                 <div className="tabs tabs-boxed bg-base-200 p-1 mb-6">
                     <button 
                         className={`tab flex-1 ${mode === 'user' ? 'tab-active' : ''}`}
-                        onClick={() => setMode('user')}
+                        onClick={() => switchMode('user')}
                     >User</button>
                     <button 
                         className={`tab flex-1 ${mode === 'register' ? 'tab-active' : ''}`}
-                        onClick={() => setMode('register')}
+                        onClick={() => switchMode('register')}
                     >Register</button>
                     <button 
                         className={`tab flex-1 ${mode === 'admin' ? 'tab-active' : ''}`}
-                        onClick={() => setMode('admin')}
+                        onClick={() => switchMode('admin')}
                     >Admin</button>
                 </div>
 

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useParams, Link } from 'react-router-dom';
-import { Play, Clock, Heart, MoreHorizontal, Disc, Share2, Plus } from 'lucide-react';
+import { Play, Clock, Heart, MoreHorizontal, Disc, Share2, Plus, Download, Unlock, ExternalLink, Shield } from 'lucide-react';
 import { usePlayerStore } from '../stores/usePlayerStore';
+import { useAuthStore } from '../stores/useAuthStore';
 // import { GleamUtils } from '../utils/gleam';
 import type { Album } from '../types';
 import { Comments } from '../components/Comments';
@@ -12,6 +13,7 @@ export const AlbumDetails = () => {
     const [album, setAlbum] = useState<Album | null>(null);
     const [loading, setLoading] = useState(true);
     const { playTrack } = usePlayerStore();
+    const { isAdminAuthenticated: isAdmin } = useAuthStore();
 
     useEffect(() => {
         if (id) {
@@ -31,6 +33,42 @@ export const AlbumDetails = () => {
     const handleAddToPlaylist = (trackId: string) => {
         document.dispatchEvent(new CustomEvent('open-playlist-modal', { detail: { trackId } }));
     };
+
+    const handleUnlock = () => {
+        if (!album) return;
+        document.dispatchEvent(new CustomEvent('open-unlock-modal', { detail: { albumId: album.id } }));
+        // Note: UnlockModal needs to support setting albumId via event or we need to update it
+        // Checking UnlockModal implementation previously: it listens to 'open-unlock-modal' but doesn't seem to read detail.
+        // Wait, legacy logic: `modal.dataset.albumId = albumId`. 
+        // In React `UnlockModal`, `handleOpen` just shows modal. It should probably read detail.
+        // Let's assume for now I will update UnlockModal separately if needed, or stick to simple "enter code" 
+        // implementation if it validates code against release regardless of context.
+        // Legacy: validateUnlockCode(code) -> returns release. If release.id != album.id, error.
+        // So UnlockModal needs to know the CURRENT album context.
+        // I will add albumId to event detail and update UnlockModal later if it doesn't support it.
+    };
+
+    const handlePromote = async () => {
+        if (!album || !confirm('Promote this album to a public release?')) return;
+        try {
+            await API.promoteToRelease(album.id);
+            // Refresh
+            API.getAlbum(album.id).then(setAlbum);
+        } catch (e) {
+            console.error(e);
+            alert('Failed to promote');
+        }
+    };
+
+    // Parse external links safely
+    const externalLinks = (() => {
+        if (!album?.external_links) return [];
+        try {
+            return JSON.parse(album.external_links);
+        } catch {
+            return [];
+        }
+    })();
 
     if (loading) return <div className="p-12 text-center opacity-50">Loading album...</div>;
     if (!album) return <div className="p-12 text-center opacity-50">Album not found.</div>;
@@ -79,6 +117,31 @@ export const AlbumDetails = () => {
                         <button className="btn btn-primary btn-lg gap-2 shadow-xl hover:scale-105 transition-transform" onClick={handlePlay}>
                             <Play fill="currentColor" /> Play
                         </button>
+
+                        {album.download === 'free' && (
+                             <a href={`/api/albums/${album.slug || album.id}/download`} className="btn btn-secondary btn-lg gap-2 shadow-xl" target="_blank">
+                                <Download size={20} /> Free Download
+                             </a>
+                        )}
+
+                        {album.download === 'codes' && (
+                             <button className="btn btn-secondary btn-lg gap-2 shadow-xl" onClick={handleUnlock}>
+                                <Unlock size={20} /> Unlock Download
+                             </button>
+                        )}
+                        
+                        {externalLinks.map((link: any, i: number) => (
+                            <a key={i} href={link.url} target="_blank" className="btn btn-outline btn-lg gap-2">
+                                <ExternalLink size={20} /> {link.label}
+                            </a>
+                        ))}
+                        
+                        {isAdmin && !album.is_release && (
+                             <button className="btn btn-warning btn-outline btn-lg gap-2" onClick={handlePromote}>
+                                <Shield size={20} /> Promote
+                             </button>
+                        )}
+
                         <button className="btn btn-ghost btn-lg btn-circle"><Heart /></button>
                         <button className="btn btn-ghost btn-lg btn-circle"><MoreHorizontal /></button>
                     </div>

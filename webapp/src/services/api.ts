@@ -119,6 +119,8 @@ export const API = {
     toggleReleaseVisibility: (id: string, isPublic: boolean) =>
         handleResponse(api.put(`/admin/releases/${id}/visibility`, { isPublic })),
 
+    promoteToRelease: (id: string) => handleResponse(api.post(`/albums/${id}/promote`, {})),
+
     addTrackToRelease: (releaseId: string, trackId: string) =>
         handleResponse(api.post(`/admin/releases/${releaseId}/tracks/add`, { trackId })),
 

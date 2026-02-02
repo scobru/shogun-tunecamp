@@ -1,11 +1,16 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/useAuthStore';
-import { Home, Search, Disc, User, Music, BarChart2, Folder, Globe, LifeBuoy, LogIn, Settings, ListMusic } from 'lucide-react';
+import { Home, Search, Disc, User, Music, BarChart2, Folder, Globe, LifeBuoy, LogIn, Settings, ListMusic, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 
 export const Sidebar = () => {
   const location = useLocation();
-  const { user, isAuthenticated, isAdminAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isAdminAuthenticated, logout, logoutAdmin } = useAuthStore();
+  
+  const handleLogout = () => {
+      logout();
+      logoutAdmin();
+  };
   
   const isActive = (path: string) => location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
 
@@ -69,11 +74,16 @@ export const Sidebar = () => {
                     <p className="text-sm font-bold truncate">{user?.alias}</p>
                     {isAdminAuthenticated && <span className="text-xs opacity-50 text-primary">Admin Active</span>}
                 </div>
-                {isAdminAuthenticated && (
-                    <Link to="/admin" className="btn btn-ghost btn-xs btn-circle text-primary">
-                        <Settings size={16} />
-                    </Link>
-                )}
+                <div className="flex items-center gap-1">
+                    {isAdminAuthenticated && (
+                        <Link to="/admin" className="btn btn-ghost btn-xs btn-circle text-primary" title="Admin Settings">
+                            <Settings size={16} />
+                        </Link>
+                    )}
+                    <button className="btn btn-ghost btn-xs btn-circle opacity-70 hover:opacity-100 hover:text-error" onClick={handleLogout} title="Logout">
+                        <LogOut size={16} />
+                    </button>
+                </div>
             </div>
         ) : (
             <div className="space-y-2">
