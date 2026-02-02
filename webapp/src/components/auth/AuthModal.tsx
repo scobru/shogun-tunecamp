@@ -4,14 +4,16 @@ import { X, User, Lock, ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
 
 export const AuthModal = () => {
-    const { login, error, isLoading } = useAuthStore();
+    const { login, error } = useAuthStore();
     const [mode, setMode] = useState<'login' | 'register'>('login');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsLoading(true);
         try {
             if (mode === 'login') {
                 await login(username, password);
@@ -24,6 +26,8 @@ export const AuthModal = () => {
             }
         } catch (err) {
             // Error handled in store
+        } finally {
+            setIsLoading(false);
         }
     };
 

@@ -19,7 +19,7 @@ interface CommentsProps {
 }
 
 export const Comments = ({ trackId }: CommentsProps) => {
-    const { user, isAuthenticated } = useAuthStore();
+    const { user, isAuthenticated, adminUser } = useAuthStore();
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(false);
     const [newComment, setNewComment] = useState('');
@@ -126,7 +126,7 @@ export const Comments = ({ trackId }: CommentsProps) => {
                                 </div>
                                 <p className="text-sm opacity-80 break-words">{c.text}</p>
                             </div>
-                            {(user?.isAdmin || user?.username === c.username) && (
+                            {(adminUser?.isAdmin || user?.alias === c.username) && (
                                 <button 
                                     className="btn btn-ghost btn-xs btn-circle text-error opacity-0 group-hover:opacity-100 transition-opacity self-center"
                                     onClick={() => handleDelete(c.id)}

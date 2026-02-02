@@ -33,7 +33,7 @@ export const GunAuth = {
     init: async (): Promise<GunProfile | null> => {
         return new Promise((resolve) => {
             // Attempt to recall session
-            user.recall({ sessionStorage: true }, (ack: any) => {
+            user.recall({ sessionStorage: true }, (_ack: any) => {
                 if (user.is) {
                     resolve({
                         pub: user.is.pub as string,
