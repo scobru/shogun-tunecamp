@@ -15,6 +15,16 @@ export const Network = () => {
     const [hiddenTracks, setHiddenTracks] = useState<string[]>([]);
     const [showHidden, setShowHidden] = useState(false);
 
+    const getHostname = (url: string) => {
+        try {
+            if (!url) return 'Unknown';
+            const u = new URL(url);
+            return u.hostname;
+        } catch {
+            return url || 'Unknown';
+        }
+    };
+
     useEffect(() => {
         const loadData = async () => {
             try {
@@ -34,47 +44,46 @@ export const Network = () => {
                 });
                 const sites = Array.from(uniqueSites.values()) as NetworkSite[];
 
-                // Deduplicate Tracks
+                // Deduplicate Tracks and Content
                 console.log('Raw tracks data:', tracksData);
-                const seenTrackUrls = new Set();
                 const currentOrigin = window.location.origin;
-                console.log('Current origin:', currentOrigin);
-
-                const tracks = tracksData.filter((t: any) => {
+                
+                // 1. Initial validity filter
+                const validTracks = tracksData.filter((t: any) => {
                     if (!t.track) return false;
                     
-                    // Filter out local tracks (siteUrl === '/')
-                    if (t.siteUrl === '/' || t.siteUrl === '') {
-                         // console.log('Filtering out local track:', t.track.title);
-                         return false;
-                    }
+                    // Strict local filter (t.siteUrl cannot be null/empty/slash)
+                    const url = t.siteUrl;
+                    if (!url || url.trim() === '/' || url.trim() === '') return false;
 
-                    // Filter out self-reflected tracks (siteUrl matches current origin)
+                    // Self-reflection filter
                     try {
-                        const siteUrlObj = new URL(t.siteUrl);
+                        const siteUrlObj = new URL(url);
                         const currentUrlObj = new URL(currentOrigin);
-                        if (siteUrlObj.hostname === currentUrlObj.hostname) {
-                            console.log('Filtering out self-reflected track:', t.track.title, t.siteUrl);
-                            return false;
-                        }
+                        if (siteUrlObj.hostname === currentUrlObj.hostname) return false;
                     } catch (e) {
-                        console.warn('Failed to parse URL for filter:', t.siteUrl, e);
+                         // If URL is invalid (e.g. just a slash or relative), filter it out
+                         if (url.startsWith('/')) return false;
                     }
-
-                    // Use a composite key for deduplication
-                    const uniqueKey = (t.siteUrl || '') + '::' + (t.track.id || '');
-                    
-                    if (seenTrackUrls.has(uniqueKey)) {
-                         console.log('Filtering out duplicate:', t.track.title, uniqueKey);
-                         return false;
-                    }
-                    seenTrackUrls.add(uniqueKey);
                     return true;
                 });
-                console.log('Filtered tracks:', tracks);
+
+                // 2. Content Deduplication (Artist + Title)
+                const uniqueContent = new Map<string, NetworkTrack>();
+                
+                validTracks.forEach((t: NetworkTrack) => {
+                    const artist = t.track.artistName || 'unknown';
+                    const key = `${t.track.title.toLowerCase().trim()}::${artist.toLowerCase().trim()}`;
+                    if (!uniqueContent.has(key)) {
+                        uniqueContent.set(key, t);
+                    }
+                });
+
+                const finalTracks = Array.from(uniqueContent.values());
+                console.log('Filtered tracks:', finalTracks);
 
                 setSites(sites);
-                setTracks(tracks);
+                setTracks(finalTracks);
             } catch (e) {
                 console.error(e);
             } finally {
@@ -99,14 +108,6 @@ export const Network = () => {
         
         setHiddenTracks(newHidden);
         localStorage.setItem('tunecamp_blocked_tracks', JSON.stringify(newHidden));
-    };
-
-    const getHostname = (url: string) => {
-        try {
-            return new URL(url).hostname;
-        } catch {
-            return url || 'Unknown';
-        }
     };
 
     const handlePlayNetworkTrack = (networkTrack: NetworkTrack) => {
