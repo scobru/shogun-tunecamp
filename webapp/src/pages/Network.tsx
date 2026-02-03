@@ -44,7 +44,6 @@ export const Network = () => {
                     if (!t.track) return false;
                     
                     // Filter out local tracks (siteUrl === '/')
-                    /*
                     if (t.siteUrl === '/' || t.siteUrl === '') {
                          // console.log('Filtering out local track:', t.track.title);
                          return false;
@@ -61,7 +60,6 @@ export const Network = () => {
                     } catch (e) {
                         console.warn('Failed to parse URL for filter:', t.siteUrl, e);
                     }
-                    */
 
                     // Use a composite key for deduplication
                     const uniqueKey = (t.siteUrl || '') + '::' + (t.track.id || '');
@@ -262,7 +260,10 @@ export const Network = () => {
                     </div>
                 ) : (
                     <div className="text-center py-12 opacity-50 border-2 border-dashed border-white/5 rounded-xl">
+                    <div className="text-center py-12 opacity-50 border-2 border-dashed border-white/5 rounded-xl">
                         <p>No community tracks found yet.</p>
+                        <p className="text-sm mt-2">Tracks from other instances will appear here when available.</p>
+                    </div>
                     </div>
                 )}
             </section>
