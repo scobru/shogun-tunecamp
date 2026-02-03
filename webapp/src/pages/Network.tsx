@@ -22,8 +22,48 @@ export const Network = () => {
                     API.getNetworkSites(),
                     API.getNetworkTracks()
                 ]);
-                setSites(sitesData);
-                setTracks(tracksData);
+
+                // Deduplicate Sites
+                const uniqueSites = new Map();
+                sitesData.forEach((s: any) => {
+                    if (!s.url || !s.url.startsWith('http')) return;
+                    const normalizedUrl = s.url.replace(/\/$/, '');
+                    if (!uniqueSites.has(normalizedUrl)) {
+                        uniqueSites.set(normalizedUrl, { ...s, url: normalizedUrl });
+                    }
+                });
+                const sites = Array.from(uniqueSites.values()) as NetworkSite[];
+
+                // Deduplicate Tracks
+                const seenTrackUrls = new Set();
+                const tracks = tracksData.filter((t: any) => {
+                    // Start with basic validation
+                    if (!t.audioUrl && !t.track?.streamUrl) return false; // Allow if either exist? The legacy code checked audioUrl but new code might use track object
+                     
+                    // Legacy used 'audioUrl', current code seems to map things differently or just pass raw data. 
+                    // Let's inspect what `API.getNetworkTracks()` returns in `Network.tsx`.
+                    // It returns `NetworkTrack[]`.
+                    // Let's assume `item.siteUrl` and `item.track.id` are the keys.
+                    // But legacy used `audioUrl`.
+                    // In `Network.tsx` `handlePlayNetworkTrack` constructs `streamUrl`.
+                    // Let's use `siteUrl + track.id` as unique key which is safer for "Same track on different instance" or "Same instance returning duplicate".
+                    
+                    // Actually, let's stick to the Legacy logic of "Audio URL" if available, OR fall back to our composite ID.
+                    // However, `NetworkTrack` type in `Network.tsx` isn't fully visible here, but `item.track` has `id`.
+                    
+                    if (!t.track) return false;
+                    
+                    // Use a composite key for deduplication to be safe against same track ID on different sites (which is valid)
+                    // But if the SAME site returns the SAME track multiple times, we want to filter that.
+                    const uniqueKey = (t.siteUrl || '') + '::' + (t.track.id || '');
+                    
+                    if (seenTrackUrls.has(uniqueKey)) return false;
+                    seenTrackUrls.add(uniqueKey);
+                    return true;
+                });
+
+                setSites(sites);
+                setTracks(tracks);
             } catch (e) {
                 console.error(e);
             } finally {
