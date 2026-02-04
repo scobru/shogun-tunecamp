@@ -45,10 +45,26 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
             const artist = dbService.getArtistBySlug(handle);
             if (!artist || !artist.private_key || !artist.public_key) return []; // Return empty array if not found
 
-            return [{
-                privateKey: crypto.createPrivateKey(artist.private_key),
-                publicKey: crypto.createPublicKey(artist.public_key)
-            }];
+            const privKeyObj = crypto.createPrivateKey(artist.private_key);
+            const pubKeyObj = crypto.createPublicKey(artist.public_key);
+
+            const privateKey = await crypto.webcrypto.subtle.importKey(
+                "pkcs8",
+                privKeyObj.export({ format: "der", type: "pkcs8" }),
+                { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+                true,
+                ["sign"]
+            );
+
+            const publicKey = await crypto.webcrypto.subtle.importKey(
+                "spki",
+                pubKeyObj.export({ format: "der", type: "spki" }),
+                { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+                true,
+                ["verify"]
+            );
+
+            return [{ privateKey, publicKey }];
         });
 
     return federation;
