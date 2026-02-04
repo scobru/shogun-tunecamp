@@ -39,6 +39,7 @@ const __dirname = path.dirname(__filename);
 
 export async function startServer(config: ServerConfig): Promise<void> {
     const app = express();
+    app.set('trust proxy', true); // Required for CapRover/Nginx
     const server = http.createServer(app);
 
     // Middleware
