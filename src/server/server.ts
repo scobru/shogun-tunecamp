@@ -156,26 +156,46 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const webappDistPath = path.join(webappPath, "dist");     // Built files
 
     console.log(`📂 Serving webapp from: ${webappPath}`);
+    console.log(`   - webappDistPath exists: ${fs.existsSync(webappDistPath)} (${webappDistPath})`);
+    console.log(`   - webappPublicPath exists: ${fs.existsSync(webappPublicPath)} (${webappPublicPath})`);
+    console.log(`   - webappPath exists: ${fs.existsSync(webappPath)} (${webappPath})`);
+
+    // Check for specific files
+    const swJsPath = path.join(webappPath, "sw.js");
+    const manifestPath = path.join(webappPath, "manifest.json");
+    console.log(`   - sw.js exists: ${fs.existsSync(swJsPath)}`);
+    console.log(`   - manifest.json exists: ${fs.existsSync(manifestPath)}`);
 
     // 1. Serve built files if they exist (prod)
     if (fs.existsSync(webappDistPath)) {
+        console.log(`   ✅ Using webappDistPath for static files`);
         app.use(express.static(webappDistPath));
     }
 
     // 2. Serve public assets (manifest, sw, etc) at root
     if (fs.existsSync(webappPublicPath)) {
+        console.log(`   ✅ Using webappPublicPath for static files`);
         app.use(express.static(webappPublicPath));
     }
 
     // 3. Fallback to webapp root (dev/legacy)
+    console.log(`   ✅ Using webappPath for static files (fallback)`);
     app.use(express.static(webappPath));
 
     // SPA fallback - serve index.html for all non-API routes
+    const indexHtmlPath = fs.existsSync(path.join(webappPath, "index.html"))
+        ? path.join(webappPath, "index.html")
+        : fs.existsSync(path.join(webappDistPath, "index.html"))
+            ? path.join(webappDistPath, "index.html")
+            : path.join(webappPath, "index.html");
+
+    console.log(`📄 SPA fallback index.html: ${indexHtmlPath}`);
+
     app.use((req, res, next) => {
         if (req.path.startsWith("/api/")) {
             return res.status(404).json({ error: "Not found" });
         }
-        res.sendFile(path.join(webappPath, "index.html"));
+        res.sendFile(indexHtmlPath);
     });
 
     // Global error handler

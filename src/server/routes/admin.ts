@@ -121,8 +121,9 @@ export function createAdminRoutes(
      */
     router.post("/scan", async (req: any, res) => {
         try {
-            if (req.artistId) {
-                return res.status(403).json({ error: "Restricted admins cannot trigger manual scans" });
+            // Only root admin can trigger manual scans
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can trigger manual scans" });
             }
             await scanner.scanDirectory(musicDir);
             const stats = database.getStats();
@@ -142,8 +143,9 @@ export function createAdminRoutes(
      */
     router.post("/consolidate", async (req: any, res) => {
         try {
-            if (req.artistId) {
-                return res.status(403).json({ error: "Restricted admins cannot trigger consolidation" });
+            // Only root admin can trigger consolidation
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can trigger consolidation" });
             }
 
             const consolidator = new ConsolidationService(database, musicDir);
@@ -202,9 +204,9 @@ export function createAdminRoutes(
      */
     router.put("/settings", async (req: any, res) => {
         try {
-            // Restricted admins cannot change global settings
-            if (req.artistId) {
-                return res.status(403).json({ error: "Restricted admins cannot change site settings" });
+            // Only root admin can change global settings
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can change site settings" });
             }
 
             const { siteName, siteDescription, publicUrl, artistName, coverImage } = req.body;
@@ -276,8 +278,9 @@ export function createAdminRoutes(
      */
     router.get("/system/identity", async (req: any, res) => {
         try {
-            if (req.artistId) {
-                return res.status(403).json({ error: "Restricted admins cannot access system identity" });
+            // Only root admin can access system identity
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can access system identity" });
             }
             const pair = await gundbService.getIdentityKeyPair();
             res.json(pair);
@@ -293,8 +296,9 @@ export function createAdminRoutes(
      */
     router.post("/system/identity", async (req: any, res) => {
         try {
-            if (req.artistId) {
-                return res.status(403).json({ error: "Restricted admins cannot import system identity" });
+            // Only root admin can import system identity
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can import system identity" });
             }
             const pair = req.body;
             const success = await gundbService.setIdentityKeyPair(pair);
@@ -314,8 +318,9 @@ export function createAdminRoutes(
      */
     router.post("/system/sync", async (req: any, res) => {
         try {
-            if (req.artistId) {
-                return res.status(403).json({ error: "Restricted admins cannot force sync" });
+            // Only root admin can force sync
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can force sync" });
             }
             await gundbService.syncNetwork();
             res.json({ message: "Network sync completed" });
@@ -381,8 +386,9 @@ export function createAdminRoutes(
      */
     router.get("/system/users", (req: any, res) => {
         try {
-            if (req.artistId) {
-                return res.status(403).json({ error: "Restricted admins cannot list users" });
+            // Only root admin can list users
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can list users" });
             }
             const admins = authService.listAdmins();
             res.json(admins);
