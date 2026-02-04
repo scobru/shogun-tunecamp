@@ -332,7 +332,20 @@ export function createArtistsRoutes(database: DatabaseService) {
             }
 
             const posts = database.getPostsByArtist(artist.id);
-            res.json(posts);
+            // Map snake_case to camelCase for frontend
+            const mappedPosts = posts.map(p => ({
+                id: p.id,
+                slug: p.slug,
+                content: p.content,
+                artistId: p.artist_id,
+                artistName: p.artist_name,
+                artistSlug: p.artist_slug,
+                artistAvatar: p.artist_photo,
+                createdAt: p.created_at,
+                isPublic: true
+            }));
+            res.json(mappedPosts);
+
         } catch (error) {
             console.error("Error getting artist posts:", error);
             res.status(500).json({ error: "Failed to get artist posts" });

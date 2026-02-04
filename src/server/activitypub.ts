@@ -371,17 +371,19 @@ export class ActivityPubService {
 
         console.log(`📢 Broadcasting delete for release "${album.title}" to ${followers.length} followers`);
 
-        const baseUrl = this.getBaseUrl();
-        const artistActorUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        const publicUrl = this.db.getSetting("publicUrl") || this.config.publicUrl;
+        if (!publicUrl) return;
 
-        // Reconstruct the ID that was used for the release
-        const published = album.published_at || album.created_at;
-        const sentTime = published ? new Date(published).getTime() : 0;
-        const noteId = `${baseUrl}/api/ap/note/release/${album.slug}-${sentTime}`;
+        // Use the SAME format as broadcastRelease (Fedify) to ensure IDs match
+        // broadcastRelease uses: new URL(`/users/${artist.slug}`, publicUrl)
+        const artistActorUrl = new URL(`/users/${artist.slug}`, publicUrl).href;
+
+        // broadcastRelease uses: new URL(`/note/release/${album.slug}`, publicUrl)
+        const noteId = new URL(`/note/release/${album.slug}`, publicUrl).href;
 
         const activity = {
             "@context": "https://www.w3.org/ns/activitystreams",
-            id: `${baseUrl}/activity/${crypto.randomUUID()}`,
+            id: `${this.getBaseUrl()}/activity/${crypto.randomUUID()}`,
             type: "Delete",
             actor: artistActorUrl,
             object: {

@@ -119,11 +119,42 @@ export const Admin = () => {
                 )}
                 
                 {activeTab === 'overview' && (
-                    <div className="text-center opacity-50 py-12">
-                        <BarChart2 size={48} className="mx-auto mb-4"/>
-                        <p>More detailed analytics coming soon.</p>
+                    <div className="space-y-6">
+                        <h3 className="font-bold text-lg">Quick Actions</h3>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                            <button 
+                                className="btn btn-primary gap-2" 
+                                onClick={() => document.dispatchEvent(new CustomEvent('open-upload-tracks-modal'))}
+                            >
+                                📤 Upload Tracks
+                            </button>
+                            <button 
+                                className="btn btn-secondary gap-2" 
+                                onClick={() => document.dispatchEvent(new CustomEvent('open-admin-release-modal'))}
+                            >
+                                💿 New Release
+                            </button>
+                            <button 
+                                className="btn btn-outline gap-2" 
+                                onClick={() => document.dispatchEvent(new CustomEvent('open-admin-artist-modal'))}
+                            >
+                                👤 New Artist
+                            </button>
+                            <button 
+                                className="btn btn-outline gap-2" 
+                                onClick={() => document.dispatchEvent(new CustomEvent('open-create-post-modal'))}
+                            >
+                                📝 New Post
+                            </button>
+                        </div>
+                        <div className="divider"></div>
+                        <div className="text-center opacity-50 py-8">
+                            <BarChart2 size={48} className="mx-auto mb-4"/>
+                            <p>More detailed analytics coming soon.</p>
+                        </div>
                     </div>
                 )}
+
 
                 {activeTab === 'users' && (
                      <div className="space-y-4">
