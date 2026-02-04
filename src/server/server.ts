@@ -27,7 +27,7 @@ import { createBrowserRoutes } from "./routes/browser.js";
 import { createMetadataRoutes } from "./routes/metadata.js";
 import { createUnlockRoutes } from "./routes/unlock.js";
 import { createActivityPubService } from "./activitypub.js";
-// import { createActivityPubRoutes, createWebFingerRoute } from "./routes/activitypub.js"; // Replaced by Fedify
+import { createActivityPubRoutes } from "./routes/activitypub.js";
 import { integrateFederation } from "@fedify/express";
 import { createFedify } from "./fedify.js";
 import { createBackupRoutes } from "./routes/backup.js";
@@ -98,7 +98,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/users", createUsersRoutes(gundbService));
     app.use("/api/comments", createCommentsRoutes(gundbService));
     app.use("/api/unlock", createUnlockRoutes(database));
-    // app.use("/api/ap", createActivityPubRoutes(apService, database)); // Legacy
+    app.use("/api/ap", createActivityPubRoutes(apService, database));
     // app.use("/.well-known", createWebFingerRoute(apService)); // Legacy, handled by Fedify
 
     // Human-readable profile redirect (for ActivityPub/WebFinger links)
