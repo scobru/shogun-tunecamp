@@ -176,6 +176,15 @@ export async function startServer(config: ServerConfig): Promise<void> {
         res.sendFile(path.join(webappPath, "index.html"));
     });
 
+    // Global error handler
+    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+        console.error("🔥 Global error:", err);
+        if (res.headersSent) {
+            return next(err);
+        }
+        res.status(500).json({ error: err.message || "Internal Server Error" });
+    });
+
     // Start server
     server.listen(config.port, async () => {
         console.log("");
