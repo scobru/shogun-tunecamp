@@ -46,7 +46,7 @@ export const Network = () => {
 
                 // Deduplicate Tracks and Content
                 console.log('Raw tracks data:', tracksData);
-                const currentOrigin = window.location.origin;
+                console.log('Raw tracks data:', tracksData);
                 
                 // 1. Initial validity filter
                 const validTracks = tracksData.filter((t: any) => {
@@ -56,13 +56,12 @@ export const Network = () => {
                     const url = t.siteUrl;
                     if (!url || url.trim() === '/' || url.trim() === '') return false;
 
-                    // Self-reflection filter
+                    // Parse check
                     try {
-                        const siteUrlObj = new URL(url);
-                        const currentUrlObj = new URL(currentOrigin);
-                        if (siteUrlObj.hostname === currentUrlObj.hostname) return false;
+                        // Just check if it's a valid URL structure, don't filter out own origin
+                        const u = new URL(url);
+                        if (!u.protocol.startsWith('http')) return false;
                     } catch (e) {
-                         // If URL is invalid (e.g. just a slash or relative), filter it out
                          if (url.startsWith('/')) return false;
                     }
                     return true;
