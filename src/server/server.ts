@@ -27,7 +27,9 @@ import { createBrowserRoutes } from "./routes/browser.js";
 import { createMetadataRoutes } from "./routes/metadata.js";
 import { createUnlockRoutes } from "./routes/unlock.js";
 import { createActivityPubService } from "./activitypub.js";
-import { createActivityPubRoutes, createWebFingerRoute } from "./routes/activitypub.js";
+// import { createActivityPubRoutes, createWebFingerRoute } from "./routes/activitypub.js"; // Replaced by Fedify
+import { integrateFederation } from "@fedify/express";
+import { createFedify } from "./fedify.js";
 import { createBackupRoutes } from "./routes/backup.js";
 import { createPostsRoutes } from "./routes/posts.js";
 import { createSubsonicRouter } from "./routes/subsonic.js";
@@ -64,8 +66,12 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const gundbService = createGunDBService(database, server);
     await gundbService.init();
 
+    // Initialize Fedify (Must be before AP Service)
+    const federation = createFedify(database, config);
+    app.use(integrateFederation(federation, (req: express.Request) => undefined)); // Context data if needed
+
     // Initialize ActivityPub
-    const apService = createActivityPubService(database, config);
+    const apService = createActivityPubService(database, config, federation);
     await apService.generateKeysForAllArtists();
 
     // API Routes
@@ -90,9 +96,8 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/users", createUsersRoutes(gundbService));
     app.use("/api/comments", createCommentsRoutes(gundbService));
     app.use("/api/unlock", createUnlockRoutes(database));
-    app.use("/api/ap", createActivityPubRoutes(apService, database));
-    app.use("/api/posts", createPostsRoutes(database));
-    app.use("/.well-known", createWebFingerRoute(apService));
+    // app.use("/api/ap", createActivityPubRoutes(apService, database)); // Legacy
+    // app.use("/.well-known", createWebFingerRoute(apService)); // Legacy, handled by Fedify
 
     // Human-readable profile redirect (for ActivityPub/WebFinger links)
     app.get("/@:slug", (req, res) => {
