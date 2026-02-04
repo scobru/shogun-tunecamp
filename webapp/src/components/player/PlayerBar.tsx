@@ -5,7 +5,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Mic2, ListMusic, Shuffle, 
 import { Waveform } from './Waveform';
 import { LyricsPanel } from './LyricsPanel';
 import { QueuePanel } from './QueuePanel';
-import { GleamUtils } from '../../utils/gleam';
+import { StringUtils } from '../../utils/stringUtils';
 import { ScrollingText } from '../ui/ScrollingText';
 
 export const PlayerBar = () => {
@@ -181,7 +181,7 @@ export const PlayerBar = () => {
                             // Fallback simple progress bar
                             <div className="flex items-center w-full gap-2">
                                 <span className="min-w-[40px] text-right opacity-50">
-                                    {GleamUtils.formatTimeAgo(0, currentTime * 1000).replace(' ago', '') === 'just now' 
+                                    {StringUtils.formatTimeAgo(0, currentTime * 1000).replace(' ago', '') === 'just now' 
                                         ? '0:00' 
                                         : (Number.isFinite(currentTime) ? new Date(currentTime * 1000).toISOString().substr(14, 5) : '0:00')}
                                 </span>

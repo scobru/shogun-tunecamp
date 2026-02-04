@@ -1,19 +1,20 @@
-import { createFederation, Person, ExportPubK, Endpoints, Context } from "@fedify/fedify";
+import crypto from "crypto";
+import { createFederation, Person, Endpoints, CryptographicKey, type Federation } from "@fedify/fedify";
 import { BetterSqliteKvStore } from "./fedify-kv.js";
 import type { DatabaseService } from "./database.js";
 import type { ServerConfig } from "./config.js";
 
-export function createFedify(dbService: DatabaseService, config: ServerConfig) {
+export function createFedify(dbService: DatabaseService, config: ServerConfig): Federation<void> {
     const db = dbService.db;
     const kv = new BetterSqliteKvStore(db);
 
-    const federation = createFederation({
+    const federation = createFederation<void>({
         kv,
     });
 
     // Validates actor handles: @slug@domain
-    federation.setActorDispatcher("/users/{slug}", async (ctx: Context<void>, slug: string) => {
-        const artist = dbService.getArtistBySlug(slug);
+    federation.setActorDispatcher("/users/{handle}", async (ctx, handle) => {
+        const artist = dbService.getArtistBySlug(handle);
         if (!artist) return null;
 
         const publicUrl = dbService.getSetting("publicUrl") || config.publicUrl;
@@ -28,49 +29,27 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig) {
             preferredUsername: artist.slug,
             name: artist.name,
             summary: artist.bio || "",
+            // inbox: new URL(`/users/${artist.slug}/inbox`, baseUrl), // inbox is property of Actor? Person extends Actor.
             inbox: new URL(`/users/${artist.slug}/inbox`, baseUrl),
-            sharedInbox: new URL("/inbox", baseUrl),
             endpoints: new Endpoints({
                 sharedInbox: new URL("/inbox", baseUrl)
             }),
-            publicKey: new ExportPubK({
+            publicKey: new CryptographicKey({
                 id: new URL(`/users/${artist.slug}#main-key`, baseUrl),
                 owner: new URL(`/users/${artist.slug}`, baseUrl),
-                publicKeyPem: artist.public_key || ""
+                publicKey: artist.public_key || ""
             })
         });
-    });
+    })
+        .setKeyPairsDispatcher(async (ctx, handle) => {
+            const artist = dbService.getArtistBySlug(handle);
+            if (!artist || !artist.private_key || !artist.public_key) return []; // Return empty array if not found
 
-    federation.setKeyPairsDispatcher(async (ctx: Context<void>, handle: string) => {
-        const artistName = handle.split("@")[0]; // handle is "slug" (from path var) if aligned with dispatcher?
-        // Wait, KeyPairsDispatcher `handle` arg depends on how it's invoked.
-        // Actually Fedify passes the `handle` captured from the URI if using setKeyPairsDispatcher appropriately.
-        // If we set it globally, `handle` is the structure. 
-        // The first argument is Context, second is the Handle (if scoped) or we access it.
-
-        // Actually, for setKeyPairsDispatcher the second arg is the handle/identifier.
-        // In our case, the Actor URI is `/users/{slug}` so `slug` is what we likely get 
-        // OR we just query DB based on the full URI.
-
-        // Let's assume strict mapping for now.
-        // Fedify docs: setKeyPairsDispatcher(path, (ctx, ...args) => ...)
-
-        // Wait, typical pattern:
-        // federation.setKeyPairsDispatcher(async (ctx, id) => { ... }) where id is the actor ID? 
-        // No, it usually works in tandem with the Actor Dispatcher.
-        return [];
-    });
-
-    // Explicit Key Pair dispatcher linking to the same path pattern
-    federation.setKeyPairsDispatcher("/users/{slug}", async (ctx: Context<void>, slug: string) => {
-        const artist = dbService.getArtistBySlug(slug);
-        if (!artist || !artist.private_key || !artist.public_key) return null;
-
-        return [{
-            privateKey: artist.private_key,
-            publicKey: artist.public_key
-        }];
-    });
+            return [{
+                privateKey: crypto.createPrivateKey(artist.private_key),
+                publicKey: crypto.createPublicKey(artist.public_key)
+            }];
+        });
 
     return federation;
 }

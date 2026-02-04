@@ -14,8 +14,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "tunecamp": "node dist/cli.js",
     "build:css": "tailwindcss -i webapp/css/input.css -o webapp/css/style.css",
-    "watch:css": "tailwindcss -i webapp/css/input.css -o webapp/css/style.css --watch",
-    "gleam:build": "gleam build --target javascript && npx esbuild \"build/dev/javascript/tunecamp_gleam/gleam/audio_utils.mjs\" --bundle --outfile=\"src/gleam_generated/audio_utils.js\" --format=esm && npx esbuild \"build/dev/javascript/tunecamp_gleam/gleam/string_utils.mjs\" --bundle --outfile=\"src/gleam_generated/string_utils.js\" --format=esm && npx esbuild \"build/dev/javascript/tunecamp_gleam/gleam/library.mjs\" --bundle --outfile=\"src/gleam_generated/library.js\" --format=esm && npx esbuild \"src/gleam_generated/string_utils.js\" --bundle --outfile=\"webapp/js/gleam-string-utils.js\" --format=iife --global-name=GleamUtils"
+    "watch:css": "tailwindcss -i webapp/css/input.css -o webapp/css/style.css --watch"
   },
   "keywords": [
     "music",
@@ -28,7 +27,10 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@fedify/express": "^1.10.3",
+    "@fedify/fedify": "^1.10.3",
     "@inquirer/prompts": "^8.2.0",
+    "@js-temporal/polyfill": "^0.5.1",
     "@types/adm-zip": "^0.5.7",
     "@types/archiver": "^7.0.0",
     "@types/fluent-ffmpeg": "^2.1.28",
@@ -58,6 +60,7 @@
     "music-metadata": "^8.1.4",
     "node-fetch": "^3.3.2",
     "node-id3": "^0.2.9",
+    "ts-pattern": "^5.9.0",
     "vercel": "^50.4.4",
     "xmlbuilder2": "^4.0.3",
     "yaml": "^2.3.4"

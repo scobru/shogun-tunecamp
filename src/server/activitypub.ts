@@ -1,9 +1,12 @@
 import crypto from "crypto";
 import fetch from "node-fetch";
-import type { Federation, ActorKeyPairs } from "@fedify/fedify";
-import { Note, Create, PUBLIC_COLLECTION, Person, Mention } from "@fedify/fedify";
+import type { ActorKeyPair, Federation } from "@fedify/fedify";
+import { createFederation, Note, Create, PUBLIC_COLLECTION, Person, Mention } from "@fedify/fedify";
+import { Temporal } from "@js-temporal/polyfill";
 import type { DatabaseService, Artist, Album, Track, Post } from "./database.js";
 import type { ServerConfig } from "./config.js";
+
+
 
 export class ActivityPubService {
     constructor(
@@ -270,11 +273,11 @@ export class ActivityPubService {
             // Construct Note
             const note = new Note({
                 id: new URL(`/note/release/${album.slug}`, publicUrl),
-                attributedTo: artistUrl,
+                attribution: artistUrl,
                 to: PUBLIC_COLLECTION,
                 content: `<p>New release available: <a href="${releaseUrl.href}">${album.title}</a></p>`,
                 url: releaseUrl,
-                published: album.published_at ? new Date(album.published_at) : new Date(),
+                published: album.published_at ? Temporal.Instant.from(new Date(album.published_at).toISOString()) : Temporal.Now.instant(),
             });
 
             // Construct Create Activity
@@ -292,7 +295,7 @@ export class ActivityPubService {
             // But we need to define the KeyPair for the sender. 
             // We can get it from DB.
 
-            const keyPairs: ActorKeyPairs[] = [{
+            const keyPairs: any[] = [{
                 privateKey: crypto.createPrivateKey(artist.private_key!),
                 publicKey: crypto.createPublicKey(artist.public_key!)
             }];
@@ -303,9 +306,8 @@ export class ActivityPubService {
             if (inboxes.length > 0) {
                 await ctx.sendActivity({
                     privateKey: keyPairs[0].privateKey,
-                    publicKey: keyPairs[0].publicKey,
                     keyId: new URL(`${artistUrl.href}#main-key`)
-                }, inboxes, create);
+                } as any, inboxes.map(u => ({ id: null, inboxId: new URL(u) })) as any, create);
                 console.log(`✅ Broadcasted to ${inboxes.length} inboxes`);
             }
         } catch (e) {

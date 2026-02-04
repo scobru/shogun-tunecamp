@@ -3,6 +3,8 @@
  * Creates AI-free, algorithmically generated cover art
  */
 
+import { match } from 'ts-pattern';
+
 /**
  * Generate SVG cover art based on release metadata
  * Uses hash-based deterministic generation for consistency
@@ -47,23 +49,12 @@ export class ProceduralCoverGenerator {
         // Choose a pattern based on hash
         const patternType = seed % 5;
 
-        let pattern: string;
-        switch (patternType) {
-            case 0:
-                pattern = this.generateWavePattern(seed, width, height);
-                break;
-            case 1:
-                pattern = this.generateCirclePattern(seed, width, height);
-                break;
-            case 2:
-                pattern = this.generateGridPattern(seed, width, height);
-                break;
-            case 3:
-                pattern = this.generateGradientPattern(seed, width, height);
-                break;
-            default:
-                pattern = this.generateGeometricPattern(seed, width, height);
-        }
+        const pattern = match(patternType)
+            .with(0, () => this.generateWavePattern(seed, width, height))
+            .with(1, () => this.generateCirclePattern(seed, width, height))
+            .with(2, () => this.generateGridPattern(seed, width, height))
+            .with(3, () => this.generateGradientPattern(seed, width, height))
+            .otherwise(() => this.generateGeometricPattern(seed, width, height));
 
         // Background gradient
         const bgColor1 = this.hashToHsl(seed, 0);

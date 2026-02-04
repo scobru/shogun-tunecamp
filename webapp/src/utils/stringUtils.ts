@@ -1,4 +1,4 @@
-export const GleamUtils = {
+export const StringUtils = {
     escapeHtml: (text: string): string => {
         if (!text) return '';
         return text
@@ -39,7 +39,7 @@ export const GleamUtils = {
 
     generateTrackSlug: (albumTitle: string, trackTitle: string): string => {
         const track = trackTitle || "untitled";
-        return GleamUtils.slugify(`${albumTitle}-${track}`);
+        return StringUtils.slugify(`${albumTitle}-${track}`);
     },
 
     getFileExtension: (filename: string): string => {

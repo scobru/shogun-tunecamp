@@ -1,6 +1,6 @@
 import { usePlayerStore } from '../../stores/usePlayerStore';
 import { X, Trash2 } from 'lucide-react';
-import { GleamUtils } from '../../utils/gleam';
+import { StringUtils } from '../../utils/stringUtils';
 
 export const QueuePanel = () => {
     const { queue, queueIndex, playQueue, removeFromQueue, toggleQueue, isQueueOpen } = usePlayerStore();
@@ -33,8 +33,8 @@ export const QueuePanel = () => {
                                     className="flex-1 min-w-0 cursor-pointer"
                                     onClick={() => playQueue(queue, i)}
                                 >
-                                    <div className="truncate font-medium text-sm">{GleamUtils.escapeHtml(track.title)}</div>
-                                    <div className="truncate text-xs opacity-60">{GleamUtils.escapeHtml(track.artistName || '')}</div>
+                                    <div className="truncate font-medium text-sm">{StringUtils.escapeHtml(track.title)}</div>
+                                    <div className="truncate text-xs opacity-60">{StringUtils.escapeHtml(track.artistName || '')}</div>
                                 </div>
                                 
                                 {i !== queueIndex && (

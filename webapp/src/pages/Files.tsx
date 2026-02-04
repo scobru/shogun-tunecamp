@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Folder, File, ArrowLeft, Music, Image as ImageIcon } from 'lucide-react';
-import { GleamUtils } from '../utils/gleam';
+import { StringUtils } from '../utils/stringUtils';
 import { usePlayerStore } from '../stores/usePlayerStore';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Track } from '../types';
@@ -53,7 +53,7 @@ export const Files = () => {
             updatePath(item.path);
         } else {
             // If audio, play
-            const ext = GleamUtils.getFileExtension(item.name);
+            const ext = StringUtils.getFileExtension(item.name);
             if (['mp3', 'flac', 'wav', 'm4a', 'ogg'].includes(ext)) {
                // Construct a temporary track object
                const track: Track = {
@@ -74,7 +74,7 @@ export const Files = () => {
 
     const getIcon = (type: string, name: string) => {
         if (type === 'directory') return <Folder className="text-yellow-400" size={24}/>;
-        const ext = GleamUtils.getFileExtension(name);
+        const ext = StringUtils.getFileExtension(name);
         if (['mp3', 'flac', 'wav', 'm4a', 'ogg'].includes(ext)) return <Music className="text-blue-400" size={24}/>;
         if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return <ImageIcon className="text-purple-400" size={24}/>;
         return <File className="opacity-50" size={24}/>;

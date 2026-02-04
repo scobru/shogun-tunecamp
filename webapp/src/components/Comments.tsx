@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
 import { MessageSquare, Trash2, Send } from 'lucide-react';
-import { GleamUtils } from '../utils/gleam';
+import { StringUtils } from '../utils/stringUtils';
 
 interface Comment {
     id: string;
@@ -114,7 +114,7 @@ export const Comments = ({ trackId }: CommentsProps) => {
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-start">
                                     <span className="font-bold text-sm">{c.username}</span>
-                                    <span className="text-xs opacity-40">{GleamUtils.formatTimeAgo(0, c.timestamp || Date.now())}</span>
+                                    <span className="text-xs opacity-40">{StringUtils.formatTimeAgo(0, c.timestamp || Date.now())}</span>
                                 </div>
                                 <p className="text-sm opacity-80 break-words">{c.text}</p>
                             </div>

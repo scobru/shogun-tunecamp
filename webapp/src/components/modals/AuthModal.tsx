@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuthStore } from '../../stores/useAuthStore';
 import API from '../../services/api';
 import { LogIn, UserPlus, Shield } from 'lucide-react';
+import { match } from 'ts-pattern';
 
 export const AuthModal = () => {
     const dialogRef = useRef<HTMLDialogElement>(null);
@@ -37,23 +38,25 @@ export const AuthModal = () => {
         clearError();
         
         try {
-            if (mode === 'register') {
-                if (password !== confirmPass) {
-                    setLocalError('Passwords do not match');
-                    return;
-                }
-                await register(username, password);
-            } else if (mode === 'admin') {
-                await loginAdmin(username, password);
-            } else {
-                await login(username, password);
-            }
+            await match(mode)
+                .with('register', async () => {
+                    if (password !== confirmPass) {
+                        throw new Error('Passwords do not match');
+                    }
+                    await register(username, password);
+                })
+                .with('admin', () => loginAdmin(username, password))
+                .otherwise(() => login(username, password));
+
             // Close on success
             dialogRef.current?.close();
             setUsername('');
             setPassword('');
             setConfirmPass('');
         } catch (err: any) {
+            if (err.message === 'Passwords do not match') {
+                setLocalError('Passwords do not match');
+            }
             // Error managed by store usually, but set local if needed
         }
     };
@@ -66,8 +69,12 @@ export const AuthModal = () => {
                 </form>
                 
                 <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
-                    {mode === 'register' ? <UserPlus size={20}/> : mode === 'setup' ? <Shield size={20}/> : <LogIn size={20}/>}
-                    {mode === 'register' ? 'Create Account' : mode === 'setup' ? 'Create First Admin' : (mode === 'admin' ? 'Admin Login' : 'Community Login')}
+                    {match(mode)
+                        .with('register', () => <><UserPlus size={20}/> Create Account</>)
+                        .with('setup', () => <><Shield size={20}/> Create First Admin</>)
+                        .with('admin', () => <><LogIn size={20}/> Admin Login</>)
+                        .otherwise(() => <><LogIn size={20}/> Community Login</>)
+                    }
                 </h3>
 
                 <div className="tabs tabs-boxed bg-base-200 p-1 mb-6">
@@ -165,7 +172,11 @@ export const AuthModal = () => {
                         </button>
                     ) : (
                         <button type="submit" className="btn btn-primary w-full mt-2">
-                            {mode === 'register' ? 'Sign Up' : mode === 'setup' ? 'Create Admin' : 'Sign In'}
+                            {match(mode)
+                                .with('register', () => 'Sign Up')
+                                .with('setup', () => 'Create Admin')
+                                .otherwise(() => 'Sign In')
+                            }
                         </button>
                     )}
                 </form>

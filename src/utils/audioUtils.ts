@@ -1,6 +1,8 @@
 import { parseFile } from 'music-metadata';
 import path from 'path';
 import { TrackMetadata } from '../types/index.js';
+import { StringUtils } from './stringUtils.js';
+import { LibraryUtils } from './libraryUtils.js';
 
 /**
  * Audio file utilities
@@ -36,44 +38,31 @@ export async function readAudioMetadata(filePath: string): Promise<TrackMetadata
   }
 }
 
-import {
-  format_duration as formatDurationGleam,
-  format_file_size as formatFileSizeGleam
-} from '../gleam_generated/audio_utils.js';
-
-import {
-  escape_html as escapeHtmlGleam,
-  slugify as slugifyGleam,
-  generate_track_slug as generateTrackSlugGleam,
-  format_time_ago as formatTimeAgoGleam,
-  sanitize_filename as sanitizeFilenameGleam,
-  normalize_url as normalizeUrlGleam,
-  get_file_extension as getFileExtensionGleam,
-  validate_username as validateUsernameGleam,
-  pad_left as padLeftGleam
-} from '../gleam_generated/string_utils.js';
-
-import {
-  format_audio_filename as formatAudioFilenameGleam,
-  format_album_directory as formatAlbumDirectoryGleam,
-  get_standard_cover_filename as getStandardCoverFilenameGleam
-} from '../gleam_generated/library.js';
-
 export function formatDuration(seconds?: number): string {
-  if (!seconds) return '0:00';
-  return formatDurationGleam(seconds);
+  if (!seconds && seconds !== 0) return '0:00';
+
+  const totalSeconds = Math.trunc(seconds);
+  const mins = Math.trunc(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+
+  const secsStr = secs.toString().padStart(2, '0');
+
+  return `${mins}:${secsStr}`;
 }
 
 export function formatFileSize(bytes?: number): string {
-  if (!bytes) return '0 B';
-  // Gleam handles int/float, we pass number (which is float in JS/Gleam usually, 
-  // but Gleam int is distinct. Our Gleam code accepted Int for file size.
-  // We need to ensure we pass an integer if Gleam expects Int.
-  // JS number is float. Gleam JS backend treats JS numbers as floats but logic might check.
-  // The Gleam code: `pub fn format_file_size(bytes: Int)`.
-  // Wrapper for generated JS usually expects safe integer.
+  if (!bytes && bytes !== 0) return '0 B';
 
-  return formatFileSizeGleam(Math.floor(bytes));
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < 3) {
+    size /= 1024;
+    unitIndex++;
+  }
+
+  return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
 export function getAudioFormat(filename: string): string {
@@ -93,37 +82,32 @@ export function getAudioFormat(filename: string): string {
 
 /**
  * Escapes HTML special characters to prevent XSS attacks
- * Uses Gleam implementation for type safety
  */
 export function escapeHtml(text: string | null | undefined): string {
   if (!text) return '';
-  return escapeHtmlGleam(text);
+  return StringUtils.escapeHtml(text);
 }
 
 /**
  * Converts text to a URL-safe slug
- * Uses Gleam implementation for type safety
  */
 export function slugify(text: string): string {
   if (!text) return '';
-  return slugifyGleam(text);
+  return StringUtils.slugify(text);
 }
 
 /**
  * Generates a track slug from album title and track title
- * Uses Gleam implementation for type safety
  */
 export function generateTrackSlug(albumTitle: string, trackTitle: string): string {
-  return generateTrackSlugGleam(albumTitle || '', trackTitle || '');
+  return StringUtils.generateTrackSlug(albumTitle || '', trackTitle || '');
 }
 
 /**
  * Formats a timestamp as relative time
- * Uses Gleam implementation for type safety
  */
 export function formatTimeAgo(timestamp: number): string {
-  const result = formatTimeAgoGleam(timestamp, Date.now());
-  // If Gleam returns empty string, fall back to JavaScript date formatting
+  const result = StringUtils.formatTimeAgo(timestamp, Date.now());
   if (result === '') {
     return new Date(timestamp).toLocaleDateString();
   }
@@ -132,68 +116,64 @@ export function formatTimeAgo(timestamp: number): string {
 
 /**
  * Sanitizes a filename by keeping only safe characters
- * Uses Gleam implementation for type safety
  */
 export function sanitizeFilename(filename: string): string {
   if (!filename) return '';
-  return sanitizeFilenameGleam(filename);
+  return StringUtils.sanitizeFilename(filename);
 }
 
 /**
  * Normalizes a URL by removing trailing slash
- * Uses Gleam implementation for type safety
  */
 export function normalizeUrl(url: string): string {
   if (!url) return '';
-  return normalizeUrlGleam(url);
+  return StringUtils.normalizeUrl(url);
 }
 
 /**
  * Extracts file extension from filename (without the dot, lowercase)
- * Uses Gleam implementation for type safety
  */
 export function getFileExtension(filename: string): string {
   if (!filename) return '';
-  return getFileExtensionGleam(filename);
+  return StringUtils.getFileExtension(filename);
 }
 
 /**
  * Validates username format
- * Uses Gleam implementation for type safety
  * Returns { valid: boolean, error?: string }
  */
 export function validateUsername(username: string): { valid: boolean; error?: string } {
   if (!username) {
     return { valid: false, error: 'Username is required' };
   }
-  const result = validateUsernameGleam(username);
-  // Gleam Result type in JS: Ok/Error classes with isOk() method and [0] for value
-  // @ts-ignore - TS might not see isOk if types aren't perfect
-  if (result.isOk()) {
+  const result = StringUtils.validateUsername(username);
+
+  if (result.ok) {
     return { valid: true };
   } else {
-    return { valid: false, error: result[0] as string };
+    return { valid: false, error: result.error };
   }
 }
 
 /**
- * Formats an audio filename using Gleam logic: "01 - Title.mp3"
+ * Formats an audio filename: "01 - Title.mp3"
  */
 export function formatAudioFilename(trackNum: number, title: string, extension: string): string {
-  return formatAudioFilenameGleam(trackNum || 0, title || 'Unknown', extension || 'mp3');
+  return LibraryUtils.formatAudioFilename(trackNum || 0, title || 'Unknown', extension || 'mp3');
 }
 
 /**
- * Formats an album directory using Gleam logic: "Artist - Album (Year)"
+ * Formats an album directory: "Artist - Album (Year)"
  */
 export function formatAlbumDirectory(artist: string, album: string): string {
-  return formatAlbumDirectoryGleam(artist || 'Unknown Artist', album || 'Unknown Album');
+  return LibraryUtils.formatAlbumDirectory(artist || 'Unknown Artist', album || 'Unknown Album');
 }
 
 /**
  * Returns the standard cover filename: "cover.jpg" or "cover.png"
  */
 export function getStandardCoverFilename(extension: string): string {
-  return getStandardCoverFilenameGleam(extension || 'jpg');
+  return LibraryUtils.getStandardCoverFilename(extension || 'jpg');
 }
+
 

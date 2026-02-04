@@ -3,7 +3,7 @@ import API from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
 import { Globe, Server, Music, ExternalLink, Play } from 'lucide-react';
 import { usePlayerStore } from '../stores/usePlayerStore';
-import { GleamUtils } from '../utils/gleam';
+import { StringUtils } from '../utils/stringUtils';
 import type { NetworkSite, NetworkTrack } from '../types';
 
 export const Network = () => {
@@ -305,7 +305,7 @@ export const Network = () => {
                                 
                                 <div className="flex items-center justify-between text-xs font-mono opacity-50 border-t border-white/5 pt-4 mt-2">
                                     <span>v{site.version}</span>
-                                    <span>{GleamUtils.formatTimeAgo(new Date(site.lastSeen).getTime())}</span>
+                                    <span>{StringUtils.formatTimeAgo(new Date(site.lastSeen).getTime())}</span>
                                 </div>
                             </div>
                         </a>
