@@ -43,8 +43,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     // Middleware
     app.use(cors({ origin: config.corsOrigins }));
-    app.use(cors({ origin: config.corsOrigins }));
-    app.use(express.json({ type: ['application/json', 'application/activity+json', 'application/ld+json'] }));
 
     // Initialize database
     console.log(`📦 Initializing database: ${config.dbPath}`);
@@ -69,6 +67,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // Initialize Fedify (Must be before AP Service)
     const federation = createFedify(database, config);
     app.use(integrateFederation(federation, (req: express.Request) => undefined)); // Context data if needed
+
+    // Parse JSON (must be AFTER Fedify to avoid conflicting with body stream reading)
+    app.use(express.json({ type: ['application/json', 'application/activity+json', 'application/ld+json'] }));
 
     // Initialize ActivityPub
     const apService = createActivityPubService(database, config, federation);
