@@ -64,6 +64,7 @@ export interface GunDBService {
     // Key Management
     getIdentityKeyPair(): Promise<any>;
     setIdentityKeyPair(pair: any): Promise<boolean>;
+    syncNetwork(): Promise<void>;
 }
 
 export function createGunDBService(database: DatabaseService, server?: any): GunDBService {
@@ -827,7 +828,8 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
         deleteComment,
         // Key Management
         getIdentityKeyPair,
-        setIdentityKeyPair
+        setIdentityKeyPair,
+        syncNetwork: cleanupNetwork
     };
 
     /**
