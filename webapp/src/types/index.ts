@@ -123,6 +123,7 @@ export interface NetworkSite {
     description: string;
     version: string;
     lastSeen: string;
+    coverImage?: string;
 }
 
 export interface NetworkTrack {

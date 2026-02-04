@@ -286,12 +286,13 @@ export const Network = () => {
                             className="card bg-base-200 border border-white/5 hover:border-primary/30 transition-all hover:scale-[1.01] group"
                         >
                             <figure className="h-32 bg-base-300 relative overflow-hidden">
-                                {/* Use site cover image if available, similar to legacy */}
-                                {/* Legacy doesn't explicitly show where it gets site.coverImage from except settings. API response likely includes it. */}
-                                 {/* For now keeping decorative gradient or fallback */}
-                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10" />
-                                <div className="w-full h-full flex items-center justify-center text-4xl opacity-20">🏠</div>
-                                
+                                {site.coverImage ? (
+                                    <img src={site.coverImage} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt={site.name} />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-4xl opacity-20 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+                                        <span>🏠</span>
+                                    </div>
+                                )}
                                 <div className="absolute bottom-2 right-2 badge badge-neutral badge-sm bg-black/50 border-none backdrop-blur-md">
                                     {getHostname(site.url)}
                                 </div>
