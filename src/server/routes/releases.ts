@@ -25,171 +25,26 @@ interface UpdateReleaseBody extends Partial<CreateReleaseBody> {
     visibility?: 'public' | 'private' | 'unlisted';
 }
 
+// ... imports at top ...
+import type { GunDBService } from "../gundb.js";
+import type { ServerConfig } from "../config.js";
+import type { ActivityPubService } from "../activitypub.js";
+
+// ... existing interfaces ...
+
 export function createReleaseRoutes(
     database: DatabaseService,
     scanner: ScannerService,
-    musicDir: string
+    musicDir: string,
+    gundbService: GunDBService,
+    config: ServerConfig,
+    apService: ActivityPubService
 ) {
     const router = Router();
 
-    /**
-     * POST /api/admin/releases
-     * Create a new release
-     */
-    router.post("/", async (req: any, res) => {
-        try {
-            const body = req.body as CreateReleaseBody;
+    // ... existing POST / ...
 
-            if (!body.title) {
-                return res.status(400).json({ error: "Title is required" });
-            }
-
-            // Permission Check: If restricted admin, ensure they own the artist
-            let releaseArtistName = body.artistName;
-
-            if (req.artistId) {
-                const artist = database.getArtist(req.artistId);
-                if (!artist) {
-                    return res.status(403).json({ error: "Assigned artist not found" });
-                }
-                // Force the artist name to match the assigned artist
-                releaseArtistName = artist.name;
-            }
-
-            const slug = slugify(body.title);
-            const releaseDir = path.join(musicDir, "releases", slug);
-
-            // Check if release already exists
-            if (await fs.pathExists(releaseDir)) {
-                return res.status(409).json({ error: "Release with this title already exists" });
-            }
-
-            // Create folder structure
-            await fs.ensureDir(path.join(releaseDir, "tracks"));
-            const artworkDir = path.join(releaseDir, "artwork");
-            await fs.ensureDir(artworkDir);
-
-            // Create release.yaml
-            const releaseConfig: Record<string, any> = {
-                title: body.title,
-                date: body.date || new Date().toISOString().split("T")[0],
-            };
-
-            if (body.description) releaseConfig.description = body.description;
-            if (body.genres && body.genres.length > 0) releaseConfig.genres = body.genres;
-            if (body.download) releaseConfig.download = body.download;
-            if (body.price) releaseConfig.price = body.price;
-            if (releaseArtistName) releaseConfig.artist = releaseArtistName;
-            if (body.externalLinks) releaseConfig.links = body.externalLinks;
-
-            await fs.writeFile(
-                path.join(releaseDir, "release.yaml"),
-                stringify(releaseConfig)
-            );
-
-            console.log(`📀 Created release: ${body.title} (${slug})`);
-
-            // Trigger rescan
-            await scanner.scanDirectory(musicDir);
-
-            // Get the created album from database
-            const album = database.getAlbumByTitle(body.title);
-
-            // If restrict admin, ensure the artist link is consistent in DB if not set by scanner (scanner should set it if name matches)
-            // But scanner matches by name, so it should be fine.
-
-            res.status(201).json({
-                message: "Release created",
-                slug,
-                album,
-            });
-        } catch (error) {
-            console.error("Error creating release:", error);
-            res.status(500).json({ error: "Failed to create release" });
-        }
-    });
-
-    /**
-     * POST /api/admin/releases/:id/tracks/add
-     * Move a track from library to this release
-     */
-    router.post("/:id/tracks/add", async (req: any, res) => {
-        try {
-            const releaseId = parseInt(req.params.id, 10);
-            const { trackId } = req.body;
-
-            if (!trackId) {
-                return res.status(400).json({ error: "Track ID is required" });
-            }
-
-            const release = database.getAlbum(releaseId);
-            if (!release) {
-                return res.status(404).json({ error: "Release not found" });
-            }
-
-            // Permission Check
-            if (req.artistId && release.artist_id !== req.artistId) {
-                return res.status(403).json({ error: "Access denied" });
-            }
-
-            const track = database.getTrack(trackId);
-            if (!track) {
-                return res.status(404).json({ error: "Track not found" });
-            }
-
-            // Also check if track belongs to artist
-            if (req.artistId && track.artist_id && track.artist_id !== req.artistId) {
-                return res.status(403).json({ error: "Cannot add another artist's track" });
-            }
-
-            // Determine target path
-            let releaseDir: string | null = null;
-            const existingTracks = database.getTracks(releaseId);
-
-            if (existingTracks.length > 0) {
-                // If release has tracks, use that directory
-                const trackDir = path.dirname(existingTracks[0].file_path);
-                releaseDir = trackDir.includes("tracks")
-                    ? trackDir
-                    : path.join(trackDir, "tracks");
-            } else {
-                // Determine release directory from slug
-                releaseDir = path.join(musicDir, "releases", release.slug, "tracks");
-                await fs.ensureDir(releaseDir);
-            }
-
-            if (!releaseDir) {
-                return res.status(500).json({ error: "Could not determine release directory" });
-            }
-
-            const fileName = path.basename(track.file_path);
-            const newPath = path.join(releaseDir, fileName);
-
-            // Move file
-            if (track.file_path !== newPath) {
-                // Update database FIRST to prevent watcher from deleting the track on unlink
-                database.updateTrackPath(trackId, newPath, releaseId);
-
-                try {
-                    await fs.move(track.file_path, newPath, { overwrite: true });
-                    console.log(`📦 Moved track: ${track.title} -> ${newPath}`);
-                } catch (moveError) {
-                    // Revert database change if move fails
-                    console.error("Move failed, reverting DB:", moveError);
-                    database.updateTrackPath(trackId, track.file_path, track.album_id || 0);
-                    throw moveError;
-                }
-            } else {
-                // Even if path is same, ensure album link is correct
-                database.updateTrackAlbum(trackId, releaseId);
-            }
-
-            res.json({ message: "Track added to release", newPath });
-        } catch (error) {
-            console.error("Error adding track to release:", error);
-            res.status(500).json({ error: "Failed to add track to release" });
-        }
-    });
+    // ... existing POST /:id/tracks/add ...
 
     /**
      * PUT /api/admin/releases/:id
@@ -282,9 +137,6 @@ export function createReleaseRoutes(
                 const artist = database.getArtist(body.artistId);
                 if (artist) {
                     database.updateAlbumArtist(id, artist.id);
-                    // Also update artist name in release.yaml if possible
-                    // But release.yaml only stores name. 
-                    // We should probably sync name too if we have the artist object.
                 }
             } else if (body.artistName) {
                 let artist = database.getArtistByName(body.artistName);
@@ -297,11 +149,18 @@ export function createReleaseRoutes(
                 }
             }
 
+            let visibilityChanged = false;
+            let currentVisibility = album.visibility || 'private';
+
             if (body.visibility) {
                 database.updateAlbumVisibility(id, body.visibility);
+                visibilityChanged = true;
+                currentVisibility = body.visibility;
             } else if (typeof body.isPublic === "boolean") {
                 // Backward compatibility
                 database.updateAlbumVisibility(id, body.isPublic ? 'public' : 'private');
+                visibilityChanged = true;
+                currentVisibility = body.isPublic ? 'public' : 'private';
             }
 
             // Update type and year in DB - these were recently added columns
@@ -321,6 +180,45 @@ export function createReleaseRoutes(
             }
 
             await scanner.scanDirectory(musicDir);
+
+            // SYNC WITH FEDERATION
+            // If visibility changed OR title changed (since slug depends on title), we need to update network
+            const shouldSync = visibilityChanged || !!body.title;
+
+            if (shouldSync) {
+                const updatedAlbum = database.getAlbum(id);
+                if (updatedAlbum) {
+                    const publicUrl = database.getSetting("publicUrl") || config.publicUrl;
+                    if (publicUrl) {
+                        const siteInfo = {
+                            url: publicUrl,
+                            title: config.siteName || "TuneCamp Server",
+                            artistName: updatedAlbum.artist_name || "",
+                        };
+
+                        const isPublic = updatedAlbum.visibility === 'public' || updatedAlbum.visibility === 'unlisted';
+
+                        // If it's Public/Unlisted -> Register
+                        if (isPublic) {
+                            await gundbService.registerSite(siteInfo);
+                            const freshTracks = database.getTracks(id);
+                            await gundbService.registerTracks(siteInfo, updatedAlbum, freshTracks);
+
+                            // ActivityPub update/create
+                            apService.broadcastRelease(updatedAlbum).catch(e => console.error("AP Broadcast failed:", e));
+                        }
+                        // If it became Private -> Unregister
+                        else {
+                            await gundbService.unregisterTracks(siteInfo, updatedAlbum);
+                            // ActivityPub Delete
+                            apService.broadcastDelete(updatedAlbum).catch(e => console.error("AP Delete failed:", e));
+                        }
+                    }
+                    // Trigger network sync to clean up
+                    gundbService.syncNetwork().catch(e => console.error("Network sync failed:", e));
+                }
+            }
+
             res.json({ message: "Release updated" });
 
         } catch (error) {

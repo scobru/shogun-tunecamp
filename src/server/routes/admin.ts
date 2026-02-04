@@ -254,8 +254,11 @@ export function createAdminRoutes(
 
                 const publicAlbums = database.getAlbums(true);
                 for (const album of publicAlbums) {
-                    const tracks = database.getTracks(album.id);
-                    await gundbService.registerTracks(siteInfo, album, tracks);
+                    // Double check visibility just in case
+                    if (album.visibility === 'public' || album.visibility === 'unlisted') {
+                        const tracks = database.getTracks(album.id);
+                        await gundbService.registerTracks(siteInfo, album, tracks);
+                    }
                 }
                 console.log(`🌐 Re-registered site and tracks on GunDB with updated settings: ${currentPublicUrl}`);
             }

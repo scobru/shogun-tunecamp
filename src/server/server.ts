@@ -82,7 +82,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database));
     app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database));
     app.use("/api/admin/upload", authMiddleware.requireAdmin, createUploadRoutes(database, scanner, config.musicDir));
-    app.use("/api/admin/releases", authMiddleware.requireAdmin, createReleaseRoutes(database, scanner, config.musicDir));
+    app.use("/api/admin/releases", authMiddleware.requireAdmin, createReleaseRoutes(database, scanner, config.musicDir, gundbService, config, apService));
     app.use("/api/stats", createStatsRoutes(gundbService));
     app.use("/api/stats/library", createLibraryStatsRoutes(database));
     app.use("/api/browser", authMiddleware.requireAdmin, createBrowserRoutes(config.musicDir));
