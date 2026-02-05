@@ -110,8 +110,15 @@ export function createTracksRoutes(database: DatabaseService, apService: Activit
                 return res.status(404).json({ error: "Track not found" });
             }
 
-            // Note: Track streaming is allowed regardless of album visibility
-            // This allows users to play tracks they have direct links to
+            // Security Check: Ensure track is public or user is admin
+            if (!req.isAdmin && track.album_id) {
+                const album = database.getAlbum(track.album_id);
+                if (album && album.visibility === 'private') {
+                    // Check if album has an unlock code or if we should allow unlisted
+                    // For now, strict: if private, only admin.
+                    return res.status(403).json({ error: "Access denied" });
+                }
+            }
 
             const trackPath = resolveFile(track.file_path);
             if (!trackPath) {

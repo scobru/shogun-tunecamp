@@ -16,7 +16,7 @@ function createStorage(musicDir: string) {
     return multer.diskStorage({
         destination: async (req, file, cb) => {
             // Determine destination based on request
-            const releaseSlug = req.body.releaseSlug;
+            const releaseSlug = req.body.releaseSlug ? sanitizeFilename(req.body.releaseSlug) : undefined;
             const uploadType = req.body.type || "library";
 
             let destDir: string;
@@ -211,7 +211,8 @@ export function createUploadRoutes(
     router.post("/avatar", upload.single("file"), async (req, res) => {
         try {
             const file = req.file;
-            const artistId = req.body.artistId;
+            const artistIdRaw = req.body.artistId;
+            const artistId = artistIdRaw ? parseInt(artistIdRaw as string, 10) : undefined;
 
             if (!file) {
                 return res.status(400).json({ error: "No file uploaded" });
@@ -222,7 +223,7 @@ export function createUploadRoutes(
             }
 
             // Permission Check
-            if ((req as any).artistId && (req as any).artistId !== parseInt(artistId, 10)) {
+            if ((req as any).artistId && (req as any).artistId !== artistId) {
                 await fs.remove(file.path);
                 return res.status(403).json({ error: "Access denied: You can only upload avatars for your own artist" });
             }
@@ -249,7 +250,7 @@ export function createUploadRoutes(
             }
 
             // Update artist in database
-            const artist = database.getArtist(parseInt(artistId, 10));
+            const artist = database.getArtist(artistId);
             if (artist) {
                 database.updateArtist(artist.id, artist.bio || undefined, avatarPath, artist.links ? JSON.parse(artist.links) : undefined);
             }
