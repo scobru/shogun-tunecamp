@@ -53,7 +53,7 @@ export const ArtistDetails = () => {
     const handleDeletePost = async (postId: string) => {
         if (!confirm("Are you sure you want to delete this post? This will also remove it from the ActivityPub network.")) return;
         try {
-            await API.deletePost(postId);
+            await API.deletePost(Number(postId));
             setPosts(posts.filter(p => p.id !== postId));
         } catch (err: any) {
             alert("Failed to delete post: " + err.message);
