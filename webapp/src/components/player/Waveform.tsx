@@ -19,6 +19,7 @@ export const Waveform = ({
 }: WaveformProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [hoverX, setHoverX] = useState<number | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     // Parse data safely
     const waveformData = typeof data === 'string' ? JSON.parse(data) : data;
@@ -93,31 +94,68 @@ export const Waveform = ({
         draw();
     }, [waveformData, progress, hoverX, colorPlayed, colorRemaining]);
 
-    const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const x = e.clientX - rect.left;
+    // Handle seeking with better coordinate calculation
+    const calculateSeekPercent = (clientX: number): number => {
+        const canvas = canvasRef.current;
+        if (!canvas) return 0;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = clientX - rect.left;
         const percent = x / rect.width;
-        onSeek(Math.min(1, Math.max(0, percent)));
+        return Math.min(1, Math.max(0, percent));
+    };
+
+    const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        setIsDragging(true);
+        const percent = calculateSeekPercent(e.clientX);
+        onSeek(percent);
     };
 
     const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        setHoverX(e.clientX - rect.left);
+        const x = e.clientX - rect.left;
+        setHoverX(x);
+
+        // If dragging, continuously seek
+        if (isDragging) {
+            const percent = calculateSeekPercent(e.clientX);
+            onSeek(percent);
+        }
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
     };
 
     const handleMouseLeave = () => {
         setHoverX(null);
+        setIsDragging(false);
     };
+
+    // Handle global mouse up to stop dragging even if mouse leaves canvas
+    useEffect(() => {
+        const handleGlobalMouseUp = () => {
+            if (isDragging) {
+                setIsDragging(false);
+            }
+        };
+
+        if (isDragging) {
+            window.addEventListener('mouseup', handleGlobalMouseUp);
+            return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+        }
+    }, [isDragging]);
 
     if (!waveformData) return null;
 
     return (
         <canvas 
             ref={canvasRef}
-            className="w-full h-full cursor-pointer opacity-80 hover:opacity-100 transition-opacity"
+            className="w-full h-full cursor-pointer opacity-80 hover:opacity-100 transition-opacity select-none"
             style={{ height: `${height}px`, display: 'block' }}
-            onClick={handleClick}
+            onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
         />
     );

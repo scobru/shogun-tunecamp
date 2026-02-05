@@ -175,13 +175,21 @@ export const PlayerBar = () => {
                     {/* Progress / Waveform */}
                     <div className="w-full flex items-center gap-3 text-xs font-mono opacity-100 h-10 lg:h-12 relative group">
                          {currentTrack.waveform ? (
-                             <Waveform 
-                                data={currentTrack.waveform} 
-                                progress={progress / 100} 
-                                onSeek={handleSeek}
-                                height={40}
-                                colorPlayed="oklch(var(--color-primary))" 
-                             />
+                             <div className="flex items-center w-full gap-2">
+                                 <span className="min-w-[40px] text-right opacity-50">
+                                     {Number.isFinite(currentTime) ? new Date(currentTime * 1000).toISOString().substr(14, 5) : '0:00'}
+                                 </span>
+                                 <Waveform 
+                                    data={currentTrack.waveform} 
+                                    progress={progress / 100} 
+                                    onSeek={handleSeek}
+                                    height={40}
+                                    colorPlayed="oklch(var(--color-primary))" 
+                                 />
+                                 <span className="min-w-[40px] opacity-50">
+                                     {Number.isFinite(duration) && duration > 0 ? new Date(duration * 1000).toISOString().substr(14, 5) : '0:00'}
+                                 </span>
+                             </div>
                          ) : (
                             // Fallback simple progress bar
                             <div className="flex items-center w-full gap-2">
