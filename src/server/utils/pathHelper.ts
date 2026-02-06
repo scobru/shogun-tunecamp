@@ -28,6 +28,10 @@ export function resolveFile(storedPath: string | null | undefined): string | nul
             const candidateCwd = path.join(process.cwd(), relative);
             if (fs.existsSync(candidateCwd)) return candidateCwd;
 
+            // Try relative to root (Docker volume mapping often uses /music or /data)
+            const candidateRoot = path.join("/", relative);
+            if (fs.existsSync(candidateRoot)) return candidateRoot;
+
             // Try resolving if storedPath was a Windows absolute path but we're on Linux (Docker)
             // Stored: D:\shogun-2\tunecamp\music\...
             // This is handled by the marker logic above if 'music' is a marker.

@@ -44,6 +44,8 @@ RUN npm run build
 
 # Build Frontend
 RUN cd webapp && npm install && npm run build
+# Ensure public assets are in dist (sometimes missed by Vite)
+RUN cp -r webapp/public/* webapp/dist/ 2>/dev/null || true
 
 # ===================================================
 # Production stage

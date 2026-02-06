@@ -123,8 +123,11 @@ export function createTracksRoutes(database: DatabaseService, apService: Activit
 
             const trackPath = resolveFile(track.file_path);
             if (!trackPath) {
-                return res.status(404).json({ error: "Audio file not found" });
+                console.warn(`❌ [Stream] Could not resolve file path: ${track.file_path}`);
+                return res.status(404).json({ error: "Audio file not found on disk. Try re-scanning your library." });
             }
+
+            console.log(`🎵 [Stream] Serving: ${trackPath}`);
 
             const stat = fs.statSync(trackPath);
             const fileSize = stat.size;

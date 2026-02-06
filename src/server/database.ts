@@ -160,6 +160,7 @@ export interface DatabaseService {
     createTrack(track: Omit<Track, "id" | "created_at" | "album_title" | "artist_name">): number;
     updateTrackAlbum(id: number, albumId: number | null): void;
     updateTrackArtist(id: number, artistId: number | null): void;
+    getTrackByMetadata(title: string, artistId: number | null, albumId: number | null): Track | undefined;
     updateTrackTitle(id: number, title: string): void;
     updateTrackPath(id: number, filePath: string, albumId: number): void;
     updateTrackDuration(id: number, duration: number): void;
@@ -768,6 +769,16 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updateTrackArtist(id: number, artistId: number | null): void {
             db.prepare("UPDATE tracks SET artist_id = ? WHERE id = ?").run(artistId, id);
+        },
+
+        getTrackByMetadata(title: string, artistId: number | null, albumId: number | null): Track | undefined {
+            // Case-insensitive title match with artist/album check
+            return db.prepare(`
+                SELECT * FROM tracks 
+                WHERE LOWER(title) = LOWER(?) 
+                AND (artist_id = ? OR (artist_id IS NULL AND ? IS NULL))
+                AND (album_id = ? OR (album_id IS NULL AND ? IS NULL))
+            `).get(title, artistId, artistId, albumId, albumId) as Track | undefined;
         },
 
         updateTrackTitle(id: number, title: string): void {

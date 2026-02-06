@@ -3,7 +3,8 @@ import fs from "fs-extra";
 import chokidar, { type FSWatcher } from "chokidar";
 import { parseFile } from "music-metadata";
 import { parse } from "yaml";
-import type { DatabaseService } from "./database.js";
+import { resolveFile } from "./utils/pathHelper.js";
+import type { DatabaseService, Artist, Album, Track } from "./database.js";
 import { WaveformService } from "./waveform.js";
 import { slugify, getStandardCoverFilename } from "../utils/audioUtils.js";
 import ffmpeg from "fluent-ffmpeg";
@@ -305,9 +306,36 @@ export function createScanner(database: DatabaseService): ScannerService {
             }
         }
 
-        // Skip if already in database, but verify album/artist linking
-        const existing = database.getTrackByPath(currentFilePath);
+        // Skip if already in database by path
+        let existing = database.getTrackByPath(currentFilePath);
+
+        // IF NOT FOUND by path, check if another record for this SAME song exists (de-duplication)
+        if (!existing) {
+            try {
+                const metadata = await parseFile(currentFilePath);
+                const title = metadata.common.title || path.basename(currentFilePath, path.extname(currentFilePath));
+
+                // We need artist/album to deduplicate safely
+                const dir = path.dirname(currentFilePath);
+                let albumId = folderToAlbumMap.get(dir) || folderToAlbumMap.get(path.dirname(dir)) || null;
+
+                // If we found an existing record with same metadata, we'll update it instead of creating new
+                if (title && albumId) {
+                    const album = database.getAlbum(albumId);
+                    const artistId = album?.artist_id || null;
+                    existing = database.getTrackByMetadata(title, artistId, albumId);
+                    if (existing) {
+                        console.log(`    [Scanner] De-duplicated: found existing record for '${title}' at old path. Updating path.`);
+                    }
+                }
+            } catch (e) { }
+        }
+
         if (existing) {
+            // Update path if changed (important for de-duplication)
+            if (existing.file_path !== currentFilePath) {
+                database.updateTrackPath(existing.id, currentFilePath, existing.album_id || 0);
+            }
             // ... (rest of the existing logic using currentFilePath instead of filePath)
             // console.log(`Debug: Checking existing track ${path.basename(currentFilePath)} - Waveform: ${existing.waveform ? 'Present' : 'Missing'}`);
             const dir = path.dirname(currentFilePath);
@@ -417,39 +445,66 @@ export function createScanner(database: DatabaseService): ScannerService {
                         if (parent === current) break;
                         current = parent;
                     }
+
+                    // HEURISTIC: If still no artist, and we are deep enough, try to use parent-parent folder as artist
+                    if (!artistId) {
+                        const parts = dir.split(path.sep);
+                        if (parts.length >= 2) {
+                            const possibleArtist = parts[parts.length - 2];
+                            if (possibleArtist && !['music', 'library', 'releases'].includes(possibleArtist.toLowerCase())) {
+                                const existingArtist = database.getArtistByName(possibleArtist);
+                                artistId = existingArtist ? existingArtist.id : database.createArtist(possibleArtist);
+                                console.log(`    [Heuristic] Inferring artist from folder: ${possibleArtist}`);
+                            }
+                        }
+                    }
                 }
             }
 
             // 3. Fallback to metadata album if no release.yaml found
-            if (!albumId && common.album) {
-                // Try to find artist ID from metadata if still not set
-                if (!artistId && common.artist) {
-                    const existingArtist = database.getArtistByName(common.artist);
-                    artistId = existingArtist ? existingArtist.id : database.createArtist(common.artist);
+            if (!albumId) {
+                let albumTitle = common.album;
+
+                // HEURISTIC: If no metadata album, use parent folder as album title
+                if (!albumTitle) {
+                    const parts = dir.split(path.sep);
+                    const folderName = parts[parts.length - 1];
+                    if (folderName && !['music', 'library', 'releases', 'tracks', 'audio'].includes(folderName.toLowerCase())) {
+                        albumTitle = folderName;
+                        console.log(`    [Heuristic] Inferring album from folder: ${albumTitle}`);
+                    }
                 }
 
-                const existingAlbum = database.getAlbumByTitle(common.album, artistId || undefined);
-                if (existingAlbum) {
-                    albumId = existingAlbum.id;
-                } else {
-                    // Create new album from metadata
-                    albumId = database.createAlbum({
-                        title: common.album,
-                        slug: common.album.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
-                        artist_id: artistId,
-                        date: common.year?.toString() || null,
-                        cover_path: null, // Basic fallback
-                        genre: common.genre?.join(", ") || null,
-                        description: null,
-                        type: 'album',
-                        year: common.year || null,
-                        download: null,
-                        external_links: null,
-                        is_public: false,
-                        visibility: 'private',
-                        is_release: false, // Albums from metadata are library albums
-                        published_at: null,
-                    });
+                if (albumTitle) {
+                    // Try to find artist ID from metadata if still not set
+                    if (!artistId && common.artist) {
+                        const existingArtist = database.getArtistByName(common.artist);
+                        artistId = existingArtist ? existingArtist.id : database.createArtist(common.artist);
+                    }
+
+                    const existingAlbum = database.getAlbumByTitle(albumTitle, artistId || undefined);
+                    if (existingAlbum) {
+                        albumId = existingAlbum.id;
+                    } else {
+                        // Create new album from metadata/folder
+                        albumId = database.createAlbum({
+                            title: albumTitle,
+                            slug: albumTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+                            artist_id: artistId,
+                            date: common.year?.toString() || null,
+                            cover_path: null, // Basic fallback
+                            genre: common.genre?.join(", ") || null,
+                            description: null,
+                            type: 'album',
+                            year: common.year || null,
+                            download: null,
+                            external_links: null,
+                            is_public: false,
+                            visibility: 'private',
+                            is_release: false, // Albums from metadata/folders are library albums
+                            published_at: null,
+                        });
+                    }
                 }
             }
 
@@ -554,6 +609,26 @@ export function createScanner(database: DatabaseService): ScannerService {
 
         const stats = await database.getStats();
         console.log("Scan complete: " + stats.artists + " artists, " + stats.albums + " albums, " + stats.tracks + " tracks");
+
+        // Clean up stale records
+        await cleanupStaleTracks();
+    }
+
+    async function cleanupStaleTracks() {
+        console.log("[Scanner] Cleaning up stale database records...");
+        const allTracks = database.getTracks();
+        let removed = 0;
+        for (const track of allTracks) {
+            const resolved = resolveFile(track.file_path);
+            if (!resolved || !(await fs.pathExists(resolved))) {
+                console.log(`  [Cleanup] Removing stale track: ${track.title} (${track.file_path})`);
+                database.deleteTrack(track.id);
+                removed++;
+            }
+        }
+        if (removed > 0) {
+            console.log(`[Scanner] Removed ${removed} stale track(s).`);
+        }
     }
 
     function startWatching(dir: string): void {
