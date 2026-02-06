@@ -80,29 +80,58 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // DIAGNOSTIC LOGGING: Verify frontend file paths
     const webappPath = path.join(__dirname, "..", "..", "webapp");
     const webappDistPath = path.join(webappPath, "dist");
-    const webappPublicPath = path.join(webappPath, "public");
-    const swJsDistPath = path.join(webappDistPath, "sw.js");
-    const manifestDistPath = path.join(webappDistPath, "manifest.json");
 
-    console.log(`🔍 [Diagnostics] sw.js path: ${swJsDistPath} (Exists: ${fs.existsSync(swJsDistPath)})`);
-    console.log(`🔍 [Diagnostics] manifest.json path: ${manifestDistPath} (Exists: ${fs.existsSync(manifestDistPath)})`);
+    // Robustly find a static file
+    const findStaticFile = (filename: string) => {
+        const candidates = [
+            path.join(webappDistPath, filename),
+            path.join(webappPath, filename),
+            path.join(webappPath, "public", filename),
+            path.join(process.cwd(), "webapp", "dist", filename),
+            path.join(process.cwd(), "webapp", "public", filename),
+            path.join(process.cwd(), "webapp", filename)
+        ];
+        return candidates.find(p => fs.existsSync(p));
+    };
+
+    // Diagnostic listing function
+    const listDirRecursive = (dir: string, depth = 0) => {
+        if (depth > 2 || !fs.existsSync(dir)) return;
+        try {
+            const items = fs.readdirSync(dir);
+            console.log(`📂 [Diagnostics] Contents of ${dir}: ${items.join(", ")}`);
+            for (const item of items) {
+                const fullPath = path.join(dir, item);
+                if (fs.statSync(fullPath).isDirectory()) {
+                    listDirRecursive(fullPath, depth + 1);
+                }
+            }
+        } catch (e) { }
+    };
+
+    console.log(`🔍 [Diagnostics] Current WD: ${process.cwd()}`);
+    console.log(`🔍 [Diagnostics] __dirname: ${__dirname}`);
+    listDirRecursive(webappDistPath);
+    listDirRecursive(path.join(process.cwd(), "webapp"));
 
     // Explicitly serve sw.js and manifest.json at the root VERY EARLY to avoid being caught by other routes
     app.get("/sw.js", (req, res) => {
-        if (fs.existsSync(swJsDistPath)) {
-            console.log(`✅ [Express] Serving sw.js from: ${swJsDistPath}`);
-            return res.sendFile(path.resolve(swJsDistPath));
+        const foundPath = findStaticFile("sw.js");
+        if (foundPath) {
+            console.log(`✅ [Express] Serving sw.js from: ${foundPath}`);
+            return res.sendFile(path.resolve(foundPath));
         }
-        console.warn(`❌ [Express] sw.js requested but not found at ${swJsDistPath}`);
+        console.warn(`❌ [Express] sw.js requested but not found anywhere!`);
         res.status(404).send("sw.js not found - possible build issue");
     });
 
     app.get("/manifest.json", (req, res) => {
-        if (fs.existsSync(manifestDistPath)) {
-            console.log(`✅ [Express] Serving manifest.json from: ${manifestDistPath}`);
-            return res.sendFile(path.resolve(manifestDistPath));
+        const foundPath = findStaticFile("manifest.json");
+        if (foundPath) {
+            console.log(`✅ [Express] Serving manifest.json from: ${foundPath}`);
+            return res.sendFile(path.resolve(foundPath));
         }
-        console.warn(`❌ [Express] manifest.json requested but not found at ${manifestDistPath}`);
+        console.warn(`❌ [Express] manifest.json requested but not found anywhere!`);
         res.status(404).json({ error: "manifest.json not found" });
     });
 
