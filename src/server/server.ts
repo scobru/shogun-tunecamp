@@ -80,6 +80,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // DIAGNOSTIC LOGGING: Verify frontend file paths
     const webappPath = path.join(__dirname, "..", "..", "webapp");
     const webappDistPath = path.join(webappPath, "dist");
+    const webappPublicPath = path.join(webappPath, "public");
     const swJsDistPath = path.join(webappDistPath, "sw.js");
     const manifestDistPath = path.join(webappDistPath, "manifest.json");
 
