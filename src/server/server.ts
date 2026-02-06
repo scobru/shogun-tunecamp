@@ -77,6 +77,34 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const apService = createActivityPubService(database, config, federation);
     await apService.generateKeysForAllArtists();
 
+    // DIAGNOSTIC LOGGING: Verify frontend file paths
+    const webappPath = path.join(__dirname, "..", "..", "webapp");
+    const webappDistPath = path.join(webappPath, "dist");
+    const swJsDistPath = path.join(webappDistPath, "sw.js");
+    const manifestDistPath = path.join(webappDistPath, "manifest.json");
+
+    console.log(`🔍 [Diagnostics] sw.js path: ${swJsDistPath} (Exists: ${fs.existsSync(swJsDistPath)})`);
+    console.log(`🔍 [Diagnostics] manifest.json path: ${manifestDistPath} (Exists: ${fs.existsSync(manifestDistPath)})`);
+
+    // Explicitly serve sw.js and manifest.json at the root VERY EARLY to avoid being caught by other routes
+    app.get("/sw.js", (req, res) => {
+        if (fs.existsSync(swJsDistPath)) {
+            console.log(`✅ [Express] Serving sw.js from: ${swJsDistPath}`);
+            return res.sendFile(path.resolve(swJsDistPath));
+        }
+        console.warn(`❌ [Express] sw.js requested but not found at ${swJsDistPath}`);
+        res.status(404).send("sw.js not found - possible build issue");
+    });
+
+    app.get("/manifest.json", (req, res) => {
+        if (fs.existsSync(manifestDistPath)) {
+            console.log(`✅ [Express] Serving manifest.json from: ${manifestDistPath}`);
+            return res.sendFile(path.resolve(manifestDistPath));
+        }
+        console.warn(`❌ [Express] manifest.json requested but not found at ${manifestDistPath}`);
+        res.status(404).json({ error: "manifest.json not found" });
+    });
+
     // API Routes
     app.use("/rest", createSubsonicRouter({ db: database, auth: authService, musicDir: config.musicDir }));
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService));
@@ -178,22 +206,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
         }
     });
 
-    // Serve static webapp
-    const webappPath = path.join(__dirname, "..", "..", "webapp");
-    const webappPublicPath = path.join(webappPath, "public"); // Vite public dir
-    const webappDistPath = path.join(webappPath, "dist");     // Built files
-
-    console.log(`📂 Serving webapp from: ${webappPath}`);
-    console.log(`   - webappDistPath exists: ${fs.existsSync(webappDistPath)} (${webappDistPath})`);
-    console.log(`   - webappPublicPath exists: ${fs.existsSync(webappPublicPath)} (${webappPublicPath})`);
-    console.log(`   - webappPath exists: ${fs.existsSync(webappPath)} (${webappPath})`);
-
-    // Check for specific files
-    const swJsPath = path.join(webappPath, "sw.js");
-    const manifestPath = path.join(webappPath, "manifest.json");
-    console.log(`   - sw.js exists: ${fs.existsSync(swJsPath)}`);
-    console.log(`   - manifest.json exists: ${fs.existsSync(manifestPath)}`);
-
     // 1. Serve built files if they exist (prod)
     if (fs.existsSync(webappDistPath)) {
         console.log(`   ✅ Using webappDistPath for static files`);
@@ -209,27 +221,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // 3. Fallback to webapp root (dev/legacy)
     console.log(`   ✅ Using webappPath for static files (fallback)`);
     app.use(express.static(webappPath));
-
-    // Explicitly serve sw.js and manifest.json to avoid MIME type issues
-    app.get("/sw.js", (req, res) => {
-        const paths = [swJsPath, path.join(webappDistPath, "sw.js"), path.join(webappPublicPath, "sw.js")];
-        const foundPath = paths.find(p => fs.existsSync(p));
-        if (foundPath) {
-            console.log(`✅ Serving sw.js from: ${foundPath}`);
-            return res.sendFile(path.resolve(foundPath));
-        }
-        res.status(404).send("sw.js not found");
-    });
-
-    app.get("/manifest.json", (req, res) => {
-        const paths = [manifestPath, path.join(webappDistPath, "manifest.json"), path.join(webappPublicPath, "manifest.json")];
-        const foundPath = paths.find(p => fs.existsSync(p));
-        if (foundPath) {
-            console.log(`✅ Serving manifest.json from: ${foundPath}`);
-            return res.sendFile(path.resolve(foundPath));
-        }
-        res.status(404).json({ error: "manifest.json not found" });
-    });
 
     // SPA fallback - serve index.html for all non-API routes
     const indexHtmlPath = fs.existsSync(path.join(webappPath, "index.html"))
