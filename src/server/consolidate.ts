@@ -91,7 +91,48 @@ export class ConsolidationService {
             if (ok) success++; else failed++;
         }
 
+        // 6. Clean up empty directories left behind
+        try {
+            await this.removeEmptyDirs(this.rootDir);
+        } catch (error) {
+            console.error("[Consolidate] Error cleaning up empty directories:", error);
+        }
+
         console.log(`[Consolidate] Done: ${success} tracks moved, ${failed} failed.`);
         return { success, failed };
+    }
+
+    /**
+     * Recursively removes empty directories
+     */
+    private async removeEmptyDirs(dir: string) {
+        const stats = await fs.stat(dir);
+        if (!stats.isDirectory()) return;
+
+        const files = await fs.readdir(dir);
+        const basename = path.basename(dir);
+        const isProtected = basename === "library" ||
+            basename === "releases" ||
+            basename === "assets" ||
+            basename === path.basename(this.rootDir);
+
+        if (files.length > 0) {
+            // Check subdirectories
+            for (const file of files) {
+                const fullPath = path.join(dir, file);
+                await this.removeEmptyDirs(fullPath);
+            }
+
+            // Re-check after cleaning subdirectories
+            const filesAfter = await fs.readdir(dir);
+            if (filesAfter.length === 0 && !isProtected) {
+                console.log(`[Consolidate] Removing empty directory: ${dir}`);
+                await fs.remove(dir);
+            }
+        } else if (!isProtected) {
+            // Directory is empty and not protected
+            console.log(`[Consolidate] Removing empty directory: ${dir}`);
+            await fs.remove(dir);
+        }
     }
 }
