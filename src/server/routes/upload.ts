@@ -14,10 +14,9 @@ const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
  */
 function createStorage(musicDir: string) {
     return multer.diskStorage({
-        destination: async (req, file, cb) => {
+        destination: (req, file, cb) => {
             // Determine destination based on request
             const releaseSlug = req.body.releaseSlug ? sanitizeFilename(req.body.releaseSlug) : undefined;
-            const uploadType = req.body.type || "library";
 
             let destDir: string;
 
@@ -30,17 +29,16 @@ function createStorage(musicDir: string) {
                     ? path.join(musicDir, "releases", releaseSlug, "tracks")
                     : path.join(musicDir, "releases", releaseSlug, "artwork");
             } else {
-                // FALLBACK: Upload to Library (legacy / single track mode)
-                // We'll organize by Artist if we can parse it, otherwise generic Library folder
-                // For now, simpler approach: music/Library/<filename> or just music/Library
-                // Better: Let scanner handle organization. But we need a target.
-
-                // Let's use a "Library" folder
+                // Use a "Library" folder
                 destDir = path.join(musicDir, "Library");
             }
 
-            await fs.ensureDir(destDir);
-            cb(null, destDir);
+            fs.ensureDir(destDir)
+                .then(() => cb(null, destDir))
+                .catch(err => {
+                    console.error(`❌ [Multer] Failed to create destination directory ${destDir}:`, err);
+                    cb(err, destDir);
+                });
         },
         filename: (req, file, cb) => {
             // Use original filename, sanitized
@@ -72,10 +70,11 @@ function fileFilter(
 /** Multer for background image: save to musicDir/assets/ as background.<ext> */
 function createBackgroundStorage(musicDir: string) {
     return multer.diskStorage({
-        destination: async (_req, _file, cb) => {
+        destination: (_req, _file, cb) => {
             const destDir = path.join(musicDir, "assets");
-            await fs.ensureDir(destDir);
-            cb(null, destDir);
+            fs.ensureDir(destDir)
+                .then(() => cb(null, destDir))
+                .catch(err => cb(err, destDir));
         },
         filename: (_req, file, cb) => {
             const ext = path.extname(file.originalname).toLowerCase() || ".png";
@@ -123,8 +122,6 @@ export function createUploadRoutes(
             if (!files || files.length === 0) {
                 return res.status(400).json({ error: "No files uploaded" });
             }
-
-            console.log(`📤 Uploaded ${files.length} track(s)`);
 
             console.log(`📤 Uploaded ${files.length} track(s)`);
 
@@ -269,10 +266,11 @@ export function createUploadRoutes(
     /** Multer for site cover image: save to musicDir/assets/ as site-cover.<ext> */
     function createSiteCoverStorage(musicDir: string) {
         return multer.diskStorage({
-            destination: async (_req, _file, cb) => {
+            destination: (_req, _file, cb) => {
                 const destDir = path.join(musicDir, "assets");
-                await fs.ensureDir(destDir);
-                cb(null, destDir);
+                fs.ensureDir(destDir)
+                    .then(() => cb(null, destDir))
+                    .catch(err => cb(err, destDir));
             },
             filename: (_req, file, cb) => {
                 const ext = path.extname(file.originalname).toLowerCase() || ".png";
