@@ -1,4 +1,5 @@
 import path from "path";
+import fs from "fs";
 import crypto from "crypto";
 
 export interface ServerConfig {
@@ -19,10 +20,23 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
     const defaultMusicDir = path.join(process.cwd(), "music");
 
     // Generate a random JWT secret if not provided
-    const jwtSecret =
-        process.env.TUNECAMP_JWT_SECRET ||
-        overrides?.jwtSecret ||
-        crypto.randomBytes(32).toString("hex");
+    // Generate a random JWT secret if not provided
+    let jwtSecret = process.env.TUNECAMP_JWT_SECRET || overrides?.jwtSecret;
+
+    if (!jwtSecret) {
+        const secretFilePath = path.join(process.cwd(), '.jwt-secret');
+        if (fs.existsSync(secretFilePath)) {
+            jwtSecret = fs.readFileSync(secretFilePath, 'utf-8').trim();
+        } else {
+            jwtSecret = crypto.randomBytes(32).toString("hex");
+            try {
+                fs.writeFileSync(secretFilePath, jwtSecret);
+                console.log(`🔒 Generated new JWT secret and saved to ${secretFilePath}`);
+            } catch (err) {
+                console.warn("⚠️  Could not save JWT secret to file, sessions may be lost on restart:", err);
+            }
+        }
+    }
 
     return {
         port: parseInt(process.env.TUNECAMP_PORT || "1970", 10),
