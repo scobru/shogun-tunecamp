@@ -36,7 +36,7 @@ coverage/
 .env.local
 
 # Generated sites
-public/
+/public/
 test-output/
 output/
 build/
