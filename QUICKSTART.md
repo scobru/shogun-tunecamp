@@ -7,7 +7,6 @@ Get up and running with Tunecamp in 5 minutes!
 ```bash
 cd tunecamp
 npm install
-npm run gleam:build
 npm run build
 
 # Build the webapp

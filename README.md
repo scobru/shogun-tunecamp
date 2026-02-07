@@ -35,13 +35,12 @@ Inspired by [Faircamp](https://simonrepp.com/faircamp/), this tool helps you cre
 - 📁 **File Browser**: Admin file system browser for library management
 - 🔍 **Search**: Full-text search across tracks, albums, and artists
 - 👥 **User Accounts**: Decentralized user authentication for comments and profiles
-- 🎯 **Type Safety**: Gleam integration for critical utility functions
+- 🎯 **Type Safety**: TypeScript-first implementation for robust logic
 
 ## Quick Start
 
 ### Prerequisites
 - Node.js 18+
-- [Gleam](https://gleam.run/getting-started/installing) (for development/building from source)
 
 ### Installation
 
@@ -57,7 +56,6 @@ For development or building from source:
 # Install dependencies
 npm install
 
-npm run gleam:build
 npm run build
 
 # Build the webapp (Required)
@@ -321,6 +319,15 @@ tunecamp serve <output-dir> --port 3000
 
 # Initialize a new catalog
 tunecamp init <directory>
+
+# Backup the database
+tunecamp backup [target-dir]
+
+# Restore the database from a backup
+tunecamp restore <backup-file>
+
+# Consolidate the music library
+tunecamp consolidate [music-dir]
 ```
 
 ## Development Modes

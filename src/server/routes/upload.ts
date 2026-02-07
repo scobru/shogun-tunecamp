@@ -126,23 +126,13 @@ export function createUploadRoutes(
 
             console.log(`📤 Uploaded ${files.length} track(s)`);
 
-            // Trigger rescan to process new files in the background
-            scanner.scanDirectory(musicDir).then(scanResult => {
-                // Optional: log completion or errors to server console
-                const hasConversionErrors = scanResult.failed.some(f => f.message.includes("WAV to MP3 conversion failed"));
-                if (hasConversionErrors) {
-                    console.warn('📢 Scan complete with some conversion failures.');
-                } else if (scanResult.failed.length > 0) {
-                    console.warn(`📢 Scan complete with ${scanResult.failed.length} failures.`);
-                } else {
-                    console.log('✅ Background scan complete.');
-                }
-            }).catch(err => {
-                console.error('❌ Background scan failed:', err);
-            });
+            console.log(`📤 Uploaded ${files.length} track(s)`);
+
+            // Note: Scanner watcher will pick up the new files automatically.
+            // We don't trigger a full resident scan here to avoid 504 and high CPU.
 
             res.status(202).json({
-                message: `Upload accepted. A background scan has been initiated for ${files.length} file(s).`,
+                message: `Upload accepted. Processing ${files.length} file(s) in background.`,
             });
         } catch (error) {
             console.error("Upload error:", error);

@@ -20,6 +20,46 @@ if (ffprobePath && ffprobePath.path) {
 }
 
 /**
+ * Simple sequential processing queue to avoid over-parallelizing heavy tasks (ffmpeg, conversion)
+ */
+class ProcessingQueue {
+    private queue: (() => Promise<any>)[] = [];
+    private processing = false;
+
+    async add<T>(task: () => Promise<T>): Promise<T> {
+        return new Promise((resolve, reject) => {
+            this.queue.push(async () => {
+                try {
+                    const result = await task();
+                    resolve(result);
+                } catch (err) {
+                    reject(err);
+                }
+            });
+            this.process();
+        });
+    }
+
+    private async process() {
+        if (this.processing || this.queue.length === 0) return;
+        this.processing = true;
+
+        while (this.queue.length > 0) {
+            const task = this.queue.shift();
+            if (task) {
+                try {
+                    await task();
+                } catch (e) {
+                    // Task handles its own rejection, but we catch to ensure loop continues
+                }
+            }
+        }
+
+        this.processing = false;
+    }
+}
+
+/**
  * Robust wrapper for music-metadata parseFile with retry mechanism.
  * Helps avoid RangeError and FileHandle issues with freshly converted/moved files.
  */
@@ -128,6 +168,7 @@ export function createScanner(database: DatabaseService): ScannerService {
     let watcher: FSWatcher | null = null;
     let isScanning = false;
     let pendingScan: Promise<ScanResult> | null = null;
+    const processQueue = new ProcessingQueue();
     // Map directory paths to album IDs to efficiently link tracks
     const folderToAlbumMap = new Map<string, number>();
     // Map directory paths to artist IDs
@@ -345,8 +386,8 @@ export function createScanner(database: DatabaseService): ScannerService {
                     console.log(`    [Scanner] Found existing MP3 for WAV: ${path.basename(currentFilePath)}`);
                     // Fall through to process this MP3
                 } else {
-                    // MP3 does not exist, perform conversion
-                    const convertedPath = await convertWavToMp3(currentFilePath); // This might return an error if conversion fails
+                    // MP3 does not exist, perform conversion using queue
+                    const convertedPath = await processQueue.add(() => convertWavToMp3(currentFilePath));
                     // If conversion successful, use the new MP3 path
                     if (await fs.pathExists(convertedPath)) {
                         currentFilePath = mp3Path;
@@ -456,8 +497,8 @@ export function createScanner(database: DatabaseService): ScannerService {
 
             // Check if waveform is missing
             if (!existing.waveform) {
-                // Generate waveform in background
-                WaveformService.generateWaveform(currentFilePath)
+                // Generate waveform in background using queue
+                processQueue.add(() => WaveformService.generateWaveform(currentFilePath))
                     .then((peaks: number[]) => {
                         const json = JSON.stringify(peaks);
                         database.updateTrackWaveform(existing.id, json);
@@ -633,8 +674,8 @@ export function createScanner(database: DatabaseService): ScannerService {
                 waveform: null // Pattern for now
             });
 
-            // Generate waveform in background
-            WaveformService.generateWaveform(currentFilePath)
+            // Generate waveform in background using queue
+            processQueue.add(() => WaveformService.generateWaveform(currentFilePath))
                 .then((peaks: number[]) => {
                     const json = JSON.stringify(peaks);
                     database.updateTrackWaveform(trackId, json);

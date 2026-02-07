@@ -155,7 +155,7 @@ export const API = {
         handleResponse(api.delete(`/tracks/${id}${deleteFile ? '?deleteFile=true' : ''}`)),
 
     // --- Admin: Uploads ---
-    uploadTracks: (files: File[], options: { releaseSlug?: string } = {}) => {
+    uploadTracks: (files: File[], options: { releaseSlug?: string, onProgress?: (percent: number) => void } = {}) => {
         const formData = new FormData();
         if (options.releaseSlug) {
             formData.append('releaseSlug', options.releaseSlug);
@@ -163,7 +163,13 @@ export const API = {
         }
         files.forEach(file => formData.append('files', file));
         return handleResponse(api.post('/admin/upload/tracks', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (progressEvent) => {
+                if (options.onProgress && progressEvent.total) {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    options.onProgress(percentCompleted);
+                }
+            }
         }));
     },
     uploadCover: (file: File, releaseSlug?: string) => {

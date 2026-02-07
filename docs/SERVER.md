@@ -29,6 +29,19 @@ Arguments:
 Options:
   -p, --port <n>    Port number (default: 1970)
   -d, --db <path>   Database file path (default: ./tunecamp.db)
+
+## Maintenance Commands
+
+```bash
+# Backup the database
+tunecamp backup [target-dir]
+
+# Restore the database from a backup
+tunecamp restore <backup-file>
+
+# Consolidate the music library
+tunecamp consolidate [music-dir]
+```
 ```
 
 ## Library Modes

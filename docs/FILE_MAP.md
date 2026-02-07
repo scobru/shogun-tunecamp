@@ -1,42 +1,46 @@
 # File Map
 
 ## Root Directory
--   `src/`: TypeScript source code.
--   `webapp/`: Frontend static assets (JS, CSS, HTML).
--   `templates/`: Handlebars themes.
+-   `src/`: TypeScript source code (Node.js/CLI/Server).
+-   `webapp/`: Frontend React application (Vite/TypeScript).
+-   `templates/`: Handlebars themes for static site generation.
 -   `docs/`: Project documentation.
--   `examples/`: Sample catalogs.
--   `dist/`: Compiled JavaScript output.
+-   `examples/`: Sample catalogs for testing.
+-   `dist/`: Compiled JavaScript output (from `src/`).
+-   `scripts/`: Utility scripts.
 
 ## `src/` - Source Code
 -   `cli.ts`: Main entry point for the CLI tool.
 -   `index.ts`: Library exports.
 -   `generator/`: Static site generation logic.
-    -   `index.ts`: Main generator orchestrator.
--   `server/`: Server mode implementation.
+-   `server/`: Server mode implementation (Express/Fedify/GunDB).
     -   `server.ts`: Express server setup.
-    -   `activitypub.ts`: Federation logic.
-    -   `database.ts`: Database connection/logic.
+    -   `activitypub.ts`: Federation/ActivityPub logic.
+    -   `database.ts`: SQLite database connection and operations.
+    -   `gundb.ts`: GunDB integration for comments and stats.
     -   `routes/`: API and page routes.
-        -   `posts.ts`: Custom posts API.
-        -   `backup.ts`: Backup system logic.
-        -   `admin.ts`: Admin dashboard routes.
-        -   `releases.ts`: Release management routes.
--   `studio/`: Admin interface logic.
--   `gleam/`: Gleam source code.
--   `gleam_generated/`: Compiled Gleam JS interface.
--   `utils/`: Shared helper functions.
+        -   `admin.ts`: Admin dashboard and management.
+        -   `releases.ts`: Release and track management.
+        -   `auth.ts`: Authentication and user management.
+        -   `stats.ts`: Library and network statistics.
+        -   `subsonic.ts`: Subsonic API compatibility layer.
+-   `utils/`: Shared helper functions (metadata, file system).
+-   `types/`: TypeScript type definitions.
 
 ## `webapp/` - Web Application
--   `index.html`: Main entry point for the web app (SPA).
--   `js/`: Client-side JavaScript.
-    -   `app.js`: Main application logic.
--   `css/`: Stylesheets.
-    -   `style.css`: Main styles.
+-   `src/`: Frontend source code.
+    -   `main.tsx`: React entry point.
+    -   `App.tsx`: Main application component.
+    -   `pages/`: SPA page components.
+    -   `components/`: Reusable UI components and modals.
+    -   `services/`: API and GunDB interaction logic.
+    -   `stores/`: State management (Zustand).
+-   `public/`: Static assets for the web application.
+-   `index.html`: Main HTML template for Vite.
 
 ## `templates/` - Themes
--   `default/`: The default theme.
+-   `default/`: The default theme (Handlebars).
     -   `index.hbs`: Homepage template.
     -   `release.hbs`: Release page template.
     -   `layout.hbs`: Base layout.
-    -   `assets/`: Theme-specific assets.
+    -   `assets/`: Theme-specific CSS and JS.

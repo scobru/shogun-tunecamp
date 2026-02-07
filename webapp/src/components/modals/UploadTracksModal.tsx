@@ -80,17 +80,49 @@ export const UploadTracksModal = ({ onUploadComplete }: { onUploadComplete?: () 
 
         setUploading(true);
         setError('');
+        setProgress(0);
+        
+        let successCount = 0;
+        let failCount = 0;
         
         try {
-            await API.uploadTracks(files, { releaseSlug });
-            setSuccess(`Successfully uploaded ${files.length} tracks.`);
-            setFiles([]);
-            if (onUploadComplete) onUploadComplete();
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                try {
+                    // Base progress for previous files
+                    const baseProgress = (i / files.length) * 100;
+                    
+                    // Upload single file with progress
+                    await API.uploadTracks([file], { 
+                        releaseSlug,
+                        onProgress: (percent) => {
+                            // Calculate total progress: base + (this file's percent * its weight)
+                            const totalProgress = baseProgress + (percent * (1 / files.length));
+                            setProgress(Math.round(totalProgress));
+                        }
+                    });
+                    successCount++;
+                } catch (err: any) {
+                    console.error(`Failed to upload ${file.name}:`, err);
+                    failCount++;
+                }
+            }
             
-            // Auto close after success? Maybe keep open to see message.
+            setProgress(100);
+            
+            if (failCount === 0) {
+                setSuccess(`Successfully uploaded all ${successCount} tracks.`);
+                setFiles([]);
+            } else {
+                setError(`Uploaded ${successCount} tracks, but ${failCount} failed. Check console for details.`);
+            }
+            
+            if (onUploadComplete) onUploadComplete();
+            if (releaseSlug) loadExistingTracks(releaseSlug); // Refresh list
+            
         } catch (e: any) {
             console.error(e);
-            setError(e.message || 'Failed to upload tracks');
+            setError(e.message || 'An unexpected error occurred during upload');
         } finally {
             setUploading(false);
         }
