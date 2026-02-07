@@ -4,7 +4,7 @@
  */
 
 import path from "path";
-import { Catalog, Release, TrackMetadata } from "../types/index.js";
+import { Catalog, Release, Track } from "../types/index.js";
 import { normalizeUrl } from "../utils/audioUtils.js";
 
 export interface PodcastOptions {
@@ -113,7 +113,7 @@ export class PodcastFeedGenerator {
 
         // Collect all episodes (tracks from all releases)
         const episodes: Array<{
-            track: TrackMetadata;
+            track: Track;
             release: Release;
             pubDate: string;
         }> = [];
@@ -170,7 +170,7 @@ ${items}
     /**
      * Generate a single episode item
      */
-    private generateEpisodeItem(track: TrackMetadata, release: Release, episodeNumber: number): string {
+    private generateEpisodeItem(track: Track, release: Release, episodeNumber: number): string {
         const title = this.escapeXml(`${track.title} (from ${release.config.title})`);
         const description = this.escapeXml(track.description || release.config.description || `Episode ${episodeNumber}`);
         const audioUrl = this.getUrl(`releases/${release.slug}/${path.basename(track.file)}`);

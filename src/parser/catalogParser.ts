@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs-extra';
-import { Catalog, Release, ReleaseConfig, TrackMetadata } from '../types/index.js';
+import { Catalog, Release, ReleaseConfig, Track } from '../types/index.js';
 import {
   readCatalogConfig,
   readArtistConfig,
@@ -124,8 +124,8 @@ export class CatalogParser {
     return release;
   }
 
-  private async findTracks(releaseDir: string): Promise<TrackMetadata[]> {
-    const tracks: TrackMetadata[] = [];
+  private async findTracks(releaseDir: string): Promise<Track[]> {
+    const tracks: Track[] = [];
     const seenFiles = new Set<string>(); // Track seen filenames to prevent duplicates
 
     // Check both root and tracks/ subdirectory
@@ -170,4 +170,3 @@ export class CatalogParser {
     return tracks;
   }
 }
-

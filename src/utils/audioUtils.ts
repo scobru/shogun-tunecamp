@@ -1,6 +1,6 @@
 import { parseFile } from 'music-metadata';
 import path from 'path';
-import { TrackMetadata } from '../types/index.js';
+import { Track } from '../types/index.js';
 import { StringUtils } from './stringUtils.js';
 import { LibraryUtils } from './libraryUtils.js';
 
@@ -8,7 +8,7 @@ import { LibraryUtils } from './libraryUtils.js';
  * Audio file utilities
  */
 
-export async function readAudioMetadata(filePath: string): Promise<TrackMetadata> {
+export async function readAudioMetadata(filePath: string): Promise<Track> {
   try {
     const metadata = await parseFile(filePath);
     const filename = path.basename(filePath);
