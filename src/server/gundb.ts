@@ -72,6 +72,13 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
     let initialized = false;
     let serverPair: any = null;
 
+    // Cache for community data to prevent CPU starvation on frequent requests
+    const cache = {
+        sites: { data: [] as any[], timestamp: 0 },
+        tracks: { data: [] as any[], timestamp: 0 },
+        itemsTTL: 10 * 60 * 1000 // 10 minutes
+    };
+
     async function init(): Promise<boolean> {
         try {
             gun = Gun({
@@ -399,6 +406,12 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
     async function getCommunitySites(): Promise<any[]> {
         if (!initialized || !gun) return [];
 
+        // Check cache
+        const now = Date.now();
+        if (cache.sites.data.length > 0 && (now - cache.sites.timestamp < cache.itemsTTL)) {
+            return cache.sites.data;
+        }
+
         return new Promise((resolve) => {
             const sites: any[] = [];
             const processedIds = new Set();
@@ -455,6 +468,8 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
             // Wait for data to collect
             setTimeout(() => {
                 console.log(`⏱️ Discovery: Found ${sites.length} potential community sites`);
+                // Update Cache
+                cache.sites = { data: sites, timestamp: Date.now() };
                 resolve(sites);
             }, 6000);
         });
@@ -462,6 +477,12 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
 
     async function getCommunityTracks(): Promise<any[]> {
         if (!initialized || !gun) return [];
+
+        // Check cache
+        const now = Date.now();
+        if (cache.tracks.data.length > 0 && (now - cache.tracks.timestamp < cache.itemsTTL)) {
+            return cache.tracks.data;
+        }
 
         return new Promise((resolve) => {
             const tracks: any[] = [];
@@ -594,6 +615,10 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
                 }
                 const result = Array.from(uniqueTracks.values());
                 console.log(`🌐 Found ${result.length} unique community tracks`);
+
+                // Update Cache
+                cache.tracks = { data: result, timestamp: Date.now() };
+
                 resolve(result);
             }, 8000);
         });
