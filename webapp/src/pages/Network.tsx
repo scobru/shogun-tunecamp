@@ -217,7 +217,12 @@ export const Network = () => {
                              // Legacy uses a proxy logic or direct url. 
                              // We constructed basic track objects in handlePlay, let's use similar logic for display.
                              const baseUrl = item.siteUrl ? item.siteUrl.replace(/\/$/, '') : '';
-                             const coverUrl = track.coverImage || (track.albumId && baseUrl ? `${baseUrl}/api/albums/${track.albumId}/cover` : undefined);
+                             let coverUrl = track.coverImage || (track.albumId && baseUrl ? `${baseUrl}/api/albums/${track.albumId}/cover` : undefined);
+                             
+                             // Validate URL to prevent 404s on garbage data (e.g. "cover")
+                             if (coverUrl && !coverUrl.startsWith('http') && !coverUrl.startsWith('/')) {
+                                 coverUrl = undefined;
+                             }
 
                              return (
                                 <div 

@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import path from "path";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
+import { getPlaceholderSVG } from "../../utils/audioUtils.js";
 
 export function createAlbumsRoutes(database: DatabaseService, musicDir: string) {
     const router = Router();
@@ -127,7 +128,10 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string) 
             }
 
             if (!album || !album.cover_path) {
-                return res.status(404).json({ error: "Album not found or no cover path" });
+                const svg = getPlaceholderSVG(album ? album.title : "No Cover");
+                res.setHeader("Content-Type", "image/svg+xml");
+                res.setHeader("Cache-Control", "public, max-age=86400");
+                return res.send(svg);
             }
 
             // Note: Cover images are accessible regardless of album visibility
@@ -136,7 +140,10 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string) 
             // Verify file existence
             const resolvedPath = path.join(musicDir, album.cover_path);
             if (!await fs.pathExists(resolvedPath)) {
-                return res.status(404).json({ error: "Cover not found on disk" });
+                const svg = getPlaceholderSVG(album.title);
+                res.setHeader("Content-Type", "image/svg+xml");
+                res.setHeader("Cache-Control", "public, max-age=86400");
+                return res.send(svg);
             }
 
             const ext = path.extname(resolvedPath as string).toLowerCase();

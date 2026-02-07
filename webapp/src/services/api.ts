@@ -71,7 +71,7 @@ export const API = {
 
     getArtists: () => handleResponse(api.get<Artist[]>('/artists')),
     getArtist: (idOrSlug: string | number) => handleResponse(api.get<Artist>(`/artists/${idOrSlug}`)),
-    getArtistCoverUrl: (idOrSlug: string | number) => `${API_URL}/artists/${idOrSlug}/cover`,
+    getArtistCoverUrl: (idOrSlug: string | number) => idOrSlug ? `${API_URL}/artists/${idOrSlug}/cover` : '',
 
     getTracks: () => handleResponse(api.get<Track[]>('/tracks')),
     getTrack: (id: string | number) => handleResponse(api.get<Track>(`/tracks/${id}`)),

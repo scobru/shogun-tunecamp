@@ -3,6 +3,7 @@ import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import path from "path";
 import fs from "fs-extra";
+import { getPlaceholderSVG } from "../../utils/audioUtils.js";
 
 export function createArtistsRoutes(database: DatabaseService, musicDir: string) {
     const router = Router();
@@ -301,7 +302,12 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 }
             }
 
-            res.status(404).json({ error: "No cover found" });
+            // Fallback: Return SVG placeholder instead of 404
+            const svg = getPlaceholderSVG(artist.name);
+            res.setHeader("Content-Type", "image/svg+xml");
+            res.setHeader("Cache-Control", "public, max-age=86400");
+            res.send(svg);
+            // res.status(404).json({ error: "No cover found" });
         } catch (error) {
             console.error("Error getting artist cover:", error);
             res.status(500).json({ error: "Failed to get cover" });
