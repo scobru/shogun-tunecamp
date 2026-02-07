@@ -41,8 +41,13 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                 setVisibility(e.detail.visibility || (e.detail.is_public ? 'public' : 'private'));
                 
                 // Fetch release tracks and set selected IDs
+                // Fetch release tracks and set selected IDs
                 const releaseDetails = await API.getAlbum(e.detail.id);
-                setSelectedTrackIds(releaseDetails.tracks.map((t: any) => t.id));
+                if (releaseDetails && releaseDetails.tracks) {
+                    setSelectedTrackIds(releaseDetails.tracks.map((t: any) => t.id));
+                } else {
+                    setSelectedTrackIds([]);
+                }
 
             } else {
                 setIsEditing(false);
@@ -61,8 +66,8 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
             dialogRef.current?.showModal();
         };
 
-        document.addEventListener('open-admin-release-modal', handleOpen as EventListener);
-        return () => document.removeEventListener('open-admin-release-modal', handleOpen as EventListener);
+        document.addEventListener('open-admin-release-modal', handleOpen as unknown as EventListener);
+        return () => document.removeEventListener('open-admin-release-modal', handleOpen as unknown as EventListener);
     }, []);
 
     const loadArtists = async () => {
