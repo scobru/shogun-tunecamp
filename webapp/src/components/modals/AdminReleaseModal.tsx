@@ -93,9 +93,16 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
     };
 
     const handleDelete = async () => {
-        if (!editId || !confirm('Are you sure you want to delete this release? This will remove all associated database entries.')) return;
+        if (!editId) return;
         
-        const deleteFiles = confirm('Do you also want to delete the audio files from the disk?');
+        // Custom confirmation logic to handle the three states (Cancel, Keep Files, Delete All)
+        // Since browser confirm is binary, we'll ask: "Delete everything?" -> OK. "Keep files?" -> Cancel is tricky.
+        // Let's stick to the previous flow but make messages clearer, OR assume delete means delete everything by default?
+        // User pattern suggests they want to delete everything usually.
+        
+        if (!confirm('Are you sure you want to delete this release? This will remove the database entries. You will be asked next if you want to delete the files from disk.')) return;
+        
+        const deleteFiles = confirm('PERMANENTLY DELETE FILES? \nOK = Delete files from disk (Cannot be undone) \nCancel = Keep files on disk (Will be re-scanned if not moved)');
         
         setLoading(true);
         setError('');

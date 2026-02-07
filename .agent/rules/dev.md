@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 <!-- Powered by BMAD™ Core -->
 
 # dev

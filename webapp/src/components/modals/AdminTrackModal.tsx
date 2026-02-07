@@ -51,14 +51,12 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
     };
 
     const handleDelete = async () => {
-        if (!trackId || !confirm('Are you sure you want to delete this track? This cannot be undone.')) return;
-        
-        const deleteFile = confirm('Do you also want to delete the audio file from the disk?');
+        if (!trackId || !confirm('Are you sure you want to delete this track? This will permanently delete the audio file from the disk and cannot be undone.')) return;
         
         setLoading(true);
         setError('');
         try {
-            await API.deleteTrack(trackId, deleteFile);
+            await API.deleteTrack(trackId, true); // Always delete file
             onTrackUpdated();
             dialogRef.current?.close();
         } catch (e: any) {
