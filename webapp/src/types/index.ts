@@ -46,6 +46,7 @@ export interface Album {
     coverImage?: string;
     year?: number;
     tracks?: Track[];
+    track_ids?: number[];
     type: 'album' | 'single' | 'ep';
     slug?: string;
     description?: string;
