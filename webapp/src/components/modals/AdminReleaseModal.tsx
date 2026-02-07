@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import API from '../../services/api';
-import { Disc } from 'lucide-react';
+import { Disc, Trash2 } from 'lucide-react';
 // import type { Release } from '../../types';
 
 interface AdminReleaseModalProps {
@@ -61,6 +61,24 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
             const data = await API.getArtists();
             setArtists(data);
         } catch (e) { console.error(e); }
+    };
+
+    const handleDelete = async () => {
+        if (!editId || !confirm('Are you sure you want to delete this release? This will remove all associated database entries.')) return;
+        
+        const deleteFiles = confirm('Do you also want to delete the audio files from the disk?');
+        
+        setLoading(true);
+        setError('');
+        try {
+            await API.deleteRelease(editId, !deleteFiles);
+            onReleaseUpdated();
+            dialogRef.current?.close();
+        } catch (e: any) {
+            setError(e.message || 'Failed to delete release');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -211,11 +229,25 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                     
                     {error && <div className="text-error text-sm text-center">{error}</div>}
 
-                    <div className="modal-action">
-                        <button type="button" className="btn btn-ghost" onClick={() => dialogRef.current?.close()}>Cancel</button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
-                            {loading ? 'Saving...' : (isEditing ? 'Update Release' : 'Create Release')}
-                        </button>
+                    <div className="modal-action flex justify-between items-center">
+                        <div>
+                            {isEditing && (
+                                <button 
+                                    type="button" 
+                                    className="btn btn-error btn-outline" 
+                                    onClick={handleDelete}
+                                    disabled={loading}
+                                >
+                                    <Trash2 size={18} /> Delete Release
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex gap-2">
+                            <button type="button" className="btn btn-ghost" onClick={() => dialogRef.current?.close()}>Cancel</button>
+                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                                {loading ? 'Saving...' : (isEditing ? 'Update Release' : 'Create Release')}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
