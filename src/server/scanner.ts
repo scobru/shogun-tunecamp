@@ -3,7 +3,7 @@ import fs from "fs-extra";
 import chokidar, { type FSWatcher } from "chokidar";
 import { parseFile } from "music-metadata";
 import { parse } from "yaml";
-import { resolveFile } from "./utils/pathHelper.js";
+
 import type { DatabaseService, Artist, Album, Track } from "./database.js";
 import { WaveformService } from "./waveform.js";
 import { slugify, getStandardCoverFilename } from "../utils/audioUtils.js";
@@ -781,9 +781,9 @@ export function createScanner(database: DatabaseService): ScannerService {
             const ext = path.extname(filePath).toLowerCase();
             // Reload on yaml change? For now just audio
             if (AUDIO_EXTENSIONS.includes(ext)) {
-                await processAudioFile(filePath);
+                await processAudioFile(filePath, dir);
             } else if (path.basename(filePath) === 'release.yaml') {
-                await processReleaseConfig(filePath);
+                await processReleaseConfig(filePath, dir);
                 // Ideally re-scan folder tracks, but this is okay for MVP
             }
         });
