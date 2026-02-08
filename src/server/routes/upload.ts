@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs-extra";
+import os from "os";
 import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
 import { sanitizeFilename } from "../../utils/audioUtils.js";
@@ -10,25 +11,19 @@ const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opu
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
 
 /**
- * Configure multer storage
+ * Configure multer storage - Use system temp dir to avoid scanner interference
  */
-function createStorage(musicDir: string) {
+function createTempStorage() {
     return multer.diskStorage({
         destination: (req, file, cb) => {
-            // All files are uploaded to a central "tracks" directory
-            const destDir = path.join(musicDir, "tracks");
-
-            fs.ensureDir(destDir)
-                .then(() => cb(null, destDir))
-                .catch(err => {
-                    console.error(`❌ [Multer] Failed to create destination directory ${destDir}:`, err);
-                    cb(err, destDir);
-                });
+            const destDir = os.tmpdir();
+            cb(null, destDir);
         },
         filename: (req, file, cb) => {
-            // Use original filename, sanitized
-            const sanitized = sanitizeFilename(file.originalname);
-            cb(null, sanitized);
+            // Use random name to avoid collisions in temp
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            const ext = path.extname(file.originalname).toLowerCase();
+            cb(null, file.fieldname + '-' + uniqueSuffix + ext);
         },
     });
 }
@@ -52,21 +47,7 @@ function fileFilter(
     }
 }
 
-/** Multer for background image: save to musicDir/assets/ as background.<ext> */
-function createBackgroundStorage(musicDir: string) {
-    return multer.diskStorage({
-        destination: (_req, _file, cb) => {
-            const destDir = path.join(musicDir, "assets");
-            fs.ensureDir(destDir)
-                .then(() => cb(null, destDir))
-                .catch(err => cb(err, destDir));
-        },
-        filename: (_req, file, cb) => {
-            const ext = path.extname(file.originalname).toLowerCase() || ".png";
-            cb(null, "background" + (IMAGE_EXTENSIONS.includes(ext) ? ext : ".png"));
-        },
-    });
-}
+// Removed createBackgroundStorage in favor of createTempStorage
 
 export function createUploadRoutes(
     database: DatabaseService,
@@ -76,7 +57,7 @@ export function createUploadRoutes(
     const router = Router();
 
     const upload = multer({
-        storage: createStorage(musicDir),
+        storage: createTempStorage(),
         fileFilter,
         limits: {
             fileSize: 100 * 1024 * 1024, // 100MB
@@ -84,7 +65,7 @@ export function createUploadRoutes(
     });
 
     const uploadBackground = multer({
-        storage: createBackgroundStorage(musicDir),
+        storage: createTempStorage(),
         fileFilter: (_req, file, cb) => {
             const ext = path.extname(file.originalname).toLowerCase();
             if (IMAGE_EXTENSIONS.includes(ext)) {
@@ -108,7 +89,28 @@ export function createUploadRoutes(
                 return res.status(400).json({ error: "No files uploaded" });
             }
 
-            console.log(`📤 Uploaded ${files.length} track(s)`);
+            console.log(`📤 Upload received: ${files.length} track(s)`);
+
+            // Move files from temp to musicDir/tracks
+            const destDir = path.join(musicDir, "tracks");
+            await fs.ensureDir(destDir);
+
+            let movedCount = 0;
+            for (const file of files) {
+                const sanitizedName = sanitizeFilename(file.originalname);
+                const destPath = path.join(destDir, sanitizedName);
+
+                try {
+                    await fs.move(file.path, destPath, { overwrite: true });
+                    movedCount++;
+                } catch (err) {
+                    console.error(`❌ Failed to move uploaded file ${file.path} to ${destPath}:`, err);
+                    // Try to clean up temp file if move failed
+                    await fs.remove(file.path).catch(() => { });
+                }
+            }
+
+            console.log(`✅ Processed ${movedCount}/${files.length} uploads to ${destDir}`);
 
             // Note: Scanner watcher will pick up the new files automatically.
             // We don't trigger a full resident scan here to avoid 504 and high CPU.
@@ -191,8 +193,11 @@ export function createUploadRoutes(
                     size: file.size,
                 },
             });
+            console.log(`✅ Cover upload completed: ${file.originalname}`);
         } catch (error) {
-            console.error("Cover upload error:", error);
+            console.error("❌ Cover upload error:", error);
+            // Try cleanup
+            if (req.file) await fs.remove(req.file.path).catch(() => { });
             res.status(500).json({ error: "Cover upload failed" });
         }
     });
@@ -257,30 +262,18 @@ export function createUploadRoutes(
                     size: file.size,
                 },
             });
+            console.log(`✅ Avatar upload completed for artist ${artistId}`);
         } catch (error) {
-            console.error("Avatar upload error:", error);
+            console.error("❌ Avatar upload error:", error);
+            if (req.file) await fs.remove(req.file.path).catch(() => { });
             res.status(500).json({ error: "Avatar upload failed" });
         }
     });
 
-    /** Multer for site cover image: save to musicDir/assets/ as site-cover.<ext> */
-    function createSiteCoverStorage(musicDir: string) {
-        return multer.diskStorage({
-            destination: (_req, _file, cb) => {
-                const destDir = path.join(musicDir, "assets");
-                fs.ensureDir(destDir)
-                    .then(() => cb(null, destDir))
-                    .catch(err => cb(err, destDir));
-            },
-            filename: (_req, file, cb) => {
-                const ext = path.extname(file.originalname).toLowerCase() || ".png";
-                cb(null, "site-cover" + (IMAGE_EXTENSIONS.includes(ext) ? ext : ".png"));
-            },
-        });
-    }
+    // Removed createSiteCoverStorage
 
     const uploadSiteCover = multer({
-        storage: createSiteCoverStorage(musicDir),
+        storage: createTempStorage(),
         fileFilter: (_req, file, cb) => {
             const ext = path.extname(file.originalname).toLowerCase();
             if (IMAGE_EXTENSIONS.includes(ext)) {
@@ -306,16 +299,28 @@ export function createUploadRoutes(
             if (!file) {
                 return res.status(400).json({ error: "No file uploaded" });
             }
-            console.log(`🖼️ Uploaded background image: ${file.filename}`);
+            console.log(`🖼️ Uploaded background image: ${file.originalname}`);
+
+            // Move to assets
+            const assetsDir = path.join(musicDir, "assets");
+            await fs.ensureDir(assetsDir);
+
+            const ext = path.extname(file.originalname).toLowerCase() || ".png";
+            const targetFilename = "background" + (IMAGE_EXTENSIONS.includes(ext) ? ext : ".png");
+            const targetPath = path.join(assetsDir, targetFilename);
+
+            await fs.move(file.path, targetPath, { overwrite: true });
+
             const url = "/api/settings/background";
             database.setSetting("backgroundImage", url);
             res.json({
                 message: "Background image uploaded",
                 url,
-                file: { name: file.filename, size: file.size },
+                file: { name: targetFilename, size: file.size },
             });
         } catch (error) {
             console.error("Background upload error:", error);
+            if (req.file) await fs.remove(req.file.path).catch(() => { });
             res.status(500).json({ error: "Background upload failed" });
         }
     });
@@ -334,16 +339,28 @@ export function createUploadRoutes(
             if (!file) {
                 return res.status(400).json({ error: "No file uploaded" });
             }
-            console.log(`🖼️ Uploaded site cover: ${file.filename}`);
+            console.log(`🖼️ Uploaded site cover: ${file.originalname}`);
+
+            // Move to assets
+            const assetsDir = path.join(musicDir, "assets");
+            await fs.ensureDir(assetsDir);
+
+            const ext = path.extname(file.originalname).toLowerCase() || ".png";
+            const targetFilename = "site-cover" + (IMAGE_EXTENSIONS.includes(ext) ? ext : ".png");
+            const targetPath = path.join(assetsDir, targetFilename);
+
+            await fs.move(file.path, targetPath, { overwrite: true });
+
             const url = "/api/settings/cover";
             database.setSetting("coverImage", url);
             res.json({
                 message: "Site cover uploaded",
                 url,
-                file: { name: file.filename, size: file.size },
+                file: { name: targetFilename, size: file.size },
             });
         } catch (error) {
             console.error("Site cover upload error:", error);
+            if (req.file) await fs.remove(req.file.path).catch(() => { });
             res.status(500).json({ error: "Site cover upload failed" });
         }
     });

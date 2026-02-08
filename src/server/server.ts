@@ -322,6 +322,10 @@ export async function startServer(config: ServerConfig): Promise<void> {
         }
         console.log(`📊 Stats: ${(await database.getStats()).tracks} tracks in library`);
 
+        // Increasing timeouts for slow uploads/connections (e.g. large files or slow clients)
+        server.keepAliveTimeout = 65000; // 65 seconds
+        server.headersTimeout = 66000;   // 66 seconds
+
         // Register server on GunDB community if publicUrl is set (either in config or db)
         const dbPublicUrl = database.getSetting("publicUrl");
         const publicUrl = dbPublicUrl || config.publicUrl;
