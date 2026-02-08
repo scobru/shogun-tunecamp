@@ -58,7 +58,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const scanner = new Scanner(database);
 
     // Initialize Waveform Service
-    const waveformService = new WaveformService(config.dbPath);
+    const waveformService = new WaveformService(path.dirname(config.dbPath));
 
     // Scan music directory on startup
     console.log(`🎵 Music directory: ${config.musicDir}`);
