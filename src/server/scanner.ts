@@ -390,6 +390,7 @@ export function createScanner(database: DatabaseService): ScannerService {
                     ext = '.mp3';
                     console.log(`    [Scanner] Found existing MP3 for WAV: ${path.basename(currentFilePath)}`);
                 } else {
+                    // Check if it's already in the queue or being processed to avoid duplicates
                     const convertedPath = await processQueue.add(() => convertWavToMp3(currentFilePath));
                     if (await fs.pathExists(convertedPath)) {
                         currentFilePath = mp3Path;
@@ -400,6 +401,10 @@ export function createScanner(database: DatabaseService): ScannerService {
                     }
                 }
             } catch (err) {
+                // If the error is simply that the file was deleted mid-process (ENOENT), return null to skip
+                if ((err as any).code === 'ENOENT') {
+                    return null;
+                }
                 console.error(`    [Scanner] Could not convert WAV, proceeding with original: ${err instanceof Error ? err.message : String(err)}`);
                 return { originalPath: filePath, success: false, message: `WAV to MP3 conversion failed: ${err instanceof Error ? err.message : String(err)}` };
             }
@@ -409,7 +414,12 @@ export function createScanner(database: DatabaseService): ScannerService {
 
         // Determine album ID from folder map
         const dir = path.dirname(currentFilePath);
-        const albumId = folderToAlbumMap.get(dir) || null;
+        let albumId = folderToAlbumMap.get(dir) || null;
+
+        // If track is in the "library" folder and map has no info, protect the existing link
+        if (albumId === null && existing && existing.album_id && path.relative(musicDir, currentFilePath).startsWith('library')) {
+            albumId = existing.album_id;
+        }
 
         if (!existing) {
             try {

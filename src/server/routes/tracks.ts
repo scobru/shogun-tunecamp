@@ -323,8 +323,18 @@ export function createTracksRoutes(database: DatabaseService, apService: Activit
                 const trackPath = path.join(musicDir, track.file_path);
                 if (await fs.pathExists(trackPath)) {
                     try {
-                        fs.unlinkSync(trackPath);
+                        await fs.remove(trackPath);
                         console.log(`🗑️  Deleted file: ${trackPath}`);
+
+                        // Also check for associated raw file (e.g. .wav if this is .mp3)
+                        const ext = path.extname(trackPath).toLowerCase();
+                        if (ext === '.mp3') {
+                            const wavPath = trackPath.replace(/\.mp3$/i, '.wav');
+                            if (await fs.pathExists(wavPath)) {
+                                await fs.remove(wavPath);
+                                console.log(`🗑️  Deleted associated WAV: ${wavPath}`);
+                            }
+                        }
                     } catch (err) {
                         console.error("Error deleting file:", err);
                         return res.status(500).json({ error: "Failed to delete file" });
