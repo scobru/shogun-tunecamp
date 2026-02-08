@@ -272,6 +272,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             // Try artist photo first
             if (artist.photo_path) {
                 const photoPath = path.join(musicDir, artist.photo_path);
+                console.log(`🖼️ [Debug] Serving artist cover: ${photoPath}`);
                 if (await fs.pathExists(photoPath)) {
                     // Use res.sendFile to handle ETag/Last-Modified and correct Content-Type automatically
                     // Set Cache-Control to revalidate immediately so updates are seen
@@ -279,7 +280,11 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                         headers: {
                             "Cache-Control": "public, max-age=0, must-revalidate"
                         }
+                    }, (err) => {
+                        if (err) console.error(`❌ [Debug] Error sending file: ${err}`);
                     });
+                } else {
+                    console.warn(`⚠️ [Debug] Artist photo not found at: ${photoPath}`);
                 }
             }
 

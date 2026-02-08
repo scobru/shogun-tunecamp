@@ -139,7 +139,9 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string) 
 
             // Verify file existence
             const resolvedPath = path.join(musicDir, album.cover_path);
+            console.log(`🖼️ [Debug] Serving album cover: ${resolvedPath}`);
             if (!await fs.pathExists(resolvedPath)) {
+                console.warn(`⚠️ [Debug] Album cover not found at: ${resolvedPath}`);
                 const svg = getPlaceholderSVG(album.title);
                 res.setHeader("Content-Type", "image/svg+xml");
                 res.setHeader("Cache-Control", "public, max-age=86400");
