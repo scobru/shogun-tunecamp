@@ -153,7 +153,7 @@ interface ExternalLink {
     url: string;
 }
 
-interface ScanResult {
+export interface ScanResult {
     successful: Array<{ originalPath: string; message: string; convertedPath?: string }>;
     failed: Array<{ originalPath: string; message: string }>;
 }
@@ -164,17 +164,30 @@ export interface ScannerService {
     stopWatching(): void;
 }
 
-export function createScanner(database: DatabaseService): ScannerService {
-    let watcher: FSWatcher | null = null;
-    let isScanning = false;
-    let pendingScan: Promise<ScanResult> | null = null;
-    const processQueue = new ProcessingQueue();
-    // Map directory paths to album IDs to efficiently link tracks
-    const folderToAlbumMap = new Map<string, number>();
-    // Map directory paths to artist IDs
-    const folderToArtistMap = new Map<string, number>();
+export class Scanner implements ScannerService {
+    private watcher: FSWatcher | null = null;
+    private isScanning = false;
+    private pendingScan: Promise<ScanResult> | null = null;
+    private processQueue = new ProcessingQueue();
 
-    async function processGlobalConfigs(rootDir: string): Promise<void> {
+    // Map directory paths to album IDs to efficiently link tracks
+    private folderToAlbumMap = new Map<string, number>();
+    // Map directory paths to artist IDs
+    private folderToArtistMap = new Map<string, number>();
+
+    // Keep track of the monitored music directory
+    private musicDirectory: string | null = null;
+
+    constructor(private database: DatabaseService) { }
+
+    /**
+     * Normalize path to be relative to musicDir and use forward slashes (POSIX style)
+     */
+    private normalizePath(filePath: string, musicDir: string): string {
+        return path.relative(musicDir, filePath).replace(/\\/g, "/");
+    }
+
+    private async processGlobalConfigs(rootDir: string, musicDir: string): Promise<void> {
         // Check for artist.yaml in root
         const artistPath = path.join(rootDir, "artist.yaml");
         if (await fs.pathExists(artistPath)) {
@@ -182,23 +195,23 @@ export function createScanner(database: DatabaseService): ScannerService {
                 const content = await fs.readFile(artistPath, "utf-8");
                 const config = parse(content) as ArtistConfig;
                 if (config.name) {
-                    const existingArtist = database.getArtistByName(config.name);
+                    const existingArtist = this.database.getArtistByName(config.name);
                     let artistId: number;
                     // Use avatar field, fallback to image for legacy support
                     const avatarPath = config.avatar
-                        ? path.relative(rootDir, path.resolve(rootDir, config.avatar))
-                        : (config.image ? path.relative(rootDir, path.resolve(rootDir, config.image)) : undefined);
+                        ? this.normalizePath(path.resolve(rootDir, config.avatar), musicDir)
+                        : (config.image ? this.normalizePath(path.resolve(rootDir, config.image), musicDir) : undefined);
 
                     if (existingArtist) {
                         artistId = existingArtist.id;
                         // Update artist with bio/photo/links if they're in the config
-                        database.updateArtist(artistId, config.bio, avatarPath, config.links);
+                        this.database.updateArtist(artistId, config.bio, avatarPath, config.links);
                         console.log(`  Found existing artist: ${config.name}`);
                     } else {
-                        artistId = database.createArtist(config.name, config.bio, avatarPath, config.links);
+                        artistId = this.database.createArtist(config.name, config.bio, avatarPath, config.links);
                         console.log(`  Created artist from config: ${config.name}`);
                     }
-                    folderToArtistMap.set(rootDir, artistId);
+                    this.folderToArtistMap.set(rootDir, artistId);
                 }
             } catch (e) {
                 console.error("Error parsing artist.yaml:", e);
@@ -213,19 +226,14 @@ export function createScanner(database: DatabaseService): ScannerService {
                 const config = parse(content);
 
                 // Save site settings
-                if (config.title) database.setSetting("siteName", config.title);
-                if (config.description) database.setSetting("siteDescription", config.description);
-                if (config.url) database.setSetting("siteUrl", config.url);
+                if (config.title) this.database.setSetting("siteName", config.title);
+                if (config.description) this.database.setSetting("siteDescription", config.description);
+                if (config.url) this.database.setSetting("siteUrl", config.url);
 
                 // Save donation links
                 if (config.donationLinks) {
-                    database.setSetting("donationLinks", JSON.stringify(config.donationLinks));
+                    this.database.setSetting("donationLinks", JSON.stringify(config.donationLinks));
                     console.log(`  Loaded donation links from catalog.yaml`);
-                }
-
-                // If catalog has artist info (legacy or single artist mode)
-                if (config.artist || (config.name && !config.title)) { // Some older configs might mix fields
-                    // ... generic artist logic if needed, but artist.yaml is preferred
                 }
 
             } catch (e) {
@@ -234,7 +242,7 @@ export function createScanner(database: DatabaseService): ScannerService {
         }
     }
 
-    async function processReleaseConfig(filePath: string, musicDir: string): Promise<void> {
+    private async processReleaseConfig(filePath: string, musicDir: string): Promise<void> {
         try {
             const dir = path.dirname(filePath);
             const content = await fs.readFile(filePath, "utf-8");
@@ -248,18 +256,18 @@ export function createScanner(database: DatabaseService): ScannerService {
             let artistId: number | null = null;
             if (config.artist) {
                 // Check if artist already exists before creating
-                const existingArtist = database.getArtistByName(config.artist);
+                const existingArtist = this.database.getArtistByName(config.artist);
                 if (existingArtist) {
                     artistId = existingArtist.id;
                 } else {
-                    artistId = database.createArtist(config.artist);
+                    artistId = this.database.createArtist(config.artist);
                 }
             } else {
                 // Look up parent folders for artist config
                 let current = dir;
                 while (current.length >= path.dirname(current).length) {
-                    if (folderToArtistMap.has(current)) {
-                        artistId = folderToArtistMap.get(current)!;
+                    if (this.folderToArtistMap.has(current)) {
+                        artistId = this.folderToArtistMap.get(current)!;
                         break;
                     }
                     const parent = path.dirname(current);
@@ -273,17 +281,17 @@ export function createScanner(database: DatabaseService): ScannerService {
             if (config.cover) {
                 const absoluteCoverPath = path.resolve(dir, config.cover);
                 if (await fs.pathExists(absoluteCoverPath)) {
-                    coverPath = path.relative(musicDir, absoluteCoverPath);
+                    coverPath = this.normalizePath(absoluteCoverPath, musicDir);
                 }
             } else {
-                // Try common cover names, starting with Gleam-defined standard
+                // Try common cover names
                 const standardCoverJpg = getStandardCoverFilename("jpg");
                 const standardCoverPng = getStandardCoverFilename("png");
                 const coverNames = [standardCoverJpg, standardCoverPng, "cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png"];
                 for (const name of coverNames) {
                     const p = path.resolve(dir, name);
                     if (await fs.pathExists(p)) {
-                        coverPath = path.relative(musicDir, p);
+                        coverPath = this.normalizePath(p, musicDir);
                         break;
                     }
                 }
@@ -291,7 +299,7 @@ export function createScanner(database: DatabaseService): ScannerService {
 
             // Check for existing album by SLUG to avoid duplicates (race condition between watcher/scanner)
             const slug = slugify(config.title);
-            const existingAlbum = database.getAlbumBySlug(slug);
+            const existingAlbum = this.database.getAlbumBySlug(slug);
             let albumId: number;
 
             // Prepare external links
@@ -303,7 +311,7 @@ export function createScanner(database: DatabaseService): ScannerService {
                 } else {
                     // Handle object format { 'Bandcamp': 'url' }
                     for (const [label, url] of Object.entries(config.links)) {
-                        links.push({ label, url });
+                        links.push({ label, url: url as string });
                     }
                 }
                 linksJson = JSON.stringify(links);
@@ -314,23 +322,28 @@ export function createScanner(database: DatabaseService): ScannerService {
 
                 // Update artist if we have one and existing doesn't
                 if (artistId && !existingAlbum.artist_id) {
-                    database.updateAlbumArtist(albumId, artistId);
+                    this.database.updateAlbumArtist(albumId, artistId);
                     console.log(`  Updated album artist: ${config.title} -> ID ${artistId}`);
                 }
 
                 // Update download setting
-                database.updateAlbumDownload(albumId, config.download || null);
+                this.database.updateAlbumDownload(albumId, config.download || null);
 
                 // Update external links
-                database.updateAlbumLinks(albumId, linksJson);
+                this.database.updateAlbumLinks(albumId, linksJson);
+
+                // Update cover if needed
+                if (coverPath) {
+                    this.database.updateAlbumCover(albumId, coverPath);
+                }
 
                 // Mark existing album as a release if it wasn't already
                 if (!existingAlbum.is_release) {
-                    database.promoteToRelease(albumId);
+                    this.database.promoteToRelease(albumId);
                 }
                 console.log(`  Found existing album: ${config.title}`);
             } else {
-                albumId = database.createAlbum({
+                albumId = this.database.createAlbum({
                     title: config.title,
                     slug: slug,
                     artist_id: artistId,
@@ -351,15 +364,15 @@ export function createScanner(database: DatabaseService): ScannerService {
             }
 
             // Map this folder and its subfolders (like 'tracks', 'audio') to this album
-            folderToAlbumMap.set(dir, albumId);
-            folderToAlbumMap.set(path.join(dir, "tracks"), albumId);
-            folderToAlbumMap.set(path.join(dir, "audio"), albumId);
+            this.folderToAlbumMap.set(dir, albumId);
+            this.folderToAlbumMap.set(path.join(dir, "tracks"), albumId);
+            this.folderToAlbumMap.set(path.join(dir, "audio"), albumId);
         } catch (e) {
             console.error(`Error processing release config ${filePath}:`, e);
         }
     }
 
-    async function processAudioFile(filePath: string, musicDir: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string } | null> {
+    private async processAudioFile(filePath: string, musicDir: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string } | null> {
         let currentFilePath = filePath;
         let ext = path.extname(currentFilePath).toLowerCase();
 
@@ -367,18 +380,17 @@ export function createScanner(database: DatabaseService): ScannerService {
             return null;
         }
 
-        // Auto-convert WAV to MP3 on import
+        // Process WAV to MP3 conversion first...
         if (ext === '.wav') {
             try {
                 const mp3Path = currentFilePath.replace(/\.wav$/i, '.mp3');
-
-                const existingMp3Track = database.getTrackByPath(path.relative(musicDir, mp3Path));
+                const existingMp3Track = this.database.getTrackByPath(this.normalizePath(mp3Path, musicDir));
 
                 // Check if we have a stale WAV track in DB and remove it
-                const staleWavTrack = database.getTrackByPath(path.relative(musicDir, filePath));
+                const staleWavTrack = this.database.getTrackByPath(this.normalizePath(filePath, musicDir));
                 if (staleWavTrack) {
                     console.log(`    [Scanner] Removing stale WAV track entry: ${path.basename(filePath)}`);
-                    database.deleteTrack(staleWavTrack.id);
+                    this.database.deleteTrack(staleWavTrack.id);
                 }
 
                 if (await fs.pathExists(mp3Path) && existingMp3Track) {
@@ -391,7 +403,7 @@ export function createScanner(database: DatabaseService): ScannerService {
                     console.log(`    [Scanner] Found existing MP3 for WAV: ${path.basename(currentFilePath)}`);
                 } else {
                     // Check if it's already in the queue or being processed to avoid duplicates
-                    const convertedPath = await processQueue.add(() => convertWavToMp3(currentFilePath));
+                    const convertedPath = await this.processQueue.add(() => convertWavToMp3(currentFilePath));
                     if (await fs.pathExists(convertedPath)) {
                         currentFilePath = mp3Path;
                         ext = '.mp3';
@@ -410,14 +422,14 @@ export function createScanner(database: DatabaseService): ScannerService {
             }
         }
 
-        let existing = database.getTrackByPath(path.relative(musicDir, currentFilePath));
+        let existing = this.database.getTrackByPath(this.normalizePath(currentFilePath, musicDir));
 
         // Determine album ID from folder map
         const dir = path.dirname(currentFilePath);
-        let albumId = folderToAlbumMap.get(dir) || null;
+        let albumId = this.folderToAlbumMap.get(dir) || null;
 
         // If track is in the "library" folder and map has no info, protect the existing link
-        if (albumId === null && existing && existing.album_id && path.relative(musicDir, currentFilePath).startsWith('library')) {
+        if (albumId === null && existing && existing.album_id && this.normalizePath(currentFilePath, musicDir).startsWith('library')) {
             albumId = existing.album_id;
         }
 
@@ -429,11 +441,11 @@ export function createScanner(database: DatabaseService): ScannerService {
 
                 let artistId: number | null = null;
                 if (artistName) {
-                    const existingArtist = database.getArtistByName(artistName);
+                    const existingArtist = this.database.getArtistByName(artistName);
                     artistId = existingArtist ? existingArtist.id : null;
                 }
 
-                existing = database.getTrackByMetadata(title, artistId, albumId);
+                existing = this.database.getTrackByMetadata(title, artistId, albumId);
                 if (existing) {
                     console.log(`    [Scanner] De-duplicated: found existing record for '${title}' at old path. Updating path.`);
                 }
@@ -441,21 +453,22 @@ export function createScanner(database: DatabaseService): ScannerService {
         }
 
         if (existing) {
-            if (existing.file_path !== path.relative(musicDir, currentFilePath)) {
-                database.updateTrackPath(existing.id, path.relative(musicDir, currentFilePath), albumId);
+            const normalizedPath = this.normalizePath(currentFilePath, musicDir);
+            if (existing.file_path !== normalizedPath) {
+                this.database.updateTrackPath(existing.id, normalizedPath, albumId);
             }
 
             // Fix album linking for existing tracks
             if (existing.album_id !== albumId) {
-                database.updateTrackAlbum(existing.id, albumId);
+                this.database.updateTrackAlbum(existing.id, albumId);
                 console.log(`    [Scanner] Linked track to album: ${existing.title} -> Album ID ${albumId}`);
             }
 
             if (!existing.waveform) {
-                processQueue.add(() => WaveformService.generateWaveform(currentFilePath))
+                this.processQueue.add(() => WaveformService.generateWaveform(currentFilePath))
                     .then((peaks: number[]) => {
                         const json = JSON.stringify(peaks);
-                        database.updateTrackWaveform(existing.id, json);
+                        this.database.updateTrackWaveform(existing.id, json);
                         console.log(`    [Backfill] Generated waveform for: ${path.basename(currentFilePath)}`);
                     })
                     .catch((err: Error) => {
@@ -474,11 +487,11 @@ export function createScanner(database: DatabaseService): ScannerService {
 
             let artistId: number | null = null;
             if (common.artist) {
-                const existingArtist = database.getArtistByName(common.artist);
-                artistId = existingArtist ? existingArtist.id : database.createArtist(common.artist);
+                const existingArtist = this.database.getArtistByName(common.artist);
+                artistId = existingArtist ? existingArtist.id : this.database.createArtist(common.artist);
             } else {
-                const unknownArtist = database.getArtistByName("Unknown Artist");
-                artistId = unknownArtist ? unknownArtist.id : database.createArtist("Unknown Artist");
+                const unknownArtist = this.database.getArtistByName("Unknown Artist");
+                artistId = unknownArtist ? unknownArtist.id : this.database.createArtist("Unknown Artist");
             }
 
             let duration: number | null = await getDurationFromFfmpeg(currentFilePath);
@@ -491,23 +504,23 @@ export function createScanner(database: DatabaseService): ScannerService {
                 }
             }
 
-            const trackId = database.createTrack({
+            const trackId = this.database.createTrack({
                 title: common.title || path.basename(currentFilePath, ext),
                 album_id: albumId, // Linked to album from release.yaml
                 artist_id: artistId,
                 track_num: common.track?.no || null,
                 duration: duration || null,
-                file_path: path.relative(musicDir, currentFilePath),
+                file_path: this.normalizePath(currentFilePath, musicDir),
                 format: format.codec || ext.substring(1),
                 bitrate: format.bitrate ? Math.round(format.bitrate / 1000) : null,
                 sample_rate: format.sampleRate || null,
                 waveform: null
             });
 
-            processQueue.add(() => WaveformService.generateWaveform(currentFilePath))
+            this.processQueue.add(() => WaveformService.generateWaveform(currentFilePath))
                 .then((peaks: number[]) => {
                     const json = JSON.stringify(peaks);
-                    database.updateTrackWaveform(trackId, json);
+                    this.database.updateTrackWaveform(trackId, json);
                     console.log(`    Generated waveform for: ${path.basename(currentFilePath)}`);
                 })
                 .catch((err: Error) => {
@@ -522,26 +535,28 @@ export function createScanner(database: DatabaseService): ScannerService {
         }
     }
 
-    async function scanDirectory(dir: string): Promise<ScanResult> {
-        if (isScanning) {
+    public async scanDirectory(dir: string): Promise<ScanResult> {
+        if (this.isScanning) {
             console.log("  [Scanner] Scan already in progress, waiting for it to complete...");
-            return pendingScan || Promise.resolve({ successful: [], failed: [] });
+            return this.pendingScan || Promise.resolve({ successful: [], failed: [] });
         }
 
-        isScanning = true;
-        pendingScan = (async () => {
+        this.musicDirectory = dir; // Remember for watcher
+
+        this.isScanning = true;
+        this.pendingScan = (async () => {
             try {
-                return await doScan(dir);
+                return await this.doScan(dir);
             } finally {
-                isScanning = false;
-                pendingScan = null;
+                this.isScanning = false;
+                this.pendingScan = null;
             }
         })();
 
-        return pendingScan;
+        return this.pendingScan;
     }
 
-    async function doScan(dir: string): Promise<ScanResult> {
+    private async doScan(dir: string): Promise<ScanResult> {
         console.log("Scanning directory: " + dir);
 
         if (!(await fs.pathExists(dir))) {
@@ -550,14 +565,14 @@ export function createScanner(database: DatabaseService): ScannerService {
         }
 
         // Reset maps
-        folderToAlbumMap.clear();
-        folderToArtistMap.clear();
+        this.folderToAlbumMap.clear();
+        this.folderToArtistMap.clear();
 
         const audioFiles: string[] = [];
         const yamlFiles: string[] = [];
 
         // 1. Discover all files
-        async function walkDir(currentDir: string): Promise<void> {
+        const walkDir = async (currentDir: string): Promise<void> => {
             const entries = await fs.readdir(currentDir, { withFileTypes: true });
             for (const entry of entries) {
                 const fullPath = path.join(currentDir, entry.name);
@@ -580,13 +595,13 @@ export function createScanner(database: DatabaseService): ScannerService {
         // 2. Process Global and Artist configs first
         const globalConfigs = yamlFiles.filter(f => f.endsWith("artist.yaml") || f.endsWith("catalog.yaml"));
         for (const configPath of globalConfigs) {
-            await processGlobalConfigs(path.dirname(configPath));
+            await this.processGlobalConfigs(path.dirname(configPath), dir);
         }
 
         // 3. Process Release configs
         const releaseConfigs = yamlFiles.filter(f => f.endsWith("release.yaml"));
         for (const configPath of releaseConfigs) {
-            await processReleaseConfig(configPath, dir);
+            await this.processReleaseConfig(configPath, dir);
         }
 
         const successful: Array<{ originalPath: string; message: string; convertedPath?: string }> = [];
@@ -594,7 +609,7 @@ export function createScanner(database: DatabaseService): ScannerService {
 
         // 4. Process Audio Files
         for (const file of audioFiles) {
-            const result = await processAudioFile(file, dir);
+            const result = await this.processAudioFile(file, dir);
             if (result) {
                 if (result.success) {
                     successful.push(result);
@@ -604,24 +619,24 @@ export function createScanner(database: DatabaseService): ScannerService {
             }
         }
 
-        const stats = await database.getStats();
+        const stats = await this.database.getStats();
         console.log("Scan complete: " + stats.artists + " artists, " + stats.albums + " albums, " + stats.tracks + " tracks");
 
         // Clean up stale records
-        await cleanupStaleTracks(dir);
+        await this.cleanupStaleTracks(dir);
 
         return { successful, failed };
     }
 
-    async function cleanupStaleTracks(musicDir: string) {
+    private async cleanupStaleTracks(musicDir: string) {
         console.log("[Scanner] Cleaning up stale database records...");
-        const allTracks = database.getTracks();
+        const allTracks = this.database.getTracks();
         let removed = 0;
         for (const track of allTracks) {
             const resolved = path.join(musicDir, track.file_path);
             if (!await fs.pathExists(resolved)) {
                 console.log(`  [Cleanup] Removing stale track: ${track.title} (${track.file_path})`);
-                database.deleteTrack(track.id);
+                this.database.deleteTrack(track.id);
                 removed++;
             }
         }
@@ -630,14 +645,16 @@ export function createScanner(database: DatabaseService): ScannerService {
         }
     }
 
-    function startWatching(dir: string): void {
-        if (watcher) {
-            watcher.close();
+    public startWatching(dir: string): void {
+        this.musicDirectory = dir; // Ensure set
+
+        if (this.watcher) {
+            this.watcher.close();
         }
 
         console.log("Watching for changes in: " + dir);
 
-        watcher = chokidar.watch(dir, {
+        this.watcher = chokidar.watch(dir, {
             ignored: /(^|[\/\\])\../,
             persistent: true,
             ignoreInitial: true,
@@ -647,31 +664,27 @@ export function createScanner(database: DatabaseService): ScannerService {
             }
         });
 
-        watcher.on("add", async (filePath: string) => {
+        this.watcher.on("add", async (filePath: string) => {
             const ext = path.extname(filePath).toLowerCase();
             if (AUDIO_EXTENSIONS.includes(ext)) {
-                await processAudioFile(filePath, dir);
+                await this.processAudioFile(filePath, dir);
             }
         });
 
-        watcher.on("unlink", (filePath: string) => {
-            const track = database.getTrackByPath(filePath);
+        this.watcher.on("unlink", (filePath: string) => {
+            // Note: normalizing path here because DB stores relative
+            const relativePath = this.normalizePath(filePath, dir);
+            const track = this.database.getTrackByPath(relativePath);
             if (track) {
-                database.deleteTrack(track.id);
+                this.database.deleteTrack(track.id);
             }
         });
     }
 
-    function stopWatching(): void {
-        if (watcher) {
-            watcher.close();
-            watcher = null;
+    public stopWatching(): void {
+        if (this.watcher) {
+            this.watcher.close();
+            this.watcher = null;
         }
     }
-
-    return {
-        scanDirectory,
-        startWatching,
-        stopWatching,
-    };
 }

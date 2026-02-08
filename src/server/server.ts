@@ -20,7 +20,7 @@ import { createReleaseRoutes } from "./routes/releases.js";
 import { createStatsRoutes } from "./routes/stats.js";
 import { createUsersRoutes } from "./routes/users.js";
 import { createCommentsRoutes } from "./routes/comments.js";
-import { createScanner } from "./scanner.js";
+import { Scanner } from "./scanner.js";
 import { createGunDBService } from "./gundb.js";
 import { createLibraryStatsRoutes } from "./routes/library-stats.js";
 import { createBrowserRoutes } from "./routes/browser.js";
@@ -33,6 +33,7 @@ import { createFedify } from "./fedify.js";
 import { createBackupRoutes } from "./routes/backup.js";
 import { createPostsRoutes } from "./routes/posts.js";
 import { createSubsonicRouter } from "./routes/subsonic.js";
+import { WaveformService } from "./modules/waveform/waveform.service.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,7 +55,10 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const authMiddleware = createAuthMiddleware(authService);
 
     // Initialize scanner
-    const scanner = createScanner(database);
+    const scanner = new Scanner(database);
+
+    // Initialize Waveform Service
+    const waveformService = new WaveformService(config.dbPath);
 
     // Scan music directory on startup
     console.log(`🎵 Music directory: ${config.musicDir}`);
@@ -146,6 +150,27 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 
     // API Routes
+    app.get("/api/waveform/:id", async (req, res) => {
+        try {
+            const trackId = parseInt(req.params.id);
+            if (isNaN(trackId)) return res.status(400).send("Invalid track ID");
+
+            const track = database.getTrack(trackId);
+            if (!track) return res.status(404).send("Track not found");
+
+            const filePath = path.join(config.musicDir, track.file_path);
+            const svg = await waveformService.getWaveformSVG(trackId, filePath);
+
+            res.setHeader("Content-Type", "image/svg+xml");
+            // Cache for 1 year
+            res.setHeader("Cache-Control", "public, max-age=31536000");
+            res.send(svg);
+        } catch (e) {
+            console.error(e);
+            res.status(500).send("Error generating waveform");
+        }
+    });
+
     app.use("/rest", createSubsonicRouter({ db: database, auth: authService, musicDir: config.musicDir }));
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService));
     app.use("/api/admin", authMiddleware.requireAdmin, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService, apService));

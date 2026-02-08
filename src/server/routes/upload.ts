@@ -175,7 +175,7 @@ export function createUploadRoutes(
 
                 // 4. Update database (relative to musicDir)
                 if (targetAlbum) {
-                    const dbPath = path.relative(musicDir, targetPath);
+                    const dbPath = path.relative(musicDir, targetPath).replace(/\\/g, "/");
                     database.updateAlbumCover(targetAlbum.id, dbPath);
                     console.log(`📀 Updated cover for album ${targetAlbum.title} -> ${dbPath}`);
                 }
@@ -245,7 +245,7 @@ export function createUploadRoutes(
             // Update artist in database (relative path)
             const artist = database.getArtist(artistId);
             if (artist) {
-                const dbPath = path.relative(musicDir, avatarPath);
+                const dbPath = path.relative(musicDir, avatarPath).replace(/\\/g, "/");
                 database.updateArtist(artist.id, artist.bio || undefined, dbPath, artist.links ? JSON.parse(artist.links) : undefined);
             }
 

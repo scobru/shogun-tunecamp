@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { usePlayerStore } from '../../stores/usePlayerStore';
 import API from '../../services/api';
 import { Play, Pause, SkipBack, SkipForward, Volume2, Mic2, ListMusic, Shuffle, Repeat } from 'lucide-react';
@@ -17,6 +17,7 @@ export const PlayerBar = () => {
     } = usePlayerStore();
     
     const audioRef = useRef<HTMLAudioElement>(null);
+    const [localWaveform, setLocalWaveform] = useState<string | number[] | null>(null);
 
     useEffect(() => {
         if (!currentTrack || !audioRef.current) return;
@@ -30,7 +31,6 @@ export const PlayerBar = () => {
             newSrc += '?format=mp3';
         }
 
-        // Only update source if it changed to avoid reloading same track
         if (audio.src !== newSrc && !audio.src.endsWith(newSrc) && audio.src !== newSrc + '/') { 
              console.log('Playing:', newSrc);
              audio.src = newSrc;
@@ -43,6 +43,28 @@ export const PlayerBar = () => {
                     });
                 }
              }
+        }
+        
+        // Fetch Waveform SVG asynchronously if not already present
+        if (!currentTrack.waveform && currentTrack.id) {
+             fetch(`/api/waveform/${currentTrack.id}`)
+                .then(res => {
+                    if (res.ok) return res.text();
+                    return null;
+                })
+                .then(svg => {
+                    if (svg && svg.startsWith('<svg')) {
+                        // We need a way to update the current track's waveform in the store WITHOUT re-triggering playback
+                        // But usePlayerStore.currentTrack is immutable-ish.
+                        // Actually, we can just store it in local state for the PlayerBar if we don't want to pollute global store logic,
+                        // OR update the store. Updating store might cause re-renders. 
+                        // Let's rely on a local state for waveform if the track doesn't have it.
+                        setLocalWaveform(svg);
+                    }
+                })
+                .catch(err => console.error("Error fetching waveform:", err));
+        } else {
+            setLocalWaveform(currentTrack.waveform || null);
         }
 
         const updateTime = () => setProgress(audio.currentTime, audio.duration);
@@ -176,10 +198,10 @@ export const PlayerBar = () => {
                     {/* Progress Bar + Decorative Waveform */}
                     <div className="w-full flex items-center gap-3 text-xs font-mono h-10 lg:h-12 relative">
                          {/* Decorative waveform background */}
-                         {currentTrack.waveform && (
+                         {(localWaveform || currentTrack.waveform) && (
                              <div className="absolute inset-0 opacity-30 pointer-events-none">
                                  <Waveform 
-                                    data={currentTrack.waveform} 
+                                    data={localWaveform || currentTrack.waveform} 
                                     progress={progress / 100} 
                                     height={40}
                                     colorPlayed="oklch(var(--color-primary))" 

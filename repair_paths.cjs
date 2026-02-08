@@ -5,15 +5,30 @@ const fs = require('fs');
 /**
  * REPAIR SCRIPT FOR TUNECAMP DATABASE PATHS
  * 
- * Usage: node repair_paths.cjs <musicDir>
- * Example: node repair_paths.cjs /music
+ * Usage: node repair_paths.cjs [musicDir] [dbPath]
+ * Example: node repair_paths.cjs /music /data/tunecamp.db
  */
 
-const dbPath = path.join(__dirname, 'tunecamp.db');
-const targetMusicDir = process.argv[2];
+let targetMusicDir = process.argv[2];
+let dbPath = process.argv[3];
+
+// Try to auto-detect inside Docker
+if (!targetMusicDir && fs.existsSync('/music')) {
+    targetMusicDir = '/music';
+    console.log("Auto-detected music directory: /music");
+}
+
+if (!dbPath) {
+    if (fs.existsSync('/data/tunecamp.db')) {
+        dbPath = '/data/tunecamp.db';
+        console.log("Auto-detected database: /data/tunecamp.db");
+    } else {
+        dbPath = path.join(__dirname, 'tunecamp.db');
+    }
+}
 
 if (!targetMusicDir) {
-    console.error("Usage: node repair_paths.cjs <targetMusicDir>");
+    console.error("Usage: node repair_paths.cjs <musicDir> [dbPath]");
     console.error("Example: node repair_paths.cjs /music");
     process.exit(1);
 }
@@ -37,9 +52,6 @@ function normalizePath(p, musicDir) {
     }
 
     // Try to extract relative part if it contains the musicDir or common patterns
-    // e.g. "D:/shogun-2/tunecamp/music/foo" -> "foo"
-    // e.g. "/music/foo" -> "foo"
-
     const musicDirPattern = musicDir.replace(/\\/g, '/').replace(/\/$/, '');
     if (normalized.startsWith(musicDirPattern)) {
         normalized = normalized.substring(musicDirPattern.length);
