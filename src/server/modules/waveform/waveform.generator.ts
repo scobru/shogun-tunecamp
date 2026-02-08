@@ -57,7 +57,7 @@ export class WaveformGenerator {
                 audio_rate: 44100,
                 channels: 1,
                 filename: filename
-            }, (err, waveform) => {
+            } as any, (err, waveform) => {
                 if (err) return reject(err);
                 resolve(waveform);
             });
