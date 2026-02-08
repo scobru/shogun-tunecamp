@@ -267,17 +267,13 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             if (artist.photo_path) {
                 const photoPath = path.join(musicDir, artist.photo_path);
                 if (await fs.pathExists(photoPath)) {
-                    const ext = path.extname(photoPath).toLowerCase();
-                    const contentTypes: Record<string, string> = {
-                        ".jpg": "image/jpeg",
-                        ".jpeg": "image/jpeg",
-                        ".png": "image/png",
-                        ".gif": "image/gif",
-                        ".webp": "image/webp",
-                    };
-                    res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
-                    res.setHeader("Cache-Control", "public, max-age=86400");
-                    return fs.createReadStream(photoPath).pipe(res);
+                    // Use res.sendFile to handle ETag/Last-Modified and correct Content-Type automatically
+                    // Set Cache-Control to revalidate immediately so updates are seen
+                    return res.sendFile(path.resolve(photoPath), {
+                        headers: {
+                            "Cache-Control": "public, max-age=0, must-revalidate"
+                        }
+                    });
                 }
             }
 
@@ -287,17 +283,11 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 if (album.cover_path) {
                     const coverPath = path.join(musicDir, album.cover_path);
                     if (await fs.pathExists(coverPath)) {
-                        const ext = path.extname(coverPath).toLowerCase();
-                        const contentTypes: Record<string, string> = {
-                            ".jpg": "image/jpeg",
-                            ".jpeg": "image/jpeg",
-                            ".png": "image/png",
-                            ".gif": "image/gif",
-                            ".webp": "image/webp",
-                        };
-                        res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
-                        res.setHeader("Cache-Control", "public, max-age=86400");
-                        return fs.createReadStream(coverPath).pipe(res);
+                        return res.sendFile(path.resolve(coverPath), {
+                            headers: {
+                                "Cache-Control": "public, max-age=0, must-revalidate"
+                            }
+                        });
                     }
                 }
             }
@@ -305,7 +295,8 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             // Fallback: Return SVG placeholder instead of 404
             const svg = getPlaceholderSVG(artist.name);
             res.setHeader("Content-Type", "image/svg+xml");
-            res.setHeader("Cache-Control", "public, max-age=86400");
+            // Also reduce cache for placeholder so if an image IS uploaded, it shows up
+            res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
             res.send(svg);
             // res.status(404).json({ error: "No cover found" });
         } catch (error) {
