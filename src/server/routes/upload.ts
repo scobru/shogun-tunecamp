@@ -146,34 +146,48 @@ export function createUploadRoutes(
                     return res.status(403).json({ error: "Access denied: Cannot upload cover for another artist's release" });
                 }
 
+                // 1. Determine target directory: musicDir/releases/<slug>/artwork/
                 const releaseDir = path.join(musicDir, "releases", releaseSlug);
+                const artworkDir = path.join(releaseDir, "artwork");
+                await fs.ensureDir(artworkDir);
+
+                // 2. Move file to artwork dir
+                const ext = path.extname(file.originalname).toLowerCase();
+                const targetFilename = `cover${ext}`; // Standardize name or keep original? Let's use clean name.
+                const targetPath = path.join(artworkDir, targetFilename);
+
+                await fs.move(file.path, targetPath, { overwrite: true });
+                console.log(`   Moved cover to: ${targetPath}`);
+
+                // 3. Update release.yaml (relative to release dir)
                 const releaseYamlPath = path.join(releaseDir, "release.yaml");
-
                 if (await fs.pathExists(releaseYamlPath)) {
-                    // Read and update release.yaml
-                    const yaml = await import("yaml");
-                    const content = await fs.readFile(releaseYamlPath, "utf-8");
-                    const config = yaml.parse(content);
-                    config.cover = `artwork/${file.filename}`;
-                    await fs.writeFile(releaseYamlPath, yaml.stringify(config));
+                    try {
+                        const yaml = await import("yaml");
+                        const content = await fs.readFile(releaseYamlPath, "utf-8");
+                        const config = yaml.parse(content);
+                        config.cover = `artwork/${targetFilename}`; // Relative to release.yaml
+                        await fs.writeFile(releaseYamlPath, yaml.stringify(config));
+                    } catch (err) {
+                        console.error("Error updating release.yaml:", err);
+                    }
                 }
 
-                // Update database directly
-                const album = database.getAlbumBySlug(releaseSlug);
-                if (album) {
-                    database.updateAlbumCover(album.id, file.path);
-                    console.log(`📀 Updated cover for album: ${album.title}`);
+                // 4. Update database (relative to musicDir)
+                if (targetAlbum) {
+                    const dbPath = path.relative(musicDir, targetPath);
+                    database.updateAlbumCover(targetAlbum.id, dbPath);
+                    console.log(`📀 Updated cover for album ${targetAlbum.title} -> ${dbPath}`);
                 }
-
-                // Trigger rescan (async)
-                // scanner.scanDirectory(musicDir); // REMOVED: Triggers full re-scan, causing timeouts. Watcher handles this.
+            } else {
+                // Orphan upload? Just clean up
+                await fs.remove(file.path);
             }
 
             res.json({
                 message: "Cover uploaded",
                 file: {
-                    name: file.originalname,
-                    path: file.path,
+                    name: file.originalname, // Return original name
                     size: file.size,
                 },
             });
@@ -228,10 +242,11 @@ export function createUploadRoutes(
                 await fs.move(file.path, avatarPath, { overwrite: true });
             }
 
-            // Update artist in database
+            // Update artist in database (relative path)
             const artist = database.getArtist(artistId);
             if (artist) {
-                database.updateArtist(artist.id, artist.bio || undefined, avatarPath, artist.links ? JSON.parse(artist.links) : undefined);
+                const dbPath = path.relative(musicDir, avatarPath);
+                database.updateArtist(artist.id, artist.bio || undefined, dbPath, artist.links ? JSON.parse(artist.links) : undefined);
             }
 
             res.json({
