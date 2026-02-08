@@ -543,9 +543,10 @@ export function createScanner(database: DatabaseService): ScannerService {
         folderToAlbumMap.clear();
         folderToArtistMap.clear();
 
-        const files: string[] = [];
+        const audioFiles: string[] = [];
+        const yamlFiles: string[] = [];
 
-        // 2. Discover files
+        // 1. Discover all files
         async function walkDir(currentDir: string): Promise<void> {
             const entries = await fs.readdir(currentDir, { withFileTypes: true });
             for (const entry of entries) {
@@ -555,20 +556,34 @@ export function createScanner(database: DatabaseService): ScannerService {
                 } else if (entry.isFile()) {
                     const ext = path.extname(entry.name).toLowerCase();
                     if (AUDIO_EXTENSIONS.includes(ext)) {
-                        files.push(fullPath);
+                        audioFiles.push(fullPath);
+                    } else if (ext === ".yaml" || ext === ".yml") {
+                        yamlFiles.push(fullPath);
                     }
                 }
             }
         }
 
         await walkDir(dir);
+        console.log(`Found ${audioFiles.length} audio file(s) and ${yamlFiles.length} YAML config(s)`);
+
+        // 2. Process Global and Artist configs first
+        const globalConfigs = yamlFiles.filter(f => f.endsWith("artist.yaml") || f.endsWith("catalog.yaml"));
+        for (const configPath of globalConfigs) {
+            await processGlobalConfigs(path.dirname(configPath));
+        }
+
+        // 3. Process Release configs
+        const releaseConfigs = yamlFiles.filter(f => f.endsWith("release.yaml"));
+        for (const configPath of releaseConfigs) {
+            await processReleaseConfig(configPath, dir);
+        }
 
         const successful: Array<{ originalPath: string; message: string; convertedPath?: string }> = [];
         const failed: Array<{ originalPath: string; message: string }> = [];
 
         // 4. Process Audio Files
-        console.log("Found " + files.length + " audio file(s)");
-        for (const file of files) {
+        for (const file of audioFiles) {
             const result = await processAudioFile(file, dir);
             if (result) {
                 if (result.success) {

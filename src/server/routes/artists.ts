@@ -28,11 +28,14 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
 
             const filteredArtists = allArtists.filter(a => artistsWithPublicReleases.has(a.id));
 
-            // Map to frontend expected format
-            const mappedArtists = (req.isAdmin ? allArtists : filteredArtists).map(a => ({
-                ...a,
-                coverImage: a.photo_path
-            }));
+            // Map to frontend expected format and EXCLUDE private_key
+            const mappedArtists = (req.isAdmin ? allArtists : filteredArtists).map(a => {
+                const { private_key, ...safeArtist } = a;
+                return {
+                    ...safeArtist,
+                    coverImage: a.photo_path
+                };
+            });
 
             res.json(mappedArtists);
         } catch (error) {
@@ -230,8 +233,11 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 } catch (e) { }
             }
 
+            // Exclude sensitive data
+            const { private_key, ...safeArtist } = artist;
+
             res.json({
-                ...artist,
+                ...safeArtist,
                 links,
                 postParams,
                 coverImage,

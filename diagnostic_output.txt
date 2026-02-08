@@ -1,0 +1,16 @@
+Checking DB at: d:/shogun-2/tunecamp/tunecamp.db
+
+Settings:
+  siteName: Homologo
+  siteDescription: Faccio musica perché mi piace, punto. Non mi interessa metterla in scatole o darle etichette. A volte suona in un modo, a volte in un altro. Dipende da come mi sento quel giorno. Se vi va, date un'occhiata. Se vi piace, bene. Se no, nessun problema. Non prometto niente di speciale. È solo la mia roba, per quel che vale
+  siteUrl: https://homologomusic.vercel.app
+
+Sample Track Paths:
+  D:\shogun-2\tunecamp\examples\homologo\releases\catarifrangente\tracks\Homologo_Catarifrangente.wav
+  D:\shogun-2\tunecamp\examples\homologo\releases\chirichetto\tracks\Homologo_Chirichetto.wav
+  D:\shogun-2\tunecamp\examples\homologo\releases\fantasie\tracks\Homologo_-_Fantasie.wav
+
+Found 3 albums.
+Album [1] "Catarifrangente": cover="D:\shogun-2\tunecamp\examples\homologo\releases\catarifrangente\artwork\cover.png"
+Album [2] "Chirichetto": cover="D:\shogun-2\tunecamp\examples\homologo\releases\chirichetto\artwork\image.JPG"
+Album [6] "Fantasie": cover="D:\shogun-2\tunecamp\examples\homologo\releases\fantasie\artwork\fantasie.jpeg"
