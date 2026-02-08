@@ -64,9 +64,6 @@ export const Waveform = ({
                         style={{ 
                             width: `${100 / (progress || 0.01)}%`, // Counter-scale? No. 
                             // If we use mask on container, we need the inner div to be full width
-                             width: '100vw', // Just make it huge?
-                             // easy way: 
-                             // Parent (width: progress) -> Child (width: 100 / progress)
                         }}
                     >
                          {/* This approach is complex with CSS masks. 
