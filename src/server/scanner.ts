@@ -162,6 +162,7 @@ export interface ScannerService {
     scanDirectory(dir: string): Promise<ScanResult>;
     startWatching(dir: string): void;
     stopWatching(): void;
+    processAudioFile(filePath: string, musicDir: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number } | null>;
 }
 
 export class Scanner implements ScannerService {
@@ -372,7 +373,7 @@ export class Scanner implements ScannerService {
         }
     }
 
-    private async processAudioFile(filePath: string, musicDir: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string } | null> {
+    public async processAudioFile(filePath: string, musicDir: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number } | null> {
         let currentFilePath = filePath;
         let ext = path.extname(currentFilePath).toLowerCase();
 
@@ -394,7 +395,7 @@ export class Scanner implements ScannerService {
                 }
 
                 if (await fs.pathExists(mp3Path) && existingMp3Track) {
-                    return { originalPath: filePath, success: true, message: "MP3 already exists and processed.", convertedPath: mp3Path };
+                    return { originalPath: filePath, success: true, message: "MP3 already exists and processed.", convertedPath: mp3Path, trackId: existingMp3Track.id };
                 }
 
                 if (await fs.pathExists(mp3Path) && !existingMp3Track) {
@@ -476,7 +477,7 @@ export class Scanner implements ScannerService {
                     });
             }
 
-            return { originalPath: filePath, success: true, message: "Track already exists and updated." };
+            return { originalPath: filePath, success: true, message: "Track already exists and updated.", trackId: existing.id };
         }
 
         try {
@@ -527,7 +528,7 @@ export class Scanner implements ScannerService {
                     console.error(`    Failed to generate waveform for ${path.basename(currentFilePath)}:`, err.message);
                 });
 
-            return { originalPath: filePath, success: true, message: "Track processed successfully.", convertedPath: currentFilePath !== filePath ? currentFilePath : undefined };
+            return { originalPath: filePath, success: true, message: "Track processed successfully.", convertedPath: currentFilePath !== filePath ? currentFilePath : undefined, trackId: trackId };
 
         } catch (error) {
             console.error("  Error processing " + currentFilePath + ":", error);
