@@ -17,13 +17,16 @@ function createTempStorage() {
     return multer.diskStorage({
         destination: (req, file, cb) => {
             const destDir = os.tmpdir();
+            console.log(`📂 [Debug] Multer destination: ${destDir}`);
             cb(null, destDir);
         },
         filename: (req, file, cb) => {
             // Use random name to avoid collisions in temp
             const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
             const ext = path.extname(file.originalname).toLowerCase();
-            cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+            const filename = file.fieldname + '-' + uniqueSuffix + ext;
+            console.log(`📄 [Debug] Multer filename: ${filename}`);
+            cb(null, filename);
         },
     });
 }
