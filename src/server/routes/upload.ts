@@ -128,12 +128,20 @@ export function createUploadRoutes(
      * POST /api/admin/upload/cover
      * Upload a cover image for a release
      */
-    router.post("/cover", upload.single("file"), async (req, res) => {
+    router.post("/cover", (req, res, next) => {
+        console.log("🔍 [Debug] Upload Request Headers:", req.headers['content-type']);
+        next();
+    }, upload.single("file"), async (req, res) => {
         try {
+            console.log("🔍 [Debug] Inside /cover handler");
+            console.log("🔍 [Debug] req.file:", req.file ? `${req.file.originalname} (${req.file.size} bytes)` : "undefined");
+            console.log("🔍 [Debug] req.body:", req.body);
+
             const file = req.file;
             const releaseSlug = req.body.releaseSlug;
 
             if (!file) {
+                console.error("❌ [Debug] No file in req.file");
                 return res.status(400).json({ error: "No file uploaded" });
             }
 
