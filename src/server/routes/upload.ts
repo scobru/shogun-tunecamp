@@ -64,9 +64,14 @@ export function createUploadRoutes(
     const upload = multer({
         storage: createTempStorage(),
         fileFilter,
-        limits: {
-            fileSize: 100 * 1024 * 1024, // 100MB
-        },
+        limits: { fileSize: 300 * 1024 * 1024 } // 300MB limit
+    });
+
+    // Memory storage for covers (small files, avoids disk I/O in middleware)
+    const uploadMemory = multer({
+        storage: multer.memoryStorage(),
+        fileFilter,
+        limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit for covers
     });
 
     const uploadBackground = multer({
