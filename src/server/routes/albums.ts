@@ -130,7 +130,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string) 
             if (!album || !album.cover_path) {
                 const svg = getPlaceholderSVG(album ? album.title : "No Cover");
                 res.setHeader("Content-Type", "image/svg+xml");
-                res.setHeader("Cache-Control", "public, max-age=86400");
+                res.setHeader("Cache-Control", "public, max-age=0");
                 return res.send(svg);
             }
 
@@ -164,7 +164,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string) 
                 console.warn(`⚠️ [Debug] Album cover not found at: ${resolvedPath}`);
                 const svg = getPlaceholderSVG(album.title);
                 res.setHeader("Content-Type", "image/svg+xml");
-                res.setHeader("Cache-Control", "public, max-age=86400");
+                res.setHeader("Cache-Control", "public, max-age=0");
                 return res.send(svg);
             }
 
@@ -178,7 +178,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string) 
             };
 
             res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
-            res.setHeader("Cache-Control", "public, max-age=86400");
+            res.setHeader("Cache-Control", "public, max-age=0");
             fs.createReadStream(resolvedPath).pipe(res);
         } catch (error) {
             console.error("Error getting cover:", error);
