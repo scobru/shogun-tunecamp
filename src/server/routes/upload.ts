@@ -39,6 +39,7 @@ function fileFilter(
     file: Express.Multer.File,
     cb: multer.FileFilterCallback
 ) {
+    console.log(`🔍 [Debug] Multer fileFilter seeing file: ${file.fieldname} (${file.originalname})`);
     const ext = path.extname(file.originalname).toLowerCase();
     const isAudio = AUDIO_EXTENSIONS.includes(ext);
     const isImage = IMAGE_EXTENSIONS.includes(ext);
@@ -46,6 +47,7 @@ function fileFilter(
     if (isAudio || isImage) {
         cb(null, true);
     } else {
+        console.warn(`❌ [Debug] Multer rejected file type: ${ext}`);
         cb(new Error(`Unsupported file type: ${ext}`));
     }
 }

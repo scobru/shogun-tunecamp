@@ -170,11 +170,12 @@ export const API = {
     },
     uploadCover: (file: File, releaseSlug?: string) => {
         const formData = new FormData();
+        // Append file FIRST to help some parsers
+        formData.append('file', file);
         if (releaseSlug) {
             formData.append('releaseSlug', releaseSlug);
             formData.append('type', 'release');
         }
-        formData.append('file', file);
         return handleResponse(api.post('/admin/upload/cover', formData));
     },
     uploadArtistAvatar: (artistId: string, file: File) => {
