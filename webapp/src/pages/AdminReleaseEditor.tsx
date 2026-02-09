@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
+import { TrackPickerModal } from '../components/modals/TrackPickerModal';
 import { 
     Image as ImageIcon, 
     Music, 
@@ -11,7 +12,8 @@ import {
     Plus,
     Trash2,
     Globe,
-    Lock
+    Lock,
+    Library
 } from 'lucide-react';
 
 interface LocalTrack {
@@ -21,7 +23,71 @@ interface LocalTrack {
     position: number;
     price?: number;
     file_path: string;
+    artistName?: string;
+    format?: string;
 }
+
+// ... inside component ...
+
+    const loadRelease = async (releaseId: number) => {
+        setLoading(true);
+        try {
+            const data: any = await API.getAlbum(releaseId);
+            // ... metadata ...
+            
+            if (data.tracks) {
+                setTracks(data.tracks
+                    .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
+                    .map((t: any) => ({
+                        id: parseInt(t.id),
+                        title: t.title,
+                        duration: t.duration,
+                        position: t.position,
+                        file_path: t.path || t.file_path, // handle API inconsistency
+                        format: t.format,
+                        artistName: t.artistName
+                    }))
+                );
+            }
+        } // ... catch ...
+    };
+
+    const handleAddLibraryTracks = (selected: any[]) => {
+        // Optimistically add to list (will be linked on save)
+        const newTracks = selected.map(t => ({
+            id: parseInt(t.id),
+            title: t.title,
+            duration: t.duration,
+            position: tracks.length + 1, // Append
+            price: 0,
+            file_path: t.path,
+            artistName: t.artistName,
+            format: t.format
+        }));
+        
+        // ... filter unique ...
+    };
+
+// ... inside render loop ...
+
+                                        <div className="flex-1 flex gap-2 items-center">
+                                            <input 
+                                                type="text" 
+                                                value={track.title} 
+                                                onChange={(e) => {
+                                                    const newTracks = [...tracks];
+                                                    newTracks[idx].title = e.target.value;
+                                                    setTracks(newTracks);
+                                                }}
+                                                className="input input-ghost input-sm w-full font-medium focus:bg-base-200"
+                                            />
+                                            {track.format && (
+                                                <span className="badge badge-xs badge-ghost opacity-50 font-mono uppercase">
+                                                    {track.format}
+                                                </span>
+                                            )}
+                                            {track.artistName && <div className="text-xs opacity-50 px-3 whitespace-nowrap">{track.artistName}</div>}
+                                        </div>
 
 interface LocalRelease {
     id: number;
@@ -65,7 +131,11 @@ export default function AdminReleaseEditor() {
     // Tracks State
     const [tracks, setTracks] = useState<LocalTrack[]>([]);
     const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
-    // const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+    const [uploadingFileIndex, setUploadingFileIndex] = useState<number | null>(null);
+
+    // Track Picker
+    const [showTrackPicker, setShowTrackPicker] = useState(false);
+    const [tracksToAdd, setTracksToAdd] = useState<LocalTrack[]>([]); // Tracks selected from library to be added
     
     // Cover Art
     const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -122,6 +192,25 @@ export default function AdminReleaseEditor() {
         }
     };
 
+    const handleAddLibraryTracks = (selected: any[]) => {
+        // Optimistically add to list (will be linked on save)
+        const newTracks = selected.map(t => ({
+            id: parseInt(t.id),
+            title: t.title,
+            duration: t.duration,
+            position: tracks.length + 1, // Append
+            price: 0,
+            file_path: t.path,
+            artistName: t.artistName
+        }));
+        
+        // Filter out duplicates in current view
+        const unique = newTracks.filter(nt => !tracks.find(t => t.id === nt.id) && !tracksToAdd.find(t => t.id === nt.id));
+        
+        setTracksToAdd(prev => [...prev, ...unique]);
+        setTracks(prev => [...prev, ...unique]);
+    };
+
     const handleSave = async (publish: boolean = false) => {
         if (!adminUser?.isAdmin) return;
         setSaving(true);
@@ -129,57 +218,82 @@ export default function AdminReleaseEditor() {
             const dataToSave = {
                 ...metadata,
                 visibility: publish ? 'public' : metadata.visibility
-            } as any; // Cast to avoid partial mismatch issues
+            } as any; 
 
             let releaseId = id ? parseInt(id) : null;
+            let currentSlug = metadata.slug;
 
+            // 1. Create or Update Release
             if (isNew) {
-                // Create
                 const created: any = await API.createRelease(dataToSave); 
                 releaseId = parseInt(created.id);
+                currentSlug = created.slug;
             } else if (releaseId) {
-                // Update
                 await API.updateRelease(String(releaseId), dataToSave);
+                // Fetch fresh slug if needed
+                if (!currentSlug) {
+                    const fresh = await API.getAlbum(releaseId);
+                    currentSlug = fresh.slug;
+                }
             }
 
             if (!releaseId) throw new Error("No release ID available");
 
-            // Upload Cover if changed
-            if (coverFile) {
-                // We need the slug
-                const currentSlug = metadata.slug || (await API.getAlbum(releaseId)).slug;
-                if (currentSlug) {
-                     await API.uploadCover(coverFile, currentSlug);
+            // 2. Upload Cover
+            if (coverFile && currentSlug) {
+                 await API.uploadCover(coverFile, currentSlug);
+            }
+
+            // 3. Link "Added from Library" tracks
+            // Use set to avoid duplicates if user added same track multiple times
+            const uniqueTrackIdsToAdd = Array.from(new Set(tracksToAdd.map(t => t.id)));
+            for (const trackId of uniqueTrackIdsToAdd) {
+                try {
+                    await API.addTrackToRelease(String(releaseId), String(trackId));
+                } catch (e) {
+                    console.error(`Failed to link track ${trackId}`, e);
                 }
             }
 
-            // Handle Track Uploads (Simple sequential for now)
-            if (filesToUpload.length > 0) {
-               const fresh = await API.getAlbum(releaseId);
-               if (fresh.slug) {
-                    await API.uploadTracks(filesToUpload, { 
-                        releaseSlug: fresh.slug,
-                        onProgress: () => {
-                            // Global progress roughly
+            // 4. Handle File Uploads (Sequentially to report progress/errors)
+            if (filesToUpload.length > 0 && currentSlug) {
+                // Upload one by one or in batch. API supports batch, but debugging is easier one by one?
+                // API.uploadTracks takes File[], so lets use that but maybe ensure it returns correctly
+                
+                try {
+                     setUploadingFileIndex(0); // Indeterminate or just "Uploading..."
+                     // We pass all files. If it hangs, it might be the connection.
+                     await API.uploadTracks(filesToUpload, { 
+                        releaseSlug: currentSlug,
+                        onProgress: (pct) => {
+                            // console.log(`Upload progress: ${pct}%`);
                         }
                     });
-               }
+                } catch (e) {
+                    console.error("Upload failed", e);
+                    alert("Some files failed to upload. Please try again.");
+                    // Don't clear filesToUpload so user can retry
+                    throw e; 
+                }
             }
 
             if (isNew || publish) {
                 navigate('/admin');
             } else {
-                // Reload to show updates
-                loadRelease(releaseId);
+                // Reload
                 setFilesToUpload([]);
+                setTracksToAdd([]);
+                setUploadingFileIndex(null);
                 setCoverFile(null);
+                loadRelease(releaseId);
             }
 
         } catch (e) {
             console.error("Save failed", e);
-            alert("Failed to save release");
+            alert("Failed to save release or upload tracks.");
         } finally {
             setSaving(false);
+            setUploadingFileIndex(null);
         }
     };
 
@@ -245,18 +359,23 @@ export default function AdminReleaseEditor() {
                             <h2 className="text-lg font-bold flex items-center gap-2">
                                 <Music className="w-5 h-5" /> Tracks
                             </h2>
-                            <label className="btn btn-sm btn-outline">
-                                <Plus className="w-4 h-4" /> Add Audio
-                                <input 
-                                    type="file" 
-                                    multiple 
-                                    accept="audio/*" 
-                                    className="hidden"
-                                    onChange={e => {
-                                        if(e.target.files) setFilesToUpload(prev => [...prev, ...Array.from(e.target.files!)]);
-                                    }} 
-                                />
-                            </label>
+                            <div className="flex gap-2">
+                                <button className="btn btn-sm btn-outline" onClick={() => setShowTrackPicker(true)}>
+                                    <Library className="w-4 h-4" /> Add from Library
+                                </button>
+                                <label className="btn btn-sm btn-primary">
+                                    <Plus className="w-4 h-4" /> Upload Audio
+                                    <input 
+                                        type="file" 
+                                        multiple 
+                                        accept="audio/*" 
+                                        className="hidden"
+                                        onChange={e => {
+                                            if(e.target.files) setFilesToUpload(prev => [...prev, ...Array.from(e.target.files!)]);
+                                        }} 
+                                    />
+                                </label>
+                            </div>
                         </div>
 
                         {/* Existing Tracks */}
@@ -264,7 +383,7 @@ export default function AdminReleaseEditor() {
                             {tracks.length === 0 && filesToUpload.length === 0 && (
                                 <div className="p-12 border-2 border-dashed border-base-content/20 rounded-box text-center text-base-content/50">
                                     <p>Drag and drop audio files here</p>
-                                    <p className="text-sm">WAV, FLAC, MP3 supported</p>
+                                    <p className="text-sm">or click buttons above</p>
                                 </div>
                             )}
 
@@ -286,10 +405,10 @@ export default function AdminReleaseEditor() {
                                                 }}
                                                 className="input input-ghost input-sm w-full font-medium focus:bg-base-200"
                                             />
+                                            {track.artistName && <div className="text-xs opacity-50 px-3">{track.artistName}</div>}
                                         </div>
                                         <div className="text-sm opacity-50 font-mono">
-                                            {/* Duration placeholder or logic */}
-                                            0:00
+                                            {track.duration ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, '0')}` : '-'}
                                         </div>
                                         <button className="btn btn-ghost btn-xs text-error opacity-0 group-hover:opacity-100">
                                             <Trash2 className="w-4 h-4" />
@@ -302,7 +421,7 @@ export default function AdminReleaseEditor() {
                             {filesToUpload.map((file, idx) => (
                                 <div key={`upload-${idx}`} className="card card-compact bg-base-100/50 border border-dashed border-primary/30">
                                     <div className="card-body flex-row items-center gap-4 py-3">
-                                        <div className="loading loading-spinner loading-xs text-primary"></div>
+                                        {uploadingFileIndex !== null && <div className="loading loading-spinner loading-xs text-primary"></div>}
                                         <div className="flex-1 truncate">
                                             {file.name}
                                         </div>
@@ -310,6 +429,7 @@ export default function AdminReleaseEditor() {
                                         <button 
                                             className="btn btn-ghost btn-xs btn-circle"
                                             onClick={() => setFilesToUpload(prev => prev.filter((_, i) => i !== idx))}
+                                            disabled={uploadingFileIndex !== null}
                                         >
                                             <X className="w-4 h-4" />
                                         </button>
@@ -319,6 +439,13 @@ export default function AdminReleaseEditor() {
                         </div>
                     </div>
                 </div>
+
+                <TrackPickerModal 
+                    isOpen={showTrackPicker} 
+                    onClose={() => setShowTrackPicker(false)}
+                    onTracksSelected={handleAddLibraryTracks}
+                    excludeTrackIds={tracks.map(t => t.id)}
+                />
 
                 {/* RIGHT COLUMN: METADATA */}
                 <div className="w-96 bg-base-200 p-6 overflow-y-auto border-l border-base-content/10">
