@@ -13,6 +13,8 @@ import { IdentityPanel } from '../components/admin/IdentityPanel';
 import { ActivityPubPanel } from '../components/admin/ActivityPubPanel';
 import type { SiteSettings } from '../types';
 
+import { PlaylistModal } from '../components/modals/PlaylistModal';
+
 export const Admin = () => {
     const { adminUser, isAdminAuthenticated } = useAuthStore();
     const navigate = useNavigate();
@@ -207,6 +209,7 @@ export const Admin = () => {
             <UploadTracksModal onUploadComplete={() => window.dispatchEvent(new CustomEvent('refresh-admin-releases'))} />
             <CreatePostModal onPostCreated={() => window.dispatchEvent(new CustomEvent('refresh-admin-releases'))} />
             <AdminTrackModal onTrackUpdated={() => window.dispatchEvent(new CustomEvent('refresh-admin-tracks'))} />
+            <PlaylistModal />
         </div>
     );
 };
@@ -544,6 +547,12 @@ const AdminTracksList = () => {
                         <td>{t.album_title}</td>
                         <td>{t.duration ? `${Math.floor(t.duration / 60)}:${String(Math.floor(t.duration % 60)).padStart(2, '0')}` : '-'}</td>
                         <td className="flex gap-2">
+                            <button 
+                                className="btn btn-xs btn-ghost text-primary" 
+                                onClick={() => document.dispatchEvent(new CustomEvent('open-playlist-modal', { detail: { trackId: t.id } }))}
+                            >
+                                Playlist
+                            </button>
                             <button 
                                 className="btn btn-xs btn-ghost" 
                                 onClick={() => document.dispatchEvent(new CustomEvent('open-admin-track-modal', { detail: t }))}

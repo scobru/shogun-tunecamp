@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
-import { Music, Play, Heart, Plus, MoreHorizontal, Clock, Search } from 'lucide-react';
+import { Music, Play, Heart, MoreHorizontal, Clock, Search } from 'lucide-react';
 import { usePlayerStore } from '../stores/usePlayerStore';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Track } from '../types';
@@ -38,14 +38,6 @@ export const Tracks = () => {
             t.albumName?.toLowerCase().includes(lower);
         }));
     }, [filter, tracks]);
-
-    const handleAddToPlaylist = (trackId: string) => {
-        if (!isAuthenticated) {
-            document.dispatchEvent(new CustomEvent('open-auth-modal'));
-            return;
-        }
-        document.dispatchEvent(new CustomEvent('open-playlist-modal', { detail: { trackId } }));
-    };
 
     const handleLike = () => {
          if (!isAuthenticated) {
@@ -121,27 +113,12 @@ export const Tracks = () => {
                                         <Play size={12} fill="currentColor"/>
                                     </button>
                                 </td>
-                                <td>
-                                    <div className="flex items-center gap-3">
-                                        <div className="avatar rounded-lg overflow-hidden w-10 h-10 shrink-0 opacity-80">
-                                            <img 
-                                                src={track.albumId ? API.getAlbumCoverUrl(track.albumId) : API.getArtistCoverUrl(track.artistId)} 
-                                                loading="lazy"
-                                                alt={track.title}
-                                                onError={(e) => {
-                                                    // Fallback to placeholder if both fail
-                                                    e.currentTarget.style.display = 'none';
-                                                }}
-                                            />
-                                        </div>
-                                        <div>
-                                            <div className="font-bold flex items-center gap-2">
-                                                {track.title}
-                                                {track.liked && <Heart size={12} className="text-primary" fill="currentColor"/>}
-                                            </div>
-                                            <div className="text-xs opacity-50">{track.artistName}</div>
-                                        </div>
+                                <td className="font-bold">
+                                    <div className="flex items-center gap-2">
+                                        {track.title}
+                                        {track.liked && <Heart size={12} className="text-primary" fill="currentColor"/>}
                                     </div>
+                                    <div className="text-xs opacity-50">{track.artistName}</div>
                                 </td>
                                 <td className="opacity-60 text-sm truncate max-w-[150px]">{track.albumName}</td>
                                 <td className="text-right opacity-50 font-mono text-xs">
@@ -151,9 +128,7 @@ export const Tracks = () => {
                                     <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100 transition-opacity">
                                         <label tabIndex={0} className="btn btn-ghost btn-xs btn-circle"><MoreHorizontal size={16}/></label>
                                         <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10">
-                                            <li><a onClick={() => handleAddToPlaylist(track.id)}><Plus size={16}/> Add to Playlist</a></li>
                                              <li><a onClick={() => handleLike()}><Heart size={16}/> Like Song</a></li>
-
                                         </ul>
                                     </div>
                                 </td>

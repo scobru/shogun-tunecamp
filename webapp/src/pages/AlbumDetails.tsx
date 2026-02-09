@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useParams, Link } from 'react-router-dom';
-import { Play, Clock, Heart, MoreHorizontal, Share2, Plus, Download, Unlock, ExternalLink, Shield, Music } from 'lucide-react';
+import { Play, Clock, Heart, MoreHorizontal, Share2, Download, Unlock, ExternalLink, Shield, Music } from 'lucide-react';
 import { usePlayerStore } from '../stores/usePlayerStore';
 import { useAuthStore } from '../stores/useAuthStore';
 
@@ -28,10 +28,6 @@ export const AlbumDetails = () => {
         if (album?.tracks && album.tracks.length > 0) {
             playTrack(album.tracks[0], album.tracks);
         }
-    };
-
-    const handleAddToPlaylist = (trackId: string) => {
-        document.dispatchEvent(new CustomEvent('open-playlist-modal', { detail: { trackId } }));
     };
 
     const handleUnlock = () => {
@@ -188,7 +184,6 @@ export const AlbumDetails = () => {
                                     <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100 transition-opacity">
                                         <label tabIndex={0} className="btn btn-ghost btn-xs btn-circle"><MoreHorizontal size={16}/></label>
                                         <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10">
-                                            <li><a onClick={() => handleAddToPlaylist(track.id)}><Plus size={16}/> Add to Playlist</a></li>
                                             <li><a><Heart size={16}/> Like Song</a></li>
                                             {isAdmin && (
                                                 <li>
