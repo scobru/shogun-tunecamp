@@ -858,56 +858,63 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         // Playlists
+        export interface Playlist {
+        id: number;
+        name: string;
+        description: string | null;
+        isPublic: boolean;
+        created_at: string;
+    }
 
-        getPlaylists(publicOnly = false): Playlist[] {
-            const sql = publicOnly
-                ? "SELECT * FROM playlists WHERE is_public = 1 ORDER BY name"
-                : "SELECT * FROM playlists ORDER BY name";
-            return db.prepare(sql).all() as Playlist[];
-        },
+    getPlaylists(publicOnly = false): Playlist[] {
+        const sql = publicOnly
+            ? "SELECT id, name, description, is_public as isPublic, created_at FROM playlists WHERE is_public = 1 ORDER BY name"
+            : "SELECT id, name, description, is_public as isPublic, created_at FROM playlists ORDER BY name";
+        return db.prepare(sql).all() as Playlist[];
+    },
 
-        getPlaylist(id: number): Playlist | undefined {
-            return db.prepare("SELECT * FROM playlists WHERE id = ?").get(id) as Playlist | undefined;
-        },
+    getPlaylist(id: number): Playlist | undefined {
+        return db.prepare("SELECT id, name, description, is_public as isPublic, created_at FROM playlists WHERE id = ?").get(id) as Playlist | undefined;
+    },
 
-        createPlaylist(name: string, description?: string, isPublic = false): number {
-            const result = db
-                .prepare("INSERT INTO playlists (name, description, is_public) VALUES (?, ?, ?)")
-                .run(name, description || null, isPublic ? 1 : 0);
-            return result.lastInsertRowid as number;
-        },
+    createPlaylist(name: string, description ?: string, isPublic = false): number {
+        const result = db
+            .prepare("INSERT INTO playlists (name, description, is_public) VALUES (?, ?, ?)")
+            .run(name, description || null, isPublic ? 1 : 0);
+        return result.lastInsertRowid as number;
+    },
 
-        updatePlaylistVisibility(id: number, isPublic: boolean): void {
-            db.prepare("UPDATE playlists SET is_public = ? WHERE id = ?").run(isPublic ? 1 : 0, id);
-        },
+    updatePlaylistVisibility(id: number, isPublic: boolean): void {
+        db.prepare("UPDATE playlists SET is_public = ? WHERE id = ?").run(isPublic ? 1 : 0, id);
+    },
 
         deletePlaylist(id: number): void {
             db.prepare("DELETE FROM playlists WHERE id = ?").run(id);
         },
 
-        getPlaylistTracks(playlistId: number): Track[] {
-            return db
-                .prepare(
-                    `SELECT t.*, a.title as album_title, ar.name as artist_name 
+            getPlaylistTracks(playlistId: number): Track[] {
+        return db
+            .prepare(
+                `SELECT t.*, a.title as album_title, ar.name as artist_name 
            FROM tracks t
            JOIN playlist_tracks pt ON t.id = pt.track_id
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
            WHERE pt.playlist_id = ?
            ORDER BY pt.position`
-                )
-                .all(playlistId) as Track[];
-        },
+            )
+            .all(playlistId) as Track[];
+    },
 
-        addTrackToPlaylist(playlistId: number, trackId: number): void {
-            const maxPos = db
-                .prepare("SELECT MAX(position) as max FROM playlist_tracks WHERE playlist_id = ?")
-                .get(playlistId) as { max: number | null };
-            const position = (maxPos?.max || 0) + 1;
-            db.prepare(
-                "INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)"
-            ).run(playlistId, trackId, position);
-        },
+    addTrackToPlaylist(playlistId: number, trackId: number): void {
+        const maxPos = db
+            .prepare("SELECT MAX(position) as max FROM playlist_tracks WHERE playlist_id = ?")
+            .get(playlistId) as { max: number | null };
+        const position = (maxPos?.max || 0) + 1;
+        db.prepare(
+            "INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)"
+        ).run(playlistId, trackId, position);
+    },
 
         removeTrackFromPlaylist(playlistId: number, trackId: number): void {
             db.prepare(
@@ -915,155 +922,155 @@ export function createDatabase(dbPath: string): DatabaseService {
             ).run(playlistId, trackId);
         },
 
-        // Posts
-        getPostsByArtist(artistId: number): Post[] {
-            return db.prepare(`
+            // Posts
+            getPostsByArtist(artistId: number): Post[] {
+        return db.prepare(`
                 SELECT p.*, a.name as artist_name, a.slug as artist_slug, a.photo_path as artist_photo
                 FROM posts p
                 JOIN artists a ON p.artist_id = a.id
                 WHERE p.artist_id = ?
                 ORDER BY p.created_at DESC
             `).all(artistId) as Post[];
-        },
+    },
 
-        getPost(id: number): Post | undefined {
-            return db.prepare(`
+    getPost(id: number): Post | undefined {
+        return db.prepare(`
                 SELECT p.*, a.name as artist_name, a.slug as artist_slug, a.photo_path as artist_photo
                 FROM posts p
                 JOIN artists a ON p.artist_id = a.id
                 WHERE p.id = ?
             `).get(id) as Post | undefined;
-        },
+    },
 
-        getPostBySlug(slug: string): Post | undefined {
-            return db.prepare(`
+    getPostBySlug(slug: string): Post | undefined {
+        return db.prepare(`
                 SELECT p.*, a.name as artist_name, a.slug as artist_slug, a.photo_path as artist_photo
                 FROM posts p
                 JOIN artists a ON p.artist_id = a.id
                 WHERE p.slug = ?
             `).get(slug) as Post | undefined;
-        },
+    },
 
-        createPost(artistId: number, content: string, visibility: 'public' | 'private' | 'unlisted' = 'public'): number {
-            // Generate slug from content snippet or random
-            const snippet = content.slice(0, 20).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-            const random = Math.random().toString(36).substring(2, 8);
-            const slug = snippet ? `${snippet}-${random}` : `post-${random}`;
+    createPost(artistId: number, content: string, visibility: 'public' | 'private' | 'unlisted' = 'public'): number {
+        // Generate slug from content snippet or random
+        const snippet = content.slice(0, 20).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        const random = Math.random().toString(36).substring(2, 8);
+        const slug = snippet ? `${snippet}-${random}` : `post-${random}`;
 
-            const result = db.prepare(
-                "INSERT INTO posts (artist_id, content, slug, visibility) VALUES (?, ?, ?, ?)"
-            ).run(artistId, content, slug, visibility);
+        const result = db.prepare(
+            "INSERT INTO posts (artist_id, content, slug, visibility) VALUES (?, ?, ?, ?)"
+        ).run(artistId, content, slug, visibility);
 
-            return result.lastInsertRowid as number;
-        },
+        return result.lastInsertRowid as number;
+    },
 
-        deletePost(id: number): void {
-            db.prepare("DELETE FROM posts WHERE id = ?").run(id);
-        },
+    deletePost(id: number): void {
+        db.prepare("DELETE FROM posts WHERE id = ?").run(id);
+    },
 
-        updatePost(id: number, content: string, visibility?: 'public' | 'private' | 'unlisted'): void {
-            if (content !== undefined && visibility !== undefined) {
-                db.prepare("UPDATE posts SET content = ?, visibility = ? WHERE id = ?").run(content, visibility, id);
-            } else if (content !== undefined) {
-                db.prepare("UPDATE posts SET content = ? WHERE id = ?").run(content, id);
-            } else if (visibility !== undefined) {
-                db.prepare("UPDATE posts SET visibility = ? WHERE id = ?").run(visibility, id);
-            }
-        },
+        updatePost(id: number, content: string, visibility ?: 'public' | 'private' | 'unlisted'): void {
+            if(content !== undefined && visibility !== undefined) {
+        db.prepare("UPDATE posts SET content = ?, visibility = ? WHERE id = ?").run(content, visibility, id);
+    } else if (content !== undefined) {
+        db.prepare("UPDATE posts SET content = ? WHERE id = ?").run(content, id);
+    } else if (visibility !== undefined) {
+        db.prepare("UPDATE posts SET visibility = ? WHERE id = ?").run(visibility, id);
+    }
+},
 
         // Stats
         async getStats() {
-            const artists = (db.prepare("SELECT COUNT(*) as count FROM artists").get() as { count: number }).count;
-            const albums = (db.prepare("SELECT COUNT(*) as count FROM albums").get() as { count: number }).count;
-            const tracks = (db.prepare("SELECT COUNT(*) as count FROM tracks").get() as { count: number }).count;
-            const publicAlbums = (db.prepare("SELECT COUNT(*) as count FROM albums WHERE is_public = 1").get() as { count: number }).count;
-            const totalUsers = (db.prepare("SELECT COUNT(*) as count FROM admin").get() as { count: number } | undefined)?.count || 0;
+    const artists = (db.prepare("SELECT COUNT(*) as count FROM artists").get() as { count: number }).count;
+    const albums = (db.prepare("SELECT COUNT(*) as count FROM albums").get() as { count: number }).count;
+    const tracks = (db.prepare("SELECT COUNT(*) as count FROM tracks").get() as { count: number }).count;
+    const publicAlbums = (db.prepare("SELECT COUNT(*) as count FROM albums WHERE is_public = 1").get() as { count: number }).count;
+    const totalUsers = (db.prepare("SELECT COUNT(*) as count FROM admin").get() as { count: number } | undefined)?.count || 0;
 
-            // Calculate storage used (filesize of all tracks)
-            // Note: This relies on filesystem or storing size in DB.
-            // If size is not in DB, we'll estimate or read from disk.
-            // For now, let's try to sum up a size column if it exists, or 0.
-            // Since we don't have a size column in tracks based on previous view, we might need to add it or do a file scan.
-            // But wait, checking schema... we don't have file size in tracks table.
-            // Let's check if we can get it from file system or if we should add it.
-            // A quick fix is to return 0 for now or estimate based on duration * bitrate.
+    // Calculate storage used (filesize of all tracks)
+    // Note: This relies on filesystem or storing size in DB.
+    // If size is not in DB, we'll estimate or read from disk.
+    // For now, let's try to sum up a size column if it exists, or 0.
+    // Since we don't have a size column in tracks based on previous view, we might need to add it or do a file scan.
+    // But wait, checking schema... we don't have file size in tracks table.
+    // Let's check if we can get it from file system or if we should add it.
+    // A quick fix is to return 0 for now or estimate based on duration * bitrate.
 
-            // Estimate based on duration * bitrate (if available) or default 
-            // 320kbps = 40KB/s approx.
-            const storageStats = db.prepare("SELECT SUM(duration) as total_duration FROM tracks").get() as { total_duration: number };
-            const estimatedSize = (storageStats.total_duration || 0) * 40 * 1024; // Very rough estimate
+    // Estimate based on duration * bitrate (if available) or default 
+    // 320kbps = 40KB/s approx.
+    const storageStats = db.prepare("SELECT SUM(duration) as total_duration FROM tracks").get() as { total_duration: number };
+    const estimatedSize = (storageStats.total_duration || 0) * 40 * 1024; // Very rough estimate
 
-            return {
-                artists,
-                albums,
-                tracks: tracks,
-                totalTracks: tracks, // Frontend expects totalTracks
-                publicAlbums,
-                totalUsers,
-                storageUsed: estimatedSize,
-                networkSites: 0 // Placeholder, actual count should come from GunDB service if possible or DB if we sync it
-            };
-        },
+    return {
+        artists,
+        albums,
+        tracks: tracks,
+        totalTracks: tracks, // Frontend expects totalTracks
+        publicAlbums,
+        totalUsers,
+        storageUsed: estimatedSize,
+        networkSites: 0 // Placeholder, actual count should come from GunDB service if possible or DB if we sync it
+    };
+},
 
-        // Search
-        search(query: string, publicOnly = false) {
-            const likeQuery = `%${query}%`;
+// Search
+search(query: string, publicOnly = false) {
+    const likeQuery = `%${query}%`;
 
-            const artists = db
-                .prepare("SELECT * FROM artists WHERE name LIKE ?")
-                .all(likeQuery) as Artist[];
+    const artists = db
+        .prepare("SELECT * FROM artists WHERE name LIKE ?")
+        .all(likeQuery) as Artist[];
 
-            const albumsSql = publicOnly
-                ? `SELECT a.*, ar.name as artist_name FROM albums a 
+    const albumsSql = publicOnly
+        ? `SELECT a.*, ar.name as artist_name FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.visibility IN ('public', 'unlisted') AND (a.title LIKE ? OR ar.name LIKE ?)`
-                : `SELECT a.*, ar.name as artist_name FROM albums a 
+        : `SELECT a.*, ar.name as artist_name FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.title LIKE ? OR ar.name LIKE ?`;
-            const albums = db.prepare(albumsSql).all(likeQuery, likeQuery) as Album[];
+    const albums = db.prepare(albumsSql).all(likeQuery, likeQuery) as Album[];
 
-            const tracksSql = publicOnly
-                ? `SELECT t.*, a.title as album_title, ar.name as artist_name 
+    const tracksSql = publicOnly
+        ? `SELECT t.*, a.title as album_title, ar.name as artist_name 
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
            WHERE a.visibility IN ('public', 'unlisted') AND (t.title LIKE ? OR ar.name LIKE ?)`
-                : `SELECT t.*, a.title as album_title, ar.name as artist_name 
+        : `SELECT t.*, a.title as album_title, ar.name as artist_name 
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
            WHERE t.title LIKE ? OR ar.name LIKE ?`;
-            const tracks = db.prepare(tracksSql).all(likeQuery, likeQuery) as Track[];
+    const tracks = db.prepare(tracksSql).all(likeQuery, likeQuery) as Track[];
 
-            return { artists, albums, tracks };
-        },
+    return { artists, albums, tracks };
+},
 
-        // Settings
-        getSetting(key: string): string | undefined {
-            const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
-            return row?.value;
-        },
+// Settings
+getSetting(key: string): string | undefined {
+    const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+    return row?.value;
+},
 
-        setSetting(key: string, value: string): void {
-            db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
-        },
+setSetting(key: string, value: string): void {
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
+},
 
-        getAllSettings(): { [key: string]: string } {
-            const rows = db.prepare("SELECT key, value FROM settings").all() as { key: string; value: string }[];
-            const settings: { [key: string]: string } = {};
-            for (const row of rows) {
-                settings[row.key] = row.value;
-            }
-            return settings;
-        },
+    getAllSettings(): { [key: string]: string } {
+    const rows = db.prepare("SELECT key, value FROM settings").all() as { key: string; value: string }[];
+    const settings: { [key: string]: string } = {};
+    for (const row of rows) {
+        settings[row.key] = row.value;
+    }
+    return settings;
+},
 
-        // Play History
-        recordPlay(trackId: number): void {
-            db.prepare("INSERT INTO play_history (track_id) VALUES (?)").run(trackId);
-        },
+// Play History
+recordPlay(trackId: number): void {
+    db.prepare("INSERT INTO play_history (track_id) VALUES (?)").run(trackId);
+},
 
-        getRecentPlays(limit = 50): PlayHistoryEntry[] {
-            return db.prepare(`
+    getRecentPlays(limit = 50): PlayHistoryEntry[] {
+    return db.prepare(`
                 SELECT 
                     ph.id,
                     ph.track_id,
@@ -1078,14 +1085,14 @@ export function createDatabase(dbPath: string): DatabaseService {
                 ORDER BY ph.played_at DESC
                 LIMIT ?
             `).all(limit) as PlayHistoryEntry[];
-        },
+},
 
-        getTopTracks(limit = 20, days = 30): TrackWithPlayCount[] {
-            const dateLimit = new Date();
-            dateLimit.setDate(dateLimit.getDate() - days);
-            const dateStr = dateLimit.toISOString();
+getTopTracks(limit = 20, days = 30): TrackWithPlayCount[] {
+    const dateLimit = new Date();
+    dateLimit.setDate(dateLimit.getDate() - days);
+    const dateStr = dateLimit.toISOString();
 
-            return db.prepare(`
+    return db.prepare(`
                 SELECT 
                     t.*,
                     al.title as album_title,
@@ -1100,14 +1107,14 @@ export function createDatabase(dbPath: string): DatabaseService {
                 ORDER BY play_count DESC
                 LIMIT ?
             `).all(dateStr, limit) as TrackWithPlayCount[];
-        },
+},
 
-        getTopArtists(limit = 10, days = 30): ArtistWithPlayCount[] {
-            const dateLimit = new Date();
-            dateLimit.setDate(dateLimit.getDate() - days);
-            const dateStr = dateLimit.toISOString();
+getTopArtists(limit = 10, days = 30): ArtistWithPlayCount[] {
+    const dateLimit = new Date();
+    dateLimit.setDate(dateLimit.getDate() - days);
+    const dateStr = dateLimit.toISOString();
 
-            return db.prepare(`
+    return db.prepare(`
                 SELECT 
                     ar.*,
                     COUNT(ph.id) as play_count
@@ -1119,85 +1126,85 @@ export function createDatabase(dbPath: string): DatabaseService {
                 ORDER BY play_count DESC
                 LIMIT ?
             `).all(dateStr, limit) as ArtistWithPlayCount[];
-        },
+},
 
-        getListeningStats(): ListeningStats {
-            const now = new Date();
-            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-            const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-            const monthStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+getListeningStats(): ListeningStats {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const monthStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-            const totalPlays = (db.prepare("SELECT COUNT(*) as count FROM play_history").get() as { count: number }).count;
-            const uniqueTracks = (db.prepare("SELECT COUNT(DISTINCT track_id) as count FROM play_history").get() as { count: number }).count;
-            const playsToday = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(todayStart) as { count: number }).count;
-            const playsThisWeek = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(weekStart) as { count: number }).count;
-            const playsThisMonth = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(monthStart) as { count: number }).count;
+    const totalPlays = (db.prepare("SELECT COUNT(*) as count FROM play_history").get() as { count: number }).count;
+    const uniqueTracks = (db.prepare("SELECT COUNT(DISTINCT track_id) as count FROM play_history").get() as { count: number }).count;
+    const playsToday = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(todayStart) as { count: number }).count;
+    const playsThisWeek = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(weekStart) as { count: number }).count;
+    const playsThisMonth = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(monthStart) as { count: number }).count;
 
-            // Estimate listening time from track durations
-            const listeningTime = (db.prepare(`
+    // Estimate listening time from track durations
+    const listeningTime = (db.prepare(`
                 SELECT COALESCE(SUM(t.duration), 0) as total_seconds
                 FROM play_history ph
                 LEFT JOIN tracks t ON ph.track_id = t.id
             `).get() as { total_seconds: number }).total_seconds;
 
-            return {
-                totalPlays,
-                totalListeningTime: Math.round(listeningTime),
-                uniqueTracks,
-                playsToday,
-                playsThisWeek,
-                playsThisMonth,
-            };
-        },
+    return {
+        totalPlays,
+        totalListeningTime: Math.round(listeningTime),
+        uniqueTracks,
+        playsToday,
+        playsThisWeek,
+        playsThisMonth,
+    };
+},
 
-        // Unlock Codes
-        createUnlockCode(code: string, releaseId?: number): void {
-            db.prepare("INSERT INTO unlock_codes (code, release_id) VALUES (?, ?)").run(code, releaseId || null);
-        },
+// Unlock Codes
+createUnlockCode(code: string, releaseId ?: number): void {
+    db.prepare("INSERT INTO unlock_codes (code, release_id) VALUES (?, ?)").run(code, releaseId || null);
+},
 
-        validateUnlockCode(code: string): { valid: boolean; releaseId?: number; isUsed: boolean } {
-            const row = db.prepare("SELECT * FROM unlock_codes WHERE code = ?").get(code) as any;
-            if (!row) return { valid: false, isUsed: false };
-            return { valid: true, releaseId: row.release_id, isUsed: !!row.is_used };
-        },
+    validateUnlockCode(code: string): { valid: boolean; releaseId ?: number; isUsed: boolean } {
+    const row = db.prepare("SELECT * FROM unlock_codes WHERE code = ?").get(code) as any;
+    if (!row) return { valid: false, isUsed: false };
+    return { valid: true, releaseId: row.release_id, isUsed: !!row.is_used };
+},
 
-        redeemUnlockCode(code: string): void {
-            db.prepare("UPDATE unlock_codes SET is_used = 1, redeemed_at = CURRENT_TIMESTAMP WHERE code = ?").run(code);
-        },
+redeemUnlockCode(code: string): void {
+    db.prepare("UPDATE unlock_codes SET is_used = 1, redeemed_at = CURRENT_TIMESTAMP WHERE code = ?").run(code);
+},
 
-        listUnlockCodes(releaseId?: number): any[] {
-            if (releaseId) {
-                return db.prepare("SELECT * FROM unlock_codes WHERE release_id = ? ORDER BY created_at DESC").all(releaseId);
-            }
-            return db.prepare("SELECT * FROM unlock_codes ORDER BY created_at DESC").all();
-        },
+    listUnlockCodes(releaseId ?: number): any[] {
+    if (releaseId) {
+        return db.prepare("SELECT * FROM unlock_codes WHERE release_id = ? ORDER BY created_at DESC").all(releaseId);
+    }
+    return db.prepare("SELECT * FROM unlock_codes ORDER BY created_at DESC").all();
+},
 
-        // ActivityPub Notes
-        createApNote(artistId: number, noteId: string, noteType: 'post' | 'release', contentId: number, contentSlug: string, contentTitle: string): number {
-            const result = db.prepare(`
+// ActivityPub Notes
+createApNote(artistId: number, noteId: string, noteType: 'post' | 'release', contentId: number, contentSlug: string, contentTitle: string): number {
+    const result = db.prepare(`
                 INSERT OR IGNORE INTO ap_notes (artist_id, note_id, note_type, content_id, content_slug, content_title)
                 VALUES (?, ?, ?, ?, ?, ?)
             `).run(artistId, noteId, noteType, contentId, contentSlug, contentTitle);
-            return Number(result.lastInsertRowid);
-        },
+    return Number(result.lastInsertRowid);
+},
 
-        getApNotes(artistId: number, includeDeleted: boolean = false): ApNote[] {
-            const query = includeDeleted
-                ? "SELECT * FROM ap_notes WHERE artist_id = ? ORDER BY published_at DESC"
-                : "SELECT * FROM ap_notes WHERE artist_id = ? AND deleted_at IS NULL ORDER BY published_at DESC";
-            return db.prepare(query).all(artistId) as ApNote[];
-        },
+getApNotes(artistId: number, includeDeleted: boolean = false): ApNote[] {
+    const query = includeDeleted
+        ? "SELECT * FROM ap_notes WHERE artist_id = ? ORDER BY published_at DESC"
+        : "SELECT * FROM ap_notes WHERE artist_id = ? AND deleted_at IS NULL ORDER BY published_at DESC";
+    return db.prepare(query).all(artistId) as ApNote[];
+},
 
-        getApNote(noteId: string): ApNote | undefined {
-            return db.prepare("SELECT * FROM ap_notes WHERE note_id = ?").get(noteId) as ApNote | undefined;
-        },
+getApNote(noteId: string): ApNote | undefined {
+    return db.prepare("SELECT * FROM ap_notes WHERE note_id = ?").get(noteId) as ApNote | undefined;
+},
 
-        markApNoteDeleted(noteId: string): void {
-            db.prepare("UPDATE ap_notes SET deleted_at = CURRENT_TIMESTAMP WHERE note_id = ?").run(noteId);
-        },
+markApNoteDeleted(noteId: string): void {
+    db.prepare("UPDATE ap_notes SET deleted_at = CURRENT_TIMESTAMP WHERE note_id = ?").run(noteId);
+},
 
-        deleteApNote(noteId: string): void {
-            db.prepare("DELETE FROM ap_notes WHERE note_id = ?").run(noteId);
-        },
+    deleteApNote(noteId: string): void {
+        db.prepare("DELETE FROM ap_notes WHERE note_id = ?").run(noteId);
+    },
     };
 }

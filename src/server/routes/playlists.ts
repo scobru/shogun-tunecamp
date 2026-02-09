@@ -76,7 +76,7 @@ export function createPlaylistsRoutes(database: DatabaseService) {
                 return res.status(404).json({ error: "Playlist not found" });
             }
 
-            if (!req.isAdmin && !playlist.is_public) {
+            if (!req.isAdmin && !playlist.isPublic) {
                 return res.status(403).json({ error: "Unauthorized" });
             }
 
