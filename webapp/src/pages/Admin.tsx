@@ -478,6 +478,7 @@ const AdminArtistsList = () => {
 };
 
 const AdminReleasesList = () => {
+    const navigate = useNavigate();
     const [releases, setReleases] = useState<any[]>([]);
     useEffect(() => {
         const loadReleases = () => API.getAdminReleases().then(setReleases).catch(console.error);

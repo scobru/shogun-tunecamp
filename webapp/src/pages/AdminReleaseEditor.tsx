@@ -1,27 +1,20 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
 import { 
-    Save, 
-    Upload, 
     Image as ImageIcon, 
     Music, 
     GripVertical, 
     X, 
-    Play, 
-    Pause,
     Plus,
     Trash2,
-    Calendar,
     Globe,
-    Lock,
-    EyeOff
+    Lock
 } from 'lucide-react';
 
-// Types (should be in a types file, but defining here for now/speed)
-interface Track {
+interface LocalTrack {
     id: number;
     title: string;
     duration: number;
@@ -30,7 +23,7 @@ interface Track {
     file_path: string;
 }
 
-interface Release {
+interface LocalRelease {
     id: number;
     title: string;
     artist_id: number;
@@ -42,7 +35,7 @@ interface Release {
     credits?: string;
     tags?: string;
     visibility: 'public' | 'private' | 'unlisted';
-    is_public: boolean; // Legacy/API compat
+    is_public: boolean;
     price?: number;
 }
 
@@ -50,7 +43,7 @@ export default function AdminReleaseEditor() {
     const { id } = useParams();
     const navigate = useNavigate();
     const isNew = !id;
-    const { isAdmin } = useAuthStore();
+    const { adminUser } = useAuthStore();
 
     // State
     const [loading, setLoading] = useState(false);
@@ -58,7 +51,7 @@ export default function AdminReleaseEditor() {
     const [artists, setArtists] = useState<any[]>([]);
     
     // Metadata State
-    const [metadata, setMetadata] = useState<Partial<Release>>({
+    const [metadata, setMetadata] = useState<Partial<LocalRelease>>({
         title: '',
         type: 'album',
         year: new Date().getFullYear(),
@@ -70,9 +63,9 @@ export default function AdminReleaseEditor() {
     });
     
     // Tracks State
-    const [tracks, setTracks] = useState<Track[]>([]);
+    const [tracks, setTracks] = useState<LocalTrack[]>([]);
     const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
-    const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+    // const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
     
     // Cover Art
     const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -91,7 +84,7 @@ export default function AdminReleaseEditor() {
             setArtists(data);
              // Default to first artist if new
              if (isNew && data.length > 0) {
-                setMetadata(prev => ({ ...prev, artist_id: data[0].id }));
+                setMetadata(prev => ({ ...prev, artist_id: parseInt(data[0].id) }));
             }
         } catch (e) {
             console.error(e);
@@ -101,16 +94,25 @@ export default function AdminReleaseEditor() {
     const loadRelease = async (releaseId: number) => {
         setLoading(true);
         try {
-            const data = await API.getAlbum(releaseId);
+            const data: any = await API.getAlbum(releaseId);
             setMetadata({
-                ...data,
-                visibility: data.visibility || (data.is_public ? 'public' : 'private')
+                id: parseInt(data.id),
+                title: data.title,
+                artist_id: parseInt(data.artistId),
+                type: data.type,
+                year: data.year,
+                slug: data.slug,
+                description: data.description,
+                visibility: data.visibility || (data.is_public ? 'public' : 'private'),
+                is_public: !!data.is_public,
+                price: data.price
             });
-            if (data.cover_path) {
-                setCoverPreview(API.getCoverUrl(data.slug)); // Helper or direct URL construction
+            
+            if (data.slug || releaseId) {
+                setCoverPreview(API.getAlbumCoverUrl(data.slug || releaseId));
             }
             if (data.tracks) {
-                setTracks(data.tracks.sort((a: Track, b: Track) => a.position - b.position));
+                setTracks(data.tracks.sort((a: any, b: any) => (a.position || 0) - (b.position || 0)));
             }
         } catch (e) {
             console.error("Failed to load release", e);
@@ -121,51 +123,48 @@ export default function AdminReleaseEditor() {
     };
 
     const handleSave = async (publish: boolean = false) => {
+        if (!adminUser?.isAdmin) return;
         setSaving(true);
         try {
             const dataToSave = {
                 ...metadata,
                 visibility: publish ? 'public' : metadata.visibility
-            };
+            } as any; // Cast to avoid partial mismatch issues
 
             let releaseId = id ? parseInt(id) : null;
 
             if (isNew) {
                 // Create
-                const created = await API.createRelease(dataToSave); // Ensure API supports this
-                releaseId = created.id;
+                const created: any = await API.createRelease(dataToSave); 
+                releaseId = parseInt(created.id);
             } else if (releaseId) {
                 // Update
-                await API.updateAlbum(releaseId, dataToSave);
+                await API.updateRelease(String(releaseId), dataToSave);
             }
 
             if (!releaseId) throw new Error("No release ID available");
 
             // Upload Cover if changed
             if (coverFile) {
-                await API.uploadCover(releaseId, coverFile);
+                // We need the slug
+                const currentSlug = metadata.slug || (await API.getAlbum(releaseId)).slug;
+                if (currentSlug) {
+                     await API.uploadCover(coverFile, currentSlug);
+                }
             }
 
             // Handle Track Uploads (Simple sequential for now)
             if (filesToUpload.length > 0) {
-               // This needs to use the API logic for uploading to a specific release
-               // relying on the backend changes we made earlier: POST /tracks with releaseSlug
-               // Use API.uploadTracks(files, { releaseSlug: metadata.slug }) 
-               // BUT wait, if it's a new release, we might not have the slug yet or it might verify against DB
-               // Ideally we save the release first (done above), then upload tracks to it via ID or Slug
-               
-               // We need to fetch the fresh release to get the slug if it was auto-generated
                const fresh = await API.getAlbum(releaseId);
-               await API.uploadTracks(filesToUpload, { 
-                   releaseSlug: fresh.slug,
-                   onProgress: (pct) => {
-                       // Global progress roughly
-                   }
-                });
+               if (fresh.slug) {
+                    await API.uploadTracks(filesToUpload, { 
+                        releaseSlug: fresh.slug,
+                        onProgress: () => {
+                            // Global progress roughly
+                        }
+                    });
+               }
             }
-
-            // Save Track Order/Metadata updates if existing tracks were modified
-            // TODO: Batch update track positions/titles logic
 
             if (isNew || publish) {
                 navigate('/admin');

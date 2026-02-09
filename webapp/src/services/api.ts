@@ -138,7 +138,7 @@ export const API = {
 
     // --- Comments ---
     getComments: (trackId: string) => handleResponse(api.get<any[]>(`/comments/track/${trackId}`)),
-    postComment: (trackId: string, text: string) => handleResponse(api.post('/comments/track/' + trackId, { text })),
+    postComment: (trackId: string, data: { text: string, pubKey: string, username: string, signature: string }) => handleResponse(api.post('/comments/track/' + trackId, data)),
     deleteComment: (commentId: string) => handleResponse(api.delete(`/comments/${commentId}`)),
 
     // --- Admin: Artists ---

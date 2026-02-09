@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
+import { GunAuth } from '../services/gun';
 import { MessageSquare, Trash2, Send } from 'lucide-react';
 import { StringUtils } from '../utils/stringUtils';
 
@@ -49,7 +50,21 @@ export const Comments = ({ trackId }: CommentsProps) => {
         if (!newComment.trim() || !trackId) return;
         setSubmitting(true);
         try {
-            await API.postComment(trackId, newComment);
+            // Ensure user is logged in via Gun
+            if (!user || !user.pub) {
+                alert("Please log in to comment.");
+                return;
+            }
+            
+            const signature = await GunAuth.sign(newComment);
+            
+            await API.postComment(trackId, {
+                text: newComment,
+                pubKey: user.pub,
+                username: user.alias,
+                signature
+            });
+            
             setNewComment('');
             loadComments(); // Reload to see new comment
         } catch (e) {
