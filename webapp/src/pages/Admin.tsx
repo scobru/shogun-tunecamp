@@ -137,7 +137,7 @@ export const Admin = () => {
                             </button>
                             <button 
                                 className="btn btn-secondary gap-2" 
-                                onClick={() => document.dispatchEvent(new CustomEvent('open-admin-release-modal'))}
+                                onClick={() => navigate('/admin/release/new')}
                             >
                                 💿 New Release
                             </button>
@@ -189,7 +189,7 @@ export const Admin = () => {
                             <h3 className="font-bold text-lg">Releases</h3>
                             <div className="flex gap-2">
                                 <button className="btn btn-sm btn-outline" onClick={() => document.dispatchEvent(new CustomEvent('open-create-post-modal'))}>Create Post</button>
-                                <button className="btn btn-sm btn-primary" onClick={() => document.dispatchEvent(new CustomEvent('open-admin-release-modal'))}>Create Release</button>
+                                <button className="btn btn-sm btn-primary" onClick={() => navigate('/admin/release/new')}>Create Release</button>
                             </div>
                         </div>
                         <AdminReleasesList />
@@ -500,8 +500,7 @@ const AdminReleasesList = () => {
                         <td>{r.artistName}</td>
                         <td><div className="badge badge-sm">{r.type}</div></td>
                         <td className="flex gap-2">
-                            <button className="btn btn-xs btn-ghost" onClick={() => document.dispatchEvent(new CustomEvent('open-admin-release-modal', { detail: r }))}>Edit</button>
-                            <button className="btn btn-xs btn-ghost text-secondary" onClick={() => document.dispatchEvent(new CustomEvent('open-upload-tracks-modal', { detail: { slug: r.slug || r.id, title: r.title }}))}>Upload Tracks</button>
+                            <button className="btn btn-xs btn-ghost" onClick={() => navigate(`/admin/release/${r.id}/edit`)}>Edit</button>
                         </td>
                     </tr>
                 ))}

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from './components/layout/MainLayout';
 import { Home, Albums, AlbumDetails, Artists, ArtistDetails, Tracks, Stats, Search, Network, Support, Playlists, PlaylistDetails, Post } from './pages';
 import Admin from './pages/Admin';
+import AdminReleaseEditor from './pages/AdminReleaseEditor';
 import Files from './pages/Files';
 import { useAuthStore } from './stores/useAuthStore';
 import { useEffect } from 'react';
@@ -45,6 +46,8 @@ function App() {
         
         {/* Admin */}
         <Route path="/admin" element={<Admin />} />
+        <Route path="/admin/release/new" element={<AdminReleaseEditor />} />
+        <Route path="/admin/release/:id/edit" element={<AdminReleaseEditor />} />
         <Route path="/browser" element={<Files />} />
         
         {/* Other */}
