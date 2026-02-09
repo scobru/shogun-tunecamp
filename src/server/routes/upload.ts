@@ -153,9 +153,10 @@ export function createUploadRoutes(
                 const artworkDir = path.join(releaseDir, "artwork");
                 await fs.ensureDir(artworkDir);
 
-                // 2. Move file to artwork dir
+                // 2. Move file to artwork dir with UNIQUE name to avoid locking
                 const ext = path.extname(file.originalname).toLowerCase();
-                const targetFilename = `cover${ext}`; // Standardize name or keep original? Let's use clean name.
+                const uniqueId = Date.now();
+                const targetFilename = `cover-${uniqueId}${ext}`;
                 const targetPath = path.join(artworkDir, targetFilename);
 
                 await fs.move(file.path, targetPath, { overwrite: true });
@@ -181,6 +182,23 @@ export function createUploadRoutes(
                     database.updateAlbumCover(targetAlbum.id, dbPath);
                     console.log(`📀 Updated cover for album ${targetAlbum.title} -> ${dbPath}`);
                 }
+
+                // 5. Cleanup old covers (Best effort)
+                try {
+                    const files = await fs.readdir(artworkDir);
+                    for (const f of files) {
+                        if (f !== targetFilename && (f.startsWith("cover") || f.startsWith("folder") || f.startsWith("artwork"))) {
+                            try {
+                                await fs.remove(path.join(artworkDir, f));
+                            } catch (e) {
+                                console.warn(`   [Cleanup] Could not delete old cover ${f} (likely locked):`, e);
+                            }
+                        }
+                    }
+                } catch (cleanupErr) {
+                    console.warn("   [Cleanup] Failed to list/clean artwork directory:", cleanupErr);
+                }
+
             } else {
                 // Orphan upload? Just clean up
                 await fs.remove(file.path);
