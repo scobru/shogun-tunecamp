@@ -155,7 +155,6 @@ export const API = {
         handleResponse(api.delete(`/tracks/${id}${deleteFile ? '?deleteFile=true' : ''}`)),
 
     // --- Admin: Uploads ---
-    // --- Admin: Uploads ---
     uploadTracks: (files: File[], options: { releaseSlug?: string, onProgress?: (percent: number) => void } = {}) => {
         const formData = new FormData();
         if (options.releaseSlug) {
@@ -164,13 +163,7 @@ export const API = {
         }
         files.forEach(file => formData.append('files', file));
         return handleResponse(api.post('/admin/upload/tracks', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }, // Use generic multipart, let browser add boundary? No, that fails.
-            // Actually, best practice with Axios v1+ is to just pass FormData. 
-            // BUT if default is set, we must unset it.
-            // headers: { 'Content-Type': undefined } // This often works.
-            // Let's try attempting to set it to multipart/form-data causes the boundary loss.
-            // Let's use the transformRequest hack or just unset it.
-            headers: { 'Content-Type': null } as any, // Unset default
+            headers: { 'Content-Type': null } as any, // Unset default to let browser set boundary
             onUploadProgress: (progressEvent) => {
                 if (options.onProgress && progressEvent.total) {
                     const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
