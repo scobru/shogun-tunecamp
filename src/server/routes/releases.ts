@@ -248,7 +248,8 @@ export function createReleaseRoutes(
                 }
             }
 
-            res.json({ message: "Release updated" });
+            const finalUpdatedAlbum = database.getAlbum(id);
+            res.json(finalUpdatedAlbum || { message: "Release updated" });
 
         } catch (error) {
             console.error("Error updating release:", error);
