@@ -70,6 +70,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const gundbService = createGunDBService(database, server);
     await gundbService.init();
 
+    // Upload routes - MOVED BEFORE FEDIFY/BODY PARSERS to avoid stream consumption issues
+    app.use("/api/admin/upload", authMiddleware.requireAdmin, createUploadRoutes(database, scanner, config.musicDir));
+
     // Initialize Fedify (Must be before AP Service)
     const federation = createFedify(database, config);
     app.use(integrateFederation(federation, (req: express.Request) => undefined)); // Context data if needed
@@ -183,7 +186,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database, config.musicDir));
     app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database, apService, config.musicDir));
     app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database));
-    app.use("/api/admin/upload", authMiddleware.requireAdmin, createUploadRoutes(database, scanner, config.musicDir));
+
     app.use("/api/admin/releases", authMiddleware.requireAdmin, createReleaseRoutes(database, scanner, config.musicDir, gundbService, config, apService));
     app.use("/api/stats", createStatsRoutes(gundbService));
     app.use("/api/stats/library", createLibraryStatsRoutes(database));
