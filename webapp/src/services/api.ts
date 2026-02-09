@@ -163,7 +163,6 @@ export const API = {
         }
         files.forEach(file => formData.append('files', file));
         return handleResponse(api.post('/admin/upload/tracks', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
             onUploadProgress: (progressEvent) => {
                 if (options.onProgress && progressEvent.total) {
                     const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -179,31 +178,23 @@ export const API = {
             formData.append('type', 'release');
         }
         formData.append('file', file);
-        return handleResponse(api.post('/admin/upload/cover', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        }));
+        return handleResponse(api.post('/admin/upload/cover', formData));
     },
     uploadArtistAvatar: (artistId: string, file: File) => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('artistId', artistId);
-        return handleResponse(api.post('/admin/upload/avatar', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        }));
+        return handleResponse(api.post('/admin/upload/avatar', formData));
     },
     uploadBackgroundImage: (file: File) => {
         const formData = new FormData();
         formData.append('file', file);
-        return handleResponse(api.post('/admin/upload/background', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        }));
+        return handleResponse(api.post('/admin/upload/background', formData));
     },
     uploadSiteCover: (file: File) => {
         const formData = new FormData();
         formData.append('file', file);
-        return handleResponse(api.post('/admin/upload/site-cover', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        }));
+        return handleResponse(api.post('/admin/upload/site-cover', formData));
     },
 
     // --- Admin: System ---
