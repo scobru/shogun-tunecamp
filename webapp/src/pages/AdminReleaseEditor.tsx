@@ -152,7 +152,7 @@ export default function AdminReleaseEditor() {
         setTracks(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleSave = async (publish: boolean = false) => {
+    const handleSave = async (exit: boolean = false) => {
         if (!adminUser?.isAdmin) return;
         setSaving(true);
         try {
@@ -161,7 +161,7 @@ export default function AdminReleaseEditor() {
 
             const dataToSave = {
                 ...metadata,
-                visibility: publish ? 'public' : metadata.visibility,
+                // visibility is already in metadata, no need to override
                 track_ids // Send full list of IDs to sync associations
             } as any; 
 
@@ -207,7 +207,7 @@ export default function AdminReleaseEditor() {
                 }
             }
 
-            if (isNew || publish) {
+            if (exit) {
                 navigate('/admin');
             } else {
                 // Reload
@@ -265,14 +265,14 @@ export default function AdminReleaseEditor() {
                         onClick={() => handleSave(false)} 
                         disabled={saving}
                     >
-                        Save Draft
+                        Save
                     </button>
                     <button 
                         className="btn btn-primary" 
                         onClick={() => handleSave(true)}
                         disabled={saving}
                     >
-                        {saving ? 'Publishing...' : 'Publish'}
+                        {saving ? 'Saving...' : (metadata.visibility === 'public' ? 'Publish' : 'Save & Close')}
                     </button>
                 </div>
             </div>
