@@ -205,7 +205,7 @@ export default function AdminReleaseEditor() {
                      // We pass all files. If it hangs, it might be the connection.
                      await API.uploadTracks(filesToUpload, { 
                         releaseSlug: currentSlug,
-                        onProgress: (pct) => {
+                        onProgress: (_pct) => {
                             // console.log(`Upload progress: ${pct}%`);
                         }
                     });

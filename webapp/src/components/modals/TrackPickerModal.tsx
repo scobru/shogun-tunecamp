@@ -1,7 +1,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import API from '../../services/api';
-import { Search, Music, Check, X } from 'lucide-react';
+import { Search, Check, X } from 'lucide-react';
 // import { Track } from '../../types'; // Use local or imported type
 
 interface TrackPickerModalProps {
