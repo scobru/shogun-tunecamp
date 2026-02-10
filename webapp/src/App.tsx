@@ -31,9 +31,9 @@ function App() {
         
         {/* Library */}
         <Route path="/albums" element={<Albums />} />
-        <Route path="/albums/:id" element={<AlbumDetails />} />
+        <Route path="/albums/:idOrSlug" element={<AlbumDetails />} />
         <Route path="/artists" element={<Artists />} />
-        <Route path="/artists/:id" element={<ArtistDetails />} />
+        <Route path="/artists/:idOrSlug" element={<ArtistDetails />} />
         <Route path="/tracks" element={<Tracks />} />
         
         {/* Features */}

@@ -43,6 +43,7 @@ export interface Album {
     title: string;
     artistId: string;
     artistName?: string;
+    artistSlug?: string; // Added for linking
     coverImage?: string;
     year?: number;
     tracks?: Track[];

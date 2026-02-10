@@ -39,13 +39,13 @@ export const Sidebar = () => {
   );
 
   return (
-    <aside className="w-64 bg-black flex-col gap-2 p-2 hidden lg:flex shrink-0 border-r border-white/5 h-screen pb-28">
+    <div className="menu p-4 w-64 min-h-full bg-base-100 text-base-content border-r border-white/5 flex flex-col gap-2 pb-28">
       {/* Brand */}
-      <div className="flex items-center gap-3 px-4 py-6 mb-2">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+      <div className="flex items-center gap-3 px-2 py-4 mb-2">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20">
              <Music className="text-white w-5 h-5" />
         </div>
-        <span className="text-xl font-bold tracking-tight text-white">{siteName}</span>
+        <span className="text-xl font-bold tracking-tight">{siteName}</span>
       </div>
 
       {/* Main Nav */}
@@ -57,7 +57,7 @@ export const Sidebar = () => {
 
       {/* Library Nav */}
       <div className="px-4 py-2 mt-4 opacity-50 text-xs font-bold uppercase tracking-wider">Your Library</div>
-      <ul className="menu bg-base-200/50 rounded-box w-full gap-1 p-2 font-medium flex-1 overflow-y-auto">
+      <ul className="menu bg-base-200/50 rounded-box w-full gap-1 p-2 font-medium flex-1 overflow-y-auto scrollbar-thin">
         <NavItem to="/albums" icon={Disc} label="Albums" />
         <NavItem to="/artists" icon={User} label="Artists" />
         <NavItem to="/tracks" icon={Music} label="Tracks" />
@@ -75,7 +75,7 @@ export const Sidebar = () => {
         {isAuthenticated || isAdminAuthenticated ? (
             <div className="flex items-center gap-3">
                 <div className="avatar placeholder">
-                    <div className="bg-neutral text-neutral-content rounded-full w-8">
+                    <div className="bg-neutral text-neutral-content rounded-full w-8 ring ring-primary ring-offset-base-100 ring-offset-2">
                         <span>{(user?.alias || (isAdminAuthenticated ? 'A' : '?'))?.charAt(0).toUpperCase()}</span>
                     </div>
                 </div>
@@ -96,7 +96,7 @@ export const Sidebar = () => {
             </div>
         ) : (
             <div className="space-y-2">
-                <button className="btn btn-outline btn-sm w-full gap-2" onClick={() => document.dispatchEvent(new CustomEvent('open-auth-modal'))}>
+                <button className="btn btn-outline btn-primary btn-sm w-full gap-2" onClick={() => document.dispatchEvent(new CustomEvent('open-auth-modal'))}>
                     <LogIn size={16} /> Login
                 </button>
             </div>
@@ -112,6 +112,6 @@ export const Sidebar = () => {
             </button>
         )}
       </div>
-    </aside>
+    </div>
   );
 };

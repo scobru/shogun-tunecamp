@@ -7,7 +7,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import type { Artist, Album, Post } from '../types';
 
 export const ArtistDetails = () => {
-    const { id } = useParams();
+    const { idOrSlug } = useParams();
     const [coverVersion] = useState(Date.now()); // Cache buster
     const [artist, setArtist] = useState<Artist | null>(null);
     const [albums, setAlbums] = useState<Album[]>([]);
@@ -17,10 +17,10 @@ export const ArtistDetails = () => {
     const { isAdminAuthenticated } = useAuthStore();
 
     useEffect(() => {
-        if (id) {
+        if (idOrSlug) {
             Promise.all([
-                API.getArtist(id),
-                API.getArtistPosts(id)
+                API.getArtist(idOrSlug),
+                API.getArtistPosts(idOrSlug)
             ]).then(([artistData, artistPosts]) => {
                 setArtist(artistData);
                 // Use albums directly from artist response if available
@@ -39,7 +39,7 @@ export const ArtistDetails = () => {
             .catch(console.error)
             .finally(() => setLoading(false));
         }
-    }, [id]);
+    }, [idOrSlug]);
 
     if (loading) return <div className="p-12 text-center opacity-50">Loading artist...</div>;
     if (!artist) return <div className="p-12 text-center opacity-50">Artist not found.</div>;

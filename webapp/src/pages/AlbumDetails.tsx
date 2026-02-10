@@ -9,7 +9,7 @@ import type { Album } from '../types';
 import { Comments } from '../components/Comments';
 
 export const AlbumDetails = () => {
-    const { id } = useParams();
+    const { idOrSlug } = useParams();
     const [album, setAlbum] = useState<Album | null>(null);
     const [loading, setLoading] = useState(true);
     const { playTrack } = usePlayerStore();
@@ -17,13 +17,13 @@ export const AlbumDetails = () => {
     const { isAdminAuthenticated: isAdmin } = useAuthStore();
 
     useEffect(() => {
-        if (id) {
-            API.getAlbum(id)
+        if (idOrSlug) {
+            API.getAlbum(idOrSlug)
                 .then(setAlbum)
                 .catch(console.error)
                 .finally(() => setLoading(false));
         }
-    }, [id]);
+    }, [idOrSlug]);
 
     const handlePlay = () => {
         if (album?.tracks && album.tracks.length > 0) {

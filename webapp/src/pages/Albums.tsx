@@ -30,7 +30,7 @@ export const Albums = () => {
                 {albums.map(album => {
                     if (!album) return null;
                     return (
-                        <Link to={`/albums/${album.id}`} key={album.id} className="group card bg-base-200 hover:bg-base-300 transition-all hover:-translate-y-1 duration-300 shadow-xl border border-white/5">
+                        <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group card bg-base-200 hover:bg-base-300 transition-all hover:-translate-y-1 duration-300 shadow-xl border border-white/5">
                             <figure className="aspect-square relative overflow-hidden">
                                 {album.coverImage ? (
                                     <img 
