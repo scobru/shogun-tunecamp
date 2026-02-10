@@ -75,7 +75,6 @@ export default function AdminReleaseEditor() {
 
     // Track Picker
     const [showTrackPicker, setShowTrackPicker] = useState(false);
-    const [tracksToAdd, setTracksToAdd] = useState<LocalTrack[]>([]); // Tracks selected from library to be added
     
     // Cover Art
     const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -133,7 +132,6 @@ export default function AdminReleaseEditor() {
     };
 
     const handleAddLibraryTracks = (selected: any[]) => {
-        // Optimistically add to list (will be linked on save)
         const newTracks = selected.map(t => ({
             id: parseInt(t.id),
             title: t.title,
@@ -144,20 +142,27 @@ export default function AdminReleaseEditor() {
             artistName: t.artistName
         }));
         
-        // Filter out duplicates in current view
-        const unique = newTracks.filter(nt => !tracks.find(t => t.id === nt.id) && !tracksToAdd.find(t => t.id === nt.id));
+        // Filter out duplicates
+        const unique = newTracks.filter(nt => !tracks.find(t => t.id === nt.id));
         
-        setTracksToAdd(prev => [...prev, ...unique]);
         setTracks(prev => [...prev, ...unique]);
+    };
+
+    const handleRemoveTrack = (index: number) => {
+        setTracks(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleSave = async (publish: boolean = false) => {
         if (!adminUser?.isAdmin) return;
         setSaving(true);
         try {
+            // Prepare track IDs in order
+            const track_ids = tracks.map(t => t.id);
+
             const dataToSave = {
                 ...metadata,
-                visibility: publish ? 'public' : metadata.visibility
+                visibility: publish ? 'public' : metadata.visibility,
+                track_ids // Send full list of IDs to sync associations
             } as any; 
 
             let releaseId = id ? parseInt(id) : null;
@@ -184,25 +189,10 @@ export default function AdminReleaseEditor() {
                  await API.uploadCover(coverFile, currentSlug);
             }
 
-            // 3. Link "Added from Library" tracks
-            // Use set to avoid duplicates if user added same track multiple times
-            const uniqueTrackIdsToAdd = Array.from(new Set(tracksToAdd.map(t => t.id)));
-            for (const trackId of uniqueTrackIdsToAdd) {
-                try {
-                    await API.addTrackToRelease(String(releaseId), String(trackId));
-                } catch (e) {
-                    console.error(`Failed to link track ${trackId}`, e);
-                }
-            }
-
-            // 4. Handle File Uploads (Sequentially to report progress/errors)
+            // 3. Handle File Uploads (Sequentially to report progress/errors)
             if (filesToUpload.length > 0 && currentSlug) {
-                // Upload one by one or in batch. API supports batch, but debugging is easier one by one?
-                // API.uploadTracks takes File[], so lets use that but maybe ensure it returns correctly
-                
                 try {
-                     setUploadingFileIndex(0); // Indeterminate or just "Uploading..."
-                     // We pass all files. If it hangs, it might be the connection.
+                     setUploadingFileIndex(0); 
                      await API.uploadTracks(filesToUpload, { 
                         releaseSlug: currentSlug,
                         onProgress: (_pct) => {
@@ -222,7 +212,7 @@ export default function AdminReleaseEditor() {
             } else {
                 // Reload
                 setFilesToUpload([]);
-                setTracksToAdd([]);
+                // Reload release to get updated state (including new tracks if any were uploaded)
                 setUploadingFileIndex(null);
                 setCoverFile(null);
                 loadRelease(releaseId);
@@ -350,7 +340,10 @@ export default function AdminReleaseEditor() {
                                         <div className="text-sm opacity-50 font-mono">
                                             {track.duration ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, '0')}` : '-'}
                                         </div>
-                                        <button className="btn btn-ghost btn-xs text-error opacity-0 group-hover:opacity-100">
+                                        <button 
+                                            className="btn btn-ghost btn-xs text-error opacity-0 group-hover:opacity-100"
+                                            onClick={() => handleRemoveTrack(idx)}
+                                        >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
