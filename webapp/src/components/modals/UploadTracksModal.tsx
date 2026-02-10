@@ -84,29 +84,49 @@ export const UploadTracksModal = ({ onUploadComplete }: { onUploadComplete?: () 
         
         let successCount = 0;
         let failCount = 0;
+        let processedCount = 0;
+
+        const updateProgress = () => {
+            const percent = Math.round((processedCount / files.length) * 100);
+            setProgress(percent);
+        };
         
         try {
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
+            // Simple concurrency control
+            const CONCURRENCY_LIMIT = 3;
+            const queue = [...files];
+            const activePromises: Promise<void>[] = [];
+
+            const processNext = async () => {
+                const file = queue.shift();
+                if (!file) return;
+
                 try {
-                    // Base progress for previous files
-                    const baseProgress = (i / files.length) * 100;
-                    
-                    // Upload single file with progress
                     await API.uploadTracks([file], { 
                         releaseSlug,
-                        onProgress: (percent) => {
-                            // Calculate total progress: base + (this file's percent * its weight)
-                            const totalProgress = baseProgress + (percent * (1 / files.length));
-                            setProgress(Math.round(totalProgress));
-                        }
+                        // We could track individual file progress here but for batching, 
+                        // simple file counting is often smoother visually for the user
                     });
                     successCount++;
                 } catch (err: any) {
                     console.error(`Failed to upload ${file.name}:`, err);
                     failCount++;
+                } finally {
+                    processedCount++;
+                    updateProgress();
                 }
+
+                if (queue.length > 0) {
+                    await processNext();
+                }
+            };
+
+            // Start initial batch
+            for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, files.length); i++) {
+                activePromises.push(processNext());
             }
+
+            await Promise.all(activePromises);
             
             setProgress(100);
             

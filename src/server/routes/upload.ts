@@ -121,10 +121,24 @@ export function createUploadRoutes(
 
             for (const file of files) {
                 const sanitizedName = sanitizeFilename(file.originalname);
-                const destPath = path.join(destDir, sanitizedName);
+                let destPath = path.join(destDir, sanitizedName);
+                
+                // Check for collision and rename if necessary
+                let counter = 1;
+                const ext = path.extname(sanitizedName);
+                const nameBase = path.basename(sanitizedName, ext);
+                
+                while (await fs.pathExists(destPath)) {
+                    destPath = path.join(destDir, `${nameBase}_${counter}${ext}`);
+                    counter++;
+                }
+
+                if (counter > 1) {
+                    console.log(`   ⚠️ Filename collision. Renamed to: ${path.basename(destPath)}`);
+                }
 
                 try {
-                    await fs.move(file.path, destPath, { overwrite: true });
+                    await fs.move(file.path, destPath, { overwrite: false }); // Should be safe now
                     movedCount++;
 
                     // Process immediately to get Track ID
