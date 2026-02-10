@@ -138,8 +138,8 @@ export default function AdminReleaseEditor() {
             duration: t.duration,
             position: tracks.length + 1, // Append
             price: 0,
-            file_path: t.path,
-            artistName: t.artistName
+            file_path: t.file_path || t.path,
+            artistName: t.artist_name || t.artistName
         }));
         
         // Filter out duplicates

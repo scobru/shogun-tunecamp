@@ -57,7 +57,8 @@ export const TrackPickerModal = ({ onTracksSelected, onClose, isOpen, excludeTra
 
     const filteredTracks = tracks.filter(t => 
         t.title.toLowerCase().includes(search.toLowerCase()) || 
-        (t.artistName && t.artistName.toLowerCase().includes(search.toLowerCase()))
+        (t.artistName && t.artistName.toLowerCase().includes(search.toLowerCase())) ||
+        (t.artist_name && t.artist_name.toLowerCase().includes(search.toLowerCase()))
     );
 
     return (
@@ -106,7 +107,7 @@ export const TrackPickerModal = ({ onTracksSelected, onClose, isOpen, excludeTra
                                                 {track.title}
                                                 {track.format && <span className="badge badge-xs badge-outline opacity-50 uppercase">{track.format}</span>}
                                             </div>
-                                            <div className="text-xs opacity-60">{track.artistName || 'Unknown Artist'} • {track.albumName || 'Unknown Album'}</div>
+                                            <div className="text-xs opacity-60">{track.artistName || track.artist_name || 'Unknown Artist'} • {track.albumName || track.album_title || 'Unknown Album'}</div>
                                         </div>
                                         <div className="text-xs font-mono opacity-50">
                                             {track.duration ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, '0')}` : '-'}
