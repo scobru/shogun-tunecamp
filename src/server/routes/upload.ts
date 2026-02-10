@@ -101,6 +101,7 @@ export function createUploadRoutes(
             }
 
             console.log(`📤 Upload received: ${files.length} track(s)`);
+            files.forEach(f => console.log(`   - ${f.originalname}: ${(f.size / 1024 / 1024).toFixed(2)} MB`));
             if (releaseSlug) {
                 console.log(`   Target Release Slug: ${releaseSlug}`);
             }
