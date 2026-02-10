@@ -13,6 +13,7 @@ export const AlbumDetails = () => {
     const [album, setAlbum] = useState<Album | null>(null);
     const [loading, setLoading] = useState(true);
     const { playTrack } = usePlayerStore();
+    const [coverVersion] = useState(Date.now()); // Cache buster
     const { isAdminAuthenticated: isAdmin } = useAuthStore();
 
     useEffect(() => {
@@ -78,13 +79,13 @@ export const AlbumDetails = () => {
                 {/* Background Blur */}
                 <div className="absolute inset-0 z-0">
                      {album.coverImage && (
-                        <img src={API.getAlbumCoverUrl(album.id)} className="w-full h-full object-cover opacity-[0.05] blur-3xl scale-110" />
+                        <img src={API.getAlbumCoverUrl(album.id, coverVersion)} className="w-full h-full object-cover opacity-[0.05] blur-3xl scale-110" />
                      )}
                 </div>
 
                 <div className="relative z-10 shrink-0 group">
                     <img 
-                        src={API.getAlbumCoverUrl(album.id)} 
+                        src={API.getAlbumCoverUrl(album.id, coverVersion)} 
                         alt={album.title} 
                         className="w-48 h-48 md:w-64 md:h-64 rounded-xl shadow-2xl object-cover" 
                         onError={(e) => {

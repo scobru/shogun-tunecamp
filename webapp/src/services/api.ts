@@ -64,11 +64,11 @@ export const API = {
     // --- Library (Browsing) ---
     getAlbums: () => handleResponse(api.get<Album[]>('/albums')),
     getAlbum: (id: string | number) => handleResponse(api.get<Album>(`/albums/${id}`)),
-    getAlbumCoverUrl: (id: string | number) => id ? `${API_URL}/albums/${id}/cover` : '',
+    getAlbumCoverUrl: (id: string | number, timestamp?: number) => id ? `${API_URL}/albums/${id}/cover${timestamp ? `?v=${timestamp}` : ''}` : '',
 
     getArtists: () => handleResponse(api.get<Artist[]>('/artists')),
     getArtist: (idOrSlug: string | number) => handleResponse(api.get<Artist>(`/artists/${idOrSlug}`)),
-    getArtistCoverUrl: (idOrSlug: string | number) => idOrSlug ? `${API_URL}/artists/${idOrSlug}/cover` : '',
+    getArtistCoverUrl: (idOrSlug: string | number, timestamp?: number) => idOrSlug ? `${API_URL}/artists/${idOrSlug}/cover${timestamp ? `?v=${timestamp}` : ''}` : '',
 
     getTracks: () => handleResponse(api.get<Track[]>('/tracks')),
     getTrack: (id: string | number) => handleResponse(api.get<Track>(`/tracks/${id}`)),
@@ -202,6 +202,18 @@ export const API = {
     getBrowser: (path = '') => handleResponse(api.get<any>(`/browser?path=${encodeURIComponent(path)}`)),
     deleteBrowserPath: (path: string) => handleResponse(api.delete(`/browser?path=${encodeURIComponent(path)}`)),
     syncActivityPub: () => handleResponse(api.post('/ap/sync')),
+    uploadBackup: (file: File, onProgress?: (percent: number) => void) => {
+        const formData = new FormData();
+        formData.append('backup', file);
+        return handleResponse(api.post('/admin/backup/restore', formData, {
+            onUploadProgress: (progressEvent) => {
+                if (onProgress && progressEvent.total) {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    onProgress(percentCompleted);
+                }
+            }
+        }));
+    },
 
     // --- Identity ---
     getIdentity: () => handleResponse(api.get<{ pub: string, epub: string, alias: string }>('/admin/system/identity')),

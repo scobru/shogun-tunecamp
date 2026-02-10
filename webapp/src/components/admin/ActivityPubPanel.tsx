@@ -74,6 +74,22 @@ export const ActivityPubPanel = () => {
         }
     };
 
+    const handleSync = async () => {
+        if (!confirm('This will re-broadcast all public releases and posts to the Fediverse (Mastodon, etc) to ensure they are in sync. This might take a while. Continue?')) return;
+        
+        setLoading(true);
+        try {
+            await API.syncActivityPub();
+            alert('Synchronization started in background. Please wait a few moments and refresh.');
+            if (selectedArtistId) loadNotes(selectedArtistId);
+        } catch (e) {
+            console.error(e);
+            alert('Failed to start synchronization');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const selectedArtist = artists.find(a => a.id.toString() === selectedArtistId);
 
     return (
@@ -95,11 +111,20 @@ export const ActivityPubPanel = () => {
                         ))}
                     </select>
                     <button 
+                        className="btn btn-primary btn-outline gap-2"
+                        onClick={handleSync}
+                        disabled={loading}
+                        title="Synchronize with Fediverse"
+                    >
+                        <RefreshCw size={20} className={loading ? 'animate-spin' : ''}/> Sync
+                    </button>
+                    <button 
                         className="btn btn-square btn-ghost"
                         onClick={() => selectedArtistId && loadNotes(selectedArtistId)}
                         disabled={loading}
+                        title="Refresh list"
                     >
-                        <RefreshCw size={20} className={loading ? 'animate-spin' : ''}/>
+                        <RefreshCw size={20} className={loading && !processingId ? 'animate-spin' : ''}/>
                     </button>
                 </div>
             </div>

@@ -8,17 +8,16 @@ import { AdminReleaseModal } from '../components/modals/AdminReleaseModal';
 import { AdminArtistModal } from '../components/modals/AdminArtistModal';
 import { UploadTracksModal } from '../components/modals/UploadTracksModal';
 import { CreatePostModal } from '../components/modals/CreatePostModal';
-import { AdminTrackModal } from '../components/modals/AdminTrackModal';
+
 import { IdentityPanel } from '../components/admin/IdentityPanel';
 import { ActivityPubPanel } from '../components/admin/ActivityPubPanel';
+import { BackupPanel } from '../components/admin/BackupPanel';
 import type { SiteSettings } from '../types';
-
-import { PlaylistModal } from '../components/modals/PlaylistModal';
 
 export const Admin = () => {
     const { adminUser, isAdminAuthenticated } = useAuthStore();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'tracks' | 'users' | 'artists' | 'settings' | 'system' | 'identity' | 'activitypub'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'tracks' | 'users' | 'artists' | 'settings' | 'system' | 'identity' | 'activitypub' | 'backup'>('overview');
     const [stats, setStats] = useState<any>(null);
 
     // const [loading, setLoading] = useState(false);
@@ -96,6 +95,7 @@ export const Admin = () => {
                 <a role="tab" className={`tab ${activeTab === 'system' ? 'tab-active' : ''}`} onClick={() => setActiveTab('system')}>System</a>
                 <a role="tab" className={`tab ${activeTab === 'identity' ? 'tab-active' : ''}`} onClick={() => setActiveTab('identity')}>Identity</a>
                 <a role="tab" className={`tab ${activeTab === 'activitypub' ? 'tab-active' : ''}`} onClick={() => setActiveTab('activitypub')}>ActivityPub</a>
+                <a role="tab" className={`tab ${activeTab === 'backup' ? 'tab-active' : ''}`} onClick={() => setActiveTab('backup')}>Backup</a>
             </div>
 
             <div className="bg-base-100 p-6 rounded-b-box border-x border-b border-base-300 min-h-[400px]">
@@ -201,6 +201,7 @@ export const Admin = () => {
                 {activeTab === 'settings' && <AdminSettingsPanel />}
                 {activeTab === 'identity' && <IdentityPanel />}
                 {activeTab === 'activitypub' && <ActivityPubPanel />}
+                {activeTab === 'backup' && <BackupPanel />}
             </div>
             
             <AdminUserModal onUserUpdated={() => window.dispatchEvent(new CustomEvent('refresh-admin-users'))} />

@@ -271,6 +271,13 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                             <span className="label-text">Artist Avatar</span>
                         </label>
                          <div className="flex items-center gap-4">
+                            {isEditing && editId && !avatarFile && (
+                                <div className="avatar">
+                                    <div className="w-16 h-16 rounded-full border border-white/10">
+                                        <img src={API.getArtistCoverUrl(editId, Date.now())} />
+                                    </div>
+                                </div>
+                            )}
                             <input 
                                 type="file" 
                                 className="file-input file-input-bordered w-full"

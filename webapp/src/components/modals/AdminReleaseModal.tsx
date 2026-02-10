@@ -254,6 +254,11 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                         <label className="label">
                             <span className="label-text">Cover Art</span>
                         </label>
+                        {isEditing && editId && !coverFile && (
+                            <div className="mb-2">
+                                <img src={API.getAlbumCoverUrl(editId, Date.now())} className="w-24 h-24 rounded object-cover shadow border border-white/10" />
+                            </div>
+                        )}
                         <input 
                             type="file" 
                             className="file-input file-input-bordered w-full"

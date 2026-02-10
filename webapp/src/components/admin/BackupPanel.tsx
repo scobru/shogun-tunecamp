@@ -1,0 +1,101 @@
+import { useState } from 'react';
+import { Download, Upload, AlertTriangle, FileAudio } from 'lucide-react';
+import API from '../../services/api';
+
+export const BackupPanel = () => {
+    const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+
+    const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!confirm("WARNING: This will overwite your database and music library with the backup contents. This action cannot be undone. Are you sure?")) {
+            e.target.value = ''; // Reset input
+            return;
+        }
+
+        setUploading(true);
+        setUploadProgress(0);
+
+        try {
+            await API.uploadBackup(file, (percent) => setUploadProgress(percent));
+            alert("Restore completed successfully. The server may restart now.");
+            window.location.reload();
+        } catch (error: any) {
+            console.error(error);
+            alert(`Restore failed: ${error.message}`);
+        } finally {
+            setUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    return (
+        <div className="space-y-8">
+            <div>
+                <h2 className="text-2xl font-bold flex items-center gap-2">Backup & Restore</h2>
+                <p className="opacity-70 text-sm">Manage system backups and data portability.</p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+                {/* Backup Section */}
+                <div className="card bg-base-200 border border-white/5">
+                    <div className="card-body">
+                        <h2 className="card-title"><Download /> Export Data</h2>
+                        <p className="opacity-70 text-sm mb-4">Download a complete snapshot of your TuneCamp instance.</p>
+                        
+                        <div className="flex flex-col gap-3">
+                            <a href="/api/admin/backup/full" target="_blank" className="btn btn-primary gap-2">
+                                <Download size={18} /> Download Full Backup
+                            </a>
+                            <div className="text-xs opacity-50 px-1">
+                                Includes: Database, Music Files, Configuration, Keys.
+                            </div>
+                            
+                            <div className="divider my-0"></div>
+
+                            <a href="/api/admin/backup/audio" target="_blank" className="btn btn-secondary btn-outline gap-2">
+                                <FileAudio size={18} /> Download Audio Only
+                            </a>
+                            <div className="text-xs opacity-50 px-1">
+                                Includes: Only Music Files (No database or settings).
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Restore Section */}
+                <div className="card bg-error/10 border border-error/20">
+                    <div className="card-body">
+                        <h2 className="card-title text-error"><Upload /> Restore Data</h2>
+                        <div className="alert alert-warning text-xs shadow-lg">
+                            <div>
+                                <AlertTriangle size={16} />
+                                <span>Warning: Restoring will overwrite all current data!</span>
+                            </div>
+                        </div>
+                        <p className="opacity-70 text-sm mb-4">Upload a previously generated backup (.zip file) to restore your system.</p>
+
+                        <div className="form-control w-full">
+                            <input 
+                                type="file" 
+                                className="file-input file-input-bordered file-input-error w-full" 
+                                accept=".zip"
+                                onChange={handleRestore}
+                                disabled={uploading}
+                            />
+                        </div>
+
+                        {uploading && (
+                            <div className="mt-4">
+                                <div className="text-xs mb-1">Restoring... {uploadProgress}%</div>
+                                <progress className="progress progress-error w-full" value={uploadProgress} max="100"></progress>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
