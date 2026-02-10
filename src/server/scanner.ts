@@ -381,45 +381,41 @@ export class Scanner implements ScannerService {
             return null;
         }
 
-        // Process WAV to MP3 conversion first...
+        // Check for WAV sibling if this is an MP3 and we don't have an MP3 record yet
+        if (ext === '.mp3') {
+            const relativeMp3Path = this.normalizePath(currentFilePath, musicDir);
+            if (!this.database.getTrackByPath(relativeMp3Path)) {
+                const wavPath = currentFilePath.replace(/\.mp3$/i, '.wav');
+                const relativeWavPath = this.normalizePath(wavPath, musicDir);
+                const wavTrack = this.database.getTrackByPath(relativeWavPath);
+
+                if (wavTrack) {
+                    console.log(`    [Scanner] Found sibling WAV track (${wavTrack.title}). Updating to MP3 path.`);
+                    this.database.updateTrackPath(wavTrack.id, relativeMp3Path, wavTrack.album_id);
+                }
+            }
+        }
+
+        // Process WAV to MP3 conversion (Optimized: Check existence, but defer conversion)
         if (ext === '.wav') {
-            try {
-                const mp3Path = currentFilePath.replace(/\.wav$/i, '.mp3');
-                const existingMp3Track = this.database.getTrackByPath(this.normalizePath(mp3Path, musicDir));
+            const mp3Path = currentFilePath.replace(/\.wav$/i, '.mp3');
+            const relativeMp3Path = this.normalizePath(mp3Path, musicDir);
+            const existingMp3Track = this.database.getTrackByPath(relativeMp3Path);
 
-                // Check if we have a stale WAV track in DB and remove it
-                const staleWavTrack = this.database.getTrackByPath(this.normalizePath(filePath, musicDir));
-                if (staleWavTrack) {
-                    console.log(`    [Scanner] Removing stale WAV track entry: ${path.basename(filePath)}`);
-                    this.database.deleteTrack(staleWavTrack.id);
-                }
+            // If MP3 already exists and is tracked, switch to it immediately
+            if (await fs.pathExists(mp3Path) && existingMp3Track) {
+                return { originalPath: filePath, success: true, message: "MP3 already exists and processed.", convertedPath: mp3Path, trackId: existingMp3Track.id };
+            }
 
-                if (await fs.pathExists(mp3Path) && existingMp3Track) {
-                    return { originalPath: filePath, success: true, message: "MP3 already exists and processed.", convertedPath: mp3Path, trackId: existingMp3Track.id };
-                }
-
-                if (await fs.pathExists(mp3Path) && !existingMp3Track) {
-                    currentFilePath = mp3Path;
-                    ext = '.mp3';
-                    console.log(`    [Scanner] Found existing MP3 for WAV: ${path.basename(currentFilePath)}`);
-                } else {
-                    // Check if it's already in the queue or being processed to avoid duplicates
-                    const convertedPath = await this.processQueue.add(() => convertWavToMp3(currentFilePath));
-                    if (await fs.pathExists(convertedPath)) {
-                        currentFilePath = mp3Path;
-                        ext = '.mp3';
-                        console.log(`    [Scanner] Switched to converted MP3: ${path.basename(currentFilePath)} (Keeping original WAV)`);
-                    } else {
-                        throw new Error("WAV to MP3 conversion failed but no error was thrown.");
-                    }
-                }
-            } catch (err) {
-                // If the error is simply that the file was deleted mid-process (ENOENT), return null to skip
-                if ((err as any).code === 'ENOENT') {
-                    return null;
-                }
-                console.error(`    [Scanner] Could not convert WAV, proceeding with original: ${err instanceof Error ? err.message : String(err)}`);
-                return { originalPath: filePath, success: false, message: `WAV to MP3 conversion failed: ${err instanceof Error ? err.message : String(err)}` };
+            if (await fs.pathExists(mp3Path) && !existingMp3Track) {
+                // MP3 exists on disk but not in DB? Use it.
+                currentFilePath = mp3Path;
+                ext = '.mp3';
+                console.log(`    [Scanner] Found existing MP3 for WAV: ${path.basename(currentFilePath)}`);
+            } else {
+                // Defer conversion to avoid blocking upload response
+                // We will proceed with WAV for now, and queue conversion
+                console.log(`    [Scanner] New WAV detected. Proceeding with import. Conversion queued.`);
             }
         }
 
@@ -527,6 +523,13 @@ export class Scanner implements ScannerService {
                 .catch((err: Error) => {
                     console.error(`    Failed to generate waveform for ${path.basename(currentFilePath)}:`, err.message);
                 });
+
+            // Queue background conversion for WAVs
+            if (filePath.toLowerCase().endsWith(".wav") && currentFilePath === filePath) {
+                this.processQueue.add(() => convertWavToMp3(filePath).catch(err => {
+                    console.error(`    [Scanner] Background WAV conversion failed:`, err);
+                }));
+            }
 
             return { originalPath: filePath, success: true, message: "Track processed successfully.", convertedPath: currentFilePath !== filePath ? currentFilePath : undefined, trackId: trackId };
 

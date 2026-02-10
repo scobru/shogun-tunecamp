@@ -64,7 +64,7 @@ export function createUploadRoutes(
     const upload = multer({
         storage: createTempStorage(),
         fileFilter,
-        limits: { fileSize: 300 * 1024 * 1024 } // 300MB limit
+        limits: { fileSize: 1024 * 1024 * 1024 } // 1GB limit
     });
 
     // Memory storage for covers (small files, avoids disk I/O in middleware)
@@ -122,12 +122,12 @@ export function createUploadRoutes(
             for (const file of files) {
                 const sanitizedName = sanitizeFilename(file.originalname);
                 let destPath = path.join(destDir, sanitizedName);
-                
+
                 // Check for collision and rename if necessary
                 let counter = 1;
                 const ext = path.extname(sanitizedName);
                 const nameBase = path.basename(sanitizedName, ext);
-                
+
                 while (await fs.pathExists(destPath)) {
                     destPath = path.join(destDir, `${nameBase}_${counter}${ext}`);
                     counter++;
