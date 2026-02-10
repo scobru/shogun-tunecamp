@@ -99,7 +99,7 @@ export const AlbumDetails = () => {
                     <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-none">{album.title}</h1>
                     <div className="text-xl md:text-2xl font-medium opacity-80 flex items-center gap-2">
                         {album.artistId ? (
-                             <Link to={`/artists/${album.artistId}`} className="hover:underline">{album.artistName}</Link>
+                             <Link to={`/artists/${album.artist_slug || album.artistSlug || album.artistId}`} className="hover:underline">{album.artistName || album.artist_name}</Link>
                         ) : (
                              <span>{album.artistName}</span>
                         )}

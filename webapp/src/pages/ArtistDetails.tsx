@@ -155,7 +155,7 @@ export const ArtistDetails = () => {
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
                     {albums.map(album => (
-                        <Link to={`/albums/${album.id}`} key={album.id} className="group">
+                        <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group">
                              <figure className="aspect-square relative overflow-hidden rounded-lg shadow-lg mb-3">
                                 {album.coverImage ? (
                                     <img 

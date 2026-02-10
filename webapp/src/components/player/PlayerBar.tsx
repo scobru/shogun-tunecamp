@@ -139,67 +139,87 @@ export const PlayerBar = () => {
 
     return (
         <>
-            <div className="fixed bottom-0 left-0 right-0 lg:h-24 bg-base-200/90 backdrop-blur-xl border-t border-white/5 lg:px-6 flex flex-col lg:flex-row items-center gap-4 z-50 shadow-2xl pb-safe lg:pb-0">
+            <div className="fixed bottom-0 left-0 right-0 lg:h-24 bg-base-200/90 backdrop-blur-xl border-t border-white/5 lg:px-6 flex flex-col lg:flex-row items-center gap-2 lg:gap-4 z-50 shadow-2xl pb-safe lg:pb-0 pt-2 lg:pt-0">
                 <audio 
                     ref={audioRef} 
                     className="hidden"
                     onError={(e) => console.error("Audio Element Error:", e.currentTarget.error, e.currentTarget.src)}
                 />
                 
-                <div className="flex items-center gap-3 lg:gap-4 w-full lg:w-64 shrink-0 px-4 lg:px-0 pt-2 lg:pt-0">
-                    {coverUrl ? (
-                        <img 
-                            src={coverUrl} 
-                            alt="Cover" 
-                            className="w-12 h-12 lg:w-14 lg:h-14 rounded-lg bg-base-300 shadow-lg object-cover"
-                        />
-                    ) : (
-                         <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-lg bg-base-300 shadow-lg flex items-center justify-center">
-                            <span className="text-xs opacity-50">?</span>
-                         </div>
-                    )}
+                {/* Track Info */}
+                <div className="flex items-center gap-3 lg:gap-4 w-full lg:w-64 shrink-0 px-4 lg:px-0">
+                    <div className="relative group">
+                        {coverUrl ? (
+                            <img 
+                                src={coverUrl} 
+                                alt="Cover" 
+                                className="w-10 h-10 lg:w-14 lg:h-14 rounded-lg bg-base-300 shadow-lg object-cover"
+                            />
+                        ) : (
+                             <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-lg bg-base-300 shadow-lg flex items-center justify-center">
+                                <span className="text-xs opacity-50">?</span>
+                             </div>
+                        )}
+                        <button 
+                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-lg lg:hidden"
+                            onClick={() => document.querySelector('.drawer')?.classList.add('drawer-end')} // Placeholder for full player expansion if needed
+                        >
+                            <span className="text-white text-xs">View</span>
+                        </button>
+                    </div>
+                    
                     <div className="min-w-0 flex-1">
                         <ScrollingText className="font-bold text-sm lg:text-base">{currentTrack.title}</ScrollingText>
-                        <ScrollingText className="text-xs lg:text-sm opacity-60">{currentTrack.artistName}</ScrollingText>
+                        <ScrollingText className="text-xs lg:text-sm opacity-60 text-primary">{currentTrack.artistName}</ScrollingText>
                     </div>
                 </div>
 
                 {/* Controls & Waveform */}
-                <div className="flex flex-col items-center flex-1 max-w-2xl mx-auto gap-1 lg:gap-2 w-full px-2 lg:px-0">
+                <div className="flex flex-col items-center flex-1 max-w-2xl mx-auto gap-1 w-full px-2 lg:px-0">
                     {/* Buttons */}
                     <div className="flex items-center gap-4 lg:gap-6">
-                        <button 
-                            className={`btn btn-ghost btn-circle btn-xs ${isShuffled ? 'text-primary' : 'opacity-50'}`} 
-                            onClick={toggleShuffle}
-                        >
-                            <Shuffle size={16} />
-                        </button>
+                        <div className="tooltip" data-tip="Shuffle">
+                            <button 
+                                className={`btn btn-ghost btn-circle btn-xs ${isShuffled ? 'text-primary' : 'opacity-50'}`} 
+                                onClick={toggleShuffle}
+                            >
+                                <Shuffle size={16} />
+                            </button>
+                        </div>
 
-                        <button className="btn btn-ghost btn-circle btn-sm" onClick={prev}><SkipBack size={20} /></button>
+                        <div className="tooltip" data-tip="Previous">
+                            <button className="btn btn-ghost btn-circle btn-sm" onClick={prev}><SkipBack size={20} /></button>
+                        </div>
                         
-                        <button 
-                            className="btn btn-circle btn-primary text-white shadow-lg lg:scale-110 hover:scale-110 transition-transform" 
-                            onClick={togglePlay}
-                        >
-                            {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
-                        </button>
+                        <div className="tooltip" data-tip={isPlaying ? "Pause" : "Play"}>
+                            <button 
+                                className="btn btn-circle btn-primary text-primary-content shadow-lg shadow-primary/20 lg:scale-110 hover:scale-110 transition-transform" 
+                                onClick={togglePlay}
+                            >
+                                {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />   }
+                            </button>
+                        </div>
                         
-                        <button className="btn btn-ghost btn-circle btn-sm" onClick={next}><SkipForward size={20} /></button>
+                        <div className="tooltip" data-tip="Next">
+                            <button className="btn btn-ghost btn-circle btn-sm" onClick={next}><SkipForward size={20} /></button>
+                        </div>
                         
-                        <button 
-                            className={`btn btn-ghost btn-circle btn-xs ${repeatMode !== 'none' ? 'text-primary' : 'opacity-50'}`} 
-                            onClick={toggleRepeat}
-                        >
-                            <Repeat size={16} />
-                            {repeatMode === 'one' && <span className="absolute text-[8px] font-bold bottom-1 right-1">1</span>}
-                        </button>
+                        <div className="tooltip" data-tip={`Repeat: ${repeatMode}`}>
+                            <button 
+                                className={`btn btn-ghost btn-circle btn-xs ${repeatMode !== 'none' ? 'text-primary' : 'opacity-50'}`} 
+                                onClick={toggleRepeat}
+                            >
+                                <Repeat size={16} />
+                                {repeatMode === 'one' && <span className="absolute text-[8px] font-bold bottom-1 right-1">1</span>}
+                            </button>
+                        </div>
                     </div>
 
                     {/* Progress Bar + Decorative Waveform */}
-                    <div className="w-full flex items-center gap-3 text-xs font-mono h-10 lg:h-12 relative">
+                    <div className="w-full flex items-center gap-3 text-xs font-mono h-6 lg:h-8 relative group">
                          {/* Decorative waveform background */}
                          {(localWaveform || currentTrack.waveform) && (
-                             <div className="absolute inset-0 opacity-30 pointer-events-none">
+                             <div className="absolute inset-0 opacity-20 group-hover:opacity-40 transition-opacity pointer-events-none">
                                  <Waveform 
                                     data={localWaveform || currentTrack.waveform} 
                                     progress={progress / 100} 
@@ -210,18 +230,17 @@ export const PlayerBar = () => {
                              </div>
                          )}
                          
-                         {/* Always use simple progress bar for seeking */}
-                         <span className="min-w-[40px] text-right opacity-50 z-10">
+                         <span className="min-w-[40px] text-right opacity-50 z-10 tabular-nums">
                              {Number.isFinite(currentTime) ? new Date(currentTime * 1000).toISOString().substr(14, 5) : '0:00'}
                          </span>
                          <input 
                              type="range" 
-                             className="range range-xs range-primary flex-1 z-10" 
+                             className="range range-xs range-primary flex-1 z-10 h-1.5 hover:h-2 transition-all" 
                              min="0" max="100" 
                              value={progress || 0}
                              onChange={(e) => handleSeek(parseFloat(e.target.value) / 100)}
                          />
-                         <span className="min-w-[40px] opacity-50 z-10">
+                         <span className="min-w-[40px] opacity-50 z-10 tabular-nums">
                              {Number.isFinite(duration) && duration > 0 ? new Date(duration * 1000).toISOString().substr(14, 5) : '0:00'}
                          </span>
                     </div>
@@ -230,16 +249,22 @@ export const PlayerBar = () => {
                 {/* Volume & Extras */}
                 <div className="hidden lg:flex items-center gap-4 w-64 justify-end">
                     <div className="flex items-center gap-2 group">
-                       <Volume2 size={18} className="opacity-70 group-hover:text-primary transition-colors" />
+                       <button onClick={() => setVolume(volume === 0 ? 1 : 0)} className="btn btn-ghost btn-circle btn-xs">
+                           <Volume2 size={18} className={`opacity-70 group-hover:text-primary transition-colors ${volume === 0 ? 'text-error' : ''}`} />
+                       </button>
                        <input 
-                            type="range" className="range range-xs w-24" 
+                            type="range" className="range range-xs w-24 range-secondary" 
                             min="0" max="1" step="0.05"
                             value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} 
                        />
                     </div>
                     <div className="border-l border-white/10 pl-4 flex gap-2">
-                        <button className="btn btn-ghost btn-circle btn-sm" onClick={toggleLyrics}><Mic2 size={18} /></button>
-                        <button className="btn btn-ghost btn-circle btn-sm" onClick={toggleQueue}><ListMusic size={18} /></button>
+                        <div className="tooltip tooltip-left" data-tip="Lyrics">
+                            <button className="btn btn-ghost btn-circle btn-sm" onClick={toggleLyrics}><Mic2 size={18} /></button>
+                        </div>
+                        <div className="tooltip tooltip-left" data-tip="Queue">
+                            <button className="btn btn-ghost btn-circle btn-sm" onClick={toggleQueue}><ListMusic size={18} /></button>
+                        </div>
                     </div>
                 </div>
             </div>

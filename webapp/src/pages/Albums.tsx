@@ -50,7 +50,7 @@ export const Albums = () => {
                             </figure>
                             <div className="card-body p-4">
                                 <h3 className="font-bold truncate text-lg" title={album.title}>{album.title}</h3>
-                                <p className="text-sm opacity-60 truncate">{album.artistName}</p>
+                                <p className="text-sm opacity-60 truncate">{album.artistName || album.artist_name}</p>
                                 <div className="flex justify-between items-center mt-2 opacity-40 text-xs font-mono">
                                     <span>{album.year}</span>
                                     <span className="uppercase border border-white/20 px-1 rounded text-[10px]">{album.type}</span>

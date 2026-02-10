@@ -43,7 +43,9 @@ export interface Album {
     title: string;
     artistId: string;
     artistName?: string;
-    artistSlug?: string; // Added for linking
+    artistSlug?: string; // camelCase (if mapped)
+    artist_slug?: string; // snake_case (from DB)
+    artist_name?: string; // snake_case (from DB)
     coverImage?: string;
     year?: number;
     tracks?: Track[];

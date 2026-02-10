@@ -77,7 +77,7 @@ export const Search = () => {
                             <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><User size={20}/> Artists</h2>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                 {results.artists.map(artist => (
-                                    <Link to={`/artists/${artist.id}`} key={artist.id} className="group card bg-base-200 hover:bg-base-300 transition-colors">
+                                    <Link to={`/artists/${artist.slug || artist.id}`} key={artist.id} className="group card bg-base-200 hover:bg-base-300 transition-colors">
                                         <figure className="aspect-square relative overflow-hidden">
                                             {artist.coverImage ? (
                                                 <img src={API.getArtistCoverUrl(artist.id)} alt={artist.name} className="object-cover w-full h-full group-hover:scale-105 transition-transform" />
@@ -102,7 +102,7 @@ export const Search = () => {
                             <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Disc size={20}/> Albums</h2>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                 {results.albums.map(album => (
-                                    <Link to={`/albums/${album.id}`} key={album.id} className="group card bg-base-200 hover:bg-base-300 transition-colors">
+                                    <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group card bg-base-200 hover:bg-base-300 transition-colors">
                                         <figure className="aspect-square relative overflow-hidden">
                                             {album.coverImage ? (
                                                 <img src={API.getAlbumCoverUrl(album.id)} alt={album.title} className="object-cover w-full h-full group-hover:scale-105 transition-transform" />
@@ -112,7 +112,7 @@ export const Search = () => {
                                         </figure>
                                         <div className="card-body p-3">
                                             <h3 className="font-bold truncate">{album.title}</h3>
-                                            <p className="text-xs opacity-60 truncate">{album.artistName}</p>
+                                            <p className="text-xs opacity-60 truncate">{album.artistName || album.artist_name}</p>
                                         </div>
                                     </Link>
                                 ))}
