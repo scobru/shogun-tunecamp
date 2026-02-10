@@ -27,67 +27,7 @@ interface LocalTrack {
     format?: string;
 }
 
-// ... inside component ...
 
-    const loadRelease = async (releaseId: number) => {
-        setLoading(true);
-        try {
-            const data: any = await API.getAlbum(releaseId);
-            // ... metadata ...
-            
-            if (data.tracks) {
-                setTracks(data.tracks
-                    .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
-                    .map((t: any) => ({
-                        id: parseInt(t.id),
-                        title: t.title,
-                        duration: t.duration,
-                        position: t.position,
-                        file_path: t.path || t.file_path, // handle API inconsistency
-                        format: t.format,
-                        artistName: t.artistName
-                    }))
-                );
-            }
-        } // ... catch ...
-    };
-
-    const handleAddLibraryTracks = (selected: any[]) => {
-        // Optimistically add to list (will be linked on save)
-        const newTracks = selected.map(t => ({
-            id: parseInt(t.id),
-            title: t.title,
-            duration: t.duration,
-            position: tracks.length + 1, // Append
-            price: 0,
-            file_path: t.path,
-            artistName: t.artistName,
-            format: t.format
-        }));
-        
-        // ... filter unique ...
-    };
-
-// ... inside render loop ...
-
-                                        <div className="flex-1 flex gap-2 items-center">
-                                            <input 
-                                                type="text" 
-                                                value={track.title} 
-                                                onChange={(e) => {
-                                                    const newTracks = [...tracks];
-                                                    newTracks[idx].title = e.target.value;
-                                                    setTracks(newTracks);
-                                                }}
-                                                className="input input-ghost input-sm w-full font-medium focus:bg-base-200"
-                                            />
-                                            {track.format && (
-                                                <span className="badge badge-xs badge-ghost opacity-50 font-mono uppercase">
-                                                    {track.format}
-                                                </span>
-                                            )}
-                                            {track.artistName && <div className="text-xs opacity-50 px-3 whitespace-nowrap">{track.artistName}</div>}
-                                        </div>
 
 interface LocalRelease {
     id: number;
