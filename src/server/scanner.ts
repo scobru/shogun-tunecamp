@@ -106,14 +106,17 @@ function convertWavToMp3(wavPath: string, bitrate: string = '320k'): Promise<str
     return new Promise((resolve, reject) => {
         const mp3Path = wavPath.replace(/\.wav$/i, '.mp3');
 
-        console.log(`    [Scanner] Converting WAV to MP3: ${path.basename(wavPath)}`);
+        const startTime = Date.now();
+        const startSize = fs.existsSync(wavPath) ? fs.statSync(wavPath).size : 0;
+        console.log(`    [Scanner] Converting WAV to MP3: ${path.basename(wavPath)} (${(startSize / 1024 / 1024).toFixed(2)} MB)`);
 
         ffmpeg(wavPath)
             .audioBitrate(bitrate)
             .audioCodec('libmp3lame')
             .format('mp3')
             .on('end', () => {
-                console.log(`    [Scanner] Converted to: ${path.basename(mp3Path)}`);
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+                console.log(`    [Scanner] Converted to: ${path.basename(mp3Path)} in ${duration}s`);
                 resolve(mp3Path);
             })
             .on('error', (err) => {
