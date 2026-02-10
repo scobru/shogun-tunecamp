@@ -208,8 +208,8 @@ export const Admin = () => {
             <AdminReleaseModal onReleaseUpdated={() => window.dispatchEvent(new CustomEvent('refresh-admin-releases'))} />
             <UploadTracksModal onUploadComplete={() => window.dispatchEvent(new CustomEvent('refresh-admin-releases'))} />
             <CreatePostModal onPostCreated={() => window.dispatchEvent(new CustomEvent('refresh-admin-releases'))} />
-            <AdminTrackModal onTrackUpdated={() => window.dispatchEvent(new CustomEvent('refresh-admin-tracks'))} />
-            <PlaylistModal />
+            {/* AdminTrackModal removed - handled globally in MainLayout */}
+            {/* PlaylistModal removed - handled globally in MainLayout */}
         </div>
     );
 };

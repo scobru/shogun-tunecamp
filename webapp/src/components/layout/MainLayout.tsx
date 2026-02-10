@@ -46,7 +46,7 @@ export const MainLayout = () => {
             <PlaylistModal />
             <UnlockModal />
             <ArtistKeysModal />
-            <AdminTrackModal onTrackUpdated={() => window.location.reload()} />
+            <AdminTrackModal onTrackUpdated={() => window.dispatchEvent(new CustomEvent('refresh-admin-tracks'))} />
         </div>
     );
 };
