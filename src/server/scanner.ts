@@ -88,7 +88,7 @@ function getDurationFromFfmpeg(filePath: string): Promise<number | null> {
     return new Promise((resolve) => {
         ffmpeg.ffprobe(filePath, (err, metadata) => {
             if (err) {
-                console.warn(`    [Scanner] ffprobe failed for ${path.basename(filePath)}:`, err.message);
+                console.warn(`    [Scanner] ffprobe failed for ${path.basename(filePath)}: ${err.message}`);
                 resolve(null);
             } else {
                 const duration = metadata.format.duration;
@@ -386,6 +386,9 @@ export class Scanner implements ScannerService {
 
         // Process WAV to MP3 conversion first...
         if (ext === '.wav') {
+            const wavDuration = await getDurationFromFfmpeg(currentFilePath);
+            console.log(`    [Scanner] Original WAV duration: ${wavDuration}s`);
+
             try {
                 const mp3Path = currentFilePath.replace(/\.wav$/i, '.mp3');
                 const existingMp3Track = this.database.getTrackByPath(this.normalizePath(mp3Path, musicDir));
