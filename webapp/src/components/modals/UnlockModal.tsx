@@ -10,6 +10,7 @@ export const UnlockModal = () => {
     const [loading, setLoading] = useState(false);
 
     const [albumId, setAlbumId] = useState<string | null>(null);
+    const [format, setFormat] = useState('mp3');
 
     useEffect(() => {
         const handleOpen = (e: any) => {
@@ -18,6 +19,9 @@ export const UnlockModal = () => {
             setSuccess('');
             if (e.detail && e.detail.albumId) {
                 setAlbumId(e.detail.albumId);
+            }
+            if (e.detail && e.detail.format) {
+                setFormat(e.detail.format);
             }
             dialogRef.current?.showModal();
         };
@@ -38,7 +42,7 @@ export const UnlockModal = () => {
             
             if (albumId) {
                 // Trigger download
-                window.location.href = `/api/albums/${albumId}/download?code=${encodeURIComponent(code)}`;
+                window.location.href = `/api/albums/${albumId}/download?code=${encodeURIComponent(code)}&format=${format}`;
             }
 
             setTimeout(() => dialogRef.current?.close(), 2000);

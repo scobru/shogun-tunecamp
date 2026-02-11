@@ -25,6 +25,8 @@ export const AlbumDetails = () => {
         }
     }, [idOrSlug]);
 
+    const [downloadFormat, setDownloadFormat] = useState('mp3');
+
     const handlePlay = () => {
         if (album?.tracks && album.tracks.length > 0) {
             playTrack(album.tracks[0], album.tracks);
@@ -33,16 +35,7 @@ export const AlbumDetails = () => {
 
     const handleUnlock = () => {
         if (!album) return;
-        document.dispatchEvent(new CustomEvent('open-unlock-modal', { detail: { albumId: album.id } }));
-        // Note: UnlockModal needs to support setting albumId via event or we need to update it
-        // Checking UnlockModal implementation previously: it listens to 'open-unlock-modal' but doesn't seem to read detail.
-        // Wait, legacy logic: `modal.dataset.albumId = albumId`. 
-        // In React `UnlockModal`, `handleOpen` just shows modal. It should probably read detail.
-        // Let's assume for now I will update UnlockModal separately if needed, or stick to simple "enter code" 
-        // implementation if it validates code against release regardless of context.
-        // Legacy: validateUnlockCode(code) -> returns release. If release.id != album.id, error.
-        // So UnlockModal needs to know the CURRENT album context.
-        // I will add albumId to event detail and update UnlockModal later if it doesn't support it.
+        document.dispatchEvent(new CustomEvent('open-unlock-modal', { detail: { albumId: album.id, format: downloadFormat } }));
     };
 
     const handlePromote = async () => {
@@ -71,6 +64,7 @@ export const AlbumDetails = () => {
     if (!album) return <div className="p-12 text-center opacity-50">Album not found.</div>;
 
     const totalDuration = album.tracks?.reduce((acc, t) => acc + t.duration, 0) || 0;
+    const hasLossless = album.tracks?.some(t => t.losslessPath);
 
     return (
         <div className="space-y-8 animate-fade-in">
@@ -109,21 +103,36 @@ export const AlbumDetails = () => {
                         <span className="text-base opacity-60">{album.tracks?.length} songs, {Math.floor(totalDuration / 60)} min</span>
                     </div>
                     
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex flex-wrap gap-3 pt-4 items-center">
                         <button className="btn btn-primary btn-lg gap-2 shadow-xl hover:scale-105 transition-transform" onClick={handlePlay}>
                             <Play fill="currentColor" /> Play
                         </button>
 
-                        {album.download === 'free' && (
-                             <a href={`/api/albums/${album.slug || album.id}/download`} className="btn btn-secondary btn-lg gap-2 shadow-xl" target="_blank">
-                                <Download size={20} /> Free Download
-                             </a>
-                        )}
+                        {(album.download === 'free' || album.download === 'codes') && (
+                            <div className="join shadow-xl">
+                                {album.download === 'free' && (
+                                    <a href={`/api/albums/${album.slug || album.id}/download?format=${downloadFormat}`} className="btn btn-secondary btn-lg gap-2 join-item" target="_blank">
+                                        <Download size={20} /> Free Download
+                                    </a>
+                                )}
 
-                        {album.download === 'codes' && (
-                             <button className="btn btn-secondary btn-lg gap-2 shadow-xl" onClick={handleUnlock}>
-                                <Unlock size={20} /> Unlock Download
-                             </button>
+                                {album.download === 'codes' && (
+                                    <button className="btn btn-secondary btn-lg gap-2 join-item" onClick={handleUnlock}>
+                                        <Unlock size={20} /> Unlock Download
+                                    </button>
+                                )}
+
+                                {hasLossless && (
+                                    <select 
+                                        className="select select-secondary select-lg join-item border-l-white/20 focus:outline-none"
+                                        value={downloadFormat}
+                                        onChange={(e) => setDownloadFormat(e.target.value)}
+                                    >
+                                        <option value="mp3">MP3</option>
+                                        <option value="wav">WAV (Lossless)</option>
+                                    </select>
+                                )}
+                            </div>
                         )}
                         
                         {externalLinks.map((link: any, i: number) => (

@@ -234,10 +234,16 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string) 
                 return res.status(404).json({ error: "No tracks found" });
             }
 
+            // Determine requested format
+            const requestedFormat = (req.query.format as string)?.toLowerCase();
+            const useLossless = requestedFormat === 'lossless' || requestedFormat === 'wav' || requestedFormat === 'flac';
+
             // For single track, just send the file
             if (tracks.length === 1) {
                 const track = tracks[0];
-                const trackPath = path.join(musicDir, track.file_path);
+                const trackFile = (useLossless && track.lossless_path) ? track.lossless_path : track.file_path;
+                const trackPath = path.join(musicDir, trackFile);
+
                 if (!await fs.pathExists(trackPath)) {
                     return res.status(404).json({ error: "Track file not found" });
                 }
@@ -247,18 +253,21 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string) 
                 return fs.createReadStream(trackPath).pipe(res);
             }
 
+
             // For multiple tracks, create a simple sequential download
-            // Send first track with info about others
             const archiver = await import("archiver");
             const archive = archiver.default("zip", { zlib: { level: 5 } });
 
             res.setHeader("Content-Type", "application/zip");
-            res.setHeader("Content-Disposition", `attachment; filename="${album.slug || album.title}.zip"`);
+            res.setHeader("Content-Disposition", `attachment; filename="${album.slug || album.title}${useLossless ? '-lossless' : ''}.zip"`);
 
             archive.pipe(res);
 
             for (const track of tracks) {
-                const trackPath = path.join(musicDir, track.file_path);
+                // Use lossless path if requested and available, fallback to primary path
+                const trackFile = (useLossless && track.lossless_path) ? track.lossless_path : track.file_path;
+                const trackPath = path.join(musicDir, trackFile);
+
                 if (await fs.pathExists(trackPath)) {
                     archive.file(trackPath, { name: path.basename(trackPath) });
                 }

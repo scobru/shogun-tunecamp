@@ -12,6 +12,7 @@ export interface Track {
     codec?: string;
     bitrate?: number;
     size?: number;
+    losslessPath?: string;
     playCount: number;
     liked?: boolean;
     coverImage?: string; // helpers

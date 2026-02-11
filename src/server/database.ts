@@ -58,6 +58,7 @@ export interface Track {
     format: string | null;
     bitrate: number | null;
     sample_rate: number | null;
+    lossless_path: string | null;
     waveform: string | null; // JSON string of number[]
     created_at: string;
 }
@@ -167,6 +168,7 @@ export interface DatabaseService {
     updateTrackPath(id: number, filePath: string, albumId: number | null): void;
     updateTrackDuration(id: number, duration: number): void;
     updateTrackWaveform(id: number, waveform: string): void;
+    updateTrackLosslessPath(id: number, losslessPath: string | null): void;
     deleteTrack(id: number): void;
     addTrackToRelease(releaseId: number, trackId: number): void;
     removeTrackFromRelease(releaseId: number, trackId: number): void;
@@ -405,6 +407,14 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.log("📦 Migrated database: added waveform column");
     } catch (e) {
         // Column already exists, ignore
+    }
+
+    // Migration: Add lossless_path column to tracks
+    try {
+        db.exec(`ALTER TABLE tracks ADD COLUMN lossless_path TEXT`);
+        console.log("📦 Migrated database: added lossless_path column");
+    } catch (e) {
+        // Column already exists
     }
 
     // Migration: Add is_public column to playlists if it doesn't exist
@@ -787,8 +797,8 @@ export function createDatabase(dbPath: string): DatabaseService {
         createTrack(track: Omit<Track, "id" | "created_at" | "album_title" | "artist_name">): number {
             const result = db
                 .prepare(
-                    `INSERT INTO tracks (title, album_id, artist_id, track_num, duration, file_path, format, bitrate, sample_rate)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                    `INSERT INTO tracks (title, album_id, artist_id, track_num, duration, file_path, format, bitrate, sample_rate, lossless_path)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                 )
                 .run(
                     track.title,
@@ -799,7 +809,8 @@ export function createDatabase(dbPath: string): DatabaseService {
                     track.file_path,
                     track.format,
                     track.bitrate,
-                    track.sample_rate
+                    track.sample_rate,
+                    track.lossless_path || null
                 );
             return result.lastInsertRowid as number;
         },
@@ -836,6 +847,9 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updateTrackWaveform(id: number, waveform: string): void {
             db.prepare("UPDATE tracks SET waveform = ? WHERE id = ?").run(waveform, id);
+        },
+        updateTrackLosslessPath(id: number, losslessPath: string | null): void {
+            db.prepare("UPDATE tracks SET lossless_path = ? WHERE id = ?").run(losslessPath, id);
         },
 
         deleteTrack(id: number): void {

@@ -384,40 +384,47 @@ export class Scanner implements ScannerService {
             return null;
         }
 
-        // Check for WAV sibling if this is an MP3 and we don't have an MP3 record yet
+        // Check for WAV/FLAC sibling if this is an MP3 and we don't have an MP3 record yet
         if (ext === '.mp3') {
             const relativeMp3Path = this.normalizePath(currentFilePath, musicDir);
             if (!this.database.getTrackByPath(relativeMp3Path)) {
-                const wavPath = currentFilePath.replace(/\.mp3$/i, '.wav');
-                const relativeWavPath = this.normalizePath(wavPath, musicDir);
-                const wavTrack = this.database.getTrackByPath(relativeWavPath);
+                // Check common lossless extensions
+                const losslessExtensions = ['.wav', '.flac'];
+                for (const losslessExt of losslessExtensions) {
+                    const losslessPath = currentFilePath.replace(/\.mp3$/i, losslessExt);
+                    const relativeLosslessPath = this.normalizePath(losslessPath, musicDir);
+                    const losslessTrack = this.database.getTrackByPath(relativeLosslessPath);
 
-                if (wavTrack) {
-                    console.log(`    [Scanner] Found sibling WAV track (${wavTrack.title}). Updating to MP3 path.`);
-                    this.database.updateTrackPath(wavTrack.id, relativeMp3Path, wavTrack.album_id);
+                    if (losslessTrack) {
+                        console.log(`    [Scanner] Found sibling ${losslessExt.toUpperCase()} track (${losslessTrack.title}). Pairing with MP3 path.`);
+                        // Move lossless path to lossless_path and set MP3 as primary file_path
+                        this.database.updateTrackPath(losslessTrack.id, relativeMp3Path, losslessTrack.album_id);
+                        this.database.updateTrackLosslessPath(losslessTrack.id, relativeLosslessPath);
+                        return { originalPath: filePath, success: true, message: "MP3 paired with existing lossless track.", trackId: losslessTrack.id };
+                    }
                 }
             }
         }
 
-        // Process WAV to MP3 conversion (Optimized: Check existence, but defer conversion)
-        if (ext === '.wav') {
-            const mp3Path = currentFilePath.replace(/\.wav$/i, '.mp3');
-            const relativeMp3Path = this.normalizePath(mp3Path, musicDir);
-            const existingMp3Track = this.database.getTrackByPath(relativeMp3Path);
+        // Process Lossless (WAV/FLAC) logic
+        const LOSSLESS_EXTENSIONS = ['.wav', '.flac'];
+        if (LOSSLESS_EXTENSIONS.includes(ext)) {
+            const primaryExt = '.mp3';
+            const primaryPath = currentFilePath.replace(new RegExp(`\\${ext}$`, 'i'), primaryExt);
+            const relativePrimaryPath = this.normalizePath(primaryPath, musicDir);
+            const relativeLosslessPath = this.normalizePath(currentFilePath, musicDir);
 
-            // If MP3 already exists and is tracked, switch to it immediately
-            if (await fs.pathExists(mp3Path) && existingMp3Track) {
-                return { originalPath: filePath, success: true, message: "MP3 already exists and processed.", convertedPath: mp3Path, trackId: existingMp3Track.id };
+            const existingPrimaryTrack = this.database.getTrackByPath(relativePrimaryPath);
+
+            // If MP3 already exists and is tracked, add this lossless file as alternative
+            if (await fs.pathExists(primaryPath) && existingPrimaryTrack) {
+                console.log(`    [Scanner] Found existing MP3 for ${ext.toUpperCase()}: ${path.basename(primaryPath)}. Adding lossless path.`);
+                this.database.updateTrackLosslessPath(existingPrimaryTrack.id, relativeLosslessPath);
+                return { originalPath: filePath, success: true, message: `${ext.toUpperCase()} paired with existing MP3.`, trackId: existingPrimaryTrack.id };
             }
 
-            if (await fs.pathExists(mp3Path) && !existingMp3Track) {
-                // MP3 exists on disk but not in DB? Use it.
-                currentFilePath = mp3Path;
-                ext = '.mp3';
-                console.log(`    [Scanner] Found existing MP3 for WAV: ${path.basename(currentFilePath)}`);
-            } else {
-                // Defer conversion to avoid blocking upload response
-                // We will proceed with WAV for now, and queue conversion
+            // If it's a WAV, we still might want to convert it to MP3 for streaming
+            if (ext === '.wav' && !(await fs.pathExists(primaryPath))) {
                 console.log(`    [Scanner] New WAV detected. Proceeding with import. Conversion queued.`);
             }
         }
@@ -504,16 +511,18 @@ export class Scanner implements ScannerService {
                 }
             }
 
+            const isLossless = LOSSLESS_EXTENSIONS.includes(ext);
             const trackId = this.database.createTrack({
                 title: common.title || path.basename(currentFilePath, ext),
                 album_id: albumId, // Linked to album from release.yaml
                 artist_id: artistId,
                 track_num: common.track?.no || null,
                 duration: duration || null,
-                file_path: this.normalizePath(currentFilePath, musicDir),
+                file_path: isLossless ? this.normalizePath(currentFilePath.replace(new RegExp(`\\${ext}$`, 'i'), '.mp3'), musicDir) : this.normalizePath(currentFilePath, musicDir),
                 format: format.codec || ext.substring(1),
                 bitrate: format.bitrate ? Math.round(format.bitrate / 1000) : null,
                 sample_rate: format.sampleRate || null,
+                lossless_path: isLossless ? this.normalizePath(currentFilePath, musicDir) : null,
                 waveform: null
             });
 
