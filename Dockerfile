@@ -5,6 +5,9 @@
 
 ARG TUNECAMP_PUBLIC_URL
 ARG RELAY_CACHE_BUST
+ARG TUNECAMP_GUN_PEERS 
+ARG VITE_GUN_PEERS
+
 # CapRover passes this on deploy; using it invalidates cache per commit
 ARG CAPROVER_GIT_COMMIT_SHA
 
