@@ -88,6 +88,7 @@ export interface Post {
     content: string;
     slug: string;
     visibility: 'public' | 'private' | 'unlisted';
+    published_at?: string;
     created_at: string;
 }
 
@@ -460,6 +461,16 @@ export function createDatabase(dbPath: string): DatabaseService {
     try {
         db.exec(`ALTER TABLE posts ADD COLUMN visibility TEXT DEFAULT 'public'`);
         console.log("📦 Migrated database: added visibility to posts");
+    } catch (e) {
+        // Column already exists
+    }
+
+    // Migration: Add published_at to posts
+    try {
+        db.exec(`ALTER TABLE posts ADD COLUMN published_at TEXT`);
+        // Backfill published_at with created_at for existing public posts
+        db.prepare("UPDATE posts SET published_at = created_at WHERE visibility = 'public'").run();
+        console.log("📦 Migrated database: added published_at to posts");
     } catch (e) {
         // Column already exists
     }
@@ -950,9 +961,11 @@ export function createDatabase(dbPath: string): DatabaseService {
             const random = Math.random().toString(36).substring(2, 8);
             const slug = snippet ? `${snippet}-${random}` : `post-${random}`;
 
+            const publishedAt = visibility === 'public' || visibility === 'unlisted' ? new Date().toISOString() : null;
+
             const result = db.prepare(
-                "INSERT INTO posts (artist_id, content, slug, visibility) VALUES (?, ?, ?, ?)"
-            ).run(artistId, content, slug, visibility);
+                "INSERT INTO posts (artist_id, content, slug, visibility, published_at) VALUES (?, ?, ?, ?, ?)"
+            ).run(artistId, content, slug, visibility, publishedAt);
 
             return result.lastInsertRowid as number;
         },
@@ -963,11 +976,25 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updatePost(id: number, content: string, visibility?: 'public' | 'private' | 'unlisted'): void {
             if (content !== undefined && visibility !== undefined) {
-                db.prepare("UPDATE posts SET content = ?, visibility = ? WHERE id = ?").run(content, visibility, id);
+                const publishedAt = visibility === 'public' || visibility === 'unlisted' ? new Date().toISOString() : null;
+                // Only update published_at if becoming public/unlisted, or if it was null? 
+                // Simple logic: if setting to public/unlisted, update the timestamp to NOW to ensure unique AP ID.
+                // If setting to private, it stays as is (or null? doesn't matter much as it won't be federated).
+                // Let's explicitly update it if visibility is provided and matches public/unlisted.
+                if (publishedAt) {
+                    db.prepare("UPDATE posts SET content = ?, visibility = ?, published_at = ? WHERE id = ?").run(content, visibility, publishedAt, id);
+                } else {
+                    db.prepare("UPDATE posts SET content = ?, visibility = ? WHERE id = ?").run(content, visibility, id);
+                }
             } else if (content !== undefined) {
                 db.prepare("UPDATE posts SET content = ? WHERE id = ?").run(content, id);
             } else if (visibility !== undefined) {
-                db.prepare("UPDATE posts SET visibility = ? WHERE id = ?").run(visibility, id);
+                const publishedAt = visibility === 'public' || visibility === 'unlisted' ? new Date().toISOString() : null;
+                if (publishedAt) {
+                    db.prepare("UPDATE posts SET visibility = ?, published_at = ? WHERE id = ?").run(visibility, publishedAt, id);
+                } else {
+                    db.prepare("UPDATE posts SET visibility = ? WHERE id = ?").run(visibility, id);
+                }
             }
         },
 

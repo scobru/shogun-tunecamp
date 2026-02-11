@@ -193,7 +193,7 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     });
 
     // Resolve individual Object (Release Note)
-    router.get("/note/release/:slug", async (req, res) => {
+    router.get("/note/release/:slug/:timestamp?", async (req, res) => {
         const { slug } = req.params;
         const album = db.getAlbumBySlug(slug);
 
@@ -242,7 +242,7 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     });
 
     // Resolve individual Object (Post Note)
-    router.get("/note/post/:slug", async (req, res) => {
+    router.get("/note/post/:slug/:timestamp?", async (req, res) => {
         const { slug } = req.params;
         const post = db.getPostBySlug(slug);
 

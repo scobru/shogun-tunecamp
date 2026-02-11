@@ -196,7 +196,7 @@ export class ActivityPubService {
         // Note: We use the canonical API URL for the ID, so it can be resolved by servers
         // We append the published timestamp to ensure uniqueness when republishing (Private -> Public -> Private -> Public)
         const sentTime = published ? new Date(published).getTime() : 0;
-        const noteId = `${baseUrl}/api/ap/note/release/${album.slug}`;
+        const noteId = `${baseUrl}/api/ap/note/release/${album.slug}/${sentTime}`;
 
         return {
             type: "Note",
@@ -216,13 +216,17 @@ export class ActivityPubService {
         const userUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
         const postUrl = `${baseUrl}/#/artist/${artist.slug}?post=${post.slug}`;
 
+        // Use published_at if available (newly created/updated public posts), otherwise create_at
+        const published = post.published_at || post.created_at;
+        const sentTime = published ? new Date(published).getTime() : 0;
+
         return {
             type: "Note",
-            id: `${baseUrl}/api/ap/note/post/${post.slug}`,
+            id: `${baseUrl}/api/ap/note/post/${post.slug}/${sentTime}`,
             attributedTo: userUrl,
             content: `<p>${post.content}</p>`,
             url: postUrl,
-            published: post.created_at,
+            published: published,
             to: ["https://www.w3.org/ns/activitystreams#Public"],
             cc: [`${userUrl}/followers`],
             tag: []
@@ -367,7 +371,12 @@ export class ActivityPubService {
 
         // Fallback to calculated ID if still nothing found
         if (!noteId) {
-            noteId = `${baseUrl}/api/ap/note/release/${album.slug}`;
+            // Best effort guess using current time if we have no record? 
+            // Actually if we have no record, sending a delete for a guessed ID is likely futile if the ID depends on a past timestamp.
+            // But let's keep the structure consistent.
+            const published = album.published_at || album.created_at;
+            const sentTime = published ? new Date(published).getTime() : 0;
+            noteId = `${baseUrl}/api/ap/note/release/${album.slug}/${sentTime}`;
         }
 
         const followers = this.db.getFollowers(artist.id);
@@ -414,7 +423,9 @@ export class ActivityPubService {
         }
 
         if (!noteId) {
-            noteId = `${baseUrl}/api/ap/note/post/${post.slug}`;
+            const published = post.published_at || post.created_at;
+            const sentTime = published ? new Date(published).getTime() : 0;
+            noteId = `${baseUrl}/api/ap/note/post/${post.slug}/${sentTime}`;
         }
 
         const followers = this.db.getFollowers(artist.id);

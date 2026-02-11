@@ -8,14 +8,15 @@ const PEERS = [
     'https://shogun-relay.scobrudot.dev/gun',
     'https://gun.defucc.me/gun',
     'https://gun.o8.is/gun',
-    // 'https://tunecamp.scobrudot.dev/gun' // Self
+    'https://tunecamp.scobrudot.dev/gun' // Self
 ];
 
 // Initialize Gun
 const gun = Gun({
     peers: PEERS,
     localStorage: false, // Use Gun's internal storage
-    radisk: false
+    radisk: false,
+    wire: true
 });
 
 const user = gun.user();
