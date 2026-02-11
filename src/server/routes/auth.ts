@@ -44,7 +44,8 @@ export function createAuthRoutes(authService: AuthService) {
                 expiresIn: "7d",
                 username: userToAuth,
                 isRootAdmin: authService.isRootAdmin(userToAuth),
-                artistId: result.artistId
+                artistId: result.artistId,
+                mustChangePassword: await authService.isDefaultPassword(userToAuth)
             });
         } catch (error) {
             console.error("Login error:", error);
@@ -149,7 +150,7 @@ export function createAuthRoutes(authService: AuthService) {
      * GET /api/auth/status
      * Check authentication status
      */
-    router.get("/status", (req: AuthenticatedRequest, res) => {
+    router.get("/status", async (req: AuthenticatedRequest, res) => {
         const username = req.username || "";
         res.json({
             authenticated: req.isAdmin === true,
@@ -157,6 +158,7 @@ export function createAuthRoutes(authService: AuthService) {
             isRootAdmin: username ? authService.isRootAdmin(username) : false,
             artistId: req.artistId || null,
             firstRun: authService.isFirstRun(),
+            mustChangePassword: username ? await authService.isDefaultPassword(username) : false
         });
     });
 

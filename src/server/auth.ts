@@ -36,6 +36,10 @@ export interface AuthService {
     // GunDB Key Management
     encryptGunPriv(priv: any): string;
     decryptGunPriv(encrypted: string): any;
+
+    // Default password check
+    isDefaultPassword(username: string): Promise<boolean>;
+    init(): Promise<void>;
 }
 
 export function createAuthService(
@@ -104,6 +108,20 @@ export function createAuthService(
     }
 
     return {
+        async init(): Promise<void> {
+            const count = (db.prepare("SELECT COUNT(*) as count FROM admin").get() as any).count;
+            if (count === 0) {
+                console.log("🆕 First run detected: Creating default admin 'admin' with password 'tunecamp'");
+                await this.createAdmin('admin', 'tunecamp');
+            }
+        },
+
+        async isDefaultPassword(username: string): Promise<boolean> {
+            const user = db.prepare("SELECT password_hash FROM admin WHERE username = ?").get(username) as { password_hash: string } | undefined;
+            if (!user) return false;
+            return this.verifyPassword("tunecamp", user.password_hash);
+        },
+
         async hashPassword(password: string): Promise<string> {
             return bcrypt.hash(password, SALT_ROUNDS);
         },

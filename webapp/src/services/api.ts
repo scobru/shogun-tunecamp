@@ -45,12 +45,14 @@ export const API = {
     // --- Auth ---
     getAuthStatus: () => handleResponse(api.get<AuthStatus>('/auth/status')),
     login: (username: string, password?: string) =>
-        handleResponse(api.post<{ token: string, user: User }>('/auth/login', { username, password })),
+        handleResponse(api.post<{ token: string, user?: User, username?: string, isRootAdmin?: boolean, artistId?: string, mustChangePassword?: boolean }>('/auth/login', { username, password })),
     register: (username: string, password: string) =>
         handleResponse(api.post<{ token: string, user: User }>('/auth/register', { username, password })),
     /** First-time admin setup when no admin exists yet */
     setup: (username: string, password: string) =>
         handleResponse(api.post<{ token: string, user: User }>('/auth/setup', { username, password })),
+    changePassword: (currentPassword: string, newPassword: string) =>
+        handleResponse(api.post('/auth/password', { currentPassword, newPassword })),
     logout: () => {
         API.setToken(null);
     },

@@ -14,6 +14,7 @@ interface AuthState {
     isAdminAuthenticated: boolean;
     isAdminLoading: boolean;
     isFirstRun: boolean;
+    mustChangePassword?: boolean;
 
     error: string | null;
 
@@ -44,6 +45,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     isAdminAuthenticated: false,
     isAdminLoading: true,
     isFirstRun: false,
+    mustChangePassword: false,
 
     error: null,
 
@@ -119,10 +121,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 isAdminAuthenticated: status.authenticated,
                 adminUser: status.user || (status.username ? { username: status.username, isAdmin: true, id: '0' } as User : null),
                 isFirstRun: !!status.firstRun,
+                mustChangePassword: !!status.mustChangePassword,
                 isAdminLoading: false
             });
         } catch (e) {
-            set({ isAdminAuthenticated: false, adminUser: null, isAdminLoading: false, isFirstRun: false });
+            set({ isAdminAuthenticated: false, adminUser: null, isAdminLoading: false, isFirstRun: false, mustChangePassword: false });
         }
     },
 
@@ -134,6 +137,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({
                 isAdminAuthenticated: true,
                 adminUser: result.user || { username, isAdmin: true, id: '0' } as User,
+                mustChangePassword: !!result.mustChangePassword,
                 isAdminLoading: false
             });
         } catch (e: any) {
