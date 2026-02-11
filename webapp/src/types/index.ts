@@ -83,6 +83,7 @@ export interface AuthStatus {
     authenticated: boolean;
     username?: string;
     user?: User;
+    firstRun?: boolean;
 }
 
 export interface SiteSettings {

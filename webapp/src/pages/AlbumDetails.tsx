@@ -179,6 +179,15 @@ export const AlbumDetails = () => {
                                 <td>
                                     <div className="font-bold flex items-center gap-2">
                                         {track.title}
+                                        {track.losslessPath ? (
+                                            <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90">
+                                                {track.losslessPath.toLowerCase().endsWith('.wav') ? 'WAV' : 'FLAC'}
+                                            </span>
+                                        ) : (
+                                            <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90 uppercase">
+                                                {track.format || 'MP3'}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="md:hidden text-xs opacity-50">{track.artistName}</div>
                                 </td>

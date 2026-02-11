@@ -378,68 +378,26 @@ export class Scanner implements ScannerService {
 
     public async processAudioFile(filePath: string, musicDir: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number } | null> {
         let currentFilePath = filePath;
-        let ext = path.extname(currentFilePath).toLowerCase();
+        const ext = path.extname(currentFilePath).toLowerCase();
 
         if (!AUDIO_EXTENSIONS.includes(ext)) {
             return null;
         }
 
-        // Check for WAV/FLAC sibling if this is an MP3 and we don't have an MP3 record yet
-        if (ext === '.mp3') {
-            const relativeMp3Path = this.normalizePath(currentFilePath, musicDir);
-            if (!this.database.getTrackByPath(relativeMp3Path)) {
-                // Check common lossless extensions
-                const losslessExtensions = ['.wav', '.flac'];
-                for (const losslessExt of losslessExtensions) {
-                    const losslessPath = currentFilePath.replace(/\.mp3$/i, losslessExt);
-                    const relativeLosslessPath = this.normalizePath(losslessPath, musicDir);
-                    const losslessTrack = this.database.getTrackByPath(relativeLosslessPath);
-
-                    if (losslessTrack) {
-                        console.log(`    [Scanner] Found sibling ${losslessExt.toUpperCase()} track (${losslessTrack.title}). Pairing with MP3 path.`);
-                        // Move lossless path to lossless_path and set MP3 as primary file_path
-                        this.database.updateTrackPath(losslessTrack.id, relativeMp3Path, losslessTrack.album_id);
-                        this.database.updateTrackLosslessPath(losslessTrack.id, relativeLosslessPath);
-                        return { originalPath: filePath, success: true, message: "MP3 paired with existing lossless track.", trackId: losslessTrack.id };
-                    }
-                }
-            }
-        }
-
-        // Process Lossless (WAV/FLAC) logic
         const LOSSLESS_EXTENSIONS = ['.wav', '.flac'];
-        if (LOSSLESS_EXTENSIONS.includes(ext)) {
-            const primaryExt = '.mp3';
-            const primaryPath = currentFilePath.replace(new RegExp(`\\${ext}$`, 'i'), primaryExt);
-            const relativePrimaryPath = this.normalizePath(primaryPath, musicDir);
-            const relativeLosslessPath = this.normalizePath(currentFilePath, musicDir);
-
-            const existingPrimaryTrack = this.database.getTrackByPath(relativePrimaryPath);
-
-            // If MP3 already exists and is tracked, add this lossless file as alternative
-            if (await fs.pathExists(primaryPath) && existingPrimaryTrack) {
-                console.log(`    [Scanner] Found existing MP3 for ${ext.toUpperCase()}: ${path.basename(primaryPath)}. Adding lossless path.`);
-                this.database.updateTrackLosslessPath(existingPrimaryTrack.id, relativeLosslessPath);
-                return { originalPath: filePath, success: true, message: `${ext.toUpperCase()} paired with existing MP3.`, trackId: existingPrimaryTrack.id };
-            }
-
-            // If it's a WAV, we still might want to convert it to MP3 for streaming
-            if (ext === '.wav' && !(await fs.pathExists(primaryPath))) {
-                console.log(`    [Scanner] New WAV detected. Proceeding with import. Conversion queued.`);
-            }
-        }
-
-        let existing = this.database.getTrackByPath(this.normalizePath(currentFilePath, musicDir));
+        const normalizedPath = this.normalizePath(currentFilePath, musicDir);
+        let existing = this.database.getTrackByPath(normalizedPath);
 
         // Determine album ID from folder map
         const dir = path.dirname(currentFilePath);
         let albumId = this.folderToAlbumMap.get(dir) || null;
 
         // If track is in the "library" folder and map has no info, protect the existing link
-        if (albumId === null && existing && existing.album_id && this.normalizePath(currentFilePath, musicDir).startsWith('library')) {
+        if (albumId === null && existing && existing.album_id && normalizedPath.startsWith('library')) {
             albumId = existing.album_id;
         }
 
+        // 1. Try to find existing record by path or metadata for pairing
         if (!existing) {
             try {
                 const metadata = await parseFileWithRetry(currentFilePath);
@@ -452,38 +410,54 @@ export class Scanner implements ScannerService {
                     artistId = existingArtist ? existingArtist.id : null;
                 }
 
+                // Look for existing track by metadata in the same album
                 existing = this.database.getTrackByMetadata(title, artistId, albumId);
                 if (existing) {
-                    console.log(`    [Scanner] De-duplicated: found existing record for '${title}' at old path. Updating path.`);
+                    console.log(`    [Scanner] Pairing: found existing record for '${title}' (Target: ${ext.toUpperCase()})`);
                 }
-            } catch (e) { }
+            } catch (e) {
+                console.error(`    [Scanner] Error parsing metadata for pairing lookup: ${e instanceof Error ? e.message : String(e)}`);
+            }
         }
 
+        // 2. Handle pairing if record exists
         if (existing) {
-            const normalizedPath = this.normalizePath(currentFilePath, musicDir);
-            if (existing.file_path !== normalizedPath) {
-                this.database.updateTrackPath(existing.id, normalizedPath, albumId);
+            const isLossless = LOSSLESS_EXTENSIONS.includes(ext);
+
+            // If we found an existing track and this is a lossless version of it
+            if (isLossless && !existing.lossless_path) {
+                console.log(`    [Scanner] Adding LOSSLESS path to existing track: ${existing.title}`);
+                this.database.updateTrackLosslessPath(existing.id, normalizedPath);
+            }
+            // If we found an existing track and this is the MP3 version (primary path)
+            else if (ext === '.mp3' && (existing.file_path !== normalizedPath)) {
+                // If the existing record has a non-MP3 file_path (e.g. was created from WAV)
+                // we want to move the current WAV to lossless_path and use MP3 for streaming
+                const oldExt = path.extname(existing.file_path).toLowerCase();
+                if (LOSSLESS_EXTENSIONS.includes(oldExt)) {
+                    console.log(`    [Scanner] Swapping primary path to MP3 and moving ${oldExt.toUpperCase()} to lossless_path`);
+                    this.database.updateTrackLosslessPath(existing.id, existing.file_path);
+                    this.database.updateTrackPath(existing.id, normalizedPath, albumId);
+                } else {
+                    // Just update the path if it's different and not a swap
+                    this.database.updateTrackPath(existing.id, normalizedPath, albumId);
+                }
             }
 
-            // Fix album linking for existing tracks
+            // Ensure linked to album
             if (existing.album_id !== albumId) {
                 this.database.updateTrackAlbum(existing.id, albumId);
-                console.log(`    [Scanner] Linked track to album: ${existing.title} -> Album ID ${albumId}`);
             }
 
+            // Process waveform if missing
             if (!existing.waveform) {
                 this.processQueue.add(() => WaveformService.generateWaveform(currentFilePath))
                     .then((peaks: number[]) => {
-                        const json = JSON.stringify(peaks);
-                        this.database.updateTrackWaveform(existing.id, json);
-                        console.log(`    [Backfill] Generated waveform for: ${path.basename(currentFilePath)}`);
-                    })
-                    .catch((err: Error) => {
-                        console.error(`    [Backfill] Failed to generate waveform for ${path.basename(currentFilePath)}:`, err.message);
-                    });
+                        this.database.updateTrackWaveform(existing!.id, JSON.stringify(peaks));
+                    }).catch(() => { });
             }
 
-            return { originalPath: filePath, success: true, message: "Track already exists and updated.", trackId: existing.id };
+            return { originalPath: filePath, success: true, message: "Track paired/updated.", trackId: existing.id };
         }
 
         try {
@@ -635,13 +609,56 @@ export class Scanner implements ScannerService {
             }
         }
 
-        const stats = await this.database.getStats();
-        console.log("Scan complete: " + stats.artists + " artists, " + stats.albums + " albums, " + stats.tracks + " tracks");
+        // Clean up duplicates
+        await this.deduplicateTracks();
 
         // Clean up stale records
         await this.cleanupStaleTracks(dir);
 
         return { successful, failed };
+    }
+
+    private async deduplicateTracks() {
+        console.log("[Scanner] Checking for duplicate tracks to merge...");
+        const allTracks = this.database.getTracks();
+        const groups = new Map<string, any[]>();
+
+        for (const track of allTracks) {
+            const key = `${track.album_id || 0}|${track.artist_id || 0}|${track.title.toLowerCase().trim()}`;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(track);
+        }
+
+        let merged = 0;
+        for (const [key, tracks] of groups.entries()) {
+            if (tracks.length > 1) {
+                // Find primary (MP3) and lossless among duplicates
+                const primary = tracks.find(t => path.extname(t.file_path).toLowerCase() === '.mp3') || tracks[0];
+                const others = tracks.filter(t => t.id !== primary.id);
+
+                for (const other of others) {
+                    console.log(`  [Dedupe] Merging duplicate track: ${other.title} (ID ${other.id}) into ID ${primary.id}`);
+
+                    // If other has a lossless path and primary doesn't, migrate it
+                    if (other.lossless_path && !primary.lossless_path) {
+                        this.database.updateTrackLosslessPath(primary.id, other.lossless_path);
+                    } else if (!primary.lossless_path) {
+                        const otherExt = path.extname(other.file_path).toLowerCase();
+                        if (['.wav', '.flac'].includes(otherExt)) {
+                            this.database.updateTrackLosslessPath(primary.id, other.file_path);
+                        }
+                    }
+
+                    // Delete the duplicate
+                    this.database.deleteTrack(other.id);
+                    merged++;
+                }
+            }
+        }
+
+        if (merged > 0) {
+            console.log(`[Scanner] Merged ${merged} duplicate track(s).`);
+        }
     }
 
     private async cleanupStaleTracks(musicDir: string) {

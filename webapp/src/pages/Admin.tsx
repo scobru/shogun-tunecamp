@@ -543,7 +543,20 @@ const AdminTracksList = () => {
             <tbody>
                 {tracks.map(t => (
                     <tr key={t.id}>
-                        <td className="font-bold">{t.title}</td>
+                        <td className="font-bold">
+                            <div className="flex items-center gap-2">
+                                {t.title}
+                                {t.lossless_path ? (
+                                    <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90">
+                                        {t.lossless_path.toLowerCase().endsWith('.wav') ? 'WAV' : 'FLAC'}
+                                    </span>
+                                ) : (
+                                    <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90 uppercase">
+                                        {t.format || 'MP3'}
+                                    </span>
+                                )}
+                            </div>
+                        </td>
                         <td>{t.artist_name}</td>
                         <td>{t.album_title}</td>
                         <td>{t.duration ? `${Math.floor(t.duration / 60)}:${String(Math.floor(t.duration % 60)).padStart(2, '0')}` : '-'}</td>
