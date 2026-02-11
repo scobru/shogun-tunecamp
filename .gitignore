@@ -34,6 +34,7 @@ coverage/
 # Environment
 .env
 .env.local
+.jwt-secret
 
 # Generated sites
 /public/
