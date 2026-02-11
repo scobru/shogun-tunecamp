@@ -66,7 +66,6 @@ export default function AdminReleaseEditor() {
         description: '',
         credits: '',
         tags: '',
-        tags: '',
         price: 0,
         download: 'none'
     });
@@ -116,7 +115,6 @@ export default function AdminReleaseEditor() {
                 slug: data.slug,
                 description: data.description,
                 visibility: data.visibility || (data.is_public ? 'public' : 'private'),
-                is_public: !!data.is_public,
                 is_public: !!data.is_public,
                 price: data.price,
                 download: data.download || 'none'
