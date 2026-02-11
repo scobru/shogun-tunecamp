@@ -44,7 +44,7 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
         musicDir: process.env.TUNECAMP_MUSIC_DIR || defaultMusicDir,
         dbPath: process.env.TUNECAMP_DB_PATH || defaultDbPath,
         jwtSecret,
-        corsOrigins: process.env.TUNECAMP_CORS_ORIGINS?.split(",") || ["*"],
+        corsOrigins: process.env.TUNECAMP_CORS_ORIGINS?.split(",") || [],
         publicUrl: process.env.TUNECAMP_PUBLIC_URL || overrides?.publicUrl,
         siteName: process.env.TUNECAMP_SITE_NAME || overrides?.siteName,
         gunPeers: process.env.TUNECAMP_GUN_PEERS?.split(",") || overrides?.gunPeers || [
