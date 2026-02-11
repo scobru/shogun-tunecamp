@@ -1307,26 +1307,35 @@ export function createDatabase(dbPath: string): DatabaseService {
             const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
             const monthStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-            const totalPlays = (db.prepare("SELECT COUNT(*) as count FROM play_history").get() as { count: number }).count;
-            const uniqueTracks = (db.prepare("SELECT COUNT(DISTINCT track_id) as count FROM play_history").get() as { count: number }).count;
-            const playsToday = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(todayStart) as { count: number }).count;
-            const playsThisWeek = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(weekStart) as { count: number }).count;
-            const playsThisMonth = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(monthStart) as { count: number }).count;
+            // Optimized: Combine 6 queries into 1 to reduce overhead
+            interface ListeningStatsRow {
+                totalPlays: number;
+                uniqueTracks: number;
+                playsToday: number | null;
+                playsThisWeek: number | null;
+                playsThisMonth: number | null;
+                totalListeningTime: number;
+            }
 
-            // Estimate listening time from track durations
-            const listeningTime = (db.prepare(`
-                SELECT COALESCE(SUM(t.duration), 0) as total_seconds
+            const stats = db.prepare(`
+                SELECT
+                    COUNT(ph.id) as totalPlays,
+                    COUNT(DISTINCT ph.track_id) as uniqueTracks,
+                    SUM(CASE WHEN ph.played_at >= ? THEN 1 ELSE 0 END) as playsToday,
+                    SUM(CASE WHEN ph.played_at >= ? THEN 1 ELSE 0 END) as playsThisWeek,
+                    SUM(CASE WHEN ph.played_at >= ? THEN 1 ELSE 0 END) as playsThisMonth,
+                    COALESCE(SUM(t.duration), 0) as totalListeningTime
                 FROM play_history ph
                 LEFT JOIN tracks t ON ph.track_id = t.id
-            `).get() as { total_seconds: number }).total_seconds;
+            `).get(todayStart, weekStart, monthStart) as ListeningStatsRow;
 
             return {
-                totalPlays,
-                totalListeningTime: Math.round(listeningTime),
-                uniqueTracks,
-                playsToday,
-                playsThisWeek,
-                playsThisMonth,
+                totalPlays: stats.totalPlays,
+                totalListeningTime: Math.round(stats.totalListeningTime),
+                uniqueTracks: stats.uniqueTracks,
+                playsToday: stats.playsToday || 0,
+                playsThisWeek: stats.playsThisWeek || 0,
+                playsThisMonth: stats.playsThisMonth || 0,
             };
         },
 
