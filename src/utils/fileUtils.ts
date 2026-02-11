@@ -45,15 +45,25 @@ export async function findCover(directory: string): Promise<string | undefined> 
     'album'
   ];
 
+  // Optimization: Scan directory once for all images instead of multiple globs
+  const images = await findImageFiles(directory);
+
+  if (images.length === 0) {
+    return undefined;
+  }
+
   for (const name of coverNames) {
-    const covers = await findImageFiles(directory, name);
-    if (covers.length > 0) {
-      return covers[0];
+    const match = images.find(img => {
+      const parsed = path.parse(img);
+      return parsed.name.toLowerCase() === name.toLowerCase();
+    });
+
+    if (match) {
+      return match;
     }
   }
 
   // Fallback to any image in the directory
-  const images = await findImageFiles(directory);
   return images[0];
 }
 
