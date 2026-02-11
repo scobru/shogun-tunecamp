@@ -118,6 +118,8 @@ export interface UnlockCode {
     code: string;
     releaseId: string;
     isRedeemed: boolean;
+    isUsed?: boolean;      // Alias for isRedeemed
+    is_used?: number;      // DB field alias
     redeemedAt?: string;
     createdAt: string;
 }

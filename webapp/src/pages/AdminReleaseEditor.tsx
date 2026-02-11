@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import API from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
 import { TrackPickerModal } from '../components/modals/TrackPickerModal';
+import { UnlockCodeManager } from '../components/modals/UnlockCodeManager';
 import { 
     Image as ImageIcon, 
     Music, 
@@ -13,7 +14,10 @@ import {
     Trash2,
     Globe,
     Lock,
-    Library
+    Library,
+    Key,
+    Download,
+    Unlock
 } from 'lucide-react';
 
 interface LocalTrack {
@@ -81,6 +85,9 @@ export default function AdminReleaseEditor() {
     // Cover Art
     const [coverFile, setCoverFile] = useState<File | null>(null);
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
+    // Unlock Codes Modal
+    const [showUnlockManager, setShowUnlockManager] = useState(false);
 
     useEffect(() => {
         loadArtists();
@@ -383,6 +390,12 @@ export default function AdminReleaseEditor() {
                     excludeTrackIds={tracks.map(t => t.id)}
                 />
 
+                <UnlockCodeManager 
+                    releaseId={metadata.id || ''}
+                    isOpen={showUnlockManager}
+                    onClose={() => setShowUnlockManager(false)}
+                />
+
                 {/* RIGHT COLUMN: METADATA */}
                 <div className="w-96 bg-base-200 p-6 overflow-y-auto border-l border-base-content/10">
                     <div className="space-y-6">
@@ -474,34 +487,72 @@ export default function AdminReleaseEditor() {
                             </div>
                         </div>
                         
-                        {/* Pricing */}
+                        {/* Download Options */}
                         <div className="form-control">
-                            <label className="label">Price (€)</label>
-                            <input 
-                                type="number" 
-                                className="input input-bordered w-full" 
-                                value={metadata.price}
-                                onChange={e => setMetadata(prev => ({...prev, price: parseFloat(e.target.value)}))}
-                                step="0.50"
-                                min="0"
-                            />
-                            <label className="label cursor-pointer justify-start gap-2">
-                                <input type="checkbox" className="checkbox checkbox-xs" defaultChecked />
-                                <span className="label-text text-xs">Let fans pay more</span>
-                            </label>
-                            
-                            <label className="label cursor-pointer justify-start gap-2 mt-2">
-                                <input 
-                                    type="checkbox" 
-                                    className="checkbox checkbox-xs checkbox-secondary" 
-                                    checked={metadata.download === 'free'}
-                                    onChange={e => setMetadata(prev => ({...prev, download: e.target.checked ? 'free' : 'none'}))}
-                                />
-                                <div className="flex flex-col">
-                                    <span className="label-text text-xs font-bold">Allow Free Download</span>
-                                    <span className="label-text text-[10px] opacity-70">Adds a download button to the album page</span>
-                                </div>
-                            </label>
+                            <label className="label">Download Method</label>
+                            <div className="space-y-2">
+                                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
+                                    <input 
+                                        type="radio" 
+                                        name="download_method" 
+                                        className="radio radio-sm" 
+                                        checked={metadata.download === 'none' || !metadata.download}
+                                        onChange={() => setMetadata(prev => ({...prev, download: 'none'}))}
+                                    />
+                                    <div className='flex flex-col'>
+                                        <span className="font-bold text-xs uppercase opacity-70">Disabled</span>
+                                    </div>
+                                </label>
+
+                                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
+                                    <input 
+                                        type="radio" 
+                                        name="download_method" 
+                                        className="radio radio-sm radio-secondary" 
+                                        checked={metadata.download === 'free'}
+                                        onChange={() => setMetadata(prev => ({...prev, download: 'free'}))}
+                                    />
+                                    <div className='flex flex-col'>
+                                        <span className="font-bold flex items-center gap-2 text-xs uppercase text-secondary">
+                                            <Download className="w-3 h-3"/> Free Download
+                                        </span>
+                                        <span className="text-[10px] opacity-70 uppercase tracking-tighter">Anyone can download music for free.</span>
+                                    </div>
+                                </label>
+
+                                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
+                                    <input 
+                                        type="radio" 
+                                        name="download_method" 
+                                        className="radio radio-sm radio-primary" 
+                                        checked={metadata.download === 'codes'}
+                                        onChange={() => setMetadata(prev => ({...prev, download: 'codes'}))}
+                                    />
+                                    <div className='flex flex-col'>
+                                        <span className="font-bold flex items-center gap-2 text-xs uppercase text-primary">
+                                            <Unlock className="w-3 h-3"/> Unlock Codes
+                                        </span>
+                                        <span className="text-[10px] opacity-70 uppercase tracking-tighter">Requires a code to access downloads.</span>
+                                    </div>
+                                </label>
+
+                                {metadata.download === 'codes' && !isNew && (
+                                    <button 
+                                        className="btn btn-sm btn-primary btn-outline w-full gap-2 mt-2"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            setShowUnlockManager(true);
+                                        }}
+                                    >
+                                        <Key size={14}/> Manage Unlock Codes
+                                    </button>
+                                )}
+                                {metadata.download === 'codes' && isNew && (
+                                    <div className="alert alert-info text-[10px] py-1 px-3 mt-2">
+                                        Save the release first to manage codes.
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Visibility */}

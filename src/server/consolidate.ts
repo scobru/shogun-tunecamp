@@ -6,6 +6,7 @@ import {
     getStandardCoverFilename,
     getFileExtension
 } from "../utils/audioUtils.js";
+import NodeID3 from "node-id3";
 import type { DatabaseService } from "./database.js";
 
 export class ConsolidationService {
@@ -98,6 +99,9 @@ export class ConsolidationService {
                 }
             }
 
+            // 5. Update ID3 Tags (Metadata)
+            await this.syncMetadata(targetPath, track, album, artistName);
+
             return true;
         } catch (error) {
             console.error(`[Consolidate] Error moving file ${track.file_path}:`, error);
@@ -164,5 +168,36 @@ export class ConsolidationService {
             console.log(`[Consolidate] Removing empty directory: ${dir}`);
             await fs.remove(dir);
         }
+    }
+
+    /**
+     * Synchronizes database metadata to file tags (ID3 for MP3)
+     */
+    private async syncMetadata(filePath: string, track: any, album: any, artistName: string) {
+        const ext = getFileExtension(filePath).toLowerCase();
+
+        if (ext === 'mp3') {
+            try {
+                const tags: NodeID3.Tags = {
+                    title: track.title,
+                    artist: artistName,
+                    album: album.title,
+                    trackNumber: track.track_num ? String(track.track_num) : undefined,
+                    year: album.year ? String(album.year) : (album.date ? new Date(album.date).getFullYear().toString() : undefined),
+                    // genre: album.genre, // Optional, can add if available in DB track/album
+                };
+
+                // NodeID3.write returns true/false (Sync in v0.2)
+                const success = NodeID3.write(tags, filePath);
+                if (success) {
+                    console.log(`[Consolidate] Updated ID3 tags for: ${path.basename(filePath)}`);
+                } else {
+                    console.warn(`[Consolidate] Failed to update ID3 tags for: ${path.basename(filePath)}`);
+                }
+            } catch (error) {
+                console.error(`[Consolidate] Error writing ID3 tags to ${path.basename(filePath)}:`, error);
+            }
+        }
+        // TODO: Add support for other formats (FLAC, etc.) if needed
     }
 }
