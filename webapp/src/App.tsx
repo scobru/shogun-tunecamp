@@ -6,6 +6,7 @@ import AdminReleaseEditor from './pages/AdminReleaseEditor';
 import Files from './pages/Files';
 import { useAuthStore } from './stores/useAuthStore';
 import { useEffect } from 'react';
+import { ForcePasswordChangeModal } from './components/modals/ForcePasswordChangeModal';
 
 function App() {
   const { init, checkAdminAuth } = useAuthStore();
@@ -22,6 +23,8 @@ function App() {
   }, []);
 
   return (
+    <>
+    <ForcePasswordChangeModal />
     <Routes>
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
@@ -57,6 +60,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </>
   );
 }
 

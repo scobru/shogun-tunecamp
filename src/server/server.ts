@@ -52,6 +52,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     // Initialize auth
     const authService = createAuthService(database.db, config.jwtSecret);
+    await authService.init();
     const authMiddleware = createAuthMiddleware(authService);
 
     // Initialize scanner

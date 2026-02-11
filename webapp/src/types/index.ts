@@ -77,6 +77,7 @@ export interface User {
     isAdmin: boolean;
     isRootAdmin?: boolean;
     artistId?: string;
+    mustChangePassword?: boolean;
 }
 
 export interface AuthStatus {
@@ -84,6 +85,7 @@ export interface AuthStatus {
     username?: string;
     user?: User;
     firstRun?: boolean;
+    mustChangePassword?: boolean;
 }
 
 export interface SiteSettings {
