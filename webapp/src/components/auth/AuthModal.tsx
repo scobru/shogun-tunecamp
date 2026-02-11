@@ -83,6 +83,57 @@ export const AuthModal = () => {
                         {isLoading ? <span className="loading loading-spinner"></span> : <><ArrowRight size={18} /> {mode === 'login' ? 'Login' : 'Create Account'}</>}
                     </button>
                 </form>
+
+                <div className="divider">OR</div>
+
+                <div className="collapse collapse-arrow border border-base-300 bg-base-200">
+                    <input type="checkbox" /> 
+                    <div className="collapse-title text-sm font-medium">
+                        Log in with Mastodon
+                    </div>
+                    <div className="collapse-content"> 
+                        <div className="form-control mt-2">
+                            <label className="label">
+                                <span className="label-text">Instance URL</span>
+                            </label>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    placeholder="mastodon.social" 
+                                    className="input input-bordered w-full text-sm" 
+                                    id="mastodon-instance"
+                                />
+                                <button 
+                                    className="btn btn-primary"
+                                    type="button"
+                                    onClick={async () => {
+                                        const input = document.getElementById('mastodon-instance') as HTMLInputElement;
+                                        const instance = input.value.trim();
+                                        if(!instance) return;
+                                        
+                                        setIsLoading(true);
+                                        try {
+                                            const redirectUri = window.location.origin + '/auth/callback';
+                                            // Save instance for callback verification
+                                            localStorage.setItem('mastodon_instance', instance);
+                                            
+                                            const { authUrl } = await import('../../services/api').then(m => m.default.mastodonInit(instance, redirectUri));
+                                            window.location.href = authUrl;
+                                        } catch(e: any) {
+                                            console.error(e);
+                                            setIsLoading(false);
+                                            // Handle error UI if needed
+                                            alert(e.message);
+                                        }
+                                    }}
+                                    disabled={isLoading}
+                                >
+                                    Go
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <form method="dialog" className="modal-backdrop">
                <button>close</button>

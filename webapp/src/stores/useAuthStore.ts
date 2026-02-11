@@ -22,6 +22,7 @@ interface AuthState {
 
     // Community Actions
     login: (username: string, password?: string) => Promise<void>;
+    loginWithPair: (pair: any) => Promise<void>;
     register: (username: string, password: string) => Promise<void>;
     logout: () => void;
 
@@ -86,6 +87,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             await GunAuth.register(username, password);
             const profile = GunAuth.getProfile();
+            set({ user: profile, isAuthenticated: true });
+        } catch (e: any) {
+            set({ error: e.message });
+            throw e;
+        }
+    },
+
+    loginWithPair: async (pair: any) => {
+        set({ error: null });
+        try {
+            const profile = await GunAuth.loginWithPair(pair);
             set({ user: profile, isAuthenticated: true });
         } catch (e: any) {
             set({ error: e.message });

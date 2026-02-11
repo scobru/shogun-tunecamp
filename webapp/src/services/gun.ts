@@ -5,7 +5,8 @@ import API from './api';
 
 
 // Define Gun peers (should be configurable)
-const PEERS = [
+// Define Gun peers (should be configurable)
+const PEERS = import.meta.env.VITE_GUN_PEERS?.split(',') || [
     'https://shogun-relay.scobrudot.dev/gun',
     'https://gun.defucc.me/gun',
     'https://gun.o8.is/gun',

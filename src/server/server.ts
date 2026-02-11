@@ -67,7 +67,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     scanner.startWatching(config.musicDir);
 
     // Initialize GunDB service (with HTTP server for WebSockets)
-    const gundbService = createGunDBService(database, server);
+    const gundbService = createGunDBService(database, server, config.gunPeers);
     await gundbService.init();
 
     // Upload routes - MOVED BEFORE FEDIFY/BODY PARSERS to avoid stream consumption issues

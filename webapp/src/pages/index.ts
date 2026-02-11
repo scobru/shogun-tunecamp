@@ -13,3 +13,4 @@ export { Support } from './Support';
 export { Playlists } from './Playlists';
 export { PlaylistDetails } from './PlaylistDetails';
 export { PostPage as Post } from './Post';
+export { AuthCallback } from './AuthCallback';

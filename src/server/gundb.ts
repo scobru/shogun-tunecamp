@@ -68,10 +68,13 @@ export interface GunDBService {
     syncNetwork(): Promise<void>;
 }
 
-export function createGunDBService(database: DatabaseService, server?: any): GunDBService {
+export function createGunDBService(database: DatabaseService, server?: any, peers?: string[]): GunDBService {
     let gun: any = null;
     let initialized = false;
     let serverPair: any = null;
+
+    // Use provided peers or fallback to defaults
+    const activePeers = peers && peers.length > 0 ? peers : REGISTRY_PEERS;
 
     // Cache for community data to prevent CPU starvation on frequent requests
     const cache = {
@@ -83,7 +86,7 @@ export function createGunDBService(database: DatabaseService, server?: any): Gun
     async function init(): Promise<boolean> {
         try {
             gun = Gun({
-                peers: REGISTRY_PEERS,
+                peers: activePeers,
                 localStorage: false,
                 radisk: true,
                 file: "./radata",

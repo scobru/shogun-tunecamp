@@ -1,14 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from './components/layout/MainLayout';
-import { Home, Albums, AlbumDetails, Artists, ArtistDetails, Tracks, Stats, Search, Network, Support, Playlists, PlaylistDetails, Post } from './pages';
+import { Home, Albums, AlbumDetails, Artists, ArtistDetails, Tracks, Stats, Search, Network, Support, Playlists, PlaylistDetails, Post, AuthCallback } from './pages';
 import Admin from './pages/Admin';
 import AdminReleaseEditor from './pages/AdminReleaseEditor';
 import Files from './pages/Files';
 import { useAuthStore } from './stores/useAuthStore';
 import { useEffect } from 'react';
-
-// Temporary Support page if not exists
-// const SupportPlaceholder = () => <div className="p-8 text-center text-xl opacity-50">Support & Documentation coming soon.</div>;
 
 function App() {
   const { init, checkAdminAuth } = useAuthStore();
@@ -44,6 +41,9 @@ function App() {
         <Route path="/network" element={<Network />} />
         <Route path="/stats" element={<Stats />} />
         
+        {/* Auth Callback */}
+        <Route path="/auth/callback" element={<AuthCallback />} />
+
         {/* Admin */}
         <Route path="/admin" element={<Admin />} />
         <Route path="/admin/release/new" element={<AdminReleaseEditor />} />
