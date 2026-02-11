@@ -468,7 +468,7 @@ export function createAdminRoutes(
      * PUT /api/admin/system/users/:id/password
      * Reset admin user password
      */
-    router.put("/system/users/:id/password", async (req, res) => {
+    router.put("/system/users/:id/password", async (req: any, res) => {
         try {
             const id = parseInt(req.params.id, 10);
             const { password } = req.body;
@@ -482,6 +482,13 @@ export function createAdminRoutes(
 
             if (!admin) {
                 return res.status(404).json({ error: "User not found" });
+            }
+
+            // Permission Check
+            // Only root admin can change other users' passwords
+            const isRoot = authService.isRootAdmin(req.username || "");
+            if (!isRoot && admin.username !== req.username) {
+                return res.status(403).json({ error: "Access denied: You can only change your own password" });
             }
 
             await authService.changePassword(admin.username, password);
