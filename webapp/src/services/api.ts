@@ -211,17 +211,37 @@ export const API = {
     getBrowser: (path = '') => handleResponse(api.get<any>(`/browser?path=${encodeURIComponent(path)}`)),
     deleteBrowserPath: (path: string) => handleResponse(api.delete(`/browser?path=${encodeURIComponent(path)}`)),
     syncActivityPub: () => handleResponse(api.post('/ap/sync')),
-    uploadBackup: (file: File, onProgress?: (percent: number) => void) => {
-        const formData = new FormData();
-        formData.append('backup', file);
-        return handleResponse(api.post('/admin/backup/restore', formData, {
-            onUploadProgress: (progressEvent) => {
-                if (onProgress && progressEvent.total) {
-                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    onProgress(percentCompleted);
-                }
+    uploadBackup: async (file: File, onProgress?: (percent: number) => void) => {
+        // Chunked upload to avoid timeouts on large files/slow connections
+        const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+        const uploadId = Date.now().toString() + "-" + Math.random().toString(36).substr(2, 9);
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+        let uploadedBytes = 0;
+
+        for (let i = 0; i < totalChunks; i++) {
+            const start = i * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+
+            const formData = new FormData();
+            // Important: uploadId must be first for Multer to read it before file if needed (though here we process after)
+            // Actually, server code reads req.body.uploadId which Multer populates.
+            formData.append("uploadId", uploadId);
+            formData.append("chunkIndex", i.toString());
+            formData.append("chunk", chunk);
+
+            await handleResponse(api.post('/admin/backup/chunk', formData));
+
+            uploadedBytes += (end - start);
+            if (onProgress) {
+                const percent = Math.round((uploadedBytes / file.size) * 100);
+                onProgress(percent);
             }
-        }));
+        }
+
+        // Finalize
+        return handleResponse(api.post('/admin/backup/restore-chunked', { uploadId }));
     },
 
     // --- Identity ---
