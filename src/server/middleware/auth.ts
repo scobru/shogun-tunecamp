@@ -20,13 +20,19 @@ export function createAuthMiddleware(authService: AuthService) {
             res: Response,
             next: NextFunction
         ) {
+            let token: string | undefined;
             const authHeader = req.headers.authorization;
 
-            if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            if (authHeader && authHeader.startsWith("Bearer ")) {
+                token = authHeader.substring(7);
+            } else if (req.query.token) {
+                token = req.query.token as string;
+            }
+
+            if (!token) {
                 return res.status(401).json({ error: "No token provided" });
             }
 
-            const token = authHeader.substring(7);
             const payload = authService.verifyToken(token);
 
             if (!payload || !payload.isAdmin) {

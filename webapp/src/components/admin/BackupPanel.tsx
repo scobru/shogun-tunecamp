@@ -46,7 +46,12 @@ export const BackupPanel = () => {
                         <p className="opacity-70 text-sm mb-4">Download a complete snapshot of your TuneCamp instance.</p>
                         
                         <div className="flex flex-col gap-3">
-                            <a href="/api/admin/backup/full" target="_blank" className="btn btn-primary gap-2">
+                            <a 
+                                href={`/api/admin/backup/full?token=${API.getToken()}`} 
+                                target="_blank" 
+                                className="btn btn-primary gap-2"
+                                rel="noopener noreferrer"
+                            >
                                 <Download size={18} /> Download Full Backup
                             </a>
                             <div className="text-xs opacity-50 px-1">
@@ -55,7 +60,12 @@ export const BackupPanel = () => {
                             
                             <div className="divider my-0"></div>
 
-                            <a href="/api/admin/backup/audio" target="_blank" className="btn btn-secondary btn-outline gap-2">
+                            <a 
+                                href={`/api/admin/backup/audio?token=${API.getToken()}`} 
+                                target="_blank" 
+                                className="btn btn-secondary btn-outline gap-2"
+                                rel="noopener noreferrer"
+                            >
                                 <FileAudio size={18} /> Download Audio Only
                             </a>
                             <div className="text-xs opacity-50 px-1">

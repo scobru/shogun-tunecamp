@@ -2,6 +2,7 @@ import { Router } from "express";
 import fs from "fs-extra";
 import path from "path";
 import { parseFile } from "music-metadata";
+import NodeID3 from "node-id3";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import type { DatabaseService } from "../database.js";
@@ -279,6 +280,35 @@ export function createTracksRoutes(database: DatabaseService, apService: Activit
 
             // Get updated track
             const updatedTrack = database.getTrack(id);
+
+            // WRITE TAGS TO FILE (MP3 ONLY)
+            // This prevents the scanner from reverting changes when it re-scans the file
+            try {
+                if (updatedTrack && updatedTrack.file_path) {
+                    const fullPath = path.join(musicDir, updatedTrack.file_path);
+                    const ext = path.extname(fullPath).toLowerCase();
+
+                    if (ext === '.mp3' && await fs.pathExists(fullPath)) {
+                        const tags: any = {
+                            title: updatedTrack.title,
+                            artist: updatedTrack.artist_name || undefined,
+                            album: updatedTrack.album_title || undefined,
+                            trackNumber: updatedTrack.track_num?.toString() || undefined
+                        };
+
+                        // NodeID3.update is synchronous
+                        const success = NodeID3.update(tags, fullPath);
+                        if (success) {
+                            console.log(`[Tags] Updated ID3 tags for: ${path.basename(fullPath)}`);
+                        } else {
+                            console.warn(`[Tags] Failed to update ID3 tags for: ${path.basename(fullPath)}`);
+                        }
+                    }
+                }
+            } catch (tagError) {
+                console.error("[Tags] Error writing tags:", tagError);
+            }
+
             res.json({ message: "Track updated", track: updatedTrack });
 
             // ActivityPub Broadcast: Track updated
