@@ -120,7 +120,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
      * POST /api/admin/backup/restore
      * Upload and restore backup
      */
-    router.post("/restore", upload.single("backup"), async (req: any, res) => {
+    router.post("/restore", upload.single("backup"), (req: any, res) => {
         if (req.artistId) {
             return res.status(403).send("Unauthorized: Restore restricted to Root Admin");
         }
@@ -131,97 +131,106 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
         const zipPath = req.file.path;
         const extractPath = path.join(path.dirname(zipPath), "restore_temp");
 
-        try {
-            // 1. Extract ZIP
-            console.log("📦 Extracting backup...");
-            await fs.ensureDir(extractPath);
+        // Respond immediately to prevent timeout
+        res.json({ message: "Restore started in background. Server will restart upon completion." });
 
-            const AdmZip = (await import("adm-zip")).default;
-            const zip = new AdmZip(zipPath);
+        // Run restore in background
+        (async () => {
+            try {
+                // 1. Extract ZIP
+                console.log("📦 [Restore] Extracting backup...");
+                await fs.ensureDir(extractPath);
 
-            // Use async extraction to avoid blocking event loop
-            await new Promise<void>((resolve, reject) => {
-                zip.extractAllToAsync(extractPath, true, false, (error) => {
-                    if (error) reject(error);
-                    else resolve();
+                const AdmZip = (await import("adm-zip")).default;
+                const zip = new AdmZip(zipPath);
+
+                // Use async extraction to avoid blocking event loop
+                await new Promise<void>((resolve, reject) => {
+                    zip.extractAllToAsync(extractPath, true, false, (error) => {
+                        if (error) reject(error);
+                        else resolve();
+                    });
                 });
-            });
 
-            // Helper to find items recursively (BFS)
-            const findItem = async (root: string, name: string, type: 'file' | 'dir'): Promise<string | null> => {
-                const queue = [root];
-                while(queue.length > 0) {
-                    const currentPath = queue.shift()!;
-                    try {
-                        const items = await fs.readdir(currentPath, { withFileTypes: true });
-                        // Check direct children first
-                        for (const item of items) {
-                            if (item.name === name) {
-                                if (type === 'file' && item.isFile()) return path.join(currentPath, item.name);
-                                if (type === 'dir' && item.isDirectory()) return path.join(currentPath, item.name);
+                // Helper to find items recursively (BFS)
+                const findItem = async (root: string, name: string, type: 'file' | 'dir'): Promise<string | null> => {
+                    const queue = [root];
+                    while (queue.length > 0) {
+                        const currentPath = queue.shift()!;
+                        try {
+                            const items = await fs.readdir(currentPath, { withFileTypes: true });
+                            // Check direct children first
+                            for (const item of items) {
+                                if (item.name === name) {
+                                    if (type === 'file' && item.isFile()) return path.join(currentPath, item.name);
+                                    if (type === 'dir' && item.isDirectory()) return path.join(currentPath, item.name);
+                                }
                             }
-                        }
-                        // Add subdirectories to queue
-                        for (const item of items) {
-                            if (item.isDirectory()) {
-                                queue.push(path.join(currentPath, item.name));
+                            // Add subdirectories to queue
+                            for (const item of items) {
+                                if (item.isDirectory()) {
+                                    queue.push(path.join(currentPath, item.name));
+                                }
                             }
-                        }
-                    } catch (e) { /* ignore */ }
+                        } catch (e) { /* ignore */ }
+                    }
+                    return null;
+                };
+
+                // 2. Locate backup components
+                const dbSource = await findItem(extractPath, "tunecamp.db", "file");
+                const musicSource = await findItem(extractPath, "music", "dir");
+
+                if (!dbSource && !musicSource) {
+                    throw new Error("Invalid backup format: Could not find 'tunecamp.db' or 'music' folder.");
                 }
-                return null;
-            };
 
-            // 2. Locate backup components
-            const dbSource = await findItem(extractPath, "tunecamp.db", "file");
-            const musicSource = await findItem(extractPath, "music", "dir");
+                // 3. Restore Music
+                if (musicSource) {
+                    console.log(`🎵 [Restore] Restoring music files from ${musicSource}...`);
+                    await fs.copy(musicSource, config.musicDir, { overwrite: true });
+                }
 
-            if (!dbSource && !musicSource) {
-                throw new Error("Invalid backup format: Could not find 'tunecamp.db' or 'music' folder.");
-            }
+                // 4. Restore DB
+                if (dbSource) {
+                    console.log(`💾 [Restore] Restoring database from ${dbSource}...`);
 
-            // 3. Restore Music
-            if (musicSource) {
-                console.log(`🎵 Restoring music files from ${musicSource}...`);
-                await fs.copy(musicSource, config.musicDir, { overwrite: true });
-            }
+                    // Close DB connection!
+                    try {
+                        database.db.close();
+                    } catch (e) {
+                        console.warn("⚠️ [Restore] Could not close DB connection cleanly:", e);
+                    }
 
-            // 4. Restore DB
-            if (dbSource) {
-                console.log(`💾 Restoring database from ${dbSource}...`);
+                    // Small delay to ensure file handles are released
+                    await new Promise(r => setTimeout(r, 500));
 
-                // Close DB connection!
-                database.db.close();
+                    // Replace file
+                    await fs.copy(dbSource, config.dbPath, { overwrite: true });
 
-                // Small delay to ensure file handles are released
-                await new Promise(r => setTimeout(r, 100));
+                    // Clean up WAL/SHM just in case
+                    if (fs.existsSync(config.dbPath + "-wal")) fs.unlinkSync(config.dbPath + "-wal");
+                    if (fs.existsSync(config.dbPath + "-shm")) fs.unlinkSync(config.dbPath + "-shm");
 
-                // Replace file
-                await fs.copy(dbSource, config.dbPath, { overwrite: true });
+                    console.log("✅ [Restore] Database restore complete.");
+                } else {
+                    console.log("✅ [Restore] Audio-only restore complete.");
+                }
 
-                // Clean up WAL/SHM just in case
-                if (fs.existsSync(config.dbPath + "-wal")) fs.unlinkSync(config.dbPath + "-wal");
-                if (fs.existsSync(config.dbPath + "-shm")) fs.unlinkSync(config.dbPath + "-shm");
-
-                console.log("✅ Restore complete. Restarting...");
-
-                res.json({ message: "Restore complete. Server restarting..." });
-
-                // Trigger restart
+                // Restart
+                console.log("🔄 [Restore] Triggering server restart...");
                 if (restartFn) restartFn();
                 else process.exit(0);
-            } else {
-                res.json({ message: "Restore complete (Audio only)" });
-            }
 
-        } catch (error: any) {
-            console.error("Restore failed:", error);
-            res.status(500).json({ error: "Restore failed: " + error.message });
-        } finally {
-            // Cleanup
-            fs.unlink(zipPath, () => { });
-            fs.remove(extractPath, () => { });
-        }
+            } catch (error: any) {
+                console.error("❌ [Restore] Failed:", error);
+            } finally {
+                // Cleanup
+                // Use Promise API for fs-extra to allow .catch() or just suppress error in callback
+                fs.unlink(zipPath).catch(() => { });
+                fs.remove(extractPath).catch(() => { });
+            }
+        })();
     });
 
     return router;
