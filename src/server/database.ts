@@ -188,6 +188,7 @@ export interface DatabaseService {
     deleteTrack(id: number): void;
     addTrackToRelease(releaseId: number, trackId: number): void;
     removeTrackFromRelease(releaseId: number, trackId: number): void;
+    updateReleaseTracks(releaseId: number, toAdd: number[], toRemove: number[]): void;
     // Playlists
     getPlaylists(publicOnly?: boolean): Playlist[];
     getPlaylist(id: number): Playlist | undefined;
@@ -406,7 +407,6 @@ export function createDatabase(dbPath: string): DatabaseService {
       pub TEXT PRIMARY KEY,
       epub TEXT,
       alias TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -945,6 +945,22 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare(
                 "DELETE FROM release_tracks WHERE release_id = ? AND track_id = ?"
             ).run(releaseId, trackId);
+        },
+
+        updateReleaseTracks(releaseId: number, toAdd: number[], toRemove: number[]): void {
+            const addStmt = db.prepare("INSERT OR IGNORE INTO release_tracks (release_id, track_id) VALUES (?, ?)");
+            const removeStmt = db.prepare("DELETE FROM release_tracks WHERE release_id = ? AND track_id = ?");
+
+            const transaction = db.transaction((addIds: number[], removeIds: number[]) => {
+                for (const trackId of addIds) {
+                    addStmt.run(releaseId, trackId);
+                }
+                for (const trackId of removeIds) {
+                    removeStmt.run(releaseId, trackId);
+                }
+            });
+
+            transaction(toAdd, toRemove);
         },
 
         getTracksByReleaseId(releaseId: number): Track[] {

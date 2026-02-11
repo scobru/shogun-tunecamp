@@ -136,18 +136,13 @@ export function createReleaseRoutes(
 
             // Update track associations
             if (body.track_ids) {
-                const existingTrackIds = database.getTracksByReleaseId(id).map(t => t.id);
-                const newTrackIds = body.track_ids;
+                const existingTrackIds = new Set(database.getTracksByReleaseId(id).map(t => t.id));
+                const newTrackIds = new Set(body.track_ids);
 
-                const toAdd = newTrackIds.filter(newId => !existingTrackIds.includes(newId));
-                const toRemove = existingTrackIds.filter(oldId => !newTrackIds.includes(oldId));
+                const toAdd = [...newTrackIds].filter(newId => !existingTrackIds.has(newId));
+                const toRemove = [...existingTrackIds].filter(oldId => !newTrackIds.has(oldId));
 
-                for (const trackId of toAdd) {
-                    database.addTrackToRelease(id, trackId);
-                }
-                for (const trackId of toRemove) {
-                    database.removeTrackFromRelease(id, trackId);
-                }
+                database.updateReleaseTracks(id, toAdd, toRemove);
             }
 
             // Update DB checks...
