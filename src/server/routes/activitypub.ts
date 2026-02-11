@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { DatabaseService } from "../database.js";
+import type { DatabaseService, Track } from "../database.js";
 import type { ActivityPubService } from "../activitypub.js";
 import { createAuthMiddleware } from "../middleware/auth.js";
 
@@ -73,6 +73,18 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
         // Get posts (only public)
         const posts = db.getPostsByArtist(artist.id).filter(p => p.visibility === 'public');
 
+        // OPTIMIZATION: Fetch all tracks for these releases in one go
+        const releaseIds = releases.map(r => r.id);
+        const allTracks = db.getTracksByAlbumIds(releaseIds);
+        const tracksByRelease = new Map<number, Track[]>();
+        for (const track of allTracks) {
+            if (!track.album_id) continue;
+            if (!tracksByRelease.has(track.album_id)) {
+                tracksByRelease.set(track.album_id, []);
+            }
+            tracksByRelease.get(track.album_id)!.push(track);
+        }
+
         // Combine and sort
         const combined = [
             ...releases.map(r => ({ type: 'release', date: r.published_at || r.created_at, item: r })),
@@ -82,7 +94,7 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
         const orderedItems = combined.map(entry => {
             if (entry.type === 'release') {
                 const release = entry.item as any;
-                const tracks = db.getTracks(release.id);
+                const tracks = tracksByRelease.get(release.id) || [];
                 const note = apService.generateNote(release, artist, tracks);
                 return {
                     type: "Create",

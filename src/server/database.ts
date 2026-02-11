@@ -173,6 +173,7 @@ export interface DatabaseService {
     deleteAlbum(id: number, keepTracks?: boolean): void;
     // Tracks
     getTracks(albumId?: number): Track[];
+    getTracksByAlbumIds(albumIds: number[]): Track[];
     getTracksByReleaseId(releaseId: number): Track[];
     getTrack(id: number): Track | undefined;
     getTrackByPath(filePath: string): Track | undefined;
@@ -853,6 +854,31 @@ export function createDatabase(dbPath: string): DatabaseService {
            ORDER BY ar.name, a.title, t.track_num`
                 )
                 .all() as Track[];
+        },
+
+        getTracksByAlbumIds(albumIds: number[]): Track[] {
+            if (albumIds.length === 0) return [];
+
+            const CHUNK_SIZE = 900; // Safe limit for SQLite variables
+            const allTracks: Track[] = [];
+
+            for (let i = 0; i < albumIds.length; i += CHUNK_SIZE) {
+                const chunk = albumIds.slice(i, i + CHUNK_SIZE);
+                const placeholders = chunk.map(() => '?').join(',');
+                const tracks = db
+                    .prepare(
+                        `SELECT t.*, a.title as album_title, ar.name as artist_name
+             FROM tracks t
+             LEFT JOIN albums a ON t.album_id = a.id
+             LEFT JOIN artists ar ON t.artist_id = ar.id
+             WHERE t.album_id IN (${placeholders})
+             ORDER BY t.album_id, t.track_num`
+                    )
+                    .all(...chunk) as Track[];
+                allTracks.push(...tracks);
+            }
+
+            return allTracks;
         },
 
         getTrack(id: number): Track | undefined {
