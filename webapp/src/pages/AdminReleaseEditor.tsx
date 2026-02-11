@@ -43,6 +43,7 @@ interface LocalRelease {
     visibility: 'public' | 'private' | 'unlisted';
     is_public: boolean;
     price?: number;
+    download?: string;
 }
 
 export default function AdminReleaseEditor() {
@@ -65,7 +66,9 @@ export default function AdminReleaseEditor() {
         description: '',
         credits: '',
         tags: '',
-        price: 0
+        tags: '',
+        price: 0,
+        download: 'none'
     });
     
     // Tracks State
@@ -114,7 +117,9 @@ export default function AdminReleaseEditor() {
                 description: data.description,
                 visibility: data.visibility || (data.is_public ? 'public' : 'private'),
                 is_public: !!data.is_public,
-                price: data.price
+                is_public: !!data.is_public,
+                price: data.price,
+                download: data.download || 'none'
             });
             
             if (data.slug || releaseId) {
@@ -485,6 +490,19 @@ export default function AdminReleaseEditor() {
                             <label className="label cursor-pointer justify-start gap-2">
                                 <input type="checkbox" className="checkbox checkbox-xs" defaultChecked />
                                 <span className="label-text text-xs">Let fans pay more</span>
+                            </label>
+                            
+                            <label className="label cursor-pointer justify-start gap-2 mt-2">
+                                <input 
+                                    type="checkbox" 
+                                    className="checkbox checkbox-xs checkbox-secondary" 
+                                    checked={metadata.download === 'free'}
+                                    onChange={e => setMetadata(prev => ({...prev, download: e.target.checked ? 'free' : 'none'}))}
+                                />
+                                <div className="flex flex-col">
+                                    <span className="label-text text-xs font-bold">Allow Free Download</span>
+                                    <span className="label-text text-[10px] opacity-70">Adds a download button to the album page</span>
+                                </div>
                             </label>
                         </div>
 

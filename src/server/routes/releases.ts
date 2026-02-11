@@ -208,6 +208,14 @@ export function createReleaseRoutes(
                 }
             }
 
+            if (body.download !== undefined) {
+                try {
+                    database.updateAlbumDownload(id, body.download);
+                } catch (e) {
+                    console.error("Failed to update album download in DB:", e);
+                }
+            }
+
             await scanner.scanDirectory(musicDir);
 
             // SYNC WITH FEDERATION
