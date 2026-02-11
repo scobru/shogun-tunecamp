@@ -135,47 +135,69 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
             // 1. Extract ZIP
             console.log("📦 Extracting backup...");
             await fs.ensureDir(extractPath);
-            const unzipper = await import("adm-zip"); // We might need to add adm-zip or use system unzip? 
-            // WAIT, package.json doesn't have adm-zip. 
-            // We can use 'unzip' command if available or we need to add a library.
-            // Let's check dependencies again.
-            // dependencies: archiver, multer... no unzip lib.
-            // We can use 'yauzl' or 'adm-zip' or 'unzipper'.
-            // Let's use 'adm-zip' if we can add it, or use a shell command if linux/mac? 
-            // User is on Windows.
-            // We should use a library. 'adm-zip' is simplest for synchronous, 'yauzl' for async.
-            // For now, I'll error out and ask to install 'adm-zip' or try to use a script.
-
-            // ACTUALLY, checking package.json... we don't have an unzip lib. 
-            // I will assume I can install 'adm-zip'.
-            // For now, let's just write the code assuming 'adm-zip' and I'll install it.
 
             const AdmZip = (await import("adm-zip")).default;
             const zip = new AdmZip(zipPath);
-            zip.extractAllTo(extractPath, true);
 
-            // 2. Validate
-            if (!fs.existsSync(path.join(extractPath, "tunecamp.db")) && !fs.existsSync(path.join(extractPath, "music"))) {
-                throw new Error("Invalid backup format");
+            // Use async extraction to avoid blocking event loop
+            await new Promise<void>((resolve, reject) => {
+                zip.extractAllToAsync(extractPath, true, false, (error) => {
+                    if (error) reject(error);
+                    else resolve();
+                });
+            });
+
+            // Helper to find items recursively (BFS)
+            const findItem = async (root: string, name: string, type: 'file' | 'dir'): Promise<string | null> => {
+                const queue = [root];
+                while(queue.length > 0) {
+                    const currentPath = queue.shift()!;
+                    try {
+                        const items = await fs.readdir(currentPath, { withFileTypes: true });
+                        // Check direct children first
+                        for (const item of items) {
+                            if (item.name === name) {
+                                if (type === 'file' && item.isFile()) return path.join(currentPath, item.name);
+                                if (type === 'dir' && item.isDirectory()) return path.join(currentPath, item.name);
+                            }
+                        }
+                        // Add subdirectories to queue
+                        for (const item of items) {
+                            if (item.isDirectory()) {
+                                queue.push(path.join(currentPath, item.name));
+                            }
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+                return null;
+            };
+
+            // 2. Locate backup components
+            const dbSource = await findItem(extractPath, "tunecamp.db", "file");
+            const musicSource = await findItem(extractPath, "music", "dir");
+
+            if (!dbSource && !musicSource) {
+                throw new Error("Invalid backup format: Could not find 'tunecamp.db' or 'music' folder.");
             }
 
             // 3. Restore Music
-            if (fs.existsSync(path.join(extractPath, "music"))) {
-                console.log("🎵 Restoring music files...");
-                // Option: Empty directory first? Or overwrite? 
-                // Creating a backup of current music dir might be nice but space comsuming.
-                await fs.copy(path.join(extractPath, "music"), config.musicDir, { overwrite: true });
+            if (musicSource) {
+                console.log(`🎵 Restoring music files from ${musicSource}...`);
+                await fs.copy(musicSource, config.musicDir, { overwrite: true });
             }
 
             // 4. Restore DB
-            if (fs.existsSync(path.join(extractPath, "tunecamp.db"))) {
-                console.log("💾 Restoring database...");
+            if (dbSource) {
+                console.log(`💾 Restoring database from ${dbSource}...`);
 
                 // Close DB connection!
                 database.db.close();
 
+                // Small delay to ensure file handles are released
+                await new Promise(r => setTimeout(r, 100));
+
                 // Replace file
-                await fs.copy(path.join(extractPath, "tunecamp.db"), config.dbPath, { overwrite: true });
+                await fs.copy(dbSource, config.dbPath, { overwrite: true });
 
                 // Clean up WAL/SHM just in case
                 if (fs.existsSync(config.dbPath + "-wal")) fs.unlinkSync(config.dbPath + "-wal");
@@ -187,7 +209,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
 
                 // Trigger restart
                 if (restartFn) restartFn();
-                else process.exit(0); // Docker should restart it
+                else process.exit(0);
             } else {
                 res.json({ message: "Restore complete (Audio only)" });
             }
