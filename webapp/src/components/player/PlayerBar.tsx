@@ -180,6 +180,7 @@ export const PlayerBar = () => {
                     <div className="flex items-center gap-4 lg:gap-6">
                         <div className="tooltip" data-tip="Shuffle">
                             <button 
+                                aria-label="Toggle shuffle"
                                 className={`btn btn-ghost btn-circle btn-xs ${isShuffled ? 'text-primary' : 'opacity-50'}`} 
                                 onClick={toggleShuffle}
                             >
@@ -188,11 +189,12 @@ export const PlayerBar = () => {
                         </div>
 
                         <div className="tooltip" data-tip="Previous">
-                            <button className="btn btn-ghost btn-circle btn-sm" onClick={prev}><SkipBack size={20} /></button>
+                            <button aria-label="Previous track" className="btn btn-ghost btn-circle btn-sm" onClick={prev}><SkipBack size={20} /></button>
                         </div>
                         
                         <div className="tooltip" data-tip={isPlaying ? "Pause" : "Play"}>
                             <button 
+                                aria-label={isPlaying ? "Pause" : "Play"}
                                 className="btn btn-circle btn-primary text-primary-content shadow-lg shadow-primary/20 lg:scale-110 hover:scale-110 transition-transform" 
                                 onClick={togglePlay}
                             >
@@ -201,11 +203,12 @@ export const PlayerBar = () => {
                         </div>
                         
                         <div className="tooltip" data-tip="Next">
-                            <button className="btn btn-ghost btn-circle btn-sm" onClick={next}><SkipForward size={20} /></button>
+                            <button aria-label="Next track" className="btn btn-ghost btn-circle btn-sm" onClick={next}><SkipForward size={20} /></button>
                         </div>
                         
                         <div className="tooltip" data-tip={`Repeat: ${repeatMode}`}>
                             <button 
+                                aria-label={`Repeat mode: ${repeatMode}`}
                                 className={`btn btn-ghost btn-circle btn-xs ${repeatMode !== 'none' ? 'text-primary' : 'opacity-50'}`} 
                                 onClick={toggleRepeat}
                             >
@@ -234,6 +237,7 @@ export const PlayerBar = () => {
                              {Number.isFinite(currentTime) ? new Date(currentTime * 1000).toISOString().substr(14, 5) : '0:00'}
                          </span>
                          <input 
+                             aria-label="Seek track"
                              type="range" 
                              className="range range-xs range-primary flex-1 z-10 h-1.5 hover:h-2 transition-all" 
                              min="0" max="100" 
@@ -249,10 +253,11 @@ export const PlayerBar = () => {
                 {/* Volume & Extras */}
                 <div className="hidden lg:flex items-center gap-4 w-64 justify-end">
                     <div className="flex items-center gap-2 group">
-                       <button onClick={() => setVolume(volume === 0 ? 1 : 0)} className="btn btn-ghost btn-circle btn-xs">
+                       <button aria-label={volume === 0 ? "Unmute" : "Mute"} onClick={() => setVolume(volume === 0 ? 1 : 0)} className="btn btn-ghost btn-circle btn-xs">
                            <Volume2 size={18} className={`opacity-70 group-hover:text-primary transition-colors ${volume === 0 ? 'text-error' : ''}`} />
                        </button>
                        <input 
+                            aria-label="Volume"
                             type="range" className="range range-xs w-24 range-secondary" 
                             min="0" max="1" step="0.05"
                             value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} 
@@ -260,10 +265,10 @@ export const PlayerBar = () => {
                     </div>
                     <div className="border-l border-white/10 pl-4 flex gap-2">
                         <div className="tooltip tooltip-left" data-tip="Lyrics">
-                            <button className="btn btn-ghost btn-circle btn-sm" onClick={toggleLyrics}><Mic2 size={18} /></button>
+                            <button aria-label="Toggle lyrics" className="btn btn-ghost btn-circle btn-sm" onClick={toggleLyrics}><Mic2 size={18} /></button>
                         </div>
                         <div className="tooltip tooltip-left" data-tip="Queue">
-                            <button className="btn btn-ghost btn-circle btn-sm" onClick={toggleQueue}><ListMusic size={18} /></button>
+                            <button aria-label="Toggle queue" className="btn btn-ghost btn-circle btn-sm" onClick={toggleQueue}><ListMusic size={18} /></button>
                         </div>
                     </div>
                 </div>
