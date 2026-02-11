@@ -260,86 +260,51 @@ export class ActivityPubService {
         const artist = this.db.getArtist(album.artist_id);
         if (!artist) return;
 
-        console.log(`📢 Broadcasting release "${album.title}" via Fedify`);
+        console.log(`📢 Broadcasting release "${album.title}" to followers`);
 
         const publicUrl = this.db.getSetting("publicUrl") || this.config.publicUrl;
         if (!publicUrl) return; // Cannot federate without public URL
         const baseUrl = this.getBaseUrl();
+        const artistActorUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
 
-        try {
-            const ctx = this.federation.createContext(new URL(publicUrl));
-            const artistUrl = new URL(`/users/${artist.slug}`, publicUrl); // Must match setActorDispatcher path
-            const releaseUrl = new URL(`/album/${album.slug}`, publicUrl);
+        // Get tracks for the note generation
+        const tracks = this.db.getTracksByReleaseId(album.id);
+        const note = this.generateNote(album, artist, tracks);
 
-            // Construct Note
-            const note = new Note({
-                id: new URL(`${baseUrl}/api/ap/note/release/${album.slug}`),
-                attribution: artistUrl,
-                to: PUBLIC_COLLECTION,
-                content: `<p>New release available: <a href="${releaseUrl.href}">${album.title}</a></p>`,
-                url: releaseUrl,
-                published: album.published_at ? Temporal.Instant.from(new Date(album.published_at).toISOString()) : Temporal.Now.instant(),
-            });
+        // Construct Create Activity
+        const activity = {
+            "@context": "https://www.w3.org/ns/activitystreams",
+            id: `${baseUrl}/activity/${crypto.randomUUID()}`,
+            type: "Create",
+            actor: artistActorUrl,
+            object: note,
+            to: ["https://www.w3.org/ns/activitystreams#Public"],
+            cc: [`${artistActorUrl}/followers`]
+        };
 
-            // Construct Create Activity
-            const create = new Create({
-                id: new URL(`${baseUrl}/api/ap/note/release/${album.slug}/activity`),
-                actor: artistUrl,
-                object: note,
-                to: PUBLIC_COLLECTION,
-            });
+        // Get followers
+        const followers = this.db.getFollowers(artist.id);
+        const inboxes = followers.map(f => f.inbox_uri);
 
-            // Send to followers
-            // Fedify doesn't have a simple "broadcast to followers" helper on context yet without DB integration?
-            // Actually, we need to manually iterate followers or use `ctx.sendActivity` with specific inboxes?
-            // `ctx.sendActivity` takes (senderKey, recipients, activity).
-            // But we need to define the KeyPair for the sender. 
-            // We can get it from DB.
-
-            const privKeyObj = crypto.createPrivateKey(artist.private_key!);
-            const pubKeyObj = crypto.createPublicKey(artist.public_key!);
-
-            const privateKey = await crypto.webcrypto.subtle.importKey(
-                "pkcs8",
-                privKeyObj.export({ format: "der", type: "pkcs8" }),
-                { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-                true,
-                ["sign"]
-            );
-
-            const publicKey = await crypto.webcrypto.subtle.importKey(
-                "spki",
-                pubKeyObj.export({ format: "der", type: "spki" }),
-                { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-                true,
-                ["verify"]
-            );
-
-            const keyPairs: any[] = [{ privateKey, publicKey }];
-
-            const followers = this.db.getFollowers(artist.id);
-            const inboxes = followers.map(f => f.inbox_uri); // TODO: SharedInbox deduplication optimization recommended
-
-            if (inboxes.length > 0) {
-                await ctx.sendActivity({
-                    privateKey: keyPairs[0].privateKey,
-                    keyId: new URL(`${artistUrl.href}#main-key`)
-                } as any, inboxes.map(u => ({ id: null, inboxId: new URL(u) })) as any, create);
-                console.log(`✅ Broadcasted to ${inboxes.length} inboxes`);
+        if (inboxes.length > 0) {
+            console.log(`📢 Sending release activity to ${inboxes.length} inboxes`);
+            // Send to all followers
+            for (const inbox of inboxes) {
+                await this.sendActivity(artist, inbox, activity);
             }
-
-            // Track in DB (Always)
-            this.db.createApNote(
-                artist.id,
-                note.id!.href,
-                'release',
-                album.id,
-                album.slug,
-                album.title
-            );
-        } catch (e) {
-            console.error("Failed to broadcast release via Fedify:", e);
+        } else {
+            console.log(`ℹ️ No followers for ${artist.name}, skipping broadcast.`);
         }
+
+        // Track in DB (Always)
+        this.db.createApNote(
+            artist.id,
+            note.id,
+            'release',
+            album.id,
+            album.slug,
+            album.title
+        );
     }
 
     public async broadcastPost(post: Post): Promise<void> {

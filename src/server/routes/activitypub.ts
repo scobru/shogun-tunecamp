@@ -280,6 +280,8 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
                 const album = db.getAlbum(note.content_id);
                 if (album) {
                     await apService.broadcastDelete(album, note.note_id);
+                    // Critical fix: Set to private so it doesn't get re-synced
+                    db.updateAlbumVisibility(album.id, 'private');
                 } else {
                     // Album gone, just delete note from DB
                     db.deleteApNote(noteId);
@@ -288,6 +290,8 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
                 const post = db.getPost(note.content_id);
                 if (post) {
                     await apService.broadcastPostDelete(post, note.note_id);
+                    // Critical fix: Set to private so it doesn't get re-synced
+                    db.updatePost(post.id, post.content, 'private');
                 } else {
                     // Post gone, just delete note from DB
                     db.deleteApNote(noteId);
