@@ -10,20 +10,26 @@ export const AuthModal = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPass, setConfirmPass] = useState('');
-    const { login, register, loginAdmin, checkAdminAuth, error, clearError } = useAuthStore();
+    const { login, register, loginAdmin, checkAdminAuth, error, clearError, isFirstRun } = useAuthStore();
     const [localError, setLocalError] = useState('');
     const [showSetupOffer, setShowSetupOffer] = useState(false);
 
     useEffect(() => {
         const handleOpen = () => {
             dialogRef.current?.showModal();
-            setMode('user'); 
+            if (isFirstRun) {
+                setMode('admin'); // Stay in admin tab but show offer
+                setShowSetupOffer(true);
+            } else {
+                setMode('user'); 
+                setShowSetupOffer(false);
+            }
             clearError();
             setLocalError('');
         };
         document.addEventListener('open-auth-modal', handleOpen);
         return () => document.removeEventListener('open-auth-modal', handleOpen);
-    }, []);
+    }, [isFirstRun]);
 
     const switchMode = (newMode: 'admin' | 'user' | 'register' | 'setup') => {
         setMode(newMode);

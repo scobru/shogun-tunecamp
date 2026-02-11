@@ -13,6 +13,7 @@ interface AuthState {
     adminUser: User | null;
     isAdminAuthenticated: boolean;
     isAdminLoading: boolean;
+    isFirstRun: boolean;
 
     error: string | null;
 
@@ -41,6 +42,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     adminUser: null,
     isAdminAuthenticated: false,
     isAdminLoading: true,
+    isFirstRun: false,
 
     error: null,
 
@@ -100,18 +102,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     checkAdminAuth: async () => {
         set({ isAdminLoading: true });
         try {
-            if (!API.getToken()) {
-                set({ adminUser: null, isAdminAuthenticated: false, isAdminLoading: false });
-                return;
-            }
             const status = await API.getAuthStatus();
             set({
                 isAdminAuthenticated: status.authenticated,
                 adminUser: status.user || (status.username ? { username: status.username, isAdmin: true, id: '0' } as User : null),
+                isFirstRun: !!status.firstRun,
                 isAdminLoading: false
             });
         } catch (e) {
-            set({ isAdminAuthenticated: false, adminUser: null, isAdminLoading: false });
+            set({ isAdminAuthenticated: false, adminUser: null, isAdminLoading: false, isFirstRun: false });
         }
     },
 
