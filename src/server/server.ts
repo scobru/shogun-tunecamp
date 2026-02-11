@@ -307,13 +307,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 
     // Global error handler
-    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-        console.error("🔥 Global error:", err);
-        if (res.headersSent) {
-            return next(err);
-        }
-        res.status(500).json({ error: err.message || "Internal Server Error" });
-    });
+    app.use(globalErrorHandler);
 
     // Start server
     server.listen(config.port, async () => {
@@ -371,3 +365,16 @@ export async function startServer(config: ServerConfig): Promise<void> {
         process.exit(0);
     });
 }
+
+export const globalErrorHandler = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("🔥 Global error:", err);
+    if (res.headersSent) {
+        return next(err);
+    }
+
+    // In production, don't leak error details
+    const isProduction = process.env.NODE_ENV === 'production';
+    const message = isProduction ? "Internal Server Error" : (err.message || "Internal Server Error");
+
+    res.status(500).json({ error: message });
+};
