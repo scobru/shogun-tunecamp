@@ -11,7 +11,7 @@
     "build": "tsc",
     "dev": "tsc --watch & npm run watch:css",
     "start": "node dist/cli.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "bun test",
     "tunecamp": "node dist/cli.js",
     "build:css": "tailwindcss -i webapp/css/input.css -o webapp/css/style.css",
     "watch:css": "tailwindcss -i webapp/css/input.css -o webapp/css/style.css --watch"
@@ -83,6 +83,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.10.5",
     "@types/node-fetch": "^2.6.13",
+    "bun": "^1.2.14",
     "daisyui": "^5.5.16",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.3.3"
