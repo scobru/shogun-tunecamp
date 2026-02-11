@@ -204,10 +204,7 @@ export default function AdminReleaseEditor() {
                 try {
                      setUploadingFileIndex(0); 
                      await API.uploadTracks(filesToUpload, { 
-                        releaseSlug: currentSlug,
-                        onProgress: (_pct) => {
-                            // console.log(`Upload progress: ${pct}%`);
-                        }
+                        releaseSlug: currentSlug
                     });
                 } catch (e) {
                     console.error("Upload failed", e);
