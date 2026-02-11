@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useParams, Link } from 'react-router-dom';
-import { Play, Clock, Heart, MoreHorizontal, Share2, Download, Unlock, ExternalLink, Shield, Music } from 'lucide-react';
+import { Play, Clock, MoreHorizontal, Download, Unlock, ExternalLink, Shield, Music } from 'lucide-react';
 import { usePlayerStore } from '../stores/usePlayerStore';
 import { useAuthStore } from '../stores/useAuthStore';
 
@@ -137,9 +137,6 @@ export const AlbumDetails = () => {
                                 <Shield size={20} /> Promote
                              </button>
                         )}
-
-                        <button className="btn btn-ghost btn-lg btn-circle"><Heart /></button>
-                        <button className="btn btn-ghost btn-lg btn-circle"><MoreHorizontal /></button>
                     </div>
                 </div>
             </div>
@@ -173,7 +170,6 @@ export const AlbumDetails = () => {
                                 <td>
                                     <div className="font-bold flex items-center gap-2">
                                         {track.title}
-                                        {track.liked && <Heart size={12} className="text-primary" fill="currentColor"/>}
                                     </div>
                                     <div className="md:hidden text-xs opacity-50">{track.artistName}</div>
                                 </td>
@@ -182,11 +178,10 @@ export const AlbumDetails = () => {
                                      {new Date(track.duration * 1000).toISOString().substr(14, 5)}
                                 </td>
                                 <td>
-                                    <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <label tabIndex={0} className="btn btn-ghost btn-xs btn-circle"><MoreHorizontal size={16}/></label>
-                                        <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10">
-                                            <li><a><Heart size={16}/> Like Song</a></li>
-                                            {isAdmin && (
+                                    {isAdmin && (
+                                        <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <label tabIndex={0} className="btn btn-ghost btn-xs btn-circle"><MoreHorizontal size={16}/></label>
+                                            <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10">
                                                 <li>
                                                     <a onClick={(e) => {
                                                         e.preventDefault();
@@ -195,10 +190,9 @@ export const AlbumDetails = () => {
                                                         <Music size={16}/> Edit Metadata
                                                     </a>
                                                 </li>
-                                            )}
-                                            <li><a><Share2 size={16}/> Share</a></li>
-                                        </ul>
-                                    </div>
+                                            </ul>
+                                        </div>
+                                    )}
                                 </td>
                             </tr>
                         )})}
