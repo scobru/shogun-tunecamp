@@ -1,6 +1,22 @@
 import Database from "better-sqlite3";
 import type { Database as DatabaseType } from "better-sqlite3";
 
+export interface OAuthClient {
+    instance_url: string;
+    client_id: string;
+    client_secret: string;
+    redirect_uri: string;
+    created_at: string;
+}
+
+export interface OAuthLink {
+    provider: string; // 'mastodon'
+    subject: string;  // @user@instance.social
+    gun_pub: string;
+    gun_priv: string; // Encrypted SEA pair
+    created_at: string;
+}
+
 export interface Artist {
     id: number;
     name: string;
@@ -215,6 +231,16 @@ export interface DatabaseService {
     getApNote(noteId: string): ApNote | undefined;
     markApNoteDeleted(noteId: string): void;
     deleteApNote(noteId: string): void;
+    // Gun Users
+    syncGunUser(pub: string, epub: string, alias: string): void;
+    getGunUser(pub: string): { pub: string; epub: string; alias: string } | undefined;
+
+    // OAuth
+    getOAuthClient(instanceUrl: string): OAuthClient | undefined;
+    saveOAuthClient(client: Omit<OAuthClient, "created_at">): void;
+
+    getOAuthLink(provider: string, subject: string): OAuthLink | undefined;
+    createOAuthLink(provider: string, subject: string, gunPub: string, gunPriv: string): void;
 }
 
 export function createDatabase(dbPath: string): DatabaseService {
@@ -375,6 +401,31 @@ export function createDatabase(dbPath: string): DatabaseService {
       deleted_at TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_ap_notes_artist ON ap_notes(artist_id);
+
+    CREATE TABLE IF NOT EXISTS gun_users (
+      pub TEXT PRIMARY KEY,
+      epub TEXT,
+      alias TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS oauth_clients (
+      instance_url TEXT PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      client_secret TEXT NOT NULL,
+      redirect_uri TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS oauth_links (
+      provider TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      gun_pub TEXT NOT NULL,
+      gun_priv TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (provider, subject)
+    );
   `);
 
     // Migration: Add is_release column if it doesn't exist
@@ -487,6 +538,33 @@ export function createDatabase(dbPath: string): DatabaseService {
 
     return {
         db,
+
+        // OAuth
+        getOAuthClient(instanceUrl: string): OAuthClient | undefined {
+            return db.prepare("SELECT * FROM oauth_clients WHERE instance_url = ?").get(instanceUrl) as OAuthClient | undefined;
+        },
+
+        saveOAuthClient(client: Omit<OAuthClient, "created_at">): void {
+            db.prepare(`
+                INSERT INTO oauth_clients (instance_url, client_id, client_secret, redirect_uri)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(instance_url) DO UPDATE SET
+                    client_id=excluded.client_id,
+                    client_secret=excluded.client_secret,
+                    redirect_uri=excluded.redirect_uri
+            `).run(client.instance_url, client.client_id, client.client_secret, client.redirect_uri);
+        },
+
+        getOAuthLink(provider: string, subject: string): OAuthLink | undefined {
+            return db.prepare("SELECT * FROM oauth_links WHERE provider = ? AND subject = ?").get(provider, subject) as OAuthLink | undefined;
+        },
+
+        createOAuthLink(provider: string, subject: string, gunPub: string, gunPriv: string): void {
+            db.prepare(`
+                INSERT INTO oauth_links (provider, subject, gun_pub, gun_priv)
+                VALUES (?, ?, ?, ?)
+            `).run(provider, subject, gunPub, gunPriv);
+        },
 
         // Artists
         getArtists(): Artist[] {
@@ -1240,5 +1318,16 @@ export function createDatabase(dbPath: string): DatabaseService {
         deleteApNote(noteId: string): void {
             db.prepare("DELETE FROM ap_notes WHERE note_id = ?").run(noteId);
         },
+
+        // Gun Users
+        syncGunUser(pub: string, epub: string, alias: string): void {
+            db.prepare(
+                "INSERT OR REPLACE INTO gun_users (pub, epub, alias) VALUES (?, ?, ?)"
+            ).run(pub, epub, alias);
+        },
+
+        getGunUser(pub: string): { pub: string; epub: string; alias: string } | undefined {
+            return db.prepare("SELECT pub, epub, alias FROM gun_users WHERE pub = ?").get(pub) as any;
+        }
     };
 }

@@ -192,7 +192,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/stats/library", createLibraryStatsRoutes(database));
     app.use("/api/browser", authMiddleware.requireAdmin, createBrowserRoutes(config.musicDir));
     app.use("/api/metadata", authMiddleware.requireAdmin, createMetadataRoutes(database, config.musicDir));
-    app.use("/api/users", createUsersRoutes(gundbService));
+    app.use("/api/users", createUsersRoutes(gundbService, database));
     app.use("/api/comments", createCommentsRoutes(gundbService));
     app.use("/api/unlock", createUnlockRoutes(database));
     app.use("/api/ap", createActivityPubRoutes(apService, database, authMiddleware));
@@ -327,7 +327,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
         // Increasing timeouts for slow uploads/connections (e.g. large files or slow clients)
         // Set to 5 minutes (300000ms) to allow for large WAV uploads + conversion
-        server.keepAliveTimeout = 300000; 
+        server.keepAliveTimeout = 300000;
         server.headersTimeout = 301000;   // Must be slightly larger than keepAliveTimeout
 
         // Register server on GunDB community if publicUrl is set (either in config or db)

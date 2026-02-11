@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { validateUsername } from "../../utils/audioUtils.js";
 import type { GunDBService } from "../gundb.js";
+import type { DatabaseService } from "../database.js";
 
-export function createUsersRoutes(gundbService: GunDBService) {
+export function createUsersRoutes(gundbService: GunDBService, database: DatabaseService) {
     const router = Router();
 
     /**
@@ -82,6 +83,26 @@ export function createUsersRoutes(gundbService: GunDBService) {
         } catch (error) {
             console.error("Get user error:", error);
             res.status(500).json({ error: "Failed to get user" });
+        }
+    });
+
+    /**
+     * POST /api/users/sync
+     * Sync GunDB user data (pub, epub, alias) to local SQLite
+     */
+    router.post("/sync", async (req, res) => {
+        try {
+            const { pub, epub, alias } = req.body;
+
+            if (!pub || !epub || !alias) {
+                return res.status(400).json({ error: "pub, epub, and alias are required" });
+            }
+
+            database.syncGunUser(pub, epub, alias);
+            res.json({ success: true });
+        } catch (error) {
+            console.error("User sync error:", error);
+            res.status(500).json({ error: "Sync failed" });
         }
     });
 

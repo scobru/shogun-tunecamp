@@ -1,6 +1,7 @@
 import Gun from 'gun';
 import 'gun/sea';
 import "gun/lib/yson.js"
+import API from './api';
 
 
 // Define Gun peers (should be configurable)
@@ -38,11 +39,14 @@ export const GunAuth = {
             // Attempt to recall session
             user.recall({ sessionStorage: true }, (_ack: any) => {
                 if (user.is) {
-                    resolve({
+                    const profile = {
                         pub: user.is.pub as string,
                         alias: user.is.alias as string,
                         epub: (user.is as any).epub as string
-                    });
+                    };
+                    // Sync with backend (fire and forget/non-blocking)
+                    API.syncGunUser(profile.pub, profile.epub, profile.alias).catch(console.error);
+                    resolve(profile);
                 } else {
                     resolve(null);
                 }
@@ -50,11 +54,13 @@ export const GunAuth = {
 
             // Fallback immediate check
             if (user.is) {
-                resolve({
+                const profile = {
                     pub: user.is.pub as string,
                     alias: user.is.alias as string,
                     epub: (user.is as any).epub as string
-                });
+                };
+                API.syncGunUser(profile.pub, profile.epub, profile.alias).catch(console.error);
+                resolve(profile);
             }
         });
     },
@@ -91,11 +97,33 @@ export const GunAuth = {
                 if (ack.err) {
                     reject(new Error(ack.err));
                 } else {
-                    resolve({
+                    const profile = {
                         pub: user.is!.pub as string,
                         alias: user.is!.alias as string,
                         epub: (user.is as any).epub as string
-                    });
+                    };
+                    // Sync with backend
+                    API.syncGunUser(profile.pub, profile.epub, profile.alias).catch(console.error);
+                    resolve(profile);
+                }
+            });
+        });
+    },
+
+    loginWithPair: (pair: any): Promise<GunProfile> => {
+        return new Promise((resolve, reject) => {
+            user.auth(pair, (ack: any) => {
+                if (ack.err) {
+                    reject(new Error(ack.err));
+                } else {
+                    const profile = {
+                        pub: user.is!.pub as string,
+                        alias: user.is!.alias as string,
+                        epub: (user.is as any).epub as string
+                    };
+                    // Sync with backend
+                    API.syncGunUser(profile.pub, profile.epub, profile.alias).catch(console.error);
+                    resolve(profile);
                 }
             });
         });

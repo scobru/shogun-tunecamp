@@ -1,6 +1,10 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import type { Database } from "better-sqlite3";
+import fetch from "node-fetch";
+import crypto from "crypto";
+import Gun from "gun";
+import "gun/sea.js";
 
 const SALT_ROUNDS = 10;
 const JWT_EXPIRES_IN = "7d";
@@ -20,6 +24,18 @@ export interface AuthService {
     isFirstRun(): boolean;
     /** Returns true if the username belongs to the root admin (id=1, first created). */
     isRootAdmin(username: string): boolean;
+
+    // Mastodon
+    registerMastodonApp(instanceUrl: string, redirectUri: string): Promise<{ clientId: string; clientSecret: string; redirectUri: string }>;
+    getMastodonAuthUrl(instanceUrl: string, clientId: string, redirectUri: string): string;
+    exchangeMastodonCode(instanceUrl: string, clientId: string, clientSecret: string, redirectUri: string, code: string): Promise<{ accessToken: string; user: { acct: string; display_name: string; url: string } }>;
+
+    // Low-Level Mastodon Login (Sotto Banco)
+    loginWithMastodon(instanceUrl: string, redirectUri: string, code: string): Promise<{ pair: any; alias: string }>;
+
+    // GunDB Key Management
+    encryptGunPriv(priv: any): string;
+    decryptGunPriv(encrypted: string): any;
 }
 
 export function createAuthService(
@@ -172,5 +188,161 @@ export function createAuthService(
             const row = db.prepare("SELECT id FROM admin WHERE username = ?").get(username) as { id: number } | undefined;
             return row?.id === 1;
         },
+
+        // Mastodon
+        async registerMastodonApp(instanceUrl: string, redirectUri: string): Promise<{ clientId: string; clientSecret: string; redirectUri: string }> {
+            // Cleanup URL
+            const url = new URL(instanceUrl.startsWith("http") ? instanceUrl : `https://${instanceUrl}`);
+            const baseUrl = url.origin;
+
+            // 1. Check DB for existing client
+            const existing = db.prepare("SELECT * FROM oauth_clients WHERE instance_url = ?").get(baseUrl) as { client_id: string; client_secret: string; redirect_uri: string } | undefined;
+
+            if (existing) {
+                return {
+                    clientId: existing.client_id,
+                    clientSecret: existing.client_secret,
+                    redirectUri: existing.redirect_uri
+                };
+            }
+
+            // 2. Register if not found
+            const response = await fetch(`${baseUrl}/api/v1/apps`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    client_name: "TuneCamp",
+                    redirect_uris: redirectUri,
+                    scopes: "read",
+                    website: "https://github.com/scobru/tunecamp"
+                })
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`Failed to register app on ${baseUrl}: ${text}`);
+            }
+
+            const data = await response.json() as any;
+
+            // 3. Save to DB
+            db.prepare("INSERT INTO oauth_clients (instance_url, client_id, client_secret, redirect_uri) VALUES (?, ?, ?, ?)").run(baseUrl, data.client_id, data.client_secret, redirectUri);
+
+            return {
+                clientId: data.client_id,
+                clientSecret: data.client_secret,
+                redirectUri: redirectUri
+            };
+        },
+
+        getMastodonAuthUrl(instanceUrl: string, clientId: string, redirectUri: string): string {
+            const url = new URL(instanceUrl.startsWith("http") ? instanceUrl : `https://${instanceUrl}`);
+            return `${url.origin}/oauth/authorize?client_id=${clientId}&scope=read&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
+        },
+
+        async exchangeMastodonCode(instanceUrl: string, clientId: string, clientSecret: string, redirectUri: string, code: string): Promise<{ accessToken: string; user: { acct: string; display_name: string; url: string } }> {
+            const url = new URL(instanceUrl.startsWith("http") ? instanceUrl : `https://${instanceUrl}`);
+
+            // 1. Get Token
+            const tokenResp = await fetch(`${url.origin}/oauth/token`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    redirect_uri: redirectUri,
+                    grant_type: "authorization_code",
+                    code: code
+                })
+            });
+
+            if (!tokenResp.ok) {
+                throw new Error(`Failed to exchange code: ${await tokenResp.text()}`);
+            }
+
+            const tokenData = await tokenResp.json() as any;
+            const accessToken = tokenData.access_token;
+
+            // 2. Verify Credentials (get user profile)
+            const verifyResp = await fetch(`${url.origin}/api/v1/accounts/verify_credentials`, {
+                headers: { "Authorization": `Bearer ${accessToken}` }
+            });
+
+            if (!verifyResp.ok) {
+                throw new Error(`Failed to verify credentials: ${await verifyResp.text()}`);
+            }
+
+            const userData = await verifyResp.json() as any;
+
+            // Normalize acct (some instances don't include domain for local users)
+            let acct = userData.acct;
+            if (!acct.includes("@")) {
+                acct = `${acct}@${url.hostname}`;
+            }
+
+            return {
+                accessToken,
+                user: {
+                    acct,
+                    display_name: userData.display_name,
+                    url: userData.url
+                }
+            };
+        },
+
+        async loginWithMastodon(instanceUrl: string, redirectUri: string, code: string): Promise<{ pair: any; alias: string }> {
+            // 1. Get Client
+            const client = await this.registerMastodonApp(instanceUrl, redirectUri);
+
+            // 2. Exchange Code
+            const { accessToken, user } = await this.exchangeMastodonCode(instanceUrl, client.clientId, client.clientSecret, redirectUri, code);
+
+            const subject = user.acct;
+            const provider = "mastodon";
+
+            // 3. Check for existing link
+            const link = db.prepare("SELECT * FROM oauth_links WHERE provider = ? AND subject = ?").get(provider, subject) as { gun_pub: string; gun_priv: string } | undefined;
+
+            if (link) {
+                // Decrypt and return
+                const pair = this.decryptGunPriv(link.gun_priv);
+                console.log(`🔓 Mastodon Login: Found existing user ${subject} -> ${pair.pub.slice(0, 8)}...`);
+                return { pair, alias: user.display_name || user.acct };
+            }
+
+            // 4. Create new identity
+            console.log(`🆕 Mastodon Login: Creating NEW GunDB identity for ${subject}`);
+            const pair = await Gun.SEA.pair();
+            const encryptedPriv = this.encryptGunPriv(pair);
+
+            db.prepare("INSERT INTO oauth_links (provider, subject, gun_pub, gun_priv) VALUES (?, ?, ?, ?)").run(provider, subject, pair.pub, encryptedPriv);
+
+            // Register in gun_users table
+            db.prepare(`INSERT OR IGNORE INTO gun_users (pub, epub, alias) VALUES (?, ?, ?)`).run(pair.pub, pair.epub, user.display_name || user.acct);
+
+            return { pair, alias: user.display_name || user.acct };
+        },
+
+        // Encryption helpers
+        encryptGunPriv(priv: any): string {
+            const json = JSON.stringify(priv);
+            const iv = crypto.randomBytes(16);
+            // Derive a 32-byte key from jwtSecret properly
+            const key = crypto.createHash('sha256').update(jwtSecret).digest();
+            const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+            let encrypted = cipher.update(json, "utf8", "hex");
+            encrypted += cipher.final("hex");
+            return `${iv.toString("hex")}:${encrypted}`;
+        },
+
+        decryptGunPriv(encrypted: string): any {
+            const [ivHex, dataHex] = encrypted.split(":");
+            const iv = Buffer.from(ivHex, "hex");
+            const key = crypto.createHash('sha256').update(jwtSecret).digest();
+            const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+            let decrypted = decipher.update(dataHex, "hex", "utf8");
+            decrypted += decipher.final("utf8");
+            return JSON.parse(decrypted);
+        }
     };
 }

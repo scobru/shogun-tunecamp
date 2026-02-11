@@ -160,5 +160,57 @@ export function createAuthRoutes(authService: AuthService) {
         });
     });
 
+    /**
+     * POST /api/auth/mastodon/init
+     * Start Mastodon OAuth flow
+     */
+    router.post("/mastodon/init", async (req, res) => {
+        try {
+            const { instanceUrl, redirectUri } = req.body;
+
+            if (!instanceUrl || !redirectUri) {
+                return res.status(400).json({ error: "Instance URL and Redirect URI required" });
+            }
+
+            const client = await authService.registerMastodonApp(instanceUrl, redirectUri);
+
+            const authUrl = authService.getMastodonAuthUrl(instanceUrl, client.clientId, redirectUri);
+
+            res.json({ authUrl });
+        } catch (error: any) {
+            console.error("Mastodon init error:", error);
+            res.status(500).json({ error: error.message || "Failed to initialize Mastodon auth" });
+        }
+    });
+
+    /**
+     * POST /api/auth/mastodon/callback
+     * Handle Mastodon OAuth callback
+     */
+    router.post("/mastodon/callback", async (req, res) => {
+        try {
+            const { instanceUrl, code, redirectUri } = req.body;
+
+            if (!instanceUrl || !code || !redirectUri) {
+                return res.status(400).json({ error: "Missing parameters" });
+            }
+
+            // Perform Login (Sotto Banco)
+            // This will link the user or create a new GunDB identity
+            const result = await authService.loginWithMastodon(instanceUrl, redirectUri, code);
+
+            // Return the GunDB pair to the client
+            res.json({
+                success: true,
+                pair: result.pair,
+                alias: result.alias
+            });
+
+        } catch (error: any) {
+            console.error("Mastodon callback error:", error);
+            res.status(500).json({ error: "Authentication failed" });
+        }
+    });
+
     return router;
 }

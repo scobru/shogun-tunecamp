@@ -55,6 +55,12 @@ export const API = {
         API.setToken(null);
     },
 
+    // --- Mastodon Auth ---
+    mastodonInit: (instanceUrl: string, redirectUri: string) =>
+        handleResponse(api.post<{ authUrl: string }>('/auth/mastodon/init', { instanceUrl, redirectUri })),
+    mastodonCallback: (instanceUrl: string, code: string, redirectUri: string) =>
+        handleResponse(api.post<{ success: boolean; pair: any; alias: string }>('/auth/mastodon/callback', { instanceUrl, code, redirectUri })),
+
     // --- Catalog & Search ---
     getCatalog: () => handleResponse(api.get<any>('/catalog')),
     getSiteSettings: () => handleResponse(api.get<SiteSettings>('/catalog/settings')),
@@ -140,6 +146,7 @@ export const API = {
     getComments: (trackId: string) => handleResponse(api.get<any[]>(`/comments/track/${trackId}`)),
     postComment: (trackId: string, data: { text: string, pubKey: string, username: string, signature: string }) => handleResponse(api.post('/comments/track/' + trackId, data)),
     deleteComment: (commentId: string) => handleResponse(api.delete(`/comments/${commentId}`)),
+    syncGunUser: (pub: string, epub: string, alias: string) => handleResponse(api.post('/users/sync', { pub, epub, alias })),
 
     // --- Admin: Artists ---
     createArtist: (data: Partial<Artist>) => handleResponse(api.post<Artist>('/artists', data)),
