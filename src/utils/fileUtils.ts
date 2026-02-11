@@ -95,3 +95,29 @@ export function getRelativePath(from: string, to: string): string {
   return path.relative(from, to).replace(/\\/g, '/');
 }
 
+/**
+ * Executes an array of tasks in parallel with a concurrency limit
+ */
+export async function parallel<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<any>
+): Promise<void> {
+  const promises: Promise<any>[] = [];
+  const executing = new Set<Promise<any>>();
+
+  for (const item of items) {
+    const p = Promise.resolve().then(() => fn(item));
+    promises.push(p);
+    executing.add(p);
+
+    const clean = () => executing.delete(p);
+    p.then(clean).catch(clean);
+
+    if (executing.size >= limit) {
+      await Promise.race(executing);
+    }
+  }
+
+  await Promise.all(promises);
+}

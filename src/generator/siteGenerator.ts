@@ -12,6 +12,7 @@ import {
   ensureDir,
   writeFile,
   getRelativePath,
+  parallel,
 } from "../utils/fileUtils.js";
 import { normalizeUrl } from "../utils/audioUtils.js";
 
@@ -186,9 +187,9 @@ export class SiteGenerator {
   }
 
   private async generateReleasesPages(): Promise<void> {
-    for (const release of this.catalog.releases) {
-      await this.generateReleasePage(release);
-    }
+    await parallel(this.catalog.releases, 10, (release) =>
+      this.generateReleasePage(release)
+    );
   }
 
   private async generateReleasePage(release: any): Promise<void> {
@@ -360,6 +361,8 @@ export class SiteGenerator {
       }
     }
 
+    const mediaTasks: { src: string; dest: string }[] = [];
+
     for (const release of this.catalog.releases) {
       const releaseOutputDir = path.join(
         this.options.outputDir,
@@ -374,7 +377,7 @@ export class SiteGenerator {
           releaseOutputDir,
           path.basename(release.coverPath)
         );
-        await copyFile(coverSrc, coverDest);
+        mediaTasks.push({ src: coverSrc, dest: coverDest });
       }
 
       // Copy tracks
@@ -384,9 +387,13 @@ export class SiteGenerator {
           releaseOutputDir,
           path.basename(track.file)
         );
-        await copyFile(trackSrc, trackDest);
+        mediaTasks.push({ src: trackSrc, dest: trackDest });
       }
     }
+
+    await parallel(mediaTasks, 10, async (task) => {
+      await copyFile(task.src, task.dest);
+    });
 
     console.log("  🎵 Copied media files");
   }
@@ -493,7 +500,7 @@ export class SiteGenerator {
 
     const basePath = this.options.basePath || this.catalog.config.basePath || "";
 
-    for (const artist of this.catalog.artists) {
+    await parallel(this.catalog.artists, 10, async (artist) => {
       const artistSlug = artist.slug || artist.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
       const artistDir = path.join(this.options.outputDir, "artists", artistSlug);
       await ensureDir(artistDir);
@@ -551,7 +558,7 @@ export class SiteGenerator {
       const html = this.templateEngine.renderWithLayout(templateName, data, artist.name);
       await writeFile(path.join(artistDir, "index.html"), html);
       console.log(`  👤 Generated artists/${artistSlug}/index.html`);
-    }
+    });
   }
 
   /**
@@ -563,7 +570,7 @@ export class SiteGenerator {
 
     const embedGenerator = new EmbedGenerator(this.catalog, { siteUrl, basePath });
 
-    for (const release of this.catalog.releases) {
+    await parallel(this.catalog.releases, 10, async (release) => {
       const releaseDir = path.join(this.options.outputDir, "releases", release.slug);
 
       // Generate embed.html (standalone embed page)
@@ -577,7 +584,7 @@ export class SiteGenerator {
       // Generate compact embed code
       const compactEmbed = embedGenerator.generateCompactEmbed(release);
       await writeFile(path.join(releaseDir, "embed-compact.txt"), compactEmbed);
-    }
+    });
     console.log("  📦 Generated embed pages");
   }
 
@@ -665,7 +672,7 @@ export class SiteGenerator {
     const artistName = this.catalog.artist?.name || "Unknown Artist";
     let generatedCount = 0;
 
-    for (const release of this.catalog.releases) {
+    await parallel(this.catalog.releases, 10, async (release) => {
       // Only generate if no cover exists
       if (!release.coverPath) {
         const releaseDir = path.join(this.options.outputDir, "releases", release.slug);
@@ -683,7 +690,7 @@ export class SiteGenerator {
         await writeFile(coverPath, svg);
         generatedCount++;
       }
-    }
+    });
 
     if (generatedCount > 0) {
       console.log(`  🎨 Generated ${generatedCount} procedural cover(s)`);
