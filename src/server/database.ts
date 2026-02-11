@@ -207,6 +207,7 @@ export interface DatabaseService {
     deletePost(id: number): void;
     // Stats
     getStats(): Promise<{ artists: number; albums: number; tracks: number; publicAlbums: number; totalUsers: number; storageUsed: number; networkSites: number; totalTracks: number }>;
+    getPublicTracksCount(): number;
     // Play History
     recordPlay(trackId: number): void;
     getRecentPlays(limit?: number): PlayHistoryEntry[];
@@ -1138,6 +1139,16 @@ export function createDatabase(dbPath: string): DatabaseService {
                 storageUsed: estimatedSize,
                 networkSites: 0 // Placeholder, actual count should come from GunDB service if possible or DB if we sync it
             };
+        },
+
+        getPublicTracksCount(): number {
+            const result = db.prepare(`
+                SELECT COUNT(t.id) as count
+                FROM tracks t
+                JOIN albums a ON t.album_id = a.id
+                WHERE a.visibility = 'public'
+            `).get() as { count: number };
+            return result.count;
         },
 
         // Search

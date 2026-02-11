@@ -19,9 +19,7 @@ export function createCatalogRoutes(database: DatabaseService) {
             // For non-admin, calculate public tracks count
             let publicStats = stats;
             if (!req.isAdmin) {
-                const publicAlbumIds = new Set(database.getAlbums(true).map(a => a.id));
-                const allTracks = database.getTracks();
-                const publicTracksCount = allTracks.filter(t => t.album_id !== null && publicAlbumIds.has(t.album_id)).length;
+                const publicTracksCount = database.getPublicTracksCount();
                 publicStats = {
                     albums: stats.publicAlbums,
                     tracks: publicTracksCount,
