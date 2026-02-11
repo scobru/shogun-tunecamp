@@ -189,6 +189,7 @@ export interface DatabaseService {
     addTrackToRelease(releaseId: number, trackId: number): void;
     removeTrackFromRelease(releaseId: number, trackId: number): void;
     updateReleaseTracks(releaseId: number, toAdd: number[], toRemove: number[]): void;
+    getReleaseTrackIds(releaseId: number): number[];
     // Playlists
     getPlaylists(publicOnly?: boolean): Playlist[];
     getPlaylist(id: number): Playlist | undefined;
@@ -536,6 +537,20 @@ export function createDatabase(dbPath: string): DatabaseService {
     } catch (e) {
         // Column already exists
     }
+
+    // Prepared statements for release tracks
+    const addReleaseTrackStmt = db.prepare("INSERT OR IGNORE INTO release_tracks (release_id, track_id) VALUES (?, ?)");
+    const removeReleaseTrackStmt = db.prepare("DELETE FROM release_tracks WHERE release_id = ? AND track_id = ?");
+    const getReleaseTrackIdsStmt = db.prepare("SELECT track_id FROM release_tracks WHERE release_id = ?");
+
+    const updateReleaseTracksTransaction = db.transaction((releaseId: number, addIds: number[], removeIds: number[]) => {
+        for (const trackId of addIds) {
+            addReleaseTrackStmt.run(releaseId, trackId);
+        }
+        for (const trackId of removeIds) {
+            removeReleaseTrackStmt.run(releaseId, trackId);
+        }
+    });
 
     return {
         db,
@@ -949,19 +964,12 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         updateReleaseTracks(releaseId: number, toAdd: number[], toRemove: number[]): void {
-            const addStmt = db.prepare("INSERT OR IGNORE INTO release_tracks (release_id, track_id) VALUES (?, ?)");
-            const removeStmt = db.prepare("DELETE FROM release_tracks WHERE release_id = ? AND track_id = ?");
+            updateReleaseTracksTransaction(releaseId, toAdd, toRemove);
+        },
 
-            const transaction = db.transaction((addIds: number[], removeIds: number[]) => {
-                for (const trackId of addIds) {
-                    addStmt.run(releaseId, trackId);
-                }
-                for (const trackId of removeIds) {
-                    removeStmt.run(releaseId, trackId);
-                }
-            });
-
-            transaction(toAdd, toRemove);
+        getReleaseTrackIds(releaseId: number): number[] {
+            const rows = getReleaseTrackIdsStmt.all(releaseId) as { track_id: number }[];
+            return rows.map(r => r.track_id);
         },
 
         getTracksByReleaseId(releaseId: number): Track[] {

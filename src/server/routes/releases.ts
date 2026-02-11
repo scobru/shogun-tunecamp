@@ -87,9 +87,7 @@ export function createReleaseRoutes(
 
             // Associate tracks
             if (body.track_ids && body.track_ids.length > 0) {
-                for (const trackId of body.track_ids) {
-                    database.addTrackToRelease(newAlbumId, trackId);
-                }
+                database.updateReleaseTracks(newAlbumId, body.track_ids, []);
             }
 
             const newAlbum = database.getAlbum(newAlbumId);
@@ -136,7 +134,7 @@ export function createReleaseRoutes(
 
             // Update track associations
             if (body.track_ids) {
-                const existingTrackIds = new Set(database.getTracksByReleaseId(id).map(t => t.id));
+                const existingTrackIds = new Set(database.getReleaseTrackIds(id));
                 const newTrackIds = new Set(body.track_ids);
 
                 const toAdd = [...newTrackIds].filter(newId => !existingTrackIds.has(newId));
