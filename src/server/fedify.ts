@@ -22,6 +22,23 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
         // but robust federation needs it.
         const baseUrl = publicUrl ? new URL(publicUrl) : ctx.url;
 
+        // Check for keys
+        let cryptoKey: CryptoKey | undefined;
+        if (artist.public_key) {
+            try {
+                const pubKeyObj = crypto.createPublicKey(artist.public_key);
+                cryptoKey = await crypto.webcrypto.subtle.importKey(
+                    "spki",
+                    pubKeyObj.export({ format: "der", type: "spki" }),
+                    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+                    true,
+                    ["verify"]
+                );
+            } catch (e) {
+                console.error(`Failed to import public key for ${artist.slug}:`, e);
+            }
+        }
+
         // Construct Person object
         // TODO: Use more comprehensive mapping from Artist -> Person
         return new Person({
@@ -34,11 +51,11 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
             endpoints: new Endpoints({
                 sharedInbox: new URL("/inbox", baseUrl)
             }),
-            publicKey: new CryptographicKey({
+            publicKey: cryptoKey ? new CryptographicKey({
                 id: new URL(`/users/${artist.slug}#main-key`, baseUrl),
                 owner: new URL(`/users/${artist.slug}`, baseUrl),
-                publicKey: artist.public_key || ""
-            })
+                publicKey: cryptoKey
+            }) : undefined
         });
     })
         .setKeyPairsDispatcher(async (ctx, handle) => {
