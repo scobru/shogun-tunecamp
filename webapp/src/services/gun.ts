@@ -11,6 +11,7 @@ const PEERS = import.meta.env.VITE_GUN_PEERS?.split(',') || [
     "https://gun.defucc.me/gun",
     "https://gun.o8.is/gun",
     "https://relay.peer.ooo/gun",
+    "http://localhost:1987/gun"
 ];
 
 // Initialize Gun

@@ -10,6 +10,7 @@ const REGISTRY_PEERS = [
     "https://gun.defucc.me/gun",
     "https://gun.o8.is/gun",
     "https://relay.peer.ooo/gun",
+    "http://localhost:1987/gun"
 ];
 
 const REGISTRY_ROOT = "shogun";
