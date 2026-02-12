@@ -58,7 +58,7 @@ describe('Backup Routes (Chunked Upload)', () => {
         app.use('/backup', router);
     });
 
-    test('should upload chunks and assemble file', async () => {
+    test('should upload chunks as separate parts', async () => {
         const chunk1 = Buffer.from('Hello ');
         const chunk2 = Buffer.from('World!');
 
@@ -72,10 +72,10 @@ describe('Backup Routes (Chunked Upload)', () => {
         expect(res1.status).toBe(200);
         expect(res1.body.success).toBe(true);
 
-        // Verify temp file exists and has content
-        const tempPath = path.join(tempDir, `temp_${uploadId}`);
-        expect(await fs.pathExists(tempPath)).toBe(true);
-        expect((await fs.readFile(tempPath)).toString()).toBe('Hello ');
+        // Verify part 0 exists
+        const part0Path = path.join(tempDir, `temp_${uploadId}_part_0`);
+        expect(await fs.pathExists(part0Path)).toBe(true);
+        expect((await fs.readFile(part0Path)).toString()).toBe('Hello ');
 
         // Upload Chunk 2
         const res2 = await request(app)
@@ -86,19 +86,21 @@ describe('Backup Routes (Chunked Upload)', () => {
 
         expect(res2.status).toBe(200);
 
-        // Verify content appended
-        expect((await fs.readFile(tempPath)).toString()).toBe('Hello World!');
+        // Verify part 1 exists
+        const part1Path = path.join(tempDir, `temp_${uploadId}_part_1`);
+        expect(await fs.pathExists(part1Path)).toBe(true);
+        expect((await fs.readFile(part1Path)).toString()).toBe('World!');
     });
 
-    test('should finalize chunked upload', async () => {
-        // Prepare a temp file as if chunks were uploaded
-        const tempPath = path.join(tempDir, `temp_${uploadId}`);
-        await fs.writeFile(tempPath, 'Dummy Zip Content');
+    test('should assemble and finalize chunked upload', async () => {
+        // Prepare temp parts
+        const part0Path = path.join(tempDir, `temp_${uploadId}_part_0`);
+        const part1Path = path.join(tempDir, `temp_${uploadId}_part_1`);
+
+        await fs.writeFile(part0Path, 'Dummy Zip Part 1');
+        await fs.writeFile(part1Path, 'Dummy Zip Part 2');
 
         // Call restore-chunked
-        // Note: 'performRestore' will fail because 'Dummy Zip Content' is not a valid zip
-        // But we expect the endpoint to return 200 OK immediately.
-
         const res = await request(app)
             .post('/backup/restore-chunked')
             .send({ uploadId });
@@ -106,9 +108,13 @@ describe('Backup Routes (Chunked Upload)', () => {
         expect(res.status).toBe(200);
         expect(res.body.message).toContain('Restore started');
 
-        // Check file was processed (renamed from temp path)
-        // Note: The final file (backup_...) might be deleted immediately by performRestore
-        // if it fails validation (which it will, as it's dummy content), so we only check temp is gone.
-        expect(await fs.pathExists(tempPath)).toBe(false);
+        // Allow some time for async assembly
+        await new Promise(r => setTimeout(r, 500));
+
+        // Check parts are gone
+        expect(await fs.pathExists(part0Path)).toBe(false);
+        expect(await fs.pathExists(part1Path)).toBe(false);
+
+        // Final zip might be gone if restore failed (invalid zip), which is expected for dummy content
     });
 });

@@ -81,15 +81,29 @@ async function performRestore(zipPath: string, config: ServerConfig, database: D
                 console.warn("⚠️ [Restore] Could not close DB connection cleanly:", e);
             }
 
-            // Small delay to ensure file handles are released
-            await new Promise(r => setTimeout(r, 500));
+            // Retry logic for file replacement (handles Windows locking or slow closes)
+            let retries = 5;
+            while (retries > 0) {
+                try {
+                    // Delay to ensure file handles are released
+                    await new Promise(r => setTimeout(r, 1000));
 
-            // Replace file
-            await fs.copy(dbSource, config.dbPath, { overwrite: true });
+                    await fs.copy(dbSource, config.dbPath, { overwrite: true });
+                    break; // Success
+                } catch (e) {
+                    console.warn(`⚠️ [Restore] File locked or busy, retrying... (${retries} retries left)`);
+                    retries--;
+                    if (retries === 0) throw new Error(`Failed to replace database file after multiple attempts: ${e}`);
+                }
+            }
 
             // Clean up WAL/SHM just in case
-            if (fs.existsSync(config.dbPath + "-wal")) fs.unlinkSync(config.dbPath + "-wal");
-            if (fs.existsSync(config.dbPath + "-shm")) fs.unlinkSync(config.dbPath + "-shm");
+            try {
+                if (fs.existsSync(config.dbPath + "-wal")) fs.unlinkSync(config.dbPath + "-wal");
+                if (fs.existsSync(config.dbPath + "-shm")) fs.unlinkSync(config.dbPath + "-shm");
+            } catch (e) {
+                console.warn("⚠️ [Restore] Could not clean up WAL/SHM files (non-fatal):", e);
+            }
 
             console.log("✅ [Restore] Database restore complete.");
         } else {
@@ -123,6 +137,19 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
             if (req.artistId) {
                 return res.status(403).send("Unauthorized: Backups restricted to Root Admin");
             }
+
+            // 1. Prepare Database Snapshot FIRST
+            // We use SQLite's VACUUM INTO to create a safe snapshot without locking for too long.
+            // Performing this before starting the response allows us to report errors properly.
+            const dbBackupPath = path.join(config.dbPath + ".backup");
+            try {
+                if (fs.existsSync(dbBackupPath)) fs.unlinkSync(dbBackupPath);
+                database.db.prepare(`VACUUM INTO ?`).run(dbBackupPath);
+            } catch (e) {
+                console.error("❌ [Backup] Database snapshot failed:", e);
+                return res.status(500).send("Database backup failed: Unable to create snapshot.");
+            }
+
             const archive = archiver("zip", { zlib: { level: 9 } });
 
             res.setHeader("Content-Type", "application/zip");
@@ -130,22 +157,8 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
 
             archive.pipe(res);
 
-            // 1. Backup Database safely
-            // We use SQLite's VACUUM INTO to create a safe snapshot without locking for too long
-            const dbBackupPath = path.join(config.dbPath + ".backup");
-            try {
-                // Delete previous backup if exists
-                if (fs.existsSync(dbBackupPath)) fs.unlinkSync(dbBackupPath);
-
-                // VACUUM INTO is available in newer SQLite/better-sqlite3 versions
-                database.db.prepare(`VACUUM INTO ?`).run(dbBackupPath);
-
-                archive.file(dbBackupPath, { name: "tunecamp.db" });
-            } catch (e) {
-                console.error("VACUUM INTO failed, falling back to direct copy (risky)", e);
-                // Fallback: Copy file (might be corrupted if busy)
-                archive.file(config.dbPath, { name: "tunecamp.db" });
-            }
+            // Add DB Snapshot
+            archive.file(dbBackupPath, { name: "tunecamp.db" });
 
             // 2. Music Directory
             archive.directory(config.musicDir, "music");
@@ -266,16 +279,17 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
             }
 
             const chunkPath = req.file.path;
-            const finalPath = path.join("uploads", `temp_${uploadId}`);
+            // Save as separate part file to allow concurrent/out-of-order uploads
+            const partPath = path.join("uploads", `temp_${uploadId}_part_${chunkIndex}`);
 
             try {
-                // Append chunk to the final file
-                const chunkBuffer = await fs.readFile(chunkPath);
-                await fs.appendFile(finalPath, chunkBuffer);
+                // Move multer temp file to part file
+                await fs.move(chunkPath, partPath, { overwrite: true });
                 res.json({ success: true, chunkIndex });
-            } finally {
-                // Delete chunk temp file, ignoring errors if already deleted
+            } catch (e) {
+                // Cleanup if move fails
                 await fs.unlink(chunkPath).catch(() => {});
+                throw e;
             }
 
         } catch (error: any) {
@@ -298,21 +312,52 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
             // Sanitize
             uploadId = uploadId.replace(/[^a-zA-Z0-9-_]/g, '');
 
-            const tempPath = path.join("uploads", `temp_${uploadId}`);
             const finalZipPath = path.join("uploads", `backup_${uploadId}.zip`);
+            const uploadDir = "uploads";
 
-            if (!(await fs.pathExists(tempPath))) {
+            // Find all parts
+            const files = await fs.readdir(uploadDir);
+            const partFiles = files.filter(f => f.startsWith(`temp_${uploadId}_part_`));
+
+            if (partFiles.length === 0) {
                 return res.status(404).send("Upload not found or expired");
             }
 
-            // Rename to .zip
-            await fs.rename(tempPath, finalZipPath);
+            // Sort by index
+            partFiles.sort((a, b) => {
+                const indexA = parseInt(a.split('_part_')[1]);
+                const indexB = parseInt(b.split('_part_')[1]);
+                return indexA - indexB;
+            });
 
-            // Respond immediately
+            // Respond immediately to prevent timeout
             res.json({ message: "Restore started in background. Server will restart upon completion." });
 
-            // Run restore
-            performRestore(finalZipPath, config, database, restartFn);
+            // Assemble and Restore in background
+            (async () => {
+                try {
+                    console.log(`📦 [Restore] Assembling ${partFiles.length} chunks...`);
+
+                    // Delete existing final zip if exists
+                    if (await fs.pathExists(finalZipPath)) await fs.unlink(finalZipPath);
+
+                    for (const part of partFiles) {
+                        const partPath = path.join(uploadDir, part);
+                        const data = await fs.readFile(partPath);
+                        await fs.appendFile(finalZipPath, data);
+                    }
+
+                    // Cleanup parts
+                    for (const part of partFiles) {
+                        await fs.unlink(path.join(uploadDir, part)).catch(() => {});
+                    }
+
+                    // Run restore
+                    await performRestore(finalZipPath, config, database, restartFn);
+                } catch (e) {
+                    console.error("❌ [Restore] Assembly failed:", e);
+                }
+            })();
 
         } catch (error: any) {
             console.error("Restore trigger failed:", error);
