@@ -899,20 +899,21 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         if (!initialized || !gun || !serverPair) return;
 
         try {
-            // we need site id, but we might not have siteInfo handy here. 
-            // We can reconstruct minimal siteInfo from settings
+            // Get current site info to determine our valid ID
             const publicUrl = database.getSetting("publicUrl");
-            if (!publicUrl) return; // Not public
+            // If we don't have a public URL, we shouldn't be registered at all? 
+            // For now, proceed only if we can determine our expected ID.
+            if (!publicUrl) return;
 
             const siteName = database.getSetting("siteName") || "TuneCamp Server";
             const artistName = database.getSetting("artistName") || "";
 
             const siteInfo = { url: publicUrl, title: siteName, artistName };
-            const siteId = await getPersistentSiteId(siteInfo);
+            const currentSiteId = await getPersistentSiteId(siteInfo);
 
-            console.log("🧹 Starting secure network cleanup check...");
+            console.log(`🧹 Starting secure network cleanup (Current Site ID: ${currentSiteId})...`);
 
-            // Get all public tracks from our DB
+            // --- 1. TCleanup TRACKS (Secure Graph) ---
             const publicAlbums = database.getAlbums(true);
             const validTrackSlugs = new Set<string>();
 
@@ -923,18 +924,39 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 }
             }
 
-            // Check GunDB Secure Graph
             const tracksRef = gun.user().get('tunecamp').get('tracks');
-
             tracksRef.map().once((data: any, key: string) => {
                 if (key === '_' || !data) return;
-
                 // If this track key is NOT in our valid list, remove it
                 if (!validTrackSlugs.has(key)) {
                     console.log(`🧹 Removing orphaned track from secure graph: ${key}`);
                     tracksRef.get(key).put(null);
                 }
             });
+
+            // --- 2. Cleanup INSTANCES (Public Directory) ---
+            // Remove any site registration that claims to be us (signed by our pub key)
+            // but is NOT our current Site ID.
+            gun.get(REGISTRY_ROOT)
+                .get(REGISTRY_NAMESPACE)
+                .get("sites")
+                .map()
+                .once((siteData: any, siteId: string) => {
+                    if (!siteData || siteId === "_") return;
+
+                    // Check if this site was registered by US
+                    if (siteData.pub === serverPair.pub) {
+                        // If it's not our CURRENT ID, it's stale/duplicate
+                        if (siteId !== currentSiteId) {
+                            console.log(`🧹 Removing stale site registration: ${siteId} (is: ${siteData.url}, expected: ${publicUrl})`);
+                            gun.get(REGISTRY_ROOT)
+                                .get(REGISTRY_NAMESPACE)
+                                .get("sites")
+                                .get(siteId)
+                                .put(null);
+                        }
+                    }
+                });
 
         } catch (error) {
             console.error("Error in network cleanup:", error);
