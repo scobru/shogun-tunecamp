@@ -103,7 +103,9 @@ export class ActivityPubService {
 
     public generateActor(artist: Artist): any {
         const baseUrl = this.getBaseUrl();
-        const userUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        // Align with Fedify's actor path
+        const userUrl = `${baseUrl}/users/${artist.slug}`;
+        const apiUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
 
         let iconMediaType = "image/jpeg";
         if (artist.photo_path) {
@@ -130,23 +132,23 @@ export class ActivityPubService {
                 url: `${baseUrl}/api/artists/${artist.slug}/cover`
             },
             inbox: `${userUrl}/inbox`,
-            outbox: `${userUrl}/outbox`,
-            followers: `${userUrl}/followers`,
-            following: `${userUrl}/following`,
+            outbox: `${apiUrl}/outbox`,
+            followers: `${apiUrl}/followers`,
+            following: `${apiUrl}/following`,
             publicKey: {
                 id: `${userUrl}#main-key`,
                 owner: userUrl,
                 publicKeyPem: artist.public_key
             },
             endpoints: {
-                sharedInbox: `${baseUrl}/api/ap/inbox`
+                sharedInbox: `${baseUrl}/inbox`
             }
         };
     }
 
     public generateNote(album: Album, artist: Artist, tracks: Track[]): any {
         const baseUrl = this.getBaseUrl();
-        const userUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        const userUrl = `${baseUrl}/users/${artist.slug}`;
         const albumUrl = `${baseUrl}/#/album/${album.slug}`;
         const published = album.published_at || album.created_at;
 
@@ -213,7 +215,7 @@ export class ActivityPubService {
 
     public generatePostNote(post: Post, artist: Artist): any {
         const baseUrl = this.getBaseUrl();
-        const userUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        const userUrl = `${baseUrl}/users/${artist.slug}`;
         const postUrl = `${baseUrl}/#/artist/${artist.slug}?post=${post.slug}`;
 
         // Use published_at if available (newly created/updated public posts), otherwise create_at
@@ -251,7 +253,7 @@ export class ActivityPubService {
             "@context": "https://www.w3.org/ns/activitystreams",
             id: `${this.getBaseUrl()}/${crypto.randomUUID()}`,
             type: "Accept",
-            actor: `${this.getBaseUrl()}/api/ap/users/${artist.slug}`,
+            actor: `${this.getBaseUrl()}/users/${artist.slug}`,
             object: activity
         };
 
@@ -269,7 +271,7 @@ export class ActivityPubService {
         const publicUrl = this.db.getSetting("publicUrl") || this.config.publicUrl;
         if (!publicUrl) return; // Cannot federate without public URL
         const baseUrl = this.getBaseUrl();
-        const artistActorUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        const artistActorUrl = `${baseUrl}/users/${artist.slug}`;
 
         // Get tracks for the note generation
         const tracks = this.db.getTracksByReleaseId(album.id);
@@ -336,7 +338,7 @@ export class ActivityPubService {
         console.log(`📢 Broadcasting post "${post.slug}" to ${followers.length} followers`);
 
         const baseUrl = this.getBaseUrl();
-        const artistActorUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        const artistActorUrl = `${baseUrl}/users/${artist.slug}`;
 
         const activity = {
             "@context": "https://www.w3.org/ns/activitystreams",
@@ -387,7 +389,7 @@ export class ActivityPubService {
                 "@context": "https://www.w3.org/ns/activitystreams",
                 id: `${this.getBaseUrl()}/activity/${crypto.randomUUID()}`,
                 type: "Delete",
-                actor: `${baseUrl}/api/ap/users/${artist.slug}`,
+                actor: `${baseUrl}/users/${artist.slug}`,
                 object: {
                     id: noteId,
                     type: "Note",
@@ -436,7 +438,7 @@ export class ActivityPubService {
                 "@context": "https://www.w3.org/ns/activitystreams",
                 id: `${baseUrl}/activity/${crypto.randomUUID()}`,
                 type: "Delete",
-                actor: `${baseUrl}/api/ap/users/${artist.slug}`,
+                actor: `${baseUrl}/users/${artist.slug}`,
                 object: {
                     id: noteId,
                     type: "Note",
@@ -567,7 +569,7 @@ export class ActivityPubService {
         signer.update(stringToSign);
         const signature = signer.sign(artist.private_key, "base64");
 
-        const keyId = `${this.getBaseUrl()}/api/ap/users/${artist.slug}#main-key`;
+        const keyId = `${this.getBaseUrl()}/users/${artist.slug}#main-key`;
 
         return `keyId="${keyId}",algorithm="rsa-sha256",headers="(request-target) host date digest",signature="${signature}"`;
     }

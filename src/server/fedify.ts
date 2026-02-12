@@ -48,6 +48,12 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
             summary: artist.bio || "",
             // inbox: new URL(`/users/${artist.slug}/inbox`, baseUrl), // inbox is property of Actor? Person extends Actor.
             inbox: new URL(`/users/${artist.slug}/inbox`, baseUrl),
+            outbox: new URL(`/api/ap/users/${artist.slug}/outbox`, baseUrl),
+            followers: new URL(`/api/ap/users/${artist.slug}/followers`, baseUrl),
+            following: new URL(`/api/ap/users/${artist.slug}/following`, baseUrl),
+            icon: new URL(`/api/artists/${artist.slug}/cover`, baseUrl),
+            image: new URL(`/api/artists/${artist.slug}/cover`, baseUrl),
+            url: new URL(`/@${artist.slug}`, baseUrl),
             endpoints: new Endpoints({
                 sharedInbox: new URL("/inbox", baseUrl)
             }),
