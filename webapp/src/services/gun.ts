@@ -7,10 +7,10 @@ import API from './api';
 // Define Gun peers (should be configurable)
 // Define Gun peers (should be configurable)
 const PEERS = import.meta.env.VITE_GUN_PEERS?.split(',') || [
-    'https://shogun-relay.scobrudot.dev/gun',
-    'https://gun.defucc.me/gun',
-    'https://gun.o8.is/gun',
-    'https://tunecamp.scobrudot.dev/gun' // Self
+    "https://shogun-relay.scobrudot.dev/gun",
+    "https://gun.defucc.me/gun",
+    "https://gun.o8.is/gun",
+    "https://relay.peer.ooo/gun",
 ];
 
 // Initialize Gun
