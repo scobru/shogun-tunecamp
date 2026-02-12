@@ -344,6 +344,15 @@ export default function AdminReleaseEditor() {
                                             />
                                             {track.artistName && <div className="text-xs opacity-50 px-3">{track.artistName}</div>}
                                         </div>
+                                        {(track as any).losslessPath || (track as any).lossless_path ? (
+                                            <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90">
+                                                {((track as any).losslessPath || (track as any).lossless_path || '').toLowerCase().endsWith('.wav') ? 'WAV' : 'FLAC'}
+                                            </span>
+                                        ) : (
+                                            <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90 uppercase">
+                                                {track.format || 'MP3'}
+                                            </span>
+                                        )}
                                         <div className="text-sm opacity-50 font-mono">
                                             {track.duration ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, '0')}` : '-'}
                                         </div>

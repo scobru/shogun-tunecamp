@@ -105,7 +105,15 @@ export const TrackPickerModal = ({ onTracksSelected, onClose, isOpen, excludeTra
                                         <div className="flex-1">
                                             <div className="font-bold flex items-center gap-2">
                                                 {track.title}
-                                                {track.format && <span className="badge badge-xs badge-outline opacity-50 uppercase">{track.format}</span>}
+                                                {(track.losslessPath || track.lossless_path) ? (
+                                                    <span className="badge badge-xs badge-outline opacity-50 font-mono">
+                                                        {(track.losslessPath || track.lossless_path || '').toLowerCase().endsWith('.wav') ? 'WAV' : 'FLAC'}
+                                                    </span>
+                                                ) : (
+                                                    <span className="badge badge-xs badge-outline opacity-50 font-mono uppercase">
+                                                        {track.format || 'MP3'}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="text-xs opacity-60">{track.artistName || track.artist_name || 'Unknown Artist'} • {track.albumName || track.album_title || 'Unknown Album'}</div>
                                         </div>

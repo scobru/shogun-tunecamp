@@ -214,6 +214,7 @@ export const API = {
     uploadBackup: async (file: File, onProgress?: (percent: number) => void) => {
         // Chunked upload to avoid timeouts on large files/slow connections
         const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+        const MAX_RETRIES = 3;
         const uploadId = Date.now().toString() + "-" + Math.random().toString(36).substr(2, 9);
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
@@ -225,13 +226,31 @@ export const API = {
             const chunk = file.slice(start, end);
 
             const formData = new FormData();
-            // Important: uploadId must be first for Multer to read it before file if needed (though here we process after)
-            // Actually, server code reads req.body.uploadId which Multer populates.
             formData.append("uploadId", uploadId);
             formData.append("chunkIndex", i.toString());
             formData.append("chunk", chunk);
 
-            await handleResponse(api.post('/admin/backup/chunk', formData));
+            // Retry logic with exponential backoff
+            let lastError: any = null;
+            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+                try {
+                    await handleResponse(api.post('/admin/backup/chunk', formData, {
+                        timeout: 60000 // 60s per chunk
+                    }));
+                    lastError = null;
+                    break;
+                } catch (e: any) {
+                    lastError = e;
+                    console.warn(`Chunk ${i} upload failed (attempt ${attempt + 1}/${MAX_RETRIES}):`, e.message);
+                    if (attempt < MAX_RETRIES - 1) {
+                        // Exponential backoff: 2s, 4s, 8s
+                        await new Promise(r => setTimeout(r, 2000 * Math.pow(2, attempt)));
+                    }
+                }
+            }
+            if (lastError) {
+                throw new Error(`Chunk ${i + 1}/${totalChunks} failed after ${MAX_RETRIES} attempts: ${lastError.message}`);
+            }
 
             uploadedBytes += (end - start);
             if (onProgress) {
@@ -240,8 +259,10 @@ export const API = {
             }
         }
 
-        // Finalize
-        return handleResponse(api.post('/admin/backup/restore-chunked', { uploadId }));
+        // Finalize — longer timeout since server may take a while to assemble chunks
+        return handleResponse(api.post('/admin/backup/restore-chunked', { uploadId }, {
+            timeout: 120000 // 120s for assembly + response
+        }));
     },
 
     // --- Identity ---

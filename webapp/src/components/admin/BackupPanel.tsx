@@ -20,11 +20,16 @@ export const BackupPanel = () => {
 
         try {
             await API.uploadBackup(file, (percent) => setUploadProgress(percent));
-            alert("Restore completed successfully. The server may restart now.");
-            window.location.reload();
+            alert("Restore started successfully! The server will restart automatically. The page will reload in a few seconds.");
+            setTimeout(() => window.location.reload(), 5000);
         } catch (error: any) {
             console.error(error);
-            alert(`Restore failed: ${error.message}`);
+            const msg = error.message || 'Unknown error';
+            if (msg.includes('timeout') || msg.includes('504') || msg.includes('502') || msg.includes('Network Error')) {
+                alert(`Restore may still be running on the server.\n\nThe connection timed out (possibly due to reverse proxy settings), but the restore process continues in the background.\n\nTry reloading the page in a few minutes.`);
+            } else {
+                alert(`Restore failed: ${msg}`);
+            }
         } finally {
             setUploading(false);
             e.target.value = '';
