@@ -553,6 +553,27 @@ export function createDatabase(dbPath: string): DatabaseService {
         }
     });
 
+    // Optimized: Pre-compile frequent queries
+    const getArtistStmt = db.prepare("SELECT * FROM artists WHERE id = ?");
+    const getAlbumStmt = db.prepare(`SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a
+           LEFT JOIN artists ar ON a.artist_id = ar.id
+           WHERE a.id = ?`);
+    const getTrackStmt = db.prepare(`SELECT t.*, a.title as album_title, ar.name as artist_name
+           FROM tracks t
+           LEFT JOIN albums a ON t.album_id = a.id
+           LEFT JOIN artists ar ON t.artist_id = ar.id
+           WHERE t.id = ?`);
+    const getTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, ar.name as artist_name
+             FROM tracks t
+             LEFT JOIN albums a ON t.album_id = a.id
+             LEFT JOIN artists ar ON t.artist_id = ar.id
+             WHERE t.album_id = ? ORDER BY t.track_num`);
+    const getAllTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, ar.name as artist_name
+           FROM tracks t
+           LEFT JOIN albums a ON t.album_id = a.id
+           LEFT JOIN artists ar ON t.artist_id = ar.id
+           ORDER BY ar.name, a.title, t.track_num`);
+
     return {
         db,
 
@@ -589,7 +610,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         getArtist(id: number): Artist | undefined {
-            return db.prepare("SELECT * FROM artists WHERE id = ?").get(id) as Artist | undefined;
+            return getArtistStmt.get(id) as Artist | undefined;
         },
 
         getArtistByName(name: string): Artist | undefined {
@@ -701,13 +722,7 @@ export function createDatabase(dbPath: string): DatabaseService {
 
 
         getAlbum(id: number): Album | undefined {
-            return db
-                .prepare(
-                    `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
-           LEFT JOIN artists ar ON a.artist_id = ar.id 
-           WHERE a.id = ?`
-                )
-                .get(id) as Album | undefined;
+            return getAlbumStmt.get(id) as Album | undefined;
         },
 
         getAlbumBySlug(slug: string): Album | undefined {
@@ -850,25 +865,9 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Tracks
         getTracks(albumId?: number): Track[] {
             if (albumId) {
-                return db
-                    .prepare(
-                        `SELECT t.*, a.title as album_title, ar.name as artist_name 
-             FROM tracks t
-             LEFT JOIN albums a ON t.album_id = a.id
-             LEFT JOIN artists ar ON t.artist_id = ar.id
-             WHERE t.album_id = ? ORDER BY t.track_num`
-                    )
-                    .all(albumId) as Track[];
+                return getTracksByAlbumStmt.all(albumId) as Track[];
             }
-            return db
-                .prepare(
-                    `SELECT t.*, a.title as album_title, ar.name as artist_name 
-           FROM tracks t
-           LEFT JOIN albums a ON t.album_id = a.id
-           LEFT JOIN artists ar ON t.artist_id = ar.id
-           ORDER BY ar.name, a.title, t.track_num`
-                )
-                .all() as Track[];
+            return getAllTracksStmt.all() as Track[];
         },
 
         getTracksByAlbumIds(albumIds: number[]): Track[] {
@@ -897,15 +896,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         getTrack(id: number): Track | undefined {
-            return db
-                .prepare(
-                    `SELECT t.*, a.title as album_title, ar.name as artist_name 
-           FROM tracks t
-           LEFT JOIN albums a ON t.album_id = a.id
-           LEFT JOIN artists ar ON t.artist_id = ar.id
-           WHERE t.id = ?`
-                )
-                .get(id) as Track | undefined;
+            return getTrackStmt.get(id) as Track | undefined;
         },
 
         getTrackByPath(filePath: string): Track | undefined {
