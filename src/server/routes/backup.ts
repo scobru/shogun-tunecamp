@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import archiver from "archiver";
 import fs from "fs-extra";
 import path from "path";
@@ -288,7 +288,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
                 res.json({ success: true, chunkIndex });
             } catch (e) {
                 // Cleanup if move fails
-                await fs.unlink(chunkPath).catch(() => {});
+                await fs.unlink(chunkPath).catch(() => { });
                 throw e;
             }
 
@@ -302,7 +302,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
      * POST /api/admin/backup/restore-chunked
      * Finalize chunked upload and trigger restore
      */
-    router.post("/restore-chunked", async (req: any, res) => {
+    router.post("/restore-chunked", express.json(), async (req: any, res) => {
         try {
             if (req.artistId) return res.status(403).send("Unauthorized");
 
@@ -349,7 +349,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
 
                     // Cleanup parts
                     for (const part of partFiles) {
-                        await fs.unlink(path.join(uploadDir, part)).catch(() => {});
+                        await fs.unlink(path.join(uploadDir, part)).catch(() => { });
                     }
 
                     // Run restore
