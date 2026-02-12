@@ -331,6 +331,29 @@ export function createAdminRoutes(
     });
 
     /**
+     * POST /api/admin/network/cleanup
+     * Force global cleanup of unreachable sites in GunDB network
+     */
+    router.post("/network/cleanup", async (req: any, res) => {
+        try {
+            // Only root admin can trigger global cleanup
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can trigger global network cleanup" });
+            }
+
+            // This can take a while, so we don't await it here if we want to return immediately,
+            // but for a cleanup triggered by a button, it's probably better to await or return status.
+            // Awaiting for now to provide better feedback to the admin.
+            await gundbService.cleanupGlobalNetwork();
+
+            res.json({ message: "Global network cleanup completed" });
+        } catch (error) {
+            console.error("Error in global network cleanup:", error);
+            res.status(500).json({ error: "Global cleanup failed" });
+        }
+    });
+
+    /**
      * GET /api/admin/artists/:id/identity
      * Get artist identity keypair (Root Admin or Assigned Artist Admin only)
      */

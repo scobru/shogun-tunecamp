@@ -42,12 +42,13 @@ export const Admin = () => {
         }
     };
 
-    const handleSystemAction = async (action: 'scan' | 'consolidate') => {
-        if (!confirm(`Are you sure you want to ${action}? This may take a while.`)) return;
+    const handleSystemAction = async (action: 'scan' | 'consolidate' | 'cleanup') => {
+        if (!confirm(`Are you sure you want to ${action === 'cleanup' ? 'cleanup the network' : action}? This may take a while.`)) return;
         try {
             if (action === 'scan') await API.rescan();
             if (action === 'consolidate') await API.consolidate();
-            alert(`${action} started in background.`);
+            if (action === 'cleanup') await API.cleanupNetwork();
+            alert(`${action === 'cleanup' ? 'Network cleanup' : action} finished successfully.`);
         } catch (e) {
             console.error(e);
             alert('Failed to start action');
@@ -102,22 +103,31 @@ export const Admin = () => {
                 {activeTab === 'system' && (
                     <div className="space-y-6">
                         <h3 className="font-bold text-lg">System Maintenance</h3>
-                        <div className="grid gap-4 md:grid-cols-2">
+                        <div className="grid gap-4 md:grid-cols-3">
                             <div className="card bg-base-200 border border-white/5">
                                 <div className="card-body">
-                                    <h2 className="card-title"><RefreshCw/> Library Scan</h2>
+                                    <h2 className="card-title text-primary"><RefreshCw/> Scan</h2>
                                     <p className="opacity-70 text-sm">Scan the filesystem for new or modified files and update the database.</p>
                                     <div className="card-actions justify-end mt-4">
-                                        <button className="btn btn-primary" onClick={() => handleSystemAction('scan')}>Scan Now</button>
+                                        <button className="btn btn-primary btn-outline" onClick={() => handleSystemAction('scan')}>Scan Now</button>
                                     </div>
                                 </div>
                             </div>
                             <div className="card bg-base-200 border border-white/5">
                                 <div className="card-body">
-                                    <h2 className="card-title"><Database/> Consolidate</h2>
+                                    <h2 className="card-title text-secondary"><Database/> Consolidate</h2>
                                     <p className="opacity-70 text-sm">Organize library files, generate waveforms, and cleanup orphan entries.</p>
                                     <div className="card-actions justify-end mt-4">
-                                        <button className="btn btn-secondary" onClick={() => handleSystemAction('consolidate')}>Consolidate</button>
+                                        <button className="btn btn-secondary btn-outline" onClick={() => handleSystemAction('consolidate')}>Consolidate</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="card bg-base-200 border border-white/5">
+                                <div className="card-body">
+                                    <h2 className="card-title text-accent"><RefreshCw/> Cleanup</h2>
+                                    <p className="opacity-70 text-sm">Check reachability of all registered sites on GunDB and remove dead entries.</p>
+                                    <div className="card-actions justify-end mt-4">
+                                        <button className="btn btn-accent btn-outline" onClick={() => handleSystemAction('cleanup')}>Network Cleanup</button>
                                     </div>
                                 </div>
                             </div>

@@ -1,6 +1,7 @@
 import Gun from "gun";
 import "gun/sea.js";
 import "gun/lib/yson.js"
+import fetch from "node-fetch";
 import type { DatabaseService, Album, Track } from "./database.js";
 import { generateTrackSlug, normalizeUrl } from "../utils/audioUtils.js";
 
@@ -67,6 +68,7 @@ export interface GunDBService {
     getIdentityKeyPair(): Promise<any>;
     setIdentityKeyPair(pair: any): Promise<boolean>;
     syncNetwork(): Promise<void>;
+    cleanupGlobalNetwork(): Promise<void>;
 }
 
 export function createGunDBService(database: DatabaseService, server?: any, peers?: string[]): GunDBService {
@@ -862,7 +864,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         // Key Management
         getIdentityKeyPair,
         setIdentityKeyPair,
-        syncNetwork: cleanupNetwork
+        syncNetwork: cleanupNetwork,
+        cleanupGlobalNetwork
     };
 
     /**
@@ -960,6 +963,98 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
         } catch (error) {
             console.error("Error in network cleanup:", error);
+        }
+    }
+
+    /**
+     * Global network cleanup: checks all registered sites for reachability
+     * and removes those that are offline.
+     */
+    async function cleanupGlobalNetwork() {
+        if (!initialized || !gun) return;
+
+        console.log("🧹 Starting GLOBAL network cleanup...");
+
+        return new Promise<void>((resolve) => {
+            let total = 0;
+            let checked = 0;
+            let removed = 0;
+
+            const sitesRef = gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("sites");
+
+            sitesRef.once((sites: any) => {
+                if (!sites) {
+                    resolve();
+                    return;
+                }
+
+                const siteIds = Object.keys(sites).filter(id => id !== "_" && id !== "undefined" && id !== "null");
+                total = siteIds.length;
+
+                if (total === 0) {
+                    resolve();
+                    return;
+                }
+
+                console.log(`🔍 Found ${total} sites to check.`);
+
+                siteIds.forEach(siteId => {
+                    sitesRef.get(siteId).once(async (siteData: any) => {
+                        try {
+                            if (!siteData || !siteData.url) {
+                                checked++;
+                                if (checked >= total) resolve();
+                                return;
+                            }
+
+                            // Basic reachability check
+                            const isReachable = await checkSiteReachability(siteData.url);
+
+                            if (!isReachable) {
+                                console.log(`🗑️ Site unreachable, removing: ${siteData.url} (${siteId})`);
+                                sitesRef.get(siteId).put(null);
+                                removed++;
+                            }
+                        } catch (err) {
+                            console.error(`Error checking site ${siteId}:`, err);
+                        } finally {
+                            checked++;
+                            if (checked >= total) {
+                                console.log(`✅ Global cleanup complete. Checked ${checked} sites, removed ${removed}.`);
+                                resolve();
+                            }
+                        }
+                    });
+                });
+            });
+
+            // Safety timeout
+            setTimeout(() => {
+                if (checked < total) {
+                    console.log(`⚠️ Global cleanup partial timeout. Checked ${checked}/${total}.`);
+                    resolve();
+                }
+            }, 60000);
+        });
+    }
+
+    async function checkSiteReachability(url: string): Promise<boolean> {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+            const response = await fetch(url, {
+                method: 'HEAD',
+                signal: controller.signal,
+                headers: { 'User-Agent': 'TuneCamp-HealthCheck/2.0' }
+            });
+
+            clearTimeout(timeoutId);
+            return response.ok;
+        } catch (error) {
+            // Log failure reason if helpful
+            // console.log(`Check failed for ${url}: ${error instanceof Error ? error.message : String(error)}`);
+            return false;
         }
     }
 }
