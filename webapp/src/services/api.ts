@@ -235,7 +235,7 @@ export const API = {
             for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
                 try {
                     await handleResponse(api.post('/admin/backup/chunk', formData, {
-                        timeout: 60000 // 60s per chunk
+                        timeout: 300000 // 5m per chunk
                     }));
                     lastError = null;
                     break;
@@ -261,7 +261,7 @@ export const API = {
 
         // Finalize — longer timeout since server may take a while to assemble chunks
         return handleResponse(api.post('/admin/backup/restore-chunked', { uploadId }, {
-            timeout: 120000 // 120s for assembly + response
+            timeout: 300000 // 5m for assembly + response
         }));
     },
 

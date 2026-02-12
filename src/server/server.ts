@@ -73,6 +73,10 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     // Upload routes - MOVED BEFORE FEDIFY/BODY PARSERS to avoid stream consumption issues
     app.use("/api/admin/upload", authMiddleware.requireAdmin, createUploadRoutes(database, scanner, config.musicDir));
+    app.use("/api/admin/backup", authMiddleware.requireAdmin, createBackupRoutes(database, config, () => {
+        console.log("🔄 Restarting server...");
+        process.exit(0); // Docker/PM2 should handle restart
+    }));
 
     // Initialize Fedify (Must be before AP Service)
     const federation = createFedify(database, config);
@@ -178,10 +182,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/rest", createSubsonicRouter({ db: database, auth: authService, musicDir: config.musicDir }));
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService));
     app.use("/api/admin", authMiddleware.requireAdmin, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService, apService));
-    app.use("/api/admin/backup", authMiddleware.requireAdmin, createBackupRoutes(database, config, () => {
-        console.log("🔄 Restarting server...");
-        process.exit(0); // Docker/PM2 should handle restart
-    }));
+    // Backup routes moved earlier
     app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(database));
     app.use("/api/artists", authMiddleware.optionalAuth, createArtistsRoutes(database, config.musicDir));
     app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database, config.musicDir));
