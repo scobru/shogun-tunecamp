@@ -23,7 +23,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
         const baseUrl = publicUrl ? new URL(publicUrl) : ctx.url;
 
         // Check for keys
-        let cryptoKey: CryptoKey | undefined;
+        let cryptoKey: crypto.webcrypto.CryptoKey | undefined;
         if (artist.public_key) {
             try {
                 const pubKeyObj = crypto.createPublicKey(artist.public_key);
