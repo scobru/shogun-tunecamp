@@ -468,6 +468,19 @@ export class ActivityPubService {
 
         console.log(`🔄 Starting global ActivityPub synchronization for ${artists.length} artists...`);
 
+        // Check for orphan releases (no artist)
+        try {
+            const orphanReleases = this.db.db.prepare("SELECT * FROM albums WHERE artist_id IS NULL AND is_release = 1").all() as Album[];
+            if (orphanReleases.length > 0) {
+                console.warn(`⚠️ Found ${orphanReleases.length} orphan releases (no artist). These will not be synced.`);
+                for (const orphan of orphanReleases) {
+                    console.warn(`   - Orphan: ${orphan.title} (ID: ${orphan.id})`);
+                }
+            }
+        } catch (e) {
+            console.error("Error checking for orphan releases:", e);
+        }
+
         for (const artist of artists) {
             artistCount++;
 

@@ -394,8 +394,11 @@ export class Scanner implements ScannerService {
         const dir = path.dirname(currentFilePath);
         let albumId = this.folderToAlbumMap.get(dir) || null;
 
-        // If track is in the "library" folder and map has no info, protect the existing link
-        if (albumId === null && existing && existing.album_id && normalizedPath.startsWith('library')) {
+        // If track is in the "library" or "tracks" folder and map has no info, protect the existing link
+        // This prevents the scanner from unlinking tracks that were manually uploaded/linked via API
+        if (albumId === null && existing && existing.album_id &&
+            (normalizedPath.startsWith('library') || normalizedPath.startsWith('tracks'))) {
+            // console.log(`[Scanner] Protecting existing album link for ${normalizedPath}`);
             albumId = existing.album_id;
         }
 
