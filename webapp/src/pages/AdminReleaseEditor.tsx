@@ -166,6 +166,22 @@ export default function AdminReleaseEditor() {
         setTracks(prev => prev.filter((_, i) => i !== index));
     };
 
+    const handleDelete = async () => {
+        if (!window.confirm("Are you sure you want to delete this release? This cannot be undone.")) return;
+
+        setSaving(true);
+        try {
+            if (id) {
+                await API.deleteRelease(id);
+                navigate('/admin');
+            }
+        } catch (e) {
+            console.error("Failed to delete release", e);
+            alert("Failed to delete release");
+            setSaving(false);
+        }
+    };
+
     const handleSave = async (exit: boolean = false) => {
         if (!adminUser?.isAdmin) return;
         setSaving(true);
@@ -273,6 +289,16 @@ export default function AdminReleaseEditor() {
                     </h1>
                 </div>
                 <div className="flex-none gap-2">
+                    {!isNew && (
+                        <button
+                            className="btn btn-ghost text-error"
+                            onClick={handleDelete}
+                            disabled={saving}
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                        </button>
+                    )}
                     <button 
                         className="btn btn-ghost" 
                         onClick={() => handleSave(false)} 
