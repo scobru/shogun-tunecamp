@@ -49,6 +49,45 @@ export function createReleaseRoutes(
 ) {
     const router = Router();
 
+    // Helper for federation sync
+    async function syncReleaseToFederation(albumId: number) {
+        try {
+            const updatedAlbum = database.getAlbum(albumId);
+            if (!updatedAlbum) return;
+
+            const publicUrl = database.getSetting("publicUrl") || config.publicUrl;
+            if (publicUrl) {
+                const siteInfo = {
+                    url: publicUrl,
+                    title: config.siteName || "TuneCamp Server",
+                    artistName: updatedAlbum.artist_name || "",
+                };
+
+                const isPublic = updatedAlbum.visibility === 'public' || updatedAlbum.visibility === 'unlisted';
+
+                // GunDB Logic
+                if (isPublic && !!updatedAlbum.published_to_gundb) {
+                        await gundbService.registerSite(siteInfo);
+                        const freshTracks = database.getTracksByReleaseId(albumId);
+                        await gundbService.registerTracks(siteInfo, updatedAlbum, freshTracks);
+                } else {
+                        await gundbService.unregisterTracks(siteInfo, updatedAlbum);
+                }
+
+                // ActivityPub Logic
+                if (isPublic && !!updatedAlbum.published_to_ap) {
+                        apService.broadcastRelease(updatedAlbum).catch(e => console.error("AP Broadcast failed:", e));
+                } else {
+                        apService.broadcastDelete(updatedAlbum).catch(e => console.error("AP Delete failed:", e));
+                }
+            }
+            // Trigger network sync to clean up
+            gundbService.syncNetwork().catch(e => console.error("Network sync failed:", e));
+        } catch (e) {
+            console.error("Error syncing release to federation:", e);
+        }
+    }
+
     router.post("/", async (req: any, res) => {
         try {
             const body = req.body as CreateReleaseBody;
@@ -95,6 +134,9 @@ export function createReleaseRoutes(
             if (body.track_ids && body.track_ids.length > 0) {
                 database.updateReleaseTracks(newAlbumId, body.track_ids, []);
             }
+
+            // Sync Federation for new release
+            await syncReleaseToFederation(newAlbumId);
 
             const newAlbum = database.getAlbum(newAlbumId);
 
@@ -230,37 +272,7 @@ export function createReleaseRoutes(
             const shouldSync = visibilityChanged || federationChanged || !!body.title || !!body.description || !!body.genres || !!body.artistName || !!body.download || !!body.externalLinks || !!body.date;
 
             if (shouldSync) {
-                const updatedAlbum = database.getAlbum(id);
-                if (updatedAlbum) {
-                    const publicUrl = database.getSetting("publicUrl") || config.publicUrl;
-                    if (publicUrl) {
-                        const siteInfo = {
-                            url: publicUrl,
-                            title: config.siteName || "TuneCamp Server",
-                            artistName: updatedAlbum.artist_name || "",
-                        };
-
-                        const isPublic = updatedAlbum.visibility === 'public' || updatedAlbum.visibility === 'unlisted';
-
-                        // GunDB Logic
-                        if (isPublic && !!updatedAlbum.published_to_gundb) {
-                             await gundbService.registerSite(siteInfo);
-                             const freshTracks = database.getTracksByReleaseId(id);
-                             await gundbService.registerTracks(siteInfo, updatedAlbum, freshTracks);
-                        } else {
-                             await gundbService.unregisterTracks(siteInfo, updatedAlbum);
-                        }
-
-                        // ActivityPub Logic
-                        if (isPublic && !!updatedAlbum.published_to_ap) {
-                             apService.broadcastRelease(updatedAlbum).catch(e => console.error("AP Broadcast failed:", e));
-                        } else {
-                             apService.broadcastDelete(updatedAlbum).catch(e => console.error("AP Delete failed:", e));
-                        }
-                    }
-                    // Trigger network sync to clean up
-                    gundbService.syncNetwork().catch(e => console.error("Network sync failed:", e));
-                }
+                await syncReleaseToFederation(id);
             }
 
             const finalUpdatedAlbum = database.getAlbum(id);
