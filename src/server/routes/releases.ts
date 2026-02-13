@@ -256,6 +256,15 @@ export function createReleaseRoutes(
                 return res.status(403).json({ error: "Access denied" });
             }
 
+            // Cleanup External Networks
+            try {
+                await publishingService.unpublishReleaseFromAP(album);
+                await publishingService.unpublishReleaseFromGunDB(album);
+            } catch (e) {
+                console.error("Failed to unpublish release from external networks:", e);
+                // Continue with deletion anyway
+            }
+
             let releaseDir: string | null = null;
             const tracks = database.getTracksByReleaseId(id);
             if (tracks.length > 0) {
