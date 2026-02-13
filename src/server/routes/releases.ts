@@ -33,9 +33,7 @@ interface UpdateReleaseBody extends Partial<CreateReleaseBody> {
 }
 
 // ... imports at top ...
-import type { GunDBService } from "../gundb.js";
-import type { ServerConfig } from "../config.js";
-import type { ActivityPubService } from "../activitypub.js";
+import type { PublishingService } from "../publishing.js";
 
 // ... existing interfaces ...
 
@@ -43,9 +41,7 @@ export function createReleaseRoutes(
     database: DatabaseService,
     scanner: ScannerService,
     musicDir: string,
-    gundbService: GunDBService,
-    config: ServerConfig,
-    apService: ActivityPubService
+    publishingService: PublishingService
 ) {
     const router = Router();
 
@@ -230,37 +226,8 @@ export function createReleaseRoutes(
             const shouldSync = visibilityChanged || federationChanged || !!body.title || !!body.description || !!body.genres || !!body.artistName || !!body.download || !!body.externalLinks || !!body.date;
 
             if (shouldSync) {
-                const updatedAlbum = database.getAlbum(id);
-                if (updatedAlbum) {
-                    const publicUrl = database.getSetting("publicUrl") || config.publicUrl;
-                    if (publicUrl) {
-                        const siteInfo = {
-                            url: publicUrl,
-                            title: config.siteName || "TuneCamp Server",
-                            artistName: updatedAlbum.artist_name || "",
-                        };
-
-                        const isPublic = updatedAlbum.visibility === 'public' || updatedAlbum.visibility === 'unlisted';
-
-                        // GunDB Logic
-                        if (isPublic && !!updatedAlbum.published_to_gundb) {
-                             await gundbService.registerSite(siteInfo);
-                             const freshTracks = database.getTracksByReleaseId(id);
-                             await gundbService.registerTracks(siteInfo, updatedAlbum, freshTracks);
-                        } else {
-                             await gundbService.unregisterTracks(siteInfo, updatedAlbum);
-                        }
-
-                        // ActivityPub Logic
-                        if (isPublic && !!updatedAlbum.published_to_ap) {
-                             apService.broadcastRelease(updatedAlbum).catch(e => console.error("AP Broadcast failed:", e));
-                        } else {
-                             apService.broadcastDelete(updatedAlbum).catch(e => console.error("AP Delete failed:", e));
-                        }
-                    }
-                    // Trigger network sync to clean up
-                    gundbService.syncNetwork().catch(e => console.error("Network sync failed:", e));
-                }
+                // Use new PublishingService
+                publishingService.syncRelease(id).catch(e => console.error("Failed to sync release:", e));
             }
 
             const finalUpdatedAlbum = database.getAlbum(id);

@@ -28,6 +28,7 @@ import { createMetadataRoutes } from "./routes/metadata.js";
 import { createUnlockRoutes } from "./routes/unlock.js";
 import { createActivityPubService } from "./activitypub.js";
 import { createActivityPubRoutes } from "./routes/activitypub.js";
+import { createPublishingService } from "./publishing.js";
 import { integrateFederation } from "@fedify/express";
 import { createFedify } from "./fedify.js";
 import { createBackupRoutes } from "./routes/backup.js";
@@ -88,6 +89,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // Initialize ActivityPub
     const apService = createActivityPubService(database, config, federation);
     await apService.generateKeysForAllArtists();
+
+    // Initialize Publishing Service
+    const publishingService = createPublishingService(database, gundbService, apService, config);
 
     // DIAGNOSTIC LOGGING: Verify frontend file paths
     const webappPath = path.join(__dirname, "..", "..", "webapp");
@@ -181,15 +185,15 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     app.use("/rest", createSubsonicRouter({ db: database, auth: authService, musicDir: config.musicDir }));
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService));
-    app.use("/api/admin", authMiddleware.requireAdmin, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService, apService));
+    app.use("/api/admin", authMiddleware.requireAdmin, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService, publishingService));
     // Backup routes moved earlier
     app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(database));
     app.use("/api/artists", authMiddleware.optionalAuth, createArtistsRoutes(database, config.musicDir));
     app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database, config.musicDir));
-    app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database, apService, config.musicDir));
+    app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database, publishingService, config.musicDir));
     app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database));
 
-    app.use("/api/admin/releases", authMiddleware.requireAdmin, createReleaseRoutes(database, scanner, config.musicDir, gundbService, config, apService));
+    app.use("/api/admin/releases", authMiddleware.requireAdmin, createReleaseRoutes(database, scanner, config.musicDir, publishingService));
     app.use("/api/stats", createStatsRoutes(gundbService));
     app.use("/api/stats/library", createLibraryStatsRoutes(database));
     app.use("/api/browser", authMiddleware.requireAdmin, createBrowserRoutes(config.musicDir));
