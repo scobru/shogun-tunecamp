@@ -7,7 +7,7 @@ import type { ScannerService } from '../scanner.js';
 import type { GunDBService } from '../gundb.js';
 import type { ServerConfig } from '../config.js';
 import type { AuthService } from '../auth.js';
-import type { ActivityPubService } from '../activitypub.js';
+import type { PublishingService } from '../publishing.js';
 
 // Mock dependencies
 const mockDatabase = {
@@ -53,12 +53,16 @@ const mockAuthService = {
     deleteAdmin: jest.fn(),
 } as unknown as AuthService;
 
-const mockApService = {
-    broadcastRelease: jest.fn(),
-    broadcastDelete: jest.fn(),
-    broadcastPost: jest.fn(),
-    broadcastPostDelete: jest.fn(),
-} as unknown as ActivityPubService;
+const mockPublishingService = {
+    publishReleaseToGunDB: jest.fn(),
+    unpublishReleaseFromGunDB: jest.fn(),
+    publishReleaseToAP: jest.fn(),
+    unpublishReleaseFromAP: jest.fn(),
+    syncRelease: jest.fn(),
+    publishPostToAP: jest.fn(),
+    unpublishPostFromAP: jest.fn(),
+    syncPost: jest.fn(),
+} as unknown as PublishingService;
 
 
 describe('Admin Routes Vulnerability Check', () => {
@@ -83,7 +87,7 @@ describe('Admin Routes Vulnerability Check', () => {
             mockGunDBService,
             mockConfig,
             mockAuthService,
-            mockApService
+            mockPublishingService
         );
         app.use('/admin', router);
     });

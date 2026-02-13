@@ -369,6 +369,9 @@ export function createDatabase(dbPath: string): DatabaseService {
       played_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE INDEX IF NOT EXISTS idx_play_history_played_at ON play_history(played_at);
+    CREATE INDEX IF NOT EXISTS idx_play_history_track_id ON play_history(track_id);
+
     CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_id);
     CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist_id);
     CREATE INDEX IF NOT EXISTS idx_albums_artist ON albums(artist_id);

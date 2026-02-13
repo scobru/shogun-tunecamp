@@ -34,7 +34,9 @@ describe("ActivityPub Outbox Performance", () => {
                 external_links: null,
                 published_at: new Date().toISOString(),
                 type: 'album',
-                year: 2023
+                year: 2023,
+                published_to_gundb: false,
+                published_to_ap: false
             });
 
             // Create 10 tracks per release
