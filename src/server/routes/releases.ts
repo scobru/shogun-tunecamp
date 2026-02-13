@@ -20,12 +20,16 @@ interface CreateReleaseBody {
     externalLinks?: { label: string; url: string }[] | { [key: string]: string };
     track_ids?: number[];
     visibility?: 'public' | 'private' | 'unlisted';
+    publishedToGunDB?: boolean;
+    publishedToAP?: boolean;
 }
 
 interface UpdateReleaseBody extends Partial<CreateReleaseBody> {
     artistId?: number;
     isPublic?: boolean;
     visibility?: 'public' | 'private' | 'unlisted';
+    publishedToGunDB?: boolean;
+    publishedToAP?: boolean;
 }
 
 // ... imports at top ...
@@ -83,6 +87,8 @@ export function createReleaseRoutes(
                 download: body.download || null,
                 external_links: body.externalLinks ? JSON.stringify(body.externalLinks) : null,
                 published_at: body.visibility === 'public' || body.visibility === 'unlisted' ? new Date().toISOString() : null,
+                published_to_gundb: body.publishedToGunDB !== undefined ? body.publishedToGunDB : (body.visibility === 'public' || body.visibility === 'unlisted'),
+                published_to_ap: body.publishedToAP !== undefined ? body.publishedToAP : (body.visibility === 'public' || body.visibility === 'unlisted'),
             });
 
             // Associate tracks
@@ -185,6 +191,14 @@ export function createReleaseRoutes(
                 currentVisibility = body.isPublic ? 'public' : 'private';
             }
 
+            let federationChanged = false;
+            if (body.publishedToGunDB !== undefined || body.publishedToAP !== undefined) {
+                 const newGunDB = body.publishedToGunDB !== undefined ? body.publishedToGunDB : (!!album.published_to_gundb);
+                 const newAP = body.publishedToAP !== undefined ? body.publishedToAP : (!!album.published_to_ap);
+                 database.updateAlbumFederationSettings(id, newGunDB, newAP);
+                 federationChanged = true;
+            }
+
             // Update type and year in DB - these were recently added columns
             if (body.type) {
                 try {
@@ -213,7 +227,7 @@ export function createReleaseRoutes(
 
             // SYNC WITH FEDERATION
             // If visibility changed OR ANY metadata changed (since it updates the Note content/attachments), we need to update network
-            const shouldSync = visibilityChanged || !!body.title || !!body.description || !!body.genres || !!body.artistName || !!body.download || !!body.externalLinks || !!body.date;
+            const shouldSync = visibilityChanged || federationChanged || !!body.title || !!body.description || !!body.genres || !!body.artistName || !!body.download || !!body.externalLinks || !!body.date;
 
             if (shouldSync) {
                 const updatedAlbum = database.getAlbum(id);
@@ -228,20 +242,20 @@ export function createReleaseRoutes(
 
                         const isPublic = updatedAlbum.visibility === 'public' || updatedAlbum.visibility === 'unlisted';
 
-                        // If it's Public/Unlisted -> Register
-                        if (isPublic) {
-                            await gundbService.registerSite(siteInfo);
-                            const freshTracks = database.getTracksByReleaseId(id);
-                            await gundbService.registerTracks(siteInfo, updatedAlbum, freshTracks);
-
-                            // ActivityPub update/create
-                            apService.broadcastRelease(updatedAlbum).catch(e => console.error("AP Broadcast failed:", e));
+                        // GunDB Logic
+                        if (isPublic && !!updatedAlbum.published_to_gundb) {
+                             await gundbService.registerSite(siteInfo);
+                             const freshTracks = database.getTracksByReleaseId(id);
+                             await gundbService.registerTracks(siteInfo, updatedAlbum, freshTracks);
+                        } else {
+                             await gundbService.unregisterTracks(siteInfo, updatedAlbum);
                         }
-                        // If it became Private -> Unregister
-                        else {
-                            await gundbService.unregisterTracks(siteInfo, updatedAlbum);
-                            // ActivityPub Delete
-                            apService.broadcastDelete(updatedAlbum).catch(e => console.error("AP Delete failed:", e));
+
+                        // ActivityPub Logic
+                        if (isPublic && !!updatedAlbum.published_to_ap) {
+                             apService.broadcastRelease(updatedAlbum).catch(e => console.error("AP Broadcast failed:", e));
+                        } else {
+                             apService.broadcastDelete(updatedAlbum).catch(e => console.error("AP Delete failed:", e));
                         }
                     }
                     // Trigger network sync to clean up

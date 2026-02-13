@@ -57,6 +57,8 @@ export interface Album {
     is_public: boolean;
     visibility: 'public' | 'private' | 'unlisted'; // Added
     is_release: boolean; // true = published release, false = library album
+    published_to_gundb: boolean; // specific toggle for GunDB
+    published_to_ap: boolean; // specific toggle for ActivityPub
     published_at: string | null;
     created_at: string;
 }
@@ -164,6 +166,7 @@ export interface DatabaseService {
     getAlbumsByArtist(artistId: number, publicOnly?: boolean): Album[];
     createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number;
     updateAlbumVisibility(id: number, visibility: 'public' | 'private' | 'unlisted'): void;
+    updateAlbumFederationSettings(id: number, publishedToGunDB: boolean, publishedToAP: boolean): void;
     updateAlbumArtist(id: number, artistId: number): void;
     updateAlbumTitle(id: number, title: string): void;
     updateAlbumCover(id: number, coverPath: string): void;
@@ -316,6 +319,8 @@ export function createDatabase(dbPath: string): DatabaseService {
       external_links TEXT,
       is_public INTEGER DEFAULT 0,
       is_release INTEGER DEFAULT 0,
+      published_to_gundb INTEGER DEFAULT 0,
+      published_to_ap INTEGER DEFAULT 0,
       published_at TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -527,6 +532,18 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.log("📦 Migrated database: added visibility to posts");
     } catch (e) {
         // Column already exists
+    }
+
+    // Migration: Add federation settings to albums
+    try {
+        db.exec(`ALTER TABLE albums ADD COLUMN published_to_gundb INTEGER DEFAULT 0`);
+        db.exec(`ALTER TABLE albums ADD COLUMN published_to_ap INTEGER DEFAULT 0`);
+        console.log("📦 Migrated database: added federation settings to albums");
+
+        // Backfill based on visibility
+        db.prepare("UPDATE albums SET published_to_gundb = 1, published_to_ap = 1 WHERE visibility IN ('public', 'unlisted')").run();
+    } catch (e) {
+        // Columns already exist
     }
 
     // Migration: Add published_at to posts
@@ -802,6 +819,12 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare(
                 "UPDATE albums SET is_public = ?, visibility = ?, published_at = ? WHERE id = ?"
             ).run(isPublic ? 1 : 0, visibility, publishedAt, id);
+        },
+
+        updateAlbumFederationSettings(id: number, publishedToGunDB: boolean, publishedToAP: boolean): void {
+            db.prepare(
+                "UPDATE albums SET published_to_gundb = ?, published_to_ap = ? WHERE id = ?"
+            ).run(publishedToGunDB ? 1 : 0, publishedToAP ? 1 : 0, id);
         },
 
         updateAlbumArtist(id: number, artistId: number): void {
