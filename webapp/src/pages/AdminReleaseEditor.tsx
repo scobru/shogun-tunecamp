@@ -46,6 +46,8 @@ interface LocalRelease {
     tags?: string;
     visibility: 'public' | 'private' | 'unlisted';
     is_public: boolean;
+    published_to_gundb?: boolean;
+    published_to_ap?: boolean;
     price?: number;
     download?: string;
 }
@@ -123,6 +125,8 @@ export default function AdminReleaseEditor() {
                 description: data.description,
                 visibility: data.visibility || (data.is_public ? 'public' : 'private'),
                 is_public: !!data.is_public,
+                published_to_gundb: data.published_to_gundb !== undefined ? !!data.published_to_gundb : true,
+                published_to_ap: data.published_to_ap !== undefined ? !!data.published_to_ap : true,
                 price: data.price,
                 download: data.download || 'none'
             });
@@ -171,7 +175,9 @@ export default function AdminReleaseEditor() {
 
             const dataToSave = {
                 ...metadata,
-                // visibility is already in metadata, no need to override
+                // Map frontend state to API expected keys
+                publishedToGunDB: metadata.published_to_gundb,
+                publishedToAP: metadata.published_to_ap,
                 track_ids // Send full list of IDs to sync associations
             } as any; 
 
@@ -593,6 +599,39 @@ export default function AdminReleaseEditor() {
                                    </div>
                                </label>
                            </div>
+
+                           {/* Federation Settings - Only show when Public/Unlisted */}
+                           {(metadata.visibility === 'public' || metadata.visibility === 'unlisted') && (
+                                <div className="form-control border border-base-content/10 p-3 rounded-lg mt-2 bg-base-100/50">
+                                    <label className="label font-bold text-xs uppercase opacity-70 pb-0">Federation</label>
+
+                                    <label className="label cursor-pointer justify-start gap-3">
+                                        <input
+                                            type="checkbox"
+                                            className="checkbox checkbox-sm checkbox-primary"
+                                            checked={metadata.published_to_gundb !== false} // Default to true if undefined
+                                            onChange={(e) => setMetadata(prev => ({...prev, published_to_gundb: e.target.checked}))}
+                                        />
+                                        <div className='flex flex-col'>
+                                            <span className="text-sm font-bold">GunDB (P2P)</span>
+                                            <span className="text-[10px] opacity-70">Decentralized database sync</span>
+                                        </div>
+                                    </label>
+
+                                    <label className="label cursor-pointer justify-start gap-3">
+                                        <input
+                                            type="checkbox"
+                                            className="checkbox checkbox-sm checkbox-secondary"
+                                            checked={metadata.published_to_ap !== false} // Default to true if undefined
+                                            onChange={(e) => setMetadata(prev => ({...prev, published_to_ap: e.target.checked}))}
+                                        />
+                                        <div className='flex flex-col'>
+                                            <span className="text-sm font-bold">ActivityPub</span>
+                                            <span className="text-[10px] opacity-70">Mastodon & Fediverse federation</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            )}
                         </div>
 
                         {/* Description */}

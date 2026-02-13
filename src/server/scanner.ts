@@ -363,6 +363,8 @@ export class Scanner implements ScannerService {
                     visibility: 'private',
                     is_release: true, // Albums from release.yaml are releases
                     published_at: null,
+                    published_to_gundb: false,
+                    published_to_ap: false,
                 });
                 console.log(`  Created release from config: ${config.title}`);
             }
