@@ -4,9 +4,9 @@ import type { ScannerService } from "../scanner.js";
 import type { GunDBService } from "../gundb.js";
 import type { ServerConfig } from "../config.js";
 import type { AuthService } from "../auth.js";
-import type { ActivityPubService } from "../activitypub.js";
 import { ConsolidationService } from "../consolidate.js";
 import { validatePassword } from "../validators.js";
+import type { PublishingService } from "../publishing.js";
 
 export function createAdminRoutes(
     database: DatabaseService,
@@ -15,7 +15,7 @@ export function createAdminRoutes(
     gundbService: GunDBService,
     config: ServerConfig,
     authService: AuthService,
-    apService: ActivityPubService
+    publishingService: PublishingService
 ) {
     const router = Router();
 
@@ -66,48 +66,8 @@ export function createAdminRoutes(
             // Update visibility in DB
             database.updateAlbumVisibility(id, newVisibility);
 
-            // Register/unregister tracks on GunDB based on visibility
-            const publicUrl = database.getSetting("publicUrl") || config.publicUrl;
-
-            if (publicUrl) {
-                const siteInfo = {
-                    url: publicUrl,
-                    title: config.siteName || "TuneCamp Server",
-                    artistName: album.artist_name || "",
-                };
-
-                // Public or Unlisted -> Register on GunDB/ActivityPub
-                if (newVisibility === 'public' || newVisibility === 'unlisted') {
-                    // Ensure site is registered first
-                    await gundbService.registerSite(siteInfo);
-
-                    // Register tracks to community
-                    const tracks = database.getTracks(id);
-                    await gundbService.registerTracks(siteInfo, album, tracks);
-
-                    // ActivityPub Broadcast
-                    // We must refetch the album to get the new published_at date which is used for the ID
-                    const freshAlbum = database.getAlbum(id);
-                    if (freshAlbum && (freshAlbum.visibility === 'public' || freshAlbum.visibility === 'unlisted')) {
-                        apService.broadcastRelease(freshAlbum);
-                    }
-
-                } else {
-                    // Private
-                    // Unregister tracks from community
-                    await gundbService.unregisterTracks(siteInfo, album);
-
-                    // ActivityPub Broadcast Delete if it was previously visible
-                    if (currentVisibility !== 'private') {
-                        apService.broadcastDelete(album).catch(e => console.error("Failed to broadcast delete:", e));
-                    }
-                }
-            }
-
-
-            // Always trigger a network sync if we touched visibility, especially to private
-            // This cleans up orphaned tracks
-            gundbService.syncNetwork().catch(e => console.error("Background sync failed:", e));
+            // Use PublishingService to sync
+            publishingService.syncRelease(id).catch(e => console.error("Failed to sync visibility:", e));
 
             res.json({ message: "Visibility updated", visibility: newVisibility });
         } catch (error) {
@@ -553,14 +513,8 @@ export function createAdminRoutes(
             const updatedPost = database.getPost(id);
 
             if (updatedPost) {
-                // Handle AP sync
-                if (updatedPost.visibility === 'public') {
-                    // If it became public or stayed public (but content changed)
-                    apService.broadcastPost(updatedPost).catch(e => console.error("Failed to broadcast post update:", e));
-                } else if (oldVisibility === 'public') {
-                    // If it was public and became non-public
-                    apService.broadcastPostDelete(updatedPost).catch(e => console.error("Failed to broadcast post delete for private:", e));
-                }
+                // Use PublishingService
+                publishingService.syncPost(id).catch(e => console.error("Failed to sync post update:", e));
             }
 
             res.json(updatedPost);
@@ -590,8 +544,8 @@ export function createAdminRoutes(
             const post = database.getPost(postId);
 
             if (post) {
-                // Broadcast to followers
-                apService.broadcastPost(post).catch(e => console.error("Failed to broadcast post:", e));
+                // Use PublishingService
+                publishingService.syncPost(postId).catch(e => console.error("Failed to sync new post:", e));
             }
 
             res.status(201).json(post);
@@ -620,8 +574,8 @@ export function createAdminRoutes(
 
             database.deletePost(id);
 
-            // Broadcast Undo/Delete activity
-            apService.broadcastPostDelete(post).catch(e => console.error("Failed to broadcast post delete:", e));
+            // Use PublishingService
+            publishingService.unpublishPostFromAP(post).catch(e => console.error("Failed to sync post delete:", e));
 
             res.json({ message: "Post deleted" });
         } catch (error) {

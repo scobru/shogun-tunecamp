@@ -13,9 +13,9 @@ if (ffmpegPath) {
     ffmpeg.setFfmpegPath(ffmpegPath);
 }
 
-import type { ActivityPubService } from "../activitypub.js";
+import type { PublishingService } from "../publishing.js";
 
-export function createTracksRoutes(database: DatabaseService, apService: ActivityPubService, musicDir: string) {
+export function createTracksRoutes(database: DatabaseService, publishingService: PublishingService, musicDir: string) {
     const router = Router();
 
     /**
@@ -313,10 +313,7 @@ export function createTracksRoutes(database: DatabaseService, apService: Activit
 
             // ActivityPub Broadcast: Track updated
             if (updatedTrack && updatedTrack.album_id) {
-                const album = database.getAlbum(updatedTrack.album_id);
-                if (album && (album.visibility === 'public' || album.visibility === 'unlisted')) {
-                    apService.broadcastRelease(album).catch(e => console.error("AP Broadcast failed:", e));
-                }
+                publishingService.syncRelease(updatedTrack.album_id).catch(e => console.error("Failed to sync release after track update:", e));
             }
         } catch (error) {
             console.error("Error updating track:", error);
@@ -380,10 +377,7 @@ export function createTracksRoutes(database: DatabaseService, apService: Activit
             // ActivityPub Broadcast: Track deleted
             // We need to re-fetch the album to get the current state (ActivityPub note will be updated/replaced)
             if (track.album_id) {
-                const album = database.getAlbum(track.album_id);
-                if (album && (album.visibility === 'public' || album.visibility === 'unlisted')) {
-                    apService.broadcastRelease(album).catch(e => console.error("AP Broadcast failed:", e));
-                }
+                publishingService.syncRelease(track.album_id).catch(e => console.error("Failed to sync release after track delete:", e));
             }
 
             res.json({ message: "Track deleted" });
