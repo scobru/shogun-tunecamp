@@ -134,7 +134,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
 
             console.log(`🎵 [Stream] Serving: ${trackPath}`);
 
-            const stat = fs.statSync(trackPath);
+            const stat = await fs.promises.stat(trackPath);
             const fileSize = stat.size;
             const range = req.headers.range;
 
