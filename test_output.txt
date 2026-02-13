@@ -1,0 +1,249 @@
+
+> tunecamp@2.0.0 test
+> node --experimental-vm-modules node_modules/jest/bin/jest.js
+
+(node:3279) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/server/password_security.test.ts
+(node:3275) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/server/routes/backup.test.ts (5.036 s)
+  ● Console
+
+    console.log
+      📦 [Restore] Assembling 2 chunks...
+
+      at src/server/routes/backup.ts:339:29
+
+    console.log
+      📦 [Restore] Extracting backup...
+
+      at performRestore (src/server/routes/backup.ts:20:17)
+
+    console.error
+      ❌ [Restore] Failed: Error: ADM-ZIP: Invalid or unsupported zip format. No END header found
+          at Object.INVALID_FORMAT (/app/node_modules/adm-zip/util/errors.js:56:16)
+          at readMainHeader (/app/node_modules/adm-zip/zipFile.js:123:49)
+          at new Object.<anonymous>.module.exports (/app/node_modules/adm-zip/zipFile.js:21:9)
+          at new Object.<anonymous>.module.exports (/app/node_modules/adm-zip/adm-zip.js:67:18)
+          at performRestore (/app/src/server/routes/backup.ts:24:21)
+          at /app/src/server/routes/backup.ts:356:21
+
+      117 |
+      118 |     } catch (error: any) {
+    > 119 |         console.error("❌ [Restore] Failed:", error);
+          |                 ^
+      120 |     } finally {
+      121 |         // Cleanup
+      122 |         // Use Promise API for fs-extra to allow .catch() or just suppress error in callback
+
+      at performRestore (src/server/routes/backup.ts:119:17)
+      at src/server/routes/backup.ts:356:21
+
+PASS src/server/auth.test.ts
+  ● Console
+
+    console.log
+      Hello wonderful person! :) Thanks for using GUN, please ask for help on http://chat.gun.eco if anything takes you longer than 5min to figure out!
+
+      at Function.Gun.log (node_modules/gun/gun.js:542:55)
+
+    console.log
+      🆕 First run detected: Creating default admin 'admin' with password 'tunecamp'
+
+      at Object.init (src/server/auth.ts:115:25)
+
+    console.log
+      🆕 First run detected: Creating default admin 'admin' with password 'tunecamp'
+
+      at Object.init (src/server/auth.ts:115:25)
+
+    console.log
+      🆕 First run detected: Creating default admin 'admin' with password 'tunecamp'
+
+      at Object.init (src/server/auth.ts:115:25)
+
+    console.log
+      🆕 First run detected: Creating default admin 'admin' with password 'tunecamp'
+
+      at Object.init (src/server/auth.ts:115:25)
+
+PASS src/server/config.test.ts
+PASS src/utils/stringUtils.test.ts
+PASS src/utils/networkUtils.test.ts
+(node:3276) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/server/error-handling.test.ts (5.506 s)
+  ● Console
+
+    console.log
+      Hello wonderful person! :) Thanks for using GUN, please ask for help on http://chat.gun.eco if anything takes you longer than 5min to figure out!
+
+      at Function.Gun.log (node_modules/gun/gun.js:542:55)
+
+    console.error
+      🔥 Global error: Error: Database connection failed: user=postgres password=secret host=10.0.0.1
+          at /app/src/server/error-handling.test.ts:26:27
+          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+          at next (/app/node_modules/express/lib/router/route.js:149:13)
+          at Route.dispatch (/app/node_modules/express/lib/router/route.js:119:3)
+          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+          at /app/node_modules/express/lib/router/index.js:284:15
+          at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)
+          at next (/app/node_modules/express/lib/router/index.js:280:10)
+          at expressInit (/app/node_modules/express/lib/middleware/init.js:40:5)
+          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+          at trim_prefix (/app/node_modules/express/lib/router/index.js:328:13)
+          at /app/node_modules/express/lib/router/index.js:286:9
+          at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)
+          at next (/app/node_modules/express/lib/router/index.js:280:10)
+          at query (/app/node_modules/express/lib/middleware/query.js:45:5)
+          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+          at trim_prefix (/app/node_modules/express/lib/router/index.js:328:13)
+          at /app/node_modules/express/lib/router/index.js:286:9
+          at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)
+          at next (/app/node_modules/express/lib/router/index.js:280:10)
+          at Function.handle (/app/node_modules/express/lib/router/index.js:175:3)
+          at Function.handle (/app/node_modules/express/lib/application.js:181:10)
+          at Server.app (/app/node_modules/express/lib/express.js:39:9)
+          at Server.emit (node:events:519:28)
+          at parserOnIncoming (node:_http_server:1186:12)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:122:17)
+
+      374 |
+      375 | export const globalErrorHandler = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    > 376 |     console.error("🔥 Global error:", err);
+          |             ^
+      377 |     if (res.headersSent) {
+      378 |         return next(err);
+      379 |     }
+
+      at globalErrorHandler (src/server/server.ts:376:13)
+      at Layer.handle_error (node_modules/express/lib/router/layer.js:71:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:326:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at next (node_modules/express/lib/router/route.js:141:14)
+      at src/server/error-handling.test.ts:27:13
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at expressInit (node_modules/express/lib/middleware/init.js:40:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at query (node_modules/express/lib/middleware/query.js:45:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at Function.handle (node_modules/express/lib/application.js:181:10)
+      at Server.app (node_modules/express/lib/express.js:39:9)
+
+    console.error
+      🔥 Global error: Error: Database connection failed: user=postgres password=secret host=10.0.0.1
+          at /app/src/server/error-handling.test.ts:26:27
+          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+          at next (/app/node_modules/express/lib/router/route.js:149:13)
+          at Route.dispatch (/app/node_modules/express/lib/router/route.js:119:3)
+          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+          at /app/node_modules/express/lib/router/index.js:284:15
+          at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)
+          at next (/app/node_modules/express/lib/router/index.js:280:10)
+          at expressInit (/app/node_modules/express/lib/middleware/init.js:40:5)
+          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+          at trim_prefix (/app/node_modules/express/lib/router/index.js:328:13)
+          at /app/node_modules/express/lib/router/index.js:286:9
+          at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)
+          at next (/app/node_modules/express/lib/router/index.js:280:10)
+          at query (/app/node_modules/express/lib/middleware/query.js:45:5)
+          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+          at trim_prefix (/app/node_modules/express/lib/router/index.js:328:13)
+          at /app/node_modules/express/lib/router/index.js:286:9
+          at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)
+          at next (/app/node_modules/express/lib/router/index.js:280:10)
+          at Function.handle (/app/node_modules/express/lib/router/index.js:175:3)
+          at Function.handle (/app/node_modules/express/lib/application.js:181:10)
+          at Server.app (/app/node_modules/express/lib/express.js:39:9)
+          at Server.emit (node:events:519:28)
+          at parserOnIncoming (node:_http_server:1186:12)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:122:17)
+
+      374 |
+      375 | export const globalErrorHandler = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    > 376 |     console.error("🔥 Global error:", err);
+          |             ^
+      377 |     if (res.headersSent) {
+      378 |         return next(err);
+      379 |     }
+
+      at globalErrorHandler (src/server/server.ts:376:13)
+      at Layer.handle_error (node_modules/express/lib/router/layer.js:71:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:326:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at next (node_modules/express/lib/router/route.js:141:14)
+      at src/server/error-handling.test.ts:27:13
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at expressInit (node_modules/express/lib/middleware/init.js:40:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at query (node_modules/express/lib/middleware/query.js:45:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at Function.handle (node_modules/express/lib/application.js:181:10)
+      at Server.app (node_modules/express/lib/express.js:39:9)
+
+FAIL src/server/routes/activitypub.bench.test.ts
+  ● Test suite failed to run
+
+    [96msrc/server/routes/activitypub.bench.test.ts[0m:[93m22[0m:[93m51[0m - [91merror[0m[90m TS2345: [0mArgument of type '{ title: string; slug: string; artist_id: number; date: string; is_public: true; visibility: "public"; is_release: true; cover_path: null; genre: string; description: string; download: null; external_links: null; published_at: string; type: "album"; year: number; }' is not assignable to parameter of type 'Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">'.
+      Type '{ title: string; slug: string; artist_id: number; date: string; is_public: true; visibility: "public"; is_release: true; cover_path: null; genre: string; description: string; download: null; external_links: null; published_at: string; type: "album"; year: number; }' is missing the following properties from type 'Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">': published_to_gundb, published_to_ap
+
+    [7m 22[0m             const albumId = dbService.createAlbum({
+    [7m   [0m [91m                                                  ~[0m
+    [7m 23[0m                 title: `Release ${i}`,
+    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [7m...[0m
+    [7m 37[0m                 year: 2023
+    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [7m 38[0m             });
+    [7m   [0m [91m~~~~~~~~~~~~~[0m
+
+FAIL src/server/routes/admin.test.ts
+  ● Test suite failed to run
+
+    [96msrc/server/routes/admin.test.ts[0m:[93m86[0m:[93m13[0m - [91merror[0m[90m TS2345: [0mArgument of type 'ActivityPubService' is not assignable to parameter of type 'PublishingService'.
+      Type 'ActivityPubService' is missing the following properties from type 'PublishingService': gundb, ap, getSiteInfo, publishReleaseToGunDB, and 7 more.
+
+    [7m86[0m             mockApService
+    [7m  [0m [91m            ~~~~~~~~~~~~~[0m
+
+Test Suites: 2 failed, 7 passed, 9 total
+Tests:       35 passed, 35 total
+Snapshots:   0 total
+Time:        6.657 s, estimated 8 s
+Ran all test suites.
