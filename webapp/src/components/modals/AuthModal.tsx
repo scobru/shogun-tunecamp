@@ -13,6 +13,7 @@ export const AuthModal = () => {
     const { login, register, loginAdmin, checkAdminAuth, error, clearError, isFirstRun } = useAuthStore();
     const [localError, setLocalError] = useState('');
     const [showSetupOffer, setShowSetupOffer] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         const handleOpen = () => {
@@ -42,6 +43,7 @@ export const AuthModal = () => {
         e.preventDefault();
         setLocalError('');
         clearError();
+        setIsLoading(true);
         
         try {
             await match(mode)
@@ -64,6 +66,8 @@ export const AuthModal = () => {
                 setLocalError('Passwords do not match');
             }
             // Error managed by store usually, but set local if needed
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -71,7 +75,7 @@ export const AuthModal = () => {
         <dialog id="auth-modal" className="modal" ref={dialogRef}>
             <div className="modal-box bg-base-100 border border-white/5 max-w-sm">
                 <form method="dialog">
-                    <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+                    <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" aria-label="Close">✕</button>
                 </form>
                 
                 <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
@@ -83,18 +87,24 @@ export const AuthModal = () => {
                     }
                 </h3>
 
-                <div className="tabs tabs-boxed bg-base-200 p-1 mb-6">
+                <div className="tabs tabs-boxed bg-base-200 p-1 mb-6" role="tablist">
                     <button 
                         className={`tab flex-1 ${mode === 'user' ? 'tab-active' : ''}`}
                         onClick={() => switchMode('user')}
+                        role="tab"
+                        aria-selected={mode === 'user'}
                     >User</button>
                     <button 
                         className={`tab flex-1 ${mode === 'register' ? 'tab-active' : ''}`}
                         onClick={() => switchMode('register')}
+                        role="tab"
+                        aria-selected={mode === 'register'}
                     >Register</button>
                     <button 
                         className={`tab flex-1 ${mode === 'admin' ? 'tab-active' : ''}`}
                         onClick={() => switchMode('admin')}
+                        role="tab"
+                        aria-selected={mode === 'admin'}
                     >Admin</button>
                 </div>
 
@@ -159,8 +169,10 @@ export const AuthModal = () => {
                         <button
                             type="button"
                             className="btn btn-primary w-full mt-2"
+                            disabled={isLoading}
                             onClick={async () => {
                                 setLocalError('');
+                                setIsLoading(true);
                                 try {
                                     const result = await API.setup(username, password);
                                     API.setToken(result.token);
@@ -171,18 +183,27 @@ export const AuthModal = () => {
                                     setShowSetupOffer(false);
                                 } catch (e: any) {
                                     setLocalError(e?.message ?? 'Setup failed');
+                                } finally {
+                                    setIsLoading(false);
                                 }
                             }}
                         >
-                            Create Admin Account
+                            {isLoading ? (
+                                <span className="loading loading-spinner loading-sm"></span>
+                            ) : (
+                                'Create Admin Account'
+                            )}
                         </button>
                     ) : (
-                        <button type="submit" className="btn btn-primary w-full mt-2">
-                            {match(mode)
-                                .with('register', () => 'Sign Up')
-                                .with('setup', () => 'Create Admin')
-                                .otherwise(() => 'Sign In')
-                            }
+                        <button type="submit" className="btn btn-primary w-full mt-2" disabled={isLoading}>
+                            {isLoading ? (
+                                <span className="loading loading-spinner loading-sm"></span>
+                            ) : (
+                                match(mode)
+                                    .with('register', () => 'Sign Up')
+                                    .with('setup', () => 'Create Admin')
+                                    .otherwise(() => 'Sign In')
+                            )}
                         </button>
                     )}
                 </form>
