@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { AuthService } from "../auth.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
+import { validatePassword } from "../validators.js";
 
 export function createAuthRoutes(authService: AuthService) {
     const router = Router();
@@ -65,10 +66,9 @@ export function createAuthRoutes(authService: AuthService) {
 
             const { username, password } = req.body;
 
-            if (!password || password.length < 6) {
-                return res.status(400).json({
-                    error: "Password must be at least 6 characters",
-                });
+            const passwordValidation = validatePassword(password);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ error: passwordValidation.error });
             }
 
             const userToCreate = username || 'admin';
@@ -117,10 +117,9 @@ export function createAuthRoutes(authService: AuthService) {
                 });
             }
 
-            if (newPassword.length < 6) {
-                return res.status(400).json({
-                    error: "New password must be at least 6 characters",
-                });
+            const passwordValidation = validatePassword(newPassword);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ error: passwordValidation.error });
             }
 
             const valid = await authService.authenticateUser(username, currentPassword);

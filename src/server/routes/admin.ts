@@ -6,6 +6,7 @@ import type { ServerConfig } from "../config.js";
 import type { AuthService } from "../auth.js";
 import type { ActivityPubService } from "../activitypub.js";
 import { ConsolidationService } from "../consolidate.js";
+import { validatePassword } from "../validators.js";
 
 export function createAdminRoutes(
     database: DatabaseService,
@@ -431,8 +432,13 @@ export function createAdminRoutes(
                 return res.status(403).json({ error: "Only the primary admin can create new admins" });
             }
             const { username, password, artistId } = req.body;
-            if (!username || !password || password.length < 6) {
-                return res.status(400).json({ error: "Invalid username or password (min 6 chars)" });
+            if (!username) {
+                return res.status(400).json({ error: "Username is required" });
+            }
+
+            const passwordValidation = validatePassword(password);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ error: passwordValidation.error });
             }
 
             await authService.createAdmin(username, password, artistId);
@@ -496,8 +502,9 @@ export function createAdminRoutes(
             const id = parseInt(req.params.id, 10);
             const { password } = req.body;
 
-            if (!password || password.length < 6) {
-                return res.status(400).json({ error: "Password must be at least 6 chars" });
+            const passwordValidation = validatePassword(password);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ error: passwordValidation.error });
             }
 
             const admins = authService.listAdmins();
