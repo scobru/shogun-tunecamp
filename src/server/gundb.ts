@@ -4,6 +4,7 @@ import "gun/lib/yson.js"
 import fetch from "node-fetch";
 import type { DatabaseService, Album, Track } from "./database.js";
 import { generateTrackSlug, normalizeUrl } from "../utils/audioUtils.js";
+import { isSafeUrl } from "../utils/networkUtils.js";
 
 // Public GunDB peers for the community registry
 const REGISTRY_PEERS = [
@@ -1040,6 +1041,12 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
     async function checkSiteReachability(url: string): Promise<boolean> {
         try {
+            // Validate SSRF
+            if (!(await isSafeUrl(url))) {
+                console.warn(`⚠️ Blocked unsafe community URL: ${url}`);
+                return false;
+            }
+
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
 

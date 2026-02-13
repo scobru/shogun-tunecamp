@@ -5,6 +5,7 @@ import fetch from "node-fetch";
 import crypto from "crypto";
 import Gun from "gun";
 import "gun/sea.js";
+import { isSafeUrl } from "../utils/networkUtils.js";
 
 const SALT_ROUNDS = 10;
 const JWT_EXPIRES_IN = "7d";
@@ -213,6 +214,11 @@ export function createAuthService(
             const url = new URL(instanceUrl.startsWith("http") ? instanceUrl : `https://${instanceUrl}`);
             const baseUrl = url.origin;
 
+            // Validate SSRF
+            if (!(await isSafeUrl(baseUrl))) {
+                throw new Error("Invalid or unsafe instance URL");
+            }
+
             // 1. Check DB for existing client
             const existing = db.prepare("SELECT * FROM oauth_clients WHERE instance_url = ?").get(baseUrl) as { client_id: string; client_secret: string; redirect_uri: string } | undefined;
 
@@ -260,6 +266,11 @@ export function createAuthService(
 
         async exchangeMastodonCode(instanceUrl: string, clientId: string, clientSecret: string, redirectUri: string, code: string): Promise<{ accessToken: string; user: { acct: string; display_name: string; url: string } }> {
             const url = new URL(instanceUrl.startsWith("http") ? instanceUrl : `https://${instanceUrl}`);
+
+            // Validate SSRF
+            if (!(await isSafeUrl(url.origin))) {
+                throw new Error("Invalid or unsafe instance URL");
+            }
 
             // 1. Get Token
             const tokenResp = await fetch(`${url.origin}/oauth/token`, {
