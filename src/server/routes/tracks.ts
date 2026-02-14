@@ -152,7 +152,14 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             const contentType = contentTypes[ext] || "audio/mpeg";
 
             // Transcoding support
-            const targetFormat = req.query.format as string; // e.g. 'mp3', 'aac'
+            let targetFormat = req.query.format as string; // e.g. 'mp3', 'aac'
+
+            // Force transcode for lossless files if not specified (prevent streaming raw WAV)
+            if (!targetFormat && (ext === '.wav' || ext === '.flac')) {
+                console.log(`⚠️ [Stream] Force transcoding lossless file to MP3: ${path.basename(trackPath)}`);
+                targetFormat = 'mp3';
+            }
+
             const shouldTranscode = !!targetFormat;
 
             if (shouldTranscode) {
