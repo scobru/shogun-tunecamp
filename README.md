@@ -2,525 +2,86 @@
 
 # Tunecamp
 
-A modern static site generator for musicians and music labels, written in JavaScript/TypeScript.
+A modern, dual-mode music platform for independent artists and labels.
 
-Inspired by [Faircamp](https://simonrepp.com/faircamp/), this tool helps you create beautiful, fast static websites to showcase your music without the need for databases or complex hosting.
+**Tunecamp operates in two modes:**
+1.  **Static Site Generator**: Create beautiful, fast static websites for your music catalog without a database.
+2.  **Music Server**: Run a self-hosted streaming server with Subsonic API support, federation, and user management.
+
+Inspired by [Faircamp](https://simonrepp.com/faircamp/).
 
 ## Features
 
-- 🎵 **Audio-first**: Automatically reads metadata from your audio files
-- 📦 **Zero database**: Pure static HTML generation
-- 🎨 **Customizable**: Template-based theming system
-- 🚀 **Fast**: Static sites that load instantly
-- 📱 **Responsive**: Mobile-friendly out of the box
-- 🔊 **Built-in player**: Modern HTML5 audio player
-- 💿 **Multi-format**: Support for MP3, FLAC, OGG, WAV, and more
-- 🏷️ **Flexible metadata**: YAML-based configuration files
-- 📡 **RSS/Atom feeds**: Automatic feed generation for releases
-- 🎙️ **Podcast support**: Generate podcast RSS feeds
-- 📦 **Embed widgets**: Embeddable HTML widgets for releases
-- 🎶 **M3U playlists**: Automatic playlist generation with frontend download links
-- 🎨 **Procedural covers**: Auto-generate cover art if missing
-- 🔐 **Unlock codes**: Decentralized download protection via GunDB
-- 🏢 **Label mode**: Multi-artist catalog support
-- 🖼️ **Custom backgrounds**: Header and page background image support
-- 🔗 **Remote audio files**: Use external URLs for audio files instead of local files
-- 🌐 **Community Directory**: Auto-register your site to a public directory of Tunecamp sites
-- 🎧 **Community Player**: Centralized player to discover and listen to music from all Tunecamp sites
-- 🖥️ **Server Mode**: Personal streaming server with REST API and web interface
-- 🎤 **Lyrics Support**: Display and manage lyrics for tracks
-- 💬 **Comments System**: Decentralized comments on tracks via GunDB
-- 📊 **Library Statistics**: Track listening habits, play history, top tracks/artists
-- 🌊 **Waveform Generation**: Visual waveform data for audio files
-- 📁 **File Browser**: Admin file system browser for library management
-- 🔍 **Search**: Full-text search across tracks, albums, and artists
-- 👥 **User Accounts**: Decentralized user authentication for comments and profiles
-- 🎯 **Type Safety**: TypeScript-first implementation for robust logic
+- 🎵 **Audio-first**: Automatically reads metadata from your audio files.
+- 📦 **Static Mode**: Generate pure HTML/CSS sites deployable anywhere (Netlify, GitHub Pages).
+- 🖥️ **Server Mode**: Run a personal streaming server with API and web interface.
+- 🎨 **Customizable**: Theme support and easy styling via CSS variables.
+- 📱 **Responsive**: Mobile-friendly out of the box.
+- 🔐 **Decentralized**: Optional GunDB integration for comments, stats, and unlock codes.
+- 📡 **Federation**: ActivityPub support (Server Mode) to connect with the Fediverse.
+- 🔊 **Subsonic API**: Compatible with mobile apps like DSub and Symfonium (Server Mode).
 
-## Quick Start
+## Quick Start: Static Site Generator
 
-### Prerequisites
-- Node.js 18+
+Generate a static website for your music catalog. ideal for Bandcamp-style pages.
 
-### Installation
+1.  **Install Tunecamp:**
+    ```bash
+    npm install -g tunecamp
+    ```
 
-```bash
-npm install -g tunecamp
-# or
-yarn global add tunecamp
-```
+2.  **Initialize a catalog:**
+    ```bash
+    tunecamp init my-music
+    cd my-music
+    ```
 
-For development or building from source:
+3.  **Build and Serve:**
+    ```bash
+    tunecamp build . -o public
+    tunecamp serve public
+    ```
 
-```bash
-# Install dependencies
-npm install
+👉 **[Read the Full Static Site Guide](./docs/STATIC_GENERATION.md)** for configuration, themes, and deployment instructions.
 
-npm run build
+## Quick Start: Server Instance
 
-# Build the webapp (Required)
-cd webapp
-npm install
-npm run build
-cd ..
-```
+Run your own music streaming server.
 
-### Docker Installation
+1.  **Run with Docker (Recommended):**
+    ```bash
+    docker run -d \
+      -p 1970:1970 \
+      -v /path/to/music:/music \
+      -v tunecamp_data:/data \
+      ghcr.io/scobru/tunecamp:latest
+    ```
 
-You can also run Tunecamp using Docker:
+2.  **Access the Dashboard:**
+    Open `http://localhost:1970` in your browser.
 
-1. **Configure Docker Compose:**
-   Edit `docker-compose.yml` to point to your music directory:
-   ```yaml
-   volumes:
-     - /path/to/your/music:/music:ro
-   ```
-
-2. **Run with Docker Compose:**
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Access via Browser:**
-   Open http://localhost:1970
-
-### Basic Usage
-
-1. **Create your catalog structure:**
-
-```
-my-music/
-├── catalog.yaml
-├── artist.yaml
-└── releases/
-    └── my-first-album/
-        ├── release.yaml
-        ├── cover.jpg
-        └── tracks/
-            ├── 01-track-one.mp3
-            ├── 02-track-two.mp3
-            └── track.yaml (optional)
-```
-
-2. **Configure your catalog:**
-
-```yaml
-# catalog.yaml
-title: "My Music Catalog"
-description: "Independent music releases"
-url: "https://mymusic.com"
-```
-
-```yaml
-# artist.yaml
-name: "Artist Name"
-bio: "Artist biography goes here"
-links:
-  - bandcamp: "https://artistname.bandcamp.com"
-  - spotify: "https://open.spotify.com/artist/..."
-donationLinks:
-  - platform: "PayPal"
-    url: "https://paypal.me/artistname"
-    description: "Support the artist"
-  - platform: "Ko-fi"
-    url: "https://ko-fi.com/artistname"
-    description: "Buy me a coffee"
-```
-
-```yaml
-# releases/my-first-album/release.yaml
-title: "My First Album"
-date: "2024-01-15"
-description: "An amazing debut album"
-download: free # Options: free, paycurtain, codes, none
-price: 10.00
-paypalLink: "https://paypal.me/artistname/10"
-stripeLink: "https://buy.stripe.com/..."
-bandcampLink: "https://artistname.bandcamp.com/album/..."
-streamingLinks: # Optional links to listen on streaming platforms
-  - platform: "Spotify"
-    url: "https://open.spotify.com/track/..."
-  - platform: "Apple Music"
-    url: "https://music.apple.com/album/..."
-license: "cc-by" # Options: copyright, cc-by, cc-by-sa, cc-by-nc, cc-by-nc-sa, cc-by-nc-nd, cc-by-nd, public-domain
-unlisted: false # Set to true to hide from index but keep accessible via direct link
-```
-
-3. **Generate your site:**
-
-```bash
-tunecamp build ./my-music --output ./public
-```
-
-4. **Deploy:**
-
-Upload the `public` folder to any static hosting service (Netlify, Vercel, GitHub Pages, etc.)
-
-## Deployment
-
-### Deploying to Different Platforms
-
-The `basePath` configuration is essential for correct asset loading when your site is deployed.
-
-#### Root Domain Deployment
-
-For deployments at the root of a domain (e.g., `mymusic.com`):
-
-```yaml
-# catalog.yaml
-basePath: ""  # or omit the field
-```
-
-#### Subdirectory Deployment
-
-For deployments in a subdirectory (e.g., GitHub Pages at `username.github.io/my-music`):
-
-```yaml
-# catalog.yaml
-basePath: "/my-music"
-```
-
-#### Platform-Specific Examples
-
-**GitHub Pages (Project Site)**
-```yaml
-basePath: "/repository-name"
-```
-
-**Netlify/Vercel (Custom Domain)**
-```yaml
-basePath: ""
-```
-
-**Netlify/Vercel (Subdirectory)**
-```yaml
-basePath: "/subfolder"
-```
-
-You can also override the `basePath` at build time:
-```bash
-tunecamp build ./my-music --output ./public --basePath /my-music
-```
-
-## Configuration Files
-
-### catalog.yaml
-
-Global catalog configuration:
-
-```yaml
-title: "Catalog Title" # Required
-description: "Catalog description" # Optional
-url: "https://yoursite.com" # Optional
-basePath: "" # Optional: Base path for deployment (empty for root, "/repo-name" for subdirectory)
-theme: "default" # Optional: Theme name (default: "default")
-language: "en" # Optional: Language code (default: "en")
-headerImage: "header.png" # Optional: Image to replace title in header (Bandcamp-style)
-backgroundImage: "background.png" # Optional: Background image for entire page (local file or URL)
-customFont: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" # Optional: Custom font URL (Google Fonts, etc.) or local file path
-customCSS: "custom.css" # Optional: Custom CSS file path (relative to input directory) or external URL
-labelMode: false # Optional: Set to true for multi-artist label catalogs (default: false)
-podcast: # Optional: Podcast feed configuration
-  enabled: true
-  title: "My Podcast"
-  description: "Podcast description"
-  author: "Artist Name"
-  email: "email@example.com"
-  category: "Music"
-  image: "podcast-cover.jpg"
-  explicit: false
-```
-
-**Important**: The `basePath` option is crucial when deploying to subdirectories (e.g., GitHub Pages). If your site will be at `username.github.io/my-music/`, set `basePath: "/my-music"`.
-
-### artist.yaml
-
-Artist information:
-
-```yaml
-name: "Artist Name" # Required
-bio: "Biography text" # Optional
-photo: "artist.jpg" # Optional: Artist photo image path
-links: # Optional: Social/website links
-  - website: "https://..."
-  - bandcamp: "https://..."
-  - spotify: "https://..."
-  - instagram: "https://..."
-donationLinks: # Optional: Support/donation links
-  - platform: "PayPal"
-    url: "https://paypal.me/artistname"
-    description: "Support the artist" # Optional
-  - platform: "Ko-fi"
-    url: "https://ko-fi.com/artistname"
-    description: "Buy me a coffee" # Optional
-slug: "artist-name" # Optional: URL slug (for label mode only)
-```
-
-### release.yaml
-
-Individual release configuration:
-
-```yaml
-title: "Album Title" # Required
-date: "2024-01-15" # Required: Release date (YYYY-MM-DD format)
-description: "Album description" # Optional
-cover: "cover.jpg" # Optional: Cover art image (auto-detected if missing, procedural cover generated if not found)
-download: "free" # Optional: Download mode - "free", "paycurtain", "codes", or "none" (default: "free")
-price: 10.00 # Optional: Suggested price for paycurtain mode
-paypalLink: "https://paypal.me/artistname/10" # Optional: PayPal donation/payment link (for paycurtain mode)
-stripeLink: "https://buy.stripe.com/..." # Optional: Stripe payment link (for paycurtain mode)
-bandcampLink: "https://artistname.bandcamp.com/album/..." # Optional: Bandcamp purchase link (for paycurtain mode)
-streamingLinks: # Optional: Links to listen on streaming platforms
-  - platform: "Spotify" # Platform name (displayed as-is)
-    url: "https://open.spotify.com/track/..." # Platform URL
-  - platform: "Apple Music"
-    url: "https://music.apple.com/album/..."
-  - platform: "YouTube Music"
-    url: "https://music.youtube.com/watch?v=..."
-license: "cc-by" # Optional: License type - "copyright", "cc-by", "cc-by-sa", "cc-by-nc", "cc-by-nc-sa", "cc-by-nc-nd", "cc-by-nd", or "public-domain"
-genres: # Optional: List of genres
-  - "Electronic"
-  - "Ambient"
-credits: # Optional: List of credits
-  - role: "Producer" # Credit role (e.g., "Producer", "Vocalist", "Engineer")
-    name: "Producer Name" # Person's name
-unlisted: false # Optional: Set to true to hide from index/feeds but keep accessible via direct link (default: false)
-artistSlug: "artist-name" # Optional: For label mode - associate release with an artist by slug
-unlockCodes: # Optional: Configuration for unlock codes (required if download: "codes")
-  enabled: true # Required: Enable unlock codes
-  namespace: tunecamp # Optional: GunDB namespace (default: "tunecamp")
-  publicKey: "abc123..." # Optional but recommended: Public key from gundb-keypair.json (required for private space)
-  peers: # Optional: Custom GunDB peers
-    - "https://your-relay.com/gun"
-```
-
-### track.yaml
-
-Optional track-level metadata overrides:
-
-```yaml
-tracks: # Optional: Override track metadata
-  - file: "01-track.mp3" # Required: Track filename
-    title: "Custom Title" # Optional: Custom track title (overrides metadata from audio file)
-    description: "Track notes" # Optional: Track description or notes
-```
+👉 **[Read the Full Server Guide](./docs/SERVER.md)** for installation details, environment variables, and administration.
 
 ## CLI Commands
 
-```bash
-# Build a catalog
-tunecamp build <input-dir> --output <output-dir>
+- `tunecamp init <dir>`: Initialize a new static catalog.
+- `tunecamp build <input> -o <output>`: Build a static site.
+- `tunecamp serve <dir>`: Serve a static site locally.
+- `tunecamp server [music-dir]`: Start the music server instance.
+- `tunecamp consolidate [music-dir]`: Organize your music library.
 
-# Build with custom base path (overrides catalog.yaml)
-tunecamp build <input-dir> --output <output-dir> --basePath /my-music
+## Documentation
 
-# Serve locally
-tunecamp serve <output-dir> --port 3000
-
-# Initialize a new catalog
-tunecamp init <directory>
-
-# Backup the database
-tunecamp backup [target-dir]
-
-# Restore the database from a backup
-tunecamp restore <backup-file>
-
-# Consolidate the music library
-tunecamp consolidate [music-dir]
-```
-
-## Development Modes
-
-### Free Downloads
-
-```yaml
-download: free
-```
-
-All tracks available for immediate download.
-
-### Soft Paycurtain (Honor System)
-
-```yaml
-download: paycurtain
-price: 10.00
-paypalLink: "https://paypal.me/artistname/10"
-stripeLink: "https://buy.stripe.com/..."
-```
-
-Pay-what-you-want with suggested price. Users can download for free, but are encouraged to support the artist.
-
-**⚠️ Important**: This is an **honor system** - all files remain technically downloadable. PayPal and Stripe links are simply displayed as buttons; there is no payment verification or gating. If you need real download protection, use the `codes` mode instead.
-
-### Unlock Codes (Decentralized Protection)
-
-```yaml
-download: codes
-unlockCodes:
-  enabled: true
-  namespace: tunecamp  # Optional, default: tunecamp
-```
-
-Protect downloads with unlock codes validated via GunDB (decentralized, no backend required). See [Unlock Codes Guide](./docs/UNLOCK_CODES.md) for details.
-
-**⚠️ Important - Self-Hosting Required**: The code generation tool (`generate-codes.ts`) must be run locally on your machine where you have access to the Tunecamp source code. If you deploy only the static HTML output (e.g., to Vercel, Netlify, GitHub Pages), you won't be able to generate new codes from the deployed site - it's just static HTML.
-
-**Workflow:**
-1. Run `tunecamp build` locally
-2. Generate codes locally: `npx ts-node src/tools/generate-codes.ts <release-slug> --count 20`
-3. Deploy the static `public/` folder to your hosting
-4. Distribute the generated codes to your customers
-
-Generate codes using:
-```bash
-npx ts-node src/tools/generate-codes.ts <release-slug> --count 20
-```
-
-### Download Statistics (Public GunDB)
-
-Tunecamp automatically tracks and displays download counts for your releases using a public GunDB space. This works out of the box with no configuration required:
-
-- **Real-time counter**: Download counts update in real-time across all visitors
-- **Decentralized**: No server required - data is stored on public GunDB peers
-- **Anonymous**: No user tracking, just simple counters
-- **Visible to all**: Download counts are shown on each release page
-
-The download counter increments when users click "Download All" or individual track download buttons.
-
-### Community Registry & Network (Decentralized Directory)
-
-Tunecamp includes an automatic community registry powered by GunDB. When someone visits your Tunecamp site, it gets automatically registered in a decentralized directory of Tunecamp sites.
-
-**Features:**
-- **Automatic registration**: No sign-up needed - your site is discovered when visited
-- **Decentralized**: Data stored on public GunDB peers, no central server
-- **Real-time**: New sites appear instantly in the community directory
-- **Privacy-respecting**: Only public info is shared (URL, title, artist name)
-- **Network Discovery**: In Server Mode, browse and play tracks from other TuneCamp instances
-- **Cross-Site Playback**: Stream tracks from other TuneCamp sites directly in your player
-
-**How it works:**
-1. Build and deploy your Tunecamp site
-2. When a visitor loads your site, it registers automatically
-3. Your site appears in the [Tunecamp Community](https://tunecamp.dev/community.html) directory
-4. Discover other independent artists using Tunecamp!
-
-**Server Mode Network Features:**
-- Browse all registered TuneCamp sites in the community
-- Discover and play tracks shared by other instances
-- Add network tracks to your queue
-- View site information and covers from other instances
-
-You can disable auto-registration by removing the `community-registry.js` script from your build output.
-
-## Supported Audio Formats
-
-- MP3
-- FLAC
-- OGG Vorbis
-- WAV
-- M4A/AAC
-- OPUS
-
-## Themes
-
-Tunecamp includes a single, highly customizable theme:
-
-### Default Theme
-
-The **default** theme is a modern, Faircamp-inspired design with:
-- Dark/light mode toggle
-- Responsive two-column layout
-- Integrated header with background image support
-- Modern navigation bar
-- Prominently positioned audio player (after release metadata, before track list)
-- Customizable colors via CSS variables
-
-### Customization
-
-You can customize the default theme using:
-
-- **Background images**: Set `backgroundImage` in `catalog.yaml` for a custom page background
-- **Header images**: Set `headerImage` in `catalog.yaml` for a custom header image
-- **Custom CSS**: Add `customCSS` to override styles or change colors
-- **Custom fonts**: Add `customFont` for typography customization
-
-The theme uses CSS variables for easy customization:
-- `--bg-color`: Main background color
-- `--text-color`: Primary text color
-- `--accent`: Accent color (buttons, links)
-- `--accent-hover`: Hover state for accent
-- And more (see `templates/default/assets/style.css`)
-
-### Creating Custom Themes
-
-Create your own theme by adding a folder in the `templates/` directory:
-
-```
-templates/my-theme/
-├── layout.hbs
-├── index.hbs
-├── release.hbs
-└── assets/
-    ├── style.css
-    └── player.js
-```
-
-For detailed information about themes, see [Theme Showcase](./docs/THEME_SHOWCASE.md).
-
-## Generated Files
-
-When you build a catalog, Tunecamp automatically generates:
-
-- **HTML pages**: `index.html` and release pages
-- **RSS/Atom feeds**: `feed.xml` (RSS 2.0) and `atom.xml`
-- **Podcast feed**: `podcast.xml` (if enabled in config)
-- **M3U playlists**: `playlist.m3u` for each release and `catalog.m3u` for the entire catalog
-- **Embed widgets**: `embed.html`, `embed-code.txt`, and `embed-compact.txt` for each release
-- **Procedural covers**: Auto-generated SVG covers if release has no cover art
-
-### Embed Widgets
-
-Each release gets embeddable HTML widgets that you can use on other websites:
-
-- **Full embed**: Complete widget with cover, info, and audio player
-- **Compact embed**: Smaller inline widget
-- **Iframe embed**: Standalone embed page for iframe embedding
-
-Access embed codes at: `releases/<release-slug>/embed-code.txt`
-
-**Share & Embed Section**: Each release page includes a "Share & Embed" section at the top with:
-- **Catalog link**: Quick navigation back to the main catalog
-- **RSS/Atom feeds**: Direct links to `feed.xml` (RSS 2.0) and `atom.xml` for feed readers
-- **Copy link**: One-click button to copy the release URL to clipboard
-- **Embed code**: Modal viewer with tabs for full and compact embed codes, with copy functionality
-- All embed codes are accessible directly from the page without needing to navigate to text files
-
-### RSS/Atom Feeds
-
-Automatic feed generation for:
-- RSS 2.0 feed at `feed.xml`
-- Atom feed at `atom.xml`
-- Podcast RSS feed at `podcast.xml` (if enabled)
-
-All feeds include proper metadata, cover images, and track information.
-
-### M3U Playlists
-
-Playlists are generated for:
-- Each individual release: `releases/<release-slug>/playlist.m3u`
-- Entire catalog: `catalog.m3u`
-
-Playlists include track metadata (duration, artist, title) and can be opened in any music player.
-
-## Examples
-
-Check the `/examples` directory for complete catalog examples:
-
-- **artist-free**: Simple artist catalog with free downloads
-- **artist-paycurtain**: Artist with pay-what-you-want model
-- **label**: Multi-artist label catalog
+- [Static Site Generation](./docs/STATIC_GENERATION.md)
+  - Configuration (`catalog.yaml`, `artist.yaml`)
+  - Themes & Customization
+  - Deployment Guide
+- [Server Instance](./docs/SERVER.md)
+  - Installation (Docker/Node)
+  - Configuration (Environment Variables)
+  - Features (Subsonic, ActivityPub)
+- [Unlock Codes](./docs/STATIC_GENERATION.md#unlock-codes-download-protection)
+- [Examples](./examples)
 
 ## Contributing
 
@@ -528,113 +89,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see LICENSE file for details.
 
 ## Credits
 
 Inspired by [Faircamp](https://simonrepp.com/faircamp/) by Simon Repp.
-
-## Advanced Features
-
-### Label Mode (Multi-Artist)
-
-Enable label mode to create catalogs with multiple artists:
-
-```yaml
-# catalog.yaml
-labelMode: true
-```
-
-Create `artists/` directory with artist YAML files. Each release can be associated with an artist using `artistSlug` in `release.yaml`.
-
-### Unlisted Releases
-
-Hide releases from the main index and feeds while keeping them accessible via direct link:
-
-```yaml
-# release.yaml
-unlisted: true
-```
-
-Useful for:
-- Work-in-progress releases
-- Exclusive content
-- Testing releases before public launch
-
-### Procedural Cover Generation
-
-If a release has no cover art, Tunecamp automatically generates a procedural SVG cover based on the release title and artist name. The cover uses deterministic algorithms (no AI) to create unique, consistent artwork.
-
-### Header Image (Bandcamp-style)
-
-Replace the text title in the header with a custom image, similar to Bandcamp:
-
-```yaml
-# catalog.yaml
-headerImage: "header.png"  # Path relative to catalog directory or URL
-```
-
-The header image will be displayed prominently at the top of all pages in the header section. This image appears in the header area with the navigation bar.
-
-### Page Background Image
-
-Set a custom background image for the entire page:
-
-```yaml
-# catalog.yaml
-backgroundImage: "background.png"  # Path relative to catalog directory or URL
-```
-
-The background image will cover the entire page with a semi-transparent overlay to maintain text readability. This is separate from the header image - the header image appears in the header section, while the background image covers the entire page body.
-
-### Custom Font
-
-Add custom fonts from Google Fonts or other sources:
-
-```yaml
-# catalog.yaml
-customFont: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-```
-
-The font will be loaded before the theme CSS, allowing you to use it in your custom CSS.
-
-### Custom CSS
-
-Add custom CSS to override or extend theme styles. You can use either a local file or an external URL:
-
-```yaml
-# catalog.yaml
-# Local file (copied to assets/ during build)
-customCSS: "custom.css"
-
-# Or external URL (CDN, etc.)
-customCSS: "https://cdn.jsdelivr.net/npm/water.css@2/out/water.css"
-```
-
-Local CSS files are copied to the `assets/` directory during build. The custom CSS is loaded after the theme CSS, so your styles will override the default theme.
-
-**Example custom.css:**
-
-```css
-/* Apply custom font to body */
-body {
-  font-family: 'Inter', sans-serif;
-}
-
-/* Custom header image styling */
-.header-image {
-  max-height: 300px;
-  border-radius: 8px;
-}
-```
-
-## Links
-
-- [Documentation](./docs)
-  - [Deployment Guide](./docs/DEPLOYMENT.md)
-  - [Server Mode](./docs/SERVER.md)
-  - [REST API](./docs/API.md)
-  - [Features Overview](./docs/FEATURES.md)
-- [Unlock Codes Guide](./docs/UNLOCK_CODES.md)
-- [Examples](./examples)
-- [Changelog](./CHANGELOG.md)
