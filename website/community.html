@@ -188,7 +188,13 @@
                 <span class="live-dot"></span>
                 Live updates
             </div>
-            <div class="sites-count" id="siteCount">Loading sites...</div>
+            <div class="sites-count" id="countDisplay">Loading...</div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('sites')">Instances</div>
+            <div class="tab" onclick="switchTab('tracks')">Tracks</div>
         </div>
 
         <!-- Sites Grid -->
@@ -196,6 +202,14 @@
             <div class="empty-state">
                 <div class="icon">⏳</div>
                 <p>Connecting to the network...</p>
+            </div>
+        </div>
+
+        <!-- Tracks Grid -->
+        <div class="tracks-grid hidden" id="tracksGrid">
+            <div class="empty-state">
+                <div class="icon">⏳</div>
+                <p>Scanning for tracks...</p>
             </div>
         </div>
 
@@ -236,9 +250,47 @@
         const REGISTRY_NAMESPACE = 'tunecamp-community';
 
         const gun = Gun({ peers: REGISTRY_PEERS, localStorage: true });
-        const sitesMap = new Map();
 
-        function loadSites() {
+        // Data Stores
+        const sitesMap = new Map();
+        const tracksMap = new Map();
+        let currentTab = 'sites';
+
+        // --- Tabs Logic ---
+        function switchTab(tab) {
+            currentTab = tab;
+
+            // UI Updates
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+
+            const sitesGrid = document.getElementById('sitesGrid');
+            const tracksGrid = document.getElementById('tracksGrid');
+
+            if (tab === 'sites') {
+                sitesGrid.classList.remove('hidden');
+                tracksGrid.classList.add('hidden');
+                updateCountDisplay();
+            } else {
+                sitesGrid.classList.add('hidden');
+                tracksGrid.classList.remove('hidden');
+                updateCountDisplay();
+            }
+        }
+
+        function updateCountDisplay() {
+            const countDisplay = document.getElementById('countDisplay');
+            if (currentTab === 'sites') {
+                const count = document.querySelectorAll('.site-card').length;
+                countDisplay.textContent = `${count} instance${count !== 1 ? 's' : ''}`;
+            } else {
+                const count = document.querySelectorAll('.track-card').length;
+                countDisplay.textContent = `${count} track${count !== 1 ? 's' : ''}`;
+            }
+        }
+
+        // --- Discovery Logic ---
+        function initDiscovery() {
             const processedIds = new Set();
 
             gun.get(REGISTRY_ROOT)
@@ -250,105 +302,153 @@
                     if (processedIds.has(siteId)) return;
                     processedIds.add(siteId);
 
-                    // Skip localhost sites
-                    if (directoryData.url && (
-                        directoryData.url.includes('localhost') ||
-                        directoryData.url.includes('127.0.0.1') ||
-                        directoryData.url.startsWith('file://')
-                    )) return;
+                    // Skip localhost/invalid sites immediately (server logic)
+                    if (!isValidUrl(directoryData.url)) return;
 
-                    // Secure Mode: Read from user graph if pub key is available
+                    // 1. Secure Mode: Read from user graph if pub key is available
                     if (directoryData.pub) {
                         gun.user(directoryData.pub)
                             .get('tunecamp')
                             .get('profile')
                             .once((profileData) => {
                                 if (profileData) {
-                                    // Use profile data (authoritative)
-                                    const siteInfo = {
-                                        id: siteId,
-                                        url: profileData.url || directoryData.url,
-                                        title: profileData.title || directoryData.title,
-                                        artistName: profileData.artistName || directoryData.artistName || '',
-                                        coverImage: profileData.coverImage || directoryData.coverImage,
-                                        registeredAt: profileData.registeredAt || directoryData.registeredAt,
-                                        lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
-                                        _secure: true
-                                    };
-
-                                    // Validate site data - align with server filtering
-                                    if (siteInfo.url && 
-                                        !siteInfo.url.includes('localhost') &&
-                                        !siteInfo.url.includes('127.0.0.1') &&
-                                        !siteInfo.url.startsWith('file://') &&
-                                        siteInfo.url.startsWith('http') &&
-                                        siteInfo.title && 
-                                        siteInfo.title !== 'Untitled' && 
-                                        siteInfo.title !== 'TuneCamp Server' &&
-                                        siteInfo.title.trim() !== '') {
+                                    // Authoritative Site Info
+                                    const siteInfo = normalizeSiteData(siteId, profileData, true);
+                                    if (validateSite(siteInfo)) {
                                         sitesMap.set(siteId, siteInfo);
                                         renderSites();
+
+                                        // Scan Tracks from Secure Graph
+                                        scanSecureTracks(directoryData.pub, siteInfo);
                                     }
                                 } else {
-                                    // Fallback to directory data if user graph not reachable
+                                    // Fallback to directory
                                     processLegacySite(siteId, directoryData);
                                 }
                             });
                     } else {
-                        // Legacy Mode: Use directory data directly
+                        // 2. Legacy Mode: Use directory data directly
                         processLegacySite(siteId, directoryData);
                     }
                 });
 
-            function processLegacySite(siteId, directoryData) {
-                // Skip incomplete, untitled, or invalid sites - align with server filtering
-                if (!directoryData.url ||
-                    directoryData.url.includes('localhost') ||
-                    directoryData.url.includes('127.0.0.1') ||
-                    directoryData.url.startsWith('file://') ||
-                    !directoryData.url.startsWith('http') ||
-                    !directoryData.title ||
-                    directoryData.title === 'Untitled' ||
-                    directoryData.title === 'TuneCamp Server' ||
-                    directoryData.title.trim() === '') return;
-
-                const siteInfo = {
-                    id: siteId,
-                    url: directoryData.url,
-                    title: directoryData.title,
-                    artistName: directoryData.artistName || '',
-                    coverImage: directoryData.coverImage,
-                    registeredAt: directoryData.registeredAt,
-                    lastSeen: directoryData.lastSeen || Date.now(),
-                    _secure: false
-                };
-
-                sitesMap.set(siteId, siteInfo);
-                renderSites();
-            }
-
-            // Show empty state after timeout
+            // Timeout to show empty states
             setTimeout(() => {
-                if (sitesMap.size === 0) {
-                    document.getElementById('sitesGrid').innerHTML = `
-                        <div class="empty-state" style="grid-column: 1/-1;">
-                            <div class="icon">🎵</div>
-                            <h3>No sites yet</h3>
-                            <p>Be the first! Create a Tunecamp site and your site will appear here automatically.</p>
-                        </div>
-                    `;
-                    document.getElementById('siteCount').textContent = '0 sites';
-                }
+                if (sitesMap.size === 0) showEmptyState('sitesGrid', 'No sites found yet.');
+                if (tracksMap.size === 0) showEmptyState('tracksGrid', 'No tracks found yet.');
             }, 5000);
         }
 
+        function processLegacySite(siteId, data) {
+            const siteInfo = normalizeSiteData(siteId, data, false);
+            if (validateSite(siteInfo)) {
+                sitesMap.set(siteId, siteInfo);
+                renderSites();
+
+                // Scan Tracks from Public Directory (Legacy)
+                scanLegacyTracks(siteId, siteInfo);
+            }
+        }
+
+        function scanSecureTracks(pub, siteInfo) {
+            gun.user(pub)
+                .get('tunecamp')
+                .get('tracks')
+                .map()
+                .once((trackData, slug) => {
+                    if (trackData && slug !== "_") {
+                        processTrack(trackData, slug, siteInfo, true);
+                    }
+                });
+        }
+
+        function scanLegacyTracks(siteId, siteInfo) {
+            gun.get(REGISTRY_ROOT)
+                .get(REGISTRY_NAMESPACE)
+                .get('sites')
+                .get(siteId)
+                .get('tracks')
+                .map()
+                .once((trackData, slug) => {
+                    if (trackData && slug !== "_") {
+                        processTrack(trackData, slug, siteInfo, false);
+                    }
+                });
+        }
+
+        function processTrack(data, slug, siteInfo, isSecure) {
+             if (!data || !data.title) return;
+
+             // Strict Validation
+             if (!data.audioUrl && !data.streamUrl) return; // Must have audio
+
+             const track = {
+                 id: slug,
+                 title: data.title,
+                 artistName: data.artistName || siteInfo.artistName || "Unknown Artist",
+                 albumName: data.releaseTitle || "Unknown Album",
+                 coverUrl: data.coverUrl || siteInfo.coverImage,
+                 audioUrl: data.audioUrl || data.streamUrl,
+                 duration: data.duration || 0,
+                 siteUrl: siteInfo.url,
+                 siteTitle: siteInfo.title,
+                 addedAt: data.addedAt || Date.now(),
+                 _secure: isSecure
+             };
+
+             // URL Sanitization
+             if (!isValidUrl(track.audioUrl)) return;
+
+             // Add to map
+             // Unique key: siteUrl + trackSlug
+             const uniqueKey = `${siteInfo.url}::${slug}`;
+             tracksMap.set(uniqueKey, track);
+
+             renderTracks();
+        }
+
+        // --- Helpers ---
+
+        function isValidUrl(url) {
+            if (!url) return false;
+            if (url.includes('localhost') || url.includes('127.0.0.1') || url.startsWith('file://')) return false;
+            return url.startsWith('http');
+        }
+
+        function normalizeSiteData(id, data, isSecure) {
+            return {
+                id: id,
+                url: data.url,
+                title: data.title || data.name, // Handle legacy 'name'
+                artistName: data.artistName || '',
+                coverImage: data.coverImage,
+                registeredAt: data.registeredAt,
+                lastSeen: data.lastSeen || Date.now(),
+                _secure: isSecure
+            };
+        }
+
+        function validateSite(site) {
+            return site.url &&
+                   isValidUrl(site.url) &&
+                   site.title &&
+                   site.title !== 'Untitled' &&
+                   site.title !== 'TuneCamp Server' &&
+                   site.title.trim() !== '';
+        }
+
+        // --- Rendering ---
+
         function renderSites() {
-            // Deduplicate by title + artist, keeping only the most recent (highest lastSeen)
+            // Deduplicate by title + artist
             const deduped = new Map();
             Array.from(sitesMap.values()).forEach(site => {
                 const dedupKey = `${(site.title || '').toLowerCase()}::${(site.artistName || '').toLowerCase()}`;
                 const existing = deduped.get(dedupKey);
-                if (!existing || (site.lastSeen || 0) > (existing.lastSeen || 0)) {
+                // Prefer secure, then more recent
+                if (!existing ||
+                    (site._secure && !existing._secure) ||
+                    ((site.lastSeen || 0) > (existing.lastSeen || 0))) {
                     deduped.set(dedupKey, site);
                 }
             });
@@ -356,13 +456,15 @@
             const sites = Array.from(deduped.values());
             sites.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
 
-            document.getElementById('siteCount').textContent = `${sites.length} site${sites.length !== 1 ? 's' : ''}`;
+            if (currentTab === 'sites') updateCountDisplay();
 
             const grid = document.getElementById('sitesGrid');
+            if (sites.length === 0) return;
+
             grid.innerHTML = sites.map(site => {
                 const coverHtml = site.coverImage
-                    ? `<img src="${escapeHtml(site.coverImage)}" alt="${escapeHtml(site.title)}" onerror="this.parentElement.innerHTML='🎵'">`
-                    : '🎵';
+                    ? `<img src="${escapeHtml(site.coverImage)}" alt="${escapeHtml(site.title)}" onerror="this.parentElement.innerHTML='🏠'">`
+                    : '🏠';
 
                 const lastSeen = site.lastSeen ? formatDate(site.lastSeen) : 'Unknown';
 
@@ -373,12 +475,85 @@
                             <h3><a href="${escapeHtml(site.url)}" target="_blank">${escapeHtml(site.title)}</a></h3>
                             ${site.artistName ? `<div class="artist">by ${escapeHtml(site.artistName)}</div>` : ''}
                             <div class="meta">
-                                <span>Last seen: ${lastSeen}</span>
+                                <span>${site._secure ? '🔐 Verified' : '📡 Discovered'}</span>
+                                <span style="margin-left: auto">${lastSeen}</span>
                             </div>
                         </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        function renderTracks() {
+            // Deduplicate Content (Same title + artist)
+            const deduped = new Map();
+            Array.from(tracksMap.values()).forEach(track => {
+                const contentKey = `${track.title.toLowerCase()}::${track.artistName.toLowerCase()}`;
+                // Keep only one entry per "content", prefer secure
+                if (!deduped.has(contentKey) || track._secure) {
+                    deduped.set(contentKey, track);
+                }
+            });
+
+            const tracks = Array.from(deduped.values());
+            // Sort by addedAt if available, or random/shuffle could be nice but let's stick to recent
+            tracks.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+
+            if (currentTab === 'tracks') updateCountDisplay();
+
+            const grid = document.getElementById('tracksGrid');
+            if (tracks.length === 0) return;
+
+            grid.innerHTML = tracks.map(track => {
+                const coverHtml = track.coverUrl
+                    ? `<img src="${escapeHtml(track.coverUrl)}" alt="${escapeHtml(track.title)}" onerror="this.parentElement.innerHTML='🎵'">`
+                    : '🎵';
+
+                // Format duration
+                const minutes = Math.floor(track.duration / 60);
+                const seconds = Math.floor(track.duration % 60);
+                const durationStr = track.duration ? `${minutes}:${seconds.toString().padStart(2, '0')}` : '';
+
+                return `
+                    <div class="track-card">
+                        <div class="track-cover">
+                            ${coverHtml}
+                            <button class="play-btn" onclick="playTrack('${escapeHtml(track.audioUrl)}')" title="Play Preview">▶</button>
+                        </div>
+                        <div class="track-info">
+                            <div class="track-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</div>
+                            <div class="track-artist" title="${escapeHtml(track.artistName)}">${escapeHtml(track.artistName)}</div>
+                            <div class="track-meta">
+                                <span>${durationStr}</span>
+                                <span>•</span>
+                                <a href="${escapeHtml(track.siteUrl)}" target="_blank" style="color: inherit; hover:text-decoration: underline;">${escapeHtml(track.siteTitle)}</a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function playTrack(url) {
+            // Simple audio player logic - stop others, play this
+            if (window.currentAudio) {
+                window.currentAudio.pause();
+                window.currentAudio = null;
+            }
+
+            const audio = new Audio(url);
+            audio.play();
+            window.currentAudio = audio;
+
+            // Visual feedback could be added here
+        }
+
+        function showEmptyState(gridId, message) {
+            const grid = document.getElementById(gridId);
+            if (grid.children.length <= 1 && grid.children[0]?.classList.contains('empty-state')) {
+                 // Already showing empty state or spinner
+                 // Update text if needed
+            }
         }
 
         function formatDate(timestamp) {
@@ -403,7 +578,7 @@
                 .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
 
-        document.addEventListener('DOMContentLoaded', loadSites);
+        document.addEventListener('DOMContentLoaded', initDiscovery);
     </script>
 </body>
 
