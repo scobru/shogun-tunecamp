@@ -92,6 +92,9 @@ export function createReleaseRoutes(
                 database.updateReleaseTracks(newAlbumId, body.track_ids, []);
             }
 
+            // Sync with federation (publish if public)
+            publishingService.syncRelease(newAlbumId).catch(e => console.error("Failed to sync new release:", e));
+
             const newAlbum = database.getAlbum(newAlbumId);
 
             res.status(201).json(newAlbum);
