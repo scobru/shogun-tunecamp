@@ -86,6 +86,23 @@ export class ConsolidationService {
             // 4. Update database
             this.database.updateTrackPath(trackId, targetPath, album.id);
 
+            // 4b. Consolidate lossless file if it exists
+            if (track.lossless_path && await fs.pathExists(path.join(this.rootDir, track.lossless_path))) {
+                const losslessExt = getFileExtension(track.lossless_path);
+                const targetLosslessName = formatAudioFilename(
+                    track.track_num || 0,
+                    track.title,
+                    losslessExt
+                );
+                const targetLosslessPath = path.join(targetDir, targetLosslessName);
+
+                if (path.resolve(this.rootDir, track.lossless_path) !== path.resolve(targetLosslessPath)) {
+                    console.log(`[Consolidate] Moving lossless: ${path.basename(track.lossless_path)} -> ${targetLosslessPath}`);
+                    await fs.move(path.join(this.rootDir, track.lossless_path), targetLosslessPath, { overwrite: true });
+                    this.database.updateTrackLosslessPath(trackId, targetLosslessPath);
+                }
+            }
+
             // 5. Consolidate cover if it exists
             if (album.cover_path && await fs.pathExists(path.join(this.rootDir, album.cover_path))) {
                 const coverExt = getFileExtension(album.cover_path);
