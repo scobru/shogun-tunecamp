@@ -24,22 +24,14 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
-            const allTracks = database.getTracks();
-
             // If admin, return everything
             if (req.isAdmin) {
-                return res.json(allTracks);
+                return res.json(database.getTracks());
             }
 
             // Otherwise, filter for public/unlisted tracks
-            // We need to check the album visibility for each track
-            const publicTracks = allTracks.filter(track => {
-                if (!track.album_id) return false; // Hide orphan tracks from public? or show them? usually hide.
-                const album = database.getAlbum(track.album_id);
-                return album && (album.is_public || album.visibility === 'public');
-            });
-
-            res.json(publicTracks);
+            // Optimized: Use database filtering instead of in-memory N+1
+            res.json(database.getTracks(undefined, true));
         } catch (error) {
             console.error("Error getting tracks:", error);
             res.status(500).json({ error: "Failed to get tracks" });

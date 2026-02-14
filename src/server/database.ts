@@ -175,7 +175,7 @@ export interface DatabaseService {
     promoteToRelease(id: number): void; // Mark library album as release
     deleteAlbum(id: number, keepTracks?: boolean): void;
     // Tracks
-    getTracks(albumId?: number): Track[];
+    getTracks(albumId?: number, publicOnly?: boolean): Track[];
     getTracksByAlbumIds(albumIds: number[]): Track[];
     getTracksByReleaseId(releaseId: number): Track[];
     getTrack(id: number): Track | undefined;
@@ -588,10 +588,22 @@ export function createDatabase(dbPath: string): DatabaseService {
              LEFT JOIN albums a ON t.album_id = a.id
              LEFT JOIN artists ar ON t.artist_id = ar.id
              WHERE t.album_id = ? ORDER BY t.track_num`);
+    const getPublicTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, ar.name as artist_name
+            FROM tracks t
+            JOIN albums a ON t.album_id = a.id
+            LEFT JOIN artists ar ON t.artist_id = ar.id
+            WHERE t.album_id = ? AND a.is_public = 1
+            ORDER BY t.track_num`);
     const getAllTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, ar.name as artist_name
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
+           ORDER BY ar.name, a.title, t.track_num`);
+    const getAllPublicTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, ar.name as artist_name
+           FROM tracks t
+           JOIN albums a ON t.album_id = a.id
+           LEFT JOIN artists ar ON t.artist_id = ar.id
+           WHERE a.is_public = 1
            ORDER BY ar.name, a.title, t.track_num`);
 
     return {
@@ -889,9 +901,15 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         // Tracks
-        getTracks(albumId?: number): Track[] {
+        getTracks(albumId?: number, publicOnly = false): Track[] {
             if (albumId) {
+                if (publicOnly) {
+                    return getPublicTracksByAlbumStmt.all(albumId) as Track[];
+                }
                 return getTracksByAlbumStmt.all(albumId) as Track[];
+            }
+            if (publicOnly) {
+                return getAllPublicTracksStmt.all() as Track[];
             }
             return getAllTracksStmt.all() as Track[];
         },
