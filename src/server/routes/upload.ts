@@ -201,13 +201,21 @@ export function createUploadRoutes(
             if (releaseSlug) {
                 // Permission Check
                 const targetAlbum = database.getAlbumBySlug(releaseSlug);
-                if ((req as any).artistId && targetAlbum && targetAlbum.artist_id !== (req as any).artistId) {
+
+                if (!targetAlbum) {
+                    await fs.remove(file.path);
+                    return res.status(404).json({ error: "Release not found" });
+                }
+
+                if ((req as any).artistId && targetAlbum.artist_id !== (req as any).artistId) {
                     await fs.remove(file.path);
                     return res.status(403).json({ error: "Access denied: Cannot upload cover for another artist's release" });
                 }
 
                 // 1. Determine target directory: musicDir/releases/<slug>/artwork/
-                const releaseDir = path.join(musicDir, "releases", releaseSlug);
+                // SECURITY: Use targetAlbum.slug (from DB) instead of req.body.releaseSlug to prevent path traversal
+                const safeSlug = targetAlbum.slug;
+                const releaseDir = path.join(musicDir, "releases", safeSlug);
                 const artworkDir = path.join(releaseDir, "artwork");
                 await fs.ensureDir(artworkDir);
 
