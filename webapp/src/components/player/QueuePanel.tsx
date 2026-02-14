@@ -1,6 +1,5 @@
 import { usePlayerStore } from '../../stores/usePlayerStore';
 import { X, Trash2 } from 'lucide-react';
-import { StringUtils } from '../../utils/stringUtils';
 
 export const QueuePanel = () => {
     const { queue, queueIndex, playQueue, removeFromQueue, toggleQueue, isQueueOpen } = usePlayerStore();
@@ -11,7 +10,7 @@ export const QueuePanel = () => {
         <div className="fixed right-0 bottom-24 w-80 max-w-[90vw] h-96 bg-base-200/95 backdrop-blur-xl border border-white/10 shadow-2xl rounded-tl-2xl rounded-bl-2xl p-4 flex flex-col z-40 transition-all">
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
                 <h3 className="font-bold text-lg">Queue ({queue.length})</h3>
-                <button onClick={toggleQueue} className="btn btn-ghost btn-circle btn-sm"><X size={16}/></button>
+                <button onClick={toggleQueue} aria-label="Close queue" className="btn btn-ghost btn-circle btn-sm"><X size={16}/></button>
             </div>
             
             <div className="flex-1 overflow-y-auto scrollbar-thin">
@@ -29,18 +28,20 @@ export const QueuePanel = () => {
                                 <span className={`text-xs w-5 text-center opacity-50 ${i === queueIndex ? 'text-primary' : ''}`}>
                                     {i + 1}
                                 </span>
-                                <div 
-                                    className="flex-1 min-w-0 cursor-pointer"
+                                <button
+                                    className="flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded p-1 -ml-1 cursor-pointer"
                                     onClick={() => playQueue(queue, i)}
+                                    aria-label={`Play ${track.title}`}
                                 >
-                                    <div className="truncate font-medium text-sm">{StringUtils.escapeHtml(track.title)}</div>
-                                    <div className="truncate text-xs opacity-60">{StringUtils.escapeHtml(track.artistName || '')}</div>
-                                </div>
+                                    <div className="truncate font-medium text-sm">{track.title}</div>
+                                    <div className="truncate text-xs opacity-60">{track.artistName || ''}</div>
+                                </button>
                                 
                                 {i !== queueIndex && (
                                     <button 
                                         className="btn btn-ghost btn-xs btn-circle opacity-0 group-hover:opacity-100 transition-opacity text-error"
                                         onClick={(e) => { e.stopPropagation(); removeFromQueue(i); }}
+                                        aria-label={`Remove ${track.title} from queue`}
                                     >
                                         <Trash2 size={12} />
                                     </button>
