@@ -620,7 +620,39 @@ export class Scanner implements ScannerService {
         // Clean up stale records
         await this.cleanupStaleTracks(dir);
 
+        // Fix orphan albums
+        await this.fixOrphanAlbums();
+
         return { successful, failed };
+    }
+
+    private async fixOrphanAlbums() {
+        console.log("[Scanner] Checking for orphan albums to fix...");
+        // Get all orphan releases/albums (using raw query as DatabaseService doesn't expose a specific method)
+        // Accessing the raw 'db' property from DatabaseService interface
+        try {
+            const orphans = this.database.db.prepare("SELECT * FROM albums WHERE artist_id IS NULL").all() as Album[];
+
+            for (const orphan of orphans) {
+                const tracks = this.database.getTracks(orphan.id);
+                if (tracks.length === 0) continue;
+
+                // Collect unique artist IDs from tracks
+                const artistIds = [...new Set(tracks.map(t => t.artist_id).filter(id => id !== null))];
+
+                if (artistIds.length === 1) {
+                    const artistId = artistIds[0];
+                    if (artistId !== null) { // Type check, though filter ensures it
+                        console.log(`  [Scanner] Fixing orphan album "${orphan.title}" (ID ${orphan.id}) -> Setting artist to ID ${artistId}`);
+                        this.database.updateAlbumArtist(orphan.id, artistId);
+                    }
+                } else if (artistIds.length > 1) {
+                    console.warn(`  [Scanner] Orphan album "${orphan.title}" has tracks from multiple artists. Skipping auto-assignment.`);
+                }
+            }
+        } catch (e) {
+            console.error("  [Scanner] Error fixing orphan albums:", e);
+        }
     }
 
     private async deduplicateTracks() {
