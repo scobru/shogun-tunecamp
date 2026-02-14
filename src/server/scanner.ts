@@ -114,6 +114,7 @@ function convertWavToMp3(wavPath: string, bitrate: string = '320k'): Promise<str
             .audioBitrate(bitrate)
             .audioCodec('libmp3lame')
             .format('mp3')
+            .outputOptions('-map_metadata', '0', '-id3v2_version', '3')
             .on('end', () => {
                 const duration = ((Date.now() - startTime) / 1000).toFixed(1);
                 console.log(`    [Scanner] Converted to: ${path.basename(mp3Path)} in ${duration}s`);
@@ -405,23 +406,44 @@ export class Scanner implements ScannerService {
         // 1. Try to find existing record by path or metadata for pairing
         if (!existing) {
             try {
-                const metadata = await parseFileWithRetry(currentFilePath);
-                const title = metadata.common.title || path.basename(currentFilePath, path.extname(currentFilePath));
-                const artistName = metadata.common.artist;
+                // First try: Find by filename (basename) match in the same directory
+                // This handles cases where metadata is missing (e.g. fresh conversion) but filenames match (song.mp3 vs song.wav)
+                const dir = path.dirname(currentFilePath);
+                const baseName = path.basename(currentFilePath, ext);
+                const siblingExts = ['.wav', '.flac', '.mp3', '.m4a', '.ogg']; // Check common extensions
 
-                let artistId: number | null = null;
-                if (artistName) {
-                    const existingArtist = this.database.getArtistByName(artistName);
-                    artistId = existingArtist ? existingArtist.id : null;
+                for (const sExt of siblingExts) {
+                    if (sExt === ext) continue;
+                    // Check against DB paths (relative)
+                    const siblingPath = this.normalizePath(path.join(dir, baseName + sExt), musicDir);
+                    const sibling = this.database.getTrackByPath(siblingPath);
+                    if (sibling) {
+                        existing = sibling;
+                        console.log(`    [Scanner] Pairing: found existing record by filename match '${baseName}${sExt}' (Target: ${ext.toUpperCase()})`);
+                        break;
+                    }
                 }
 
-                // Look for existing track by metadata in the same album
-                existing = this.database.getTrackByMetadata(title, artistId, albumId);
-                if (existing) {
-                    console.log(`    [Scanner] Pairing: found existing record for '${title}' (Target: ${ext.toUpperCase()})`);
+                // Second try: Find by metadata
+                if (!existing) {
+                    const metadata = await parseFileWithRetry(currentFilePath);
+                    const title = metadata.common.title || path.basename(currentFilePath, path.extname(currentFilePath));
+                    const artistName = metadata.common.artist;
+
+                    let artistId: number | null = null;
+                    if (artistName) {
+                        const existingArtist = this.database.getArtistByName(artistName);
+                        artistId = existingArtist ? existingArtist.id : null;
+                    }
+
+                    // Look for existing track by metadata in the same album
+                    existing = this.database.getTrackByMetadata(title, artistId, albumId);
+                    if (existing) {
+                        console.log(`    [Scanner] Pairing: found existing record by metadata for '${title}' (Target: ${ext.toUpperCase()})`);
+                    }
                 }
             } catch (e) {
-                console.error(`    [Scanner] Error parsing metadata for pairing lookup: ${e instanceof Error ? e.message : String(e)}`);
+                console.error(`    [Scanner] Error finding match for pairing lookup: ${e instanceof Error ? e.message : String(e)}`);
             }
         }
 
