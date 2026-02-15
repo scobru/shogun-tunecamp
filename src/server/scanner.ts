@@ -640,7 +640,8 @@ export class Scanner implements ScannerService {
         await this.deduplicateTracks();
 
         // Clean up stale records
-        await this.cleanupStaleTracks(dir);
+        const foundPaths = new Set(audioFiles.map(f => this.normalizePath(f, dir)));
+        await this.cleanupStaleTracks(dir, foundPaths);
 
         // Fix orphan albums
         await this.fixOrphanAlbums();
@@ -720,13 +721,17 @@ export class Scanner implements ScannerService {
         }
     }
 
-    private async cleanupStaleTracks(musicDir: string) {
+    private async cleanupStaleTracks(musicDir: string, foundPaths: Set<string>) {
         console.log("[Scanner] Cleaning up stale database records...");
         const allTracks = this.database.getTracks();
         let removed = 0;
         for (const track of allTracks) {
-            const resolved = path.join(musicDir, track.file_path);
-            if (!await fs.pathExists(resolved)) {
+            // Check if file_path or lossless_path exists in the scanned set
+            // This avoids N calls to fs.pathExists (disk I/O)
+            const hasFile = foundPaths.has(track.file_path);
+            const hasLossless = track.lossless_path && foundPaths.has(track.lossless_path);
+
+            if (!hasFile && !hasLossless) {
                 console.log(`  [Cleanup] Removing stale track: ${track.title} (${track.file_path})`);
                 this.database.deleteTrack(track.id);
                 removed++;
