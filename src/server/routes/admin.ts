@@ -111,15 +111,26 @@ export function createAdminRoutes(
 
             const consolidator = new ConsolidationService(database, musicDir);
 
+            // Stop watcher to prevent race conditions where the scanner sees the file move as a deletion
+            scanner.stopWatching();
+
             // Start in background
             consolidator.consolidateAll()
-                .then(result => {
+                .then(async result => {
                     console.log(`✅ Library consolidated: ${result.success} moved, ${result.failed} failed.`);
-                    // Trigger a scan after consolidation to update paths in memory/watcher
-                    scanner.scanDirectory(musicDir).catch(e => console.error("Scan after consolidation failed:", e));
+                    // Trigger a scan after consolidation to ensure DB is in sync and clean up any mess
+                    try {
+                        await scanner.scanDirectory(musicDir);
+                    } catch (e) {
+                        console.error("Scan after consolidation failed:", e);
+                    }
+                    // Restart watcher
+                    scanner.startWatching(musicDir);
                 })
                 .catch(error => {
                     console.error("❌ Consolidation background process failed:", error);
+                    // Ensure watcher is restarted even on error
+                    scanner.startWatching(musicDir);
                 });
 
             res.json({
