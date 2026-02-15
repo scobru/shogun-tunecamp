@@ -24,14 +24,17 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
+            // Helper to map DB fields to frontend expected fields
+            const mapTrack = (t: any) => ({ ...t, losslessPath: t.lossless_path });
+
             // If admin, return everything
             if (req.isAdmin) {
-                return res.json(database.getTracks());
+                return res.json(database.getTracks().map(mapTrack));
             }
 
             // Otherwise, filter for public/unlisted tracks
             // Optimized: Use database filtering instead of in-memory N+1
-            res.json(database.getTracks(undefined, true));
+            res.json(database.getTracks(undefined, true).map(mapTrack));
         } catch (error) {
             console.error("Error getting tracks:", error);
             res.status(500).json({ error: "Failed to get tracks" });
@@ -87,7 +90,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 }
             }
 
-            res.json(track);
+            res.json({ ...track, losslessPath: track.lossless_path });
         } catch (error) {
             console.error("Error getting track:", error);
             res.status(500).json({ error: "Failed to get track" });

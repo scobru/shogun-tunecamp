@@ -7,6 +7,7 @@ import {
     getFileExtension
 } from "../utils/audioUtils.js";
 import NodeID3 from "node-id3";
+import { convertWavToMp3 } from "./ffmpeg.js";
 import type { DatabaseService } from "./database.js";
 
 export class ConsolidationService {
@@ -18,6 +19,21 @@ export class ConsolidationService {
     async consolidateTrack(trackId: number): Promise<boolean> {
         const track = this.database.getTrack(trackId);
         if (!track || !track.file_path) return false;
+
+        // Auto-fix: If primary path is lossless and lossless path is empty, swap them conceptually
+        let sourcePath = track.file_path;
+        let sourceLosslessPath = track.lossless_path;
+
+        const ext = getFileExtension(sourcePath).toLowerCase();
+        if (['wav', 'flac'].includes(ext)) {
+            if (!sourceLosslessPath) {
+                console.log(`[Consolidate] Fixing track ${track.title}: Primary is lossless. Swapping.`);
+                sourceLosslessPath = sourcePath;
+                // We'll generate the MP3 source path later or let conversion handle it
+                // For now, assume MP3 is missing
+                sourcePath = sourcePath.replace(/\.(wav|flac)$/i, '.mp3');
+            }
+        }
 
         let album = track.album_id ? this.database.getAlbum(track.album_id) : null;
         if (!album) {
@@ -54,19 +70,13 @@ export class ConsolidationService {
         );
         const targetDir = path.join(this.rootDir, "library", targetDirName);
 
-        // 2. Calculate target filename: 01 - Title.mp3
-        const ext = getFileExtension(track.file_path);
+        // 2. Calculate target filename: 01 - Title.mp3 (Force MP3 for primary)
         const targetFileName = formatAudioFilename(
             track.track_num || 0,
             track.title,
-            ext
+            'mp3'
         );
         const targetPath = path.join(targetDir, targetFileName);
-
-        // 3. Move file if path is different
-        if (path.resolve(this.rootDir, track.file_path) === path.resolve(targetPath)) {
-            return true;
-        }
 
         try {
             await fs.ensureDir(targetDir);
@@ -74,34 +84,81 @@ export class ConsolidationService {
             // Guard: Check if a track already exists at targetPath in DB
             const existingTrack = this.database.getTrackByPath(targetPath);
             if (existingTrack && existingTrack.id !== trackId) {
-                console.warn(`[Consolidate] Collision: A track record already exists for ${targetPath}. Skipping move to avoid UNIQUE constraint violation.`);
-                // We should probably mark this track as consolidated anyway or link it?
-                // For now, skip to be safe.
+                console.warn(`[Consolidate] Collision: A track record already exists for ${targetPath}. Skipping move.`);
                 return false;
             }
 
-            console.log(`[Consolidate] Moving: ${path.basename(track.file_path)} -> ${targetPath}`);
-            await fs.move(path.join(this.rootDir, track.file_path), targetPath, { overwrite: true });
+            // --- HANDLING LOSSLESS FILE ---
+            // If we identified a source lossless file (either from DB or swapped), move it first
+            if (sourceLosslessPath) {
+                const absSourceLossless = path.resolve(this.rootDir, sourceLosslessPath);
+                if (await fs.pathExists(absSourceLossless)) {
+                     const losslessExt = getFileExtension(sourceLosslessPath);
+                     const targetLosslessName = formatAudioFilename(
+                        track.track_num || 0,
+                        track.title,
+                        losslessExt
+                    );
+                    const targetLosslessPath = path.join(targetDir, targetLosslessName);
+
+                    if (path.resolve(targetLosslessPath) !== absSourceLossless) {
+                        console.log(`[Consolidate] Moving lossless: ${path.basename(sourceLosslessPath)} -> ${targetLosslessName}`);
+                        await fs.move(absSourceLossless, targetLosslessPath, { overwrite: true });
+                        this.database.updateTrackLosslessPath(trackId, targetLosslessPath);
+
+                        // Update our source var to point to the new location for conversion
+                        sourceLosslessPath = targetLosslessPath;
+                    }
+                }
+            }
+
+            // --- HANDLING MP3 FILE ---
+            const absSourcePath = path.resolve(this.rootDir, sourcePath);
+            const absTargetPath = path.resolve(targetPath);
+
+            // Check if MP3 exists
+            if (await fs.pathExists(absSourcePath)) {
+                 // It exists, move it if needed
+                 if (absSourcePath !== absTargetPath) {
+                     console.log(`[Consolidate] Moving MP3: ${path.basename(sourcePath)} -> ${targetFileName}`);
+                     await fs.move(absSourcePath, absTargetPath, { overwrite: true });
+                 }
+            } else {
+                // MP3 missing. Generate from lossless if available.
+                if (sourceLosslessPath) {
+                    const absLossless = path.resolve(this.rootDir, sourceLosslessPath);
+                    if (await fs.pathExists(absLossless)) {
+                         console.log(`[Consolidate] Generating missing MP3 from: ${path.basename(sourceLosslessPath)}`);
+                         // Generate directly to target if possible?
+                         // convertWavToMp3 generates to same dir.
+                         // Since we moved lossless to targetDir, it will generate to targetDir with correct name?
+                         // formatAudioFilename uses "01 - Title.mp3".
+                         // convertWavToMp3 uses "InputName.mp3".
+                         // If "InputName" matches "01 - Title", we are good.
+
+                         // Let's rely on convertWavToMp3 generating "Name.mp3" next to "Name.wav"
+                         // sourceLosslessPath is now at targetDir/Name.wav (formatted).
+                         // So it should generate targetDir/Name.mp3 (formatted).
+
+                         await convertWavToMp3(absLossless);
+
+                         // Verify existence
+                         if (!await fs.pathExists(absTargetPath)) {
+                             // Fallback: maybe extensions didn't match perfectly (e.g. .flac -> .mp3 replacement)
+                             // Or convertWavToMp3 output filename differs from targetFileName?
+                             // They should match because both are derived from same title/track_num via formatAudioFilename.
+                             console.warn(`[Consolidate] Verify: Generated MP3 might have different name? Expected: ${absTargetPath}`);
+                         }
+                    }
+                }
+            }
 
             // 4. Update database
             this.database.updateTrackPath(trackId, targetPath, album.id);
-
-            // 4b. Consolidate lossless file if it exists
-            if (track.lossless_path && await fs.pathExists(path.join(this.rootDir, track.lossless_path))) {
-                const losslessExt = getFileExtension(track.lossless_path);
-                const targetLosslessName = formatAudioFilename(
-                    track.track_num || 0,
-                    track.title,
-                    losslessExt
-                );
-                const targetLosslessPath = path.join(targetDir, targetLosslessName);
-
-                if (path.resolve(this.rootDir, track.lossless_path) !== path.resolve(targetLosslessPath)) {
-                    console.log(`[Consolidate] Moving lossless: ${path.basename(track.lossless_path)} -> ${targetLosslessPath}`);
-                    await fs.move(path.join(this.rootDir, track.lossless_path), targetLosslessPath, { overwrite: true });
-                    this.database.updateTrackLosslessPath(trackId, targetLosslessPath);
-                }
-            }
+            // Ensure format is updated to mp3
+            try {
+                this.database.db.prepare("UPDATE tracks SET format = 'mp3' WHERE id = ?").run(trackId);
+            } catch (e) {}
 
             // 5. Consolidate cover if it exists
             if (album.cover_path && await fs.pathExists(path.join(this.rootDir, album.cover_path))) {

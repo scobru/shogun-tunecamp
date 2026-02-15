@@ -7,17 +7,7 @@ import { parse } from "yaml";
 import type { DatabaseService, Artist, Album, Track } from "./database.js";
 import { WaveformService } from "./waveform.js";
 import { slugify, getStandardCoverFilename } from "../utils/audioUtils.js";
-import ffmpeg from "fluent-ffmpeg";
-import ffmpegPath from "ffmpeg-static";
-import ffprobePath from "ffprobe-static";
-
-// Set ffmpeg path
-if (ffmpegPath) {
-    ffmpeg.setFfmpegPath(ffmpegPath);
-}
-if (ffprobePath && ffprobePath.path) {
-    ffmpeg.setFfprobePath(ffprobePath.path);
-}
+import { convertWavToMp3, getDurationFromFfmpeg } from "./ffmpeg.js";
 
 /**
  * Simple sequential processing queue to avoid over-parallelizing heavy tasks (ffmpeg, conversion)
@@ -82,50 +72,6 @@ async function parseFileWithRetry(filePath: string, retries = 3, delay = 500): P
         }
     }
     throw lastError;
-}
-
-function getDurationFromFfmpeg(filePath: string): Promise<number | null> {
-    return new Promise((resolve) => {
-        ffmpeg.ffprobe(filePath, (err, metadata) => {
-            if (err) {
-                console.warn(`    [Scanner] ffprobe failed for ${path.basename(filePath)}: ${err.message}`);
-                resolve(null);
-            } else {
-                const duration = metadata.format.duration;
-                resolve(duration ? parseFloat(duration as any) : null);
-            }
-        });
-    });
-}
-
-/**
- * Convert a WAV file to MP3 using ffmpeg
- * Returns the path to the new MP3 file
- */
-function convertWavToMp3(wavPath: string, bitrate: string = '320k'): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const mp3Path = wavPath.replace(/\.wav$/i, '.mp3');
-
-        const startTime = Date.now();
-        const startSize = fs.existsSync(wavPath) ? fs.statSync(wavPath).size : 0;
-        console.log(`    [Scanner] Converting WAV to MP3: ${path.basename(wavPath)} (${(startSize / 1024 / 1024).toFixed(2)} MB)`);
-
-        ffmpeg(wavPath)
-            .audioBitrate(bitrate)
-            .audioCodec('libmp3lame')
-            .format('mp3')
-            .outputOptions('-map_metadata', '0', '-id3v2_version', '3')
-            .on('end', () => {
-                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-                console.log(`    [Scanner] Converted to: ${path.basename(mp3Path)} in ${duration}s`);
-                resolve(mp3Path);
-            })
-            .on('error', (err) => {
-                console.error(`    [Scanner] Conversion failed: ${err.message}`);
-                reject(err);
-            })
-            .save(mp3Path);
-    });
 }
 
 const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
@@ -726,10 +672,26 @@ export class Scanner implements ScannerService {
         let removed = 0;
         for (const track of allTracks) {
             const resolved = path.join(musicDir, track.file_path);
-            if (!await fs.pathExists(resolved)) {
-                console.log(`  [Cleanup] Removing stale track: ${track.title} (${track.file_path})`);
+            const resolvedLossless = track.lossless_path ? path.join(musicDir, track.lossless_path) : null;
+
+            // Check if primary file exists
+            const primaryExists = await fs.pathExists(resolved);
+            // Check if lossless file exists
+            const losslessExists = resolvedLossless ? await fs.pathExists(resolvedLossless) : false;
+
+            if (!primaryExists && !losslessExists) {
+                console.log(`  [Cleanup] Removing stale track: ${track.title} (Both MP3 and Lossless missing)`);
                 this.database.deleteTrack(track.id);
                 removed++;
+            } else if (!primaryExists && losslessExists) {
+                console.warn(`  [Cleanup] Track ${track.title} missing MP3 (${track.file_path}) but has Lossless. Keeping record.`);
+                // Queue regeneration
+                if (resolvedLossless) {
+                    this.processQueue.add(() => convertWavToMp3(resolvedLossless!).catch(console.error));
+                }
+            } else if (primaryExists && track.lossless_path && !losslessExists) {
+                console.log(`  [Cleanup] Track ${track.title} missing lossless file (${track.lossless_path}). Updating record.`);
+                this.database.updateTrackLosslessPath(track.id, null);
             }
         }
         if (removed > 0) {
@@ -763,12 +725,25 @@ export class Scanner implements ScannerService {
             }
         });
 
-        this.watcher.on("unlink", (filePath: string) => {
+        this.watcher.on("unlink", async (filePath: string) => {
             // Note: normalizing path here because DB stores relative
             const relativePath = this.normalizePath(filePath, dir);
             const track = this.database.getTrackByPath(relativePath);
+
             if (track) {
+                // If checking the primary file
+                const losslessPath = track.lossless_path ? path.join(dir, track.lossless_path) : null;
+                if (losslessPath && await fs.pathExists(losslessPath)) {
+                    console.log(`[Watcher] Primary file ${relativePath} deleted, but lossless backup exists. Queuing regeneration.`);
+                    this.processQueue.add(() => convertWavToMp3(losslessPath!).catch(console.error));
+                    return;
+                }
+
+                console.log(`[Watcher] Primary file ${relativePath} deleted. Removing track.`);
                 this.database.deleteTrack(track.id);
+            } else {
+                // It might be the lossless file.
+                // Since we don't have an easy lookup, we'll let the next scan/cleanup handle updating the DB.
             }
         });
     }
