@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useNavigate } from 'react-router-dom';
-import { BarChart2, Settings, Database, RefreshCw, Save, User } from 'lucide-react';
+import { BarChart2, Settings, RefreshCw, Save, User } from 'lucide-react';
 import { AdminUserModal } from '../components/modals/AdminUserModal';
 import { AdminReleaseModal } from '../components/modals/AdminReleaseModal';
 import { AdminArtistModal } from '../components/modals/AdminArtistModal';
