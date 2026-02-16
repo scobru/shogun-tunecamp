@@ -204,7 +204,7 @@ export interface DatabaseService {
     addTrackToPlaylist(playlistId: number, trackId: number): void;
     removeTrackFromPlaylist(playlistId: number, trackId: number): void;
     // Posts
-    getPostsByArtist(artistId: number): Post[];
+    getPostsByArtist(artistId: number, publicOnly?: boolean): Post[];
     getPost(id: number): Post | undefined;
     getPostBySlug(slug: string): Post | undefined;
     createPost(artistId: number, content: string, visibility?: 'public' | 'private' | 'unlisted'): number;
@@ -318,6 +318,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       download TEXT,
       external_links TEXT,
       is_public INTEGER DEFAULT 0,
+      visibility TEXT DEFAULT 'private',
       is_release INTEGER DEFAULT 0,
       published_to_gundb INTEGER DEFAULT 0,
       published_to_ap INTEGER DEFAULT 0,
@@ -400,6 +401,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       visibility TEXT DEFAULT 'public',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE INDEX IF NOT EXISTS idx_posts_artist_id ON posts(artist_id);
 
     CREATE TABLE IF NOT EXISTS ap_notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -518,6 +520,13 @@ export function createDatabase(dbPath: string): DatabaseService {
         }
     } catch (e) {
         console.warn("⚠️  Migration warning (albums.visibility):", e);
+    }
+
+    // Ensure index on visibility
+    try {
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_albums_visibility ON albums(visibility)`);
+    } catch (e) {
+        // Ignore
     }
 
     // Migration: Add type and year to albums
@@ -1105,14 +1114,19 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         // Posts
-        getPostsByArtist(artistId: number): Post[] {
-            return db.prepare(`
-                SELECT p.*, a.name as artist_name, a.slug as artist_slug, a.photo_path as artist_photo
+        getPostsByArtist(artistId: number, publicOnly = false): Post[] {
+            const sql = publicOnly
+                ? `SELECT p.*, a.name as artist_name, a.slug as artist_slug, a.photo_path as artist_photo
+                FROM posts p
+                JOIN artists a ON p.artist_id = a.id
+                WHERE p.artist_id = ? AND p.visibility = 'public'
+                ORDER BY p.created_at DESC`
+                : `SELECT p.*, a.name as artist_name, a.slug as artist_slug, a.photo_path as artist_photo
                 FROM posts p
                 JOIN artists a ON p.artist_id = a.id
                 WHERE p.artist_id = ?
-                ORDER BY p.created_at DESC
-            `).all(artistId) as Post[];
+                ORDER BY p.created_at DESC`;
+            return db.prepare(sql).all(artistId) as Post[];
         },
 
         getPost(id: number): Post | undefined {
