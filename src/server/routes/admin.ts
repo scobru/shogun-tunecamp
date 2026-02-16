@@ -4,7 +4,6 @@ import type { ScannerService } from "../scanner.js";
 import type { GunDBService } from "../gundb.js";
 import type { ServerConfig } from "../config.js";
 import type { AuthService } from "../auth.js";
-import { ConsolidationService } from "../consolidate.js";
 import { validatePassword } from "../validators.js";
 import type { PublishingService } from "../publishing.js";
 
@@ -95,50 +94,6 @@ export function createAdminRoutes(
         } catch (error) {
             console.error("Error scanning:", error);
             res.status(500).json({ error: "Scan failed" });
-        }
-    });
-
-    /**
-     * POST /api/admin/consolidate
-     * Consolidate library into universal format (runs in background)
-     */
-    router.post("/consolidate", async (req: any, res) => {
-        try {
-            // Only root admin can trigger consolidation
-            if (!authService.isRootAdmin(req.username || "")) {
-                return res.status(403).json({ error: "Only root admin can trigger consolidation" });
-            }
-
-            const consolidator = new ConsolidationService(database, musicDir);
-
-            // Stop watcher to prevent race conditions where the scanner sees the file move as a deletion
-            scanner.stopWatching();
-
-            // Start in background
-            consolidator.consolidateAll()
-                .then(async result => {
-                    console.log(`✅ Library consolidated: ${result.success} moved, ${result.failed} failed.`);
-                    // Trigger a scan after consolidation to ensure DB is in sync and clean up any mess
-                    try {
-                        await scanner.scanDirectory(musicDir);
-                    } catch (e) {
-                        console.error("Scan after consolidation failed:", e);
-                    }
-                    // Restart watcher
-                    scanner.startWatching(musicDir);
-                })
-                .catch(error => {
-                    console.error("❌ Consolidation background process failed:", error);
-                    // Ensure watcher is restarted even on error
-                    scanner.startWatching(musicDir);
-                });
-
-            res.json({
-                message: "Consolidation started in background",
-            });
-        } catch (error) {
-            console.error("Error starting consolidation:", error);
-            res.status(500).json({ error: "Failed to start consolidation" });
         }
     });
 
