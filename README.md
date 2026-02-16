@@ -68,7 +68,6 @@ Run your own music streaming server.
 - `tunecamp build <input> -o <output>`: Build a static site.
 - `tunecamp serve <dir>`: Serve a static site locally.
 - `tunecamp server [music-dir]`: Start the music server instance.
-- `tunecamp consolidate [music-dir]`: Organize your music library.
 
 ## Documentation
 

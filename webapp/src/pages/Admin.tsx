@@ -42,11 +42,10 @@ export const Admin = () => {
         }
     };
 
-    const handleSystemAction = async (action: 'scan' | 'consolidate' | 'cleanup') => {
+    const handleSystemAction = async (action: 'scan' | 'cleanup') => {
         if (!confirm(`Are you sure you want to ${action === 'cleanup' ? 'cleanup the network' : action}? This may take a while.`)) return;
         try {
             if (action === 'scan') await API.rescan();
-            if (action === 'consolidate') await API.consolidate();
             if (action === 'cleanup') await API.cleanupNetwork();
             alert(`${action === 'cleanup' ? 'Network cleanup' : action} finished successfully.`);
         } catch (e) {
@@ -110,15 +109,6 @@ export const Admin = () => {
                                     <p className="opacity-70 text-sm">Scan the filesystem for new or modified files and update the database.</p>
                                     <div className="card-actions justify-end mt-4">
                                         <button className="btn btn-primary btn-outline" onClick={() => handleSystemAction('scan')}>Scan Now</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="card bg-base-200 border border-white/5">
-                                <div className="card-body">
-                                    <h2 className="card-title text-secondary"><Database/> Consolidate</h2>
-                                    <p className="opacity-70 text-sm">Organize library files, generate waveforms, and cleanup orphan entries.</p>
-                                    <div className="card-actions justify-end mt-4">
-                                        <button className="btn btn-secondary btn-outline" onClick={() => handleSystemAction('consolidate')}>Consolidate</button>
                                     </div>
                                 </div>
                             </div>
