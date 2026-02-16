@@ -70,6 +70,7 @@
     "yaml": "^2.3.4"
   },
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@tailwindcss/cli": "^4.1.18",
     "@types/bcrypt": "^6.0.0",
     "@types/better-sqlite3": "^7.6.13",
