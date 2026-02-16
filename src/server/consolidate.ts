@@ -17,6 +17,20 @@ export class ConsolidationService {
      * Consolidates a track by moving it to its proper location
      */
     async consolidateTrack(trackId: number): Promise<boolean> {
+        // 1. Delete track release associations from DB
+        try {
+            this.database.db.prepare("DELETE FROM release_tracks WHERE track_id = ?").run(trackId);
+        } catch (e) {
+            console.error(`[Consolidate] Error removing release associations for track ${trackId}:`, e);
+        }
+
+        // 2. Delete track album association from DB (reset to NULL)
+        try {
+            this.database.db.prepare("UPDATE tracks SET album_id = NULL WHERE id = ?").run(trackId);
+        } catch (e) {
+            console.error(`[Consolidate] Error resetting album association for track ${trackId}:`, e);
+        }
+
         const track = this.database.getTrack(trackId);
         if (!track || !track.file_path) return false;
 
