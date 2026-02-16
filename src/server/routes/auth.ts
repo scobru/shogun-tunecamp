@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { AuthService } from "../auth.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { validatePassword } from "../validators.js";
+import { rateLimit } from "../middleware/rateLimit.js";
 
 export function createAuthRoutes(authService: AuthService) {
     const router = Router();
@@ -10,7 +11,7 @@ export function createAuthRoutes(authService: AuthService) {
      * POST /api/auth/login
      * Login with admin password, returns JWT token
      */
-    router.post("/login", async (req, res) => {
+    router.post("/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), async (req, res) => {
         try {
             const { username, password } = req.body;
 
