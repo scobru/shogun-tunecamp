@@ -54,20 +54,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     init: async () => {
         set({ isInitializing: true, isAdminLoading: true });
 
-        // 1. Initialize GunDB
-        try {
-            const gunProfile = await GunAuth.init();
+        // 1. Initialize GunDB (Async)
+        GunAuth.init().then(gunProfile => {
             set({
                 user: gunProfile,
                 isAuthenticated: !!gunProfile,
                 isInitializing: false
             });
-        } catch (e) {
+        }).catch(e => {
             console.error('GunAuth Init Error', e);
             set({ user: null, isAuthenticated: false, isInitializing: false });
-        }
+        });
 
-        // 2. Check Admin Auth
+        // 2. Check Admin Auth (Immediate)
         get().checkAdminAuth();
     },
 
