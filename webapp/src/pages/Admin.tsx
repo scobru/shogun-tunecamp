@@ -19,6 +19,7 @@ export const Admin = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'tracks' | 'users' | 'artists' | 'settings' | 'system' | 'identity' | 'activitypub' | 'backup'>('overview');
     const [stats, setStats] = useState<any>(null);
+    const [settings, setSettings] = useState<SiteSettings | null>(null);
 
     // const [loading, setLoading] = useState(false);
 
@@ -29,6 +30,7 @@ export const Admin = () => {
              return;
         }
         loadStats();
+        loadSettings();
     }, [isAdminAuthenticated, adminUser, isAdminLoading]);
 
     if (isAdminLoading) return <div className="p-12 text-center opacity-50">Loading dashboard...</div>;
@@ -42,6 +44,15 @@ export const Admin = () => {
             console.error(e);
         } finally {
             // setLoading(false);
+        }
+    };
+
+    const loadSettings = async () => {
+        try {
+            const data = await API.getSiteSettings();
+            setSettings(data);
+        } catch (e) {
+            console.error(e);
         }
     };
 
@@ -132,18 +143,22 @@ export const Admin = () => {
                     <div className="space-y-6">
                         <h3 className="font-bold text-lg">Quick Actions</h3>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                            <button 
-                                className="btn btn-primary gap-2" 
-                                onClick={() => document.dispatchEvent(new CustomEvent('open-upload-tracks-modal'))}
-                            >
-                                📤 Upload Tracks
-                            </button>
-                            <button 
-                                className="btn btn-secondary gap-2" 
-                                onClick={() => navigate('/admin/release/new')}
-                            >
-                                💿 New Release
-                            </button>
+                            {settings && settings.mode !== 'personal' && (
+                                <>
+                                    <button
+                                        className="btn btn-primary gap-2"
+                                        onClick={() => document.dispatchEvent(new CustomEvent('open-upload-tracks-modal'))}
+                                    >
+                                        📤 Upload Tracks
+                                    </button>
+                                    <button
+                                        className="btn btn-secondary gap-2"
+                                        onClick={() => navigate('/admin/release/new')}
+                                    >
+                                        💿 New Release
+                                    </button>
+                                </>
+                            )}
                             <button 
                                 className="btn btn-outline gap-2" 
                                 onClick={() => document.dispatchEvent(new CustomEvent('open-admin-artist-modal'))}
@@ -192,7 +207,9 @@ export const Admin = () => {
                             <h3 className="font-bold text-lg">Releases</h3>
                             <div className="flex gap-2">
                                 <button className="btn btn-sm btn-outline" onClick={() => document.dispatchEvent(new CustomEvent('open-create-post-modal'))}>Create Post</button>
-                                <button className="btn btn-sm btn-primary" onClick={() => navigate('/admin/release/new')}>Create Release</button>
+                                {settings && settings.mode !== 'personal' && (
+                                    <button className="btn btn-sm btn-primary" onClick={() => navigate('/admin/release/new')}>Create Release</button>
+                                )}
                             </div>
                         </div>
                         <AdminReleasesList />
