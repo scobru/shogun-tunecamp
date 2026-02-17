@@ -112,7 +112,7 @@ export interface ScannerService {
     scanDirectory(dir: string): Promise<ScanResult>;
     startWatching(dir: string): void;
     stopWatching(): void;
-    processAudioFile(filePath: string, musicDir: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number } | null>;
+    processAudioFile(filePath: string, musicDir: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
 }
 
 export class Scanner implements ScannerService {
@@ -325,7 +325,7 @@ export class Scanner implements ScannerService {
         }
     }
 
-    public async processAudioFile(filePath: string, musicDir: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number } | null> {
+    public async processAudioFile(filePath: string, musicDir: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
         let currentFilePath = filePath;
         const ext = path.extname(currentFilePath).toLowerCase();
 
@@ -484,13 +484,15 @@ export class Scanner implements ScannerService {
                 });
 
             // Queue background conversion for WAVs
+            let queuedConversion = false;
             if (filePath.toLowerCase().endsWith(".wav") && currentFilePath === filePath) {
+                queuedConversion = true;
                 this.processQueue.add(() => convertWavToMp3(filePath).catch(err => {
                     console.error(`    [Scanner] Background WAV conversion failed:`, err);
                 }));
             }
 
-            return { originalPath: filePath, success: true, message: "Track processed successfully.", convertedPath: currentFilePath !== filePath ? currentFilePath : undefined, trackId: trackId };
+            return { originalPath: filePath, success: true, message: "Track processed successfully.", convertedPath: currentFilePath !== filePath ? currentFilePath : undefined, trackId: trackId, queuedConversion };
 
         } catch (error) {
             console.error("  Error processing " + currentFilePath + ":", error);
@@ -555,6 +557,15 @@ export class Scanner implements ScannerService {
         await walkDir(dir);
         console.log(`Found ${audioFiles.length} audio file(s) and ${yamlFiles.length} YAML config(s)`);
 
+        // Build knownFiles Set for optimized cleanup
+        const knownFiles = new Set<string>();
+        const isCaseInsensitive = process.platform === 'win32' || process.platform === 'darwin';
+
+        for (const f of audioFiles) {
+            const normalized = this.normalizePath(f, dir);
+            knownFiles.add(isCaseInsensitive ? normalized.toLowerCase() : normalized);
+        }
+
         // 2. Process Global and Artist configs first
         const globalConfigs = yamlFiles.filter(f => f.endsWith("artist.yaml") || f.endsWith("catalog.yaml"));
         for (const configPath of globalConfigs) {
@@ -579,6 +590,16 @@ export class Scanner implements ScannerService {
                 } else {
                     failed.push(result);
                 }
+
+                // If a conversion was queued, add the expected MP3 path to knownFiles
+                // so cleanupStaleTracks doesn't think it's missing
+                if (result.queuedConversion) {
+                    const ext = path.extname(file).toLowerCase();
+                    if (['.wav', '.flac'].includes(ext)) {
+                        const mp3Path = this.normalizePath(file.replace(new RegExp(`\\${ext}$`, 'i'), '.mp3'), dir);
+                        knownFiles.add(isCaseInsensitive ? mp3Path.toLowerCase() : mp3Path);
+                    }
+                }
             }
         }
 
@@ -586,7 +607,7 @@ export class Scanner implements ScannerService {
         await this.deduplicateTracks();
 
         // Clean up stale records
-        await this.cleanupStaleTracks(dir);
+        await this.cleanupStaleTracks(dir, knownFiles);
 
         // Fix orphan albums
         await this.fixOrphanAlbums();
@@ -666,18 +687,20 @@ export class Scanner implements ScannerService {
         }
     }
 
-    private async cleanupStaleTracks(musicDir: string) {
+    private async cleanupStaleTracks(musicDir: string, knownFiles: Set<string>) {
         console.log("[Scanner] Cleaning up stale database records...");
         const allTracks = this.database.getTracks();
+        const isCaseInsensitive = process.platform === 'win32' || process.platform === 'darwin';
+
         let removed = 0;
         for (const track of allTracks) {
-            const resolved = path.join(musicDir, track.file_path);
-            const resolvedLossless = track.lossless_path ? path.join(musicDir, track.lossless_path) : null;
+            // Check if primary file exists using knownFiles Set (O(1))
+            const primaryKey = isCaseInsensitive ? track.file_path.toLowerCase() : track.file_path;
+            const primaryExists = knownFiles.has(primaryKey);
 
-            // Check if primary file exists
-            const primaryExists = await fs.pathExists(resolved);
             // Check if lossless file exists
-            const losslessExists = resolvedLossless ? await fs.pathExists(resolvedLossless) : false;
+            const losslessKey = track.lossless_path ? (isCaseInsensitive ? track.lossless_path.toLowerCase() : track.lossless_path) : null;
+            const losslessExists = losslessKey ? knownFiles.has(losslessKey) : false;
 
             if (!primaryExists && !losslessExists) {
                 console.log(`  [Cleanup] Removing stale track: ${track.title} (Both MP3 and Lossless missing)`);
@@ -685,9 +708,13 @@ export class Scanner implements ScannerService {
                 removed++;
             } else if (!primaryExists && losslessExists) {
                 console.warn(`  [Cleanup] Track ${track.title} missing MP3 (${track.file_path}) but has Lossless. Keeping record.`);
-                // Queue regeneration
-                if (resolvedLossless) {
-                    this.processQueue.add(() => convertWavToMp3(resolvedLossless!).catch(console.error));
+
+                // Re-queue regeneration if needed
+                // Note: If conversion was already queued in this scan, primaryExists would be true (via knownFiles update).
+                // So reaching here means it was NOT queued, so we must queue it.
+                if (track.lossless_path) {
+                     const resolvedLossless = path.join(musicDir, track.lossless_path);
+                     this.processQueue.add(() => convertWavToMp3(resolvedLossless).catch(console.error));
                 }
             } else if (primaryExists && track.lossless_path && !losslessExists) {
                 console.log(`  [Cleanup] Track ${track.title} missing lossless file (${track.lossless_path}). Updating record.`);
