@@ -5,7 +5,7 @@ import path from "path";
 import fs from "fs-extra";
 import { getPlaceholderSVG } from "../../utils/audioUtils.js";
 
-export function createArtistsRoutes(database: DatabaseService, musicDir: string) {
+export function createArtistsRoutes(database: DatabaseService, musicDir: string): Router {
     const router = Router();
 
     /**
@@ -335,10 +335,13 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 return res.status(404).json({ error: "Artist not found" });
             }
 
-            const posts = database.getPostsByArtist(artist.id);
+            const isAdmin = (req as any).isAdmin === true;
+            // Use SQL filtering for public posts if user is not admin
+            const posts = database.getPostsByArtist(artist.id, !isAdmin);
+
             // Map snake_case to camelCase for frontend and filter by visibility
             const mappedPosts = posts
-                .filter(p => p.visibility === 'public' || (req as any).isAdmin) // (AuthenticatedRequest cast for safety)
+                .filter(p => p.visibility === 'public' || isAdmin) // (AuthenticatedRequest cast for safety)
                 .map(p => ({
                     id: p.id,
                     slug: p.slug,
