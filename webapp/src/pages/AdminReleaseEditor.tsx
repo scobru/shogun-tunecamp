@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
+import type { SiteSettings } from '../types';
 import { TrackPickerModal } from '../components/modals/TrackPickerModal';
 import { UnlockCodeManager } from '../components/modals/UnlockCodeManager';
 import { 
