@@ -136,11 +136,15 @@ export function createAdminRoutes(
                 return res.status(403).json({ error: "Only root admin can change site settings" });
             }
 
-            const { siteName, siteDescription, publicUrl, artistName, coverImage } = req.body;
+            const { siteName, siteDescription, publicUrl, artistName, coverImage, mode } = req.body;
             let settingsChanged = false;
 
             if (siteName !== undefined) {
                 database.setSetting("siteName", siteName);
+                settingsChanged = true;
+            }
+            if (mode !== undefined) {
+                database.setSetting("mode", mode);
                 settingsChanged = true;
             }
             if (siteDescription !== undefined) {

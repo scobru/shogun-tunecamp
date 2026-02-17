@@ -157,4 +157,20 @@ describe('Admin Routes Vulnerability Check', () => {
         expect(response.status).toBe(200);
         expect(mockAuthService.changePassword).toHaveBeenCalledWith('other', 'newpassword123');
     });
+
+    test('Root admin CAN update settings with mode', async () => {
+        (mockAuthService.isRootAdmin as jest.Mock).mockReturnValue(true);
+        (mockDatabase.setSetting as jest.Mock).mockImplementation(() => {});
+        (mockDatabase.getArtists as jest.Mock).mockReturnValue([]);
+        (mockDatabase.getAlbums as jest.Mock).mockReturnValue([]);
+
+        const response = await request(app)
+            .put('/admin/settings')
+            .set('x-username', 'root')
+            .send({ mode: 'personal', siteName: 'My Library' });
+
+        expect(response.status).toBe(200);
+        expect(mockDatabase.setSetting).toHaveBeenCalledWith('mode', 'personal');
+        expect(mockDatabase.setSetting).toHaveBeenCalledWith('siteName', 'My Library');
+    });
 });

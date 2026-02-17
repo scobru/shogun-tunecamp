@@ -15,7 +15,7 @@ import { BackupPanel } from '../components/admin/BackupPanel';
 import type { SiteSettings } from '../types';
 
 export const Admin = () => {
-    const { adminUser, isAdminAuthenticated } = useAuthStore();
+    const { adminUser, isAdminAuthenticated, isAdminLoading } = useAuthStore();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'tracks' | 'users' | 'artists' | 'settings' | 'system' | 'identity' | 'activitypub' | 'backup'>('overview');
     const [stats, setStats] = useState<any>(null);
@@ -23,12 +23,15 @@ export const Admin = () => {
     // const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        if (isAdminLoading) return;
         if (!isAdminAuthenticated || !adminUser?.isAdmin) {
              navigate('/');
              return;
         }
         loadStats();
-    }, [isAdminAuthenticated, adminUser]);
+    }, [isAdminAuthenticated, adminUser, isAdminLoading]);
+
+    if (isAdminLoading) return <div className="p-12 text-center opacity-50">Loading dashboard...</div>;
 
     const loadStats = async () => {
         // setLoading(true);
@@ -259,6 +262,33 @@ const AdminSettingsPanel = () => {
     return (
         <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
             <h3 className="font-bold text-lg">Site Settings</h3>
+
+            <div className="form-control">
+                <label className="label">
+                    <span className="label-text">Operation Mode</span>
+                    <span className="label-text-alt opacity-50">Choose between Label (Store & Releases) or Personal Library</span>
+                </label>
+                <div className="flex gap-4">
+                    <label className="label cursor-pointer justify-start gap-2 border border-base-content/10 p-3 rounded-lg hover:bg-base-200 flex-1">
+                        <input
+                            type="radio"
+                            className="radio radio-primary"
+                            checked={settings.mode !== 'personal'} // Default to label
+                            onChange={() => setSettings({...settings, mode: 'label'})}
+                        />
+                        <span className="label-text font-bold">Label Mode</span>
+                    </label>
+                    <label className="label cursor-pointer justify-start gap-2 border border-base-content/10 p-3 rounded-lg hover:bg-base-200 flex-1">
+                        <input
+                            type="radio"
+                            className="radio radio-secondary"
+                            checked={settings.mode === 'personal'}
+                            onChange={() => setSettings({...settings, mode: 'personal'})}
+                        />
+                        <span className="label-text font-bold">Personal Library</span>
+                    </label>
+                </div>
+            </div>
             
             <div className="form-control">
                 <label className="label">
