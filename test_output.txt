@@ -2,7 +2,7 @@
 > tunecamp@2.0.0 test /app
 > node --experimental-vm-modules node_modules/jest/bin/jest.js
 
-(node:2369) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:2996) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 FAIL src/server/routes/activitypub.bench.test.ts
   ● ActivityPub Outbox Performance › Benchmark N+1 vs Bulk Fetch
@@ -50,7 +50,98 @@ FAIL src/server/routes/activitypub.bench.test.ts
 
       at Object.<anonymous> (src/server/routes/activitypub.bench.test.ts:62:19)
 
-(node:2370) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:2994) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+FAIL src/server/publishing.test.ts
+  ● PublishingService - Visibility Toggle › should call unregisterTracks when album visibility changes to private
+
+    Could not locate the bindings file. Tried:
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/default/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/compiled/22.22.0/linux/x64/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/binding/node-v127-linux-x64/better_sqlite3.node
+
+      252 |
+      253 | export function createDatabase(dbPath: string): DatabaseService {
+    > 254 |     const db = new Database(dbPath);
+          |                ^
+      255 |
+      256 |     // Enable WAL mode for better concurrency
+      257 |     db.pragma("journal_mode = WAL");
+
+      at bindings (node_modules/.pnpm/bindings@1.5.0/node_modules/bindings/bindings.js:126:9)
+      at new Database (node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/database.js:48:64)
+      at createDatabase (src/server/database.ts:254:16)
+      at Object.<anonymous> (src/server/publishing.test.ts:22:14)
+
+  ● PublishingService - Visibility Toggle › should call unregisterTracks when album visibility changes to private
+
+    TypeError: Cannot read properties of undefined (reading 'db')
+
+      73 |
+      74 |     afterEach(() => {
+    > 75 |         db.db.close();
+         |            ^
+      76 |     });
+      77 |
+      78 |     test('should call unregisterTracks when album visibility changes to private', async () => {
+
+      at Object.<anonymous> (src/server/publishing.test.ts:75:12)
+
+  ● PublishingService - Visibility Toggle › should call unregisterTracks when published_to_gundb is toggled off
+
+    Could not locate the bindings file. Tried:
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/default/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/compiled/22.22.0/linux/x64/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/binding/node-v127-linux-x64/better_sqlite3.node
+
+      252 |
+      253 | export function createDatabase(dbPath: string): DatabaseService {
+    > 254 |     const db = new Database(dbPath);
+          |                ^
+      255 |
+      256 |     // Enable WAL mode for better concurrency
+      257 |     db.pragma("journal_mode = WAL");
+
+      at bindings (node_modules/.pnpm/bindings@1.5.0/node_modules/bindings/bindings.js:126:9)
+      at new Database (node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/database.js:48:64)
+      at createDatabase (src/server/database.ts:254:16)
+      at Object.<anonymous> (src/server/publishing.test.ts:22:14)
+
+  ● PublishingService - Visibility Toggle › should call unregisterTracks when published_to_gundb is toggled off
+
+    TypeError: Cannot read properties of undefined (reading 'db')
+
+      73 |
+      74 |     afterEach(() => {
+    > 75 |         db.db.close();
+         |            ^
+      76 |     });
+      77 |
+      78 |     test('should call unregisterTracks when album visibility changes to private', async () => {
+
+      at Object.<anonymous> (src/server/publishing.test.ts:75:12)
+
+(node:2995) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
 FAIL src/server/auth.test.ts
   ● Console
@@ -232,16 +323,22 @@ FAIL src/server/auth.test.ts
 
       at Object.<anonymous> (src/server/auth.test.ts:16:12)
 
-(node:2372) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
-(Use `node --trace-warnings ...` to show where the warning was created)
 PASS src/utils/networkUtils.test.ts
+PASS src/server/routes/admin.test.ts
+  ● Console
+
+    console.log
+      🌐 Re-registered site and tracks on GunDB with updated settings: http://localhost
+
+      at src/server/routes/admin.ts:196:25
+
 PASS src/server/routes/upload.test.ts
   ● Console
 
     console.log
-      🔍 [Debug] Upload Request Headers: multipart/form-data; boundary=--------------------------bbba526a3f4ad36685c57c1c
+      🔍 [Debug] Upload Request Headers: multipart/form-data; boundary=--------------------------2d6c36599a127f39ffe07a4d
 
-      at src/server/routes/upload.ts:182:17
+      at src/server/routes/upload.ts:192:17
 
     console.log
       🔍 [Debug] Multer fileFilter seeing file: file (test-image.jpg)
@@ -254,34 +351,34 @@ PASS src/server/routes/upload.test.ts
       at DiskStorage.destination [as getDestination] (src/server/routes/upload.ts:20:21)
 
     console.log
-      📄 [Debug] Multer filename: file-1771349977987-220170073.jpg
+      📄 [Debug] Multer filename: file-1771437553388-844259054.jpg
 
       at DiskStorage.filename [as getFilename] (src/server/routes/upload.ts:28:21)
 
     console.log
       🔍 [Debug] Inside /cover handler
 
-      at src/server/routes/upload.ts:186:21
+      at src/server/routes/upload.ts:196:21
 
     console.log
       🔍 [Debug] req.file: test-image.jpg (18 bytes)
 
-      at src/server/routes/upload.ts:187:21
+      at src/server/routes/upload.ts:197:21
 
     console.log
       🔍 [Debug] req.body: [Object: null prototype] { releaseSlug: '../' }
 
-      at src/server/routes/upload.ts:188:21
+      at src/server/routes/upload.ts:198:21
 
     console.log
       🎨 Uploaded cover: test-image.jpg
 
-      at src/server/routes/upload.ts:198:21
+      at src/server/routes/upload.ts:208:21
 
     console.log
-      🔍 [Debug] Upload Request Headers: multipart/form-data; boundary=--------------------------5240fe9712dacd2f59349470
+      🔍 [Debug] Upload Request Headers: multipart/form-data; boundary=--------------------------9313d6c91854c3ae3ac97c4d
 
-      at src/server/routes/upload.ts:182:17
+      at src/server/routes/upload.ts:192:17
 
     console.log
       🔍 [Debug] Multer fileFilter seeing file: file (valid.jpg)
@@ -294,56 +391,103 @@ PASS src/server/routes/upload.test.ts
       at DiskStorage.destination [as getDestination] (src/server/routes/upload.ts:20:21)
 
     console.log
-      📄 [Debug] Multer filename: file-1771349978018-557033445.jpg
+      📄 [Debug] Multer filename: file-1771437553411-723831681.jpg
 
       at DiskStorage.filename [as getFilename] (src/server/routes/upload.ts:28:21)
 
     console.log
       🔍 [Debug] Inside /cover handler
 
-      at src/server/routes/upload.ts:186:21
+      at src/server/routes/upload.ts:196:21
 
     console.log
       🔍 [Debug] req.file: valid.jpg (19 bytes)
 
-      at src/server/routes/upload.ts:187:21
+      at src/server/routes/upload.ts:197:21
 
     console.log
       🔍 [Debug] req.body: [Object: null prototype] { releaseSlug: 'valid-album' }
 
-      at src/server/routes/upload.ts:188:21
+      at src/server/routes/upload.ts:198:21
 
     console.log
       🎨 Uploaded cover: valid.jpg
 
-      at src/server/routes/upload.ts:198:21
+      at src/server/routes/upload.ts:208:21
 
     console.log
-         Moved cover to: /tmp/tunecamp-test-3xwFVF/releases/valid-album/artwork/cover-1771349978021.jpg
+         Moved cover to: /tmp/tunecamp-test-6JiF8z/releases/valid-album/artwork/cover-1771437553415.jpg
 
-      at src/server/routes/upload.ts:229:25
+      at src/server/routes/upload.ts:239:25
 
     console.log
-      📀 Updated cover for album Valid Album -> releases/valid-album/artwork/cover-1771349978021.jpg
+      📀 Updated cover for album Valid Album -> releases/valid-album/artwork/cover-1771437553415.jpg
 
-      at src/server/routes/upload.ts:249:29
+      at src/server/routes/upload.ts:259:29
 
     console.log
       ✅ Cover upload completed: valid.jpg
 
-      at src/server/routes/upload.ts:280:21
+      at src/server/routes/upload.ts:290:21
 
-PASS src/server/routes/admin.test.ts
+PASS src/server/routes/upload_security.test.ts
   ● Console
 
     console.log
-      🌐 Re-registered site and tracks on GunDB with updated settings: http://localhost
+      🔍 [Debug] Multer fileFilter seeing file: files (test.mp3)
 
-      at src/server/routes/admin.ts:196:25
+      at fileFilter (src/server/routes/upload.ts:42:13)
 
-PASS src/server/routes/releases.test.ts
-PASS src/server/password_security.test.ts
-PASS src/server/routes/browser.test.ts
+    console.log
+      📂 [Debug] Multer destination: /tmp
+
+      at DiskStorage.destination [as getDestination] (src/server/routes/upload.ts:20:21)
+
+    console.log
+      📄 [Debug] Multer filename: files-1771437553747-209737752.mp3
+
+      at DiskStorage.filename [as getFilename] (src/server/routes/upload.ts:28:21)
+
+    console.log
+      📤 Upload received: 1 track(s)
+
+      at src/server/routes/upload.ts:103:21
+
+    console.log
+         - test.mp3: 0.00 MB
+
+      at src/server/routes/upload.ts:104:40
+          at Array.forEach (<anonymous>)
+
+    console.log
+         Target Release Slug: other-artist-album
+
+      at src/server/routes/upload.ts:106:25
+
+    console.warn
+      ⛔ Access Denied: User undefined (Artist 1) tried to upload to release other-artist-album (Artist 2)
+
+      115 |             // SECURITY FIX: Prevent uploading to another artist's release
+      116 |             if (release && (req as any).artistId && release.artist_id !== (req as any).artistId) {
+    > 117 |                 console.warn(`⛔ Access Denied: User ${(req as any).username} (Artist ${(req as any).artistId}) tried to upload to release ${release.slug} (Artist ${release.artist_id})`);
+          |                         ^
+      118 |                 // Cleanup temp files
+      119 |                 for (const file of files) {
+      120 |                     await fs.remove(file.path).catch(() => {});
+
+      at src/server/routes/upload.ts:117:25
+      at Layer.handle [as handle_request] (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/route.js:149:13)
+      at done (node_modules/.pnpm/multer@2.0.2/node_modules/multer/lib/make-middleware.js:59:7)
+      at indicateDone (node_modules/.pnpm/multer@2.0.2/node_modules/multer/lib/make-middleware.js:63:68)
+      at node_modules/.pnpm/multer@2.0.2/node_modules/multer/lib/make-middleware.js:176:11
+      at WriteStream.<anonymous> (node_modules/.pnpm/multer@2.0.2/node_modules/multer/storage/disk.js:43:9)
+
+    console.log
+      ✅ Security check passed: Upload blocked due to artist mismatch.
+
+      at Object.<anonymous> (src/server/routes/upload_security.test.ts:85:22)
+
 PASS src/server/routes/backup.test.ts
   ● Console
 
@@ -377,9 +521,10 @@ PASS src/server/routes/backup.test.ts
       at performRestore (src/server/routes/backup.ts:119:17)
       at src/server/routes/backup.ts:356:21
 
+PASS src/server/password_security.test.ts
+PASS src/server/routes/browser.test.ts
+PASS src/server/routes/releases.test.ts
 PASS src/server/config.test.ts
-PASS src/utils/stringUtils.test.ts
-PASS src/server/middleware/rateLimit.test.ts
 PASS src/server/error-handling.test.ts
   ● Console
 
@@ -417,15 +562,15 @@ PASS src/server/error-handling.test.ts
           at parserOnIncoming (node:_http_server:1186:12)
           at HTTPParser.parserOnHeadersComplete (node:_http_common:122:17)
 
-      374 |
-      375 | export const globalErrorHandler = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    > 376 |     console.error("🔥 Global error:", err);
+      376 |
+      377 | export const globalErrorHandler = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    > 378 |     console.error("🔥 Global error:", err);
           |             ^
-      377 |     if (res.headersSent) {
-      378 |         return next(err);
-      379 |     }
+      379 |     if (res.headersSent) {
+      380 |         return next(err);
+      381 |     }
 
-      at globalErrorHandler (src/server/server.ts:376:13)
+      at globalErrorHandler (src/server/server.ts:378:13)
       at Layer.handle_error (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:71:5)
       at trim_prefix (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:326:13)
       at node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9
@@ -485,15 +630,15 @@ PASS src/server/error-handling.test.ts
           at parserOnIncoming (node:_http_server:1186:12)
           at HTTPParser.parserOnHeadersComplete (node:_http_common:122:17)
 
-      374 |
-      375 | export const globalErrorHandler = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    > 376 |     console.error("🔥 Global error:", err);
+      376 |
+      377 | export const globalErrorHandler = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    > 378 |     console.error("🔥 Global error:", err);
           |             ^
-      377 |     if (res.headersSent) {
-      378 |         return next(err);
-      379 |     }
+      379 |     if (res.headersSent) {
+      380 |         return next(err);
+      381 |     }
 
-      at globalErrorHandler (src/server/server.ts:376:13)
+      at globalErrorHandler (src/server/server.ts:378:13)
       at Layer.handle_error (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:71:5)
       at trim_prefix (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:326:13)
       at node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9
@@ -524,10 +669,13 @@ PASS src/server/error-handling.test.ts
       at Function.handle (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/application.js:181:10)
       at Server.app (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/express.js:39:9)
 
+PASS src/server/middleware/rateLimit.test.ts
+PASS src/utils/stringUtils.test.ts
+PASS src/server/middleware/security.test.ts
 
-Test Suites: 2 failed, 11 passed, 13 total
-Tests:       5 failed, 46 passed, 51 total
+Test Suites: 3 failed, 13 passed, 16 total
+Tests:       7 failed, 48 passed, 55 total
 Snapshots:   0 total
-Time:        6.742 s, estimated 9 s
+Time:        6.761 s, estimated 10 s
 Ran all test suites.
  ELIFECYCLE  Test failed. See above for more details.
