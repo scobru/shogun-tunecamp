@@ -70,6 +70,7 @@ export interface GunDBService {
     setIdentityKeyPair(pair: any): Promise<boolean>;
     syncNetwork(): Promise<void>;
     cleanupGlobalNetwork(): Promise<void>;
+    invalidateCache(): void;
 }
 
 export function createGunDBService(database: DatabaseService, server?: any, peers?: string[]): GunDBService {
@@ -86,6 +87,12 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         tracks: { data: [] as any[], timestamp: 0 },
         itemsTTL: 10 * 60 * 1000 // 10 minutes
     };
+
+    function invalidateCache() {
+        cache.sites = { data: [], timestamp: 0 };
+        cache.tracks = { data: [], timestamp: 0 };
+        console.log("🧹 GunDB Community Cache invalidated.");
+    }
 
     async function init(): Promise<boolean> {
         try {
@@ -235,6 +242,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                             resolve(false);
                         } else {
                             console.log(`✅ Server registered in Tunecamp Community (Secure Mode) - Site ID: ${siteId}`);
+                            invalidateCache();
                             resolve(true);
                         }
                     });
@@ -288,6 +296,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         }
 
         console.log(`🎵 Registered ${tracks.length} tracks from "${album.title}" to secure graph`);
+        invalidateCache();
         return true;
     }
 
@@ -309,6 +318,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         }
 
         console.log(`🗑️ Unregistered tracks from "${album.title}" from secure graph`);
+        invalidateCache();
         return true;
     }
 
@@ -866,7 +876,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         getIdentityKeyPair,
         setIdentityKeyPair,
         syncNetwork: cleanupNetwork,
-        cleanupGlobalNetwork
+        cleanupGlobalNetwork,
+        invalidateCache
     };
 
     /**
@@ -964,6 +975,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
         } catch (error) {
             console.error("Error in network cleanup:", error);
+        } finally {
+            invalidateCache();
         }
     }
 
@@ -1022,6 +1035,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                             checked++;
                             if (checked >= total) {
                                 console.log(`✅ Global cleanup complete. Checked ${checked} sites, removed ${removed}.`);
+                                invalidateCache();
                                 resolve();
                             }
                         }
@@ -1033,6 +1047,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             setTimeout(() => {
                 if (checked < total) {
                     console.log(`⚠️ Global cleanup partial timeout. Checked ${checked}/${total}.`);
+                    invalidateCache();
                     resolve();
                 }
             }, 60000);
