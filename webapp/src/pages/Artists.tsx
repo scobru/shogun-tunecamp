@@ -29,7 +29,7 @@ export const Artists = () => {
              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                 {artists.map(artist => (
                     <Link to={`/artists/${artist.slug || artist.id}`} key={artist.id} className="group text-center">
-                        <figure className="aspect-square relative overflow-hidden rounded-full shadow-xl mb-4 border-4 border-transparent group-hover:border-primary/20 transition-all mx-auto w-full max-w-[200px]">
+                        <figure className="aspect-square relative overflow-hidden rounded-xl shadow-xl mb-4 border-4 border-transparent group-hover:border-primary/20 transition-all mx-auto w-full max-w-[200px]">
                             {artist.coverImage ? (
                                 <img 
                                     src={API.getArtistCoverUrl(artist.id)} 
