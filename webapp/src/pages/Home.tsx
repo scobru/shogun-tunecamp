@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import API from '../services/api';
 import { usePlayerStore } from '../stores/usePlayerStore';
 import type { Album } from '../types';
 import { Play } from 'lucide-react';
 
+interface HomeStats {
+    albums: number;
+    tracks: number;
+}
+
 export const Home = () => {
     const [recentAlbums, setRecentAlbums] = useState<Album[]>([]);
-    const [stats, setStats] = useState<any>({});
+    const [stats, setStats] = useState<Partial<HomeStats>>({});
     const [loading, setLoading] = useState(true);
-    const { } = usePlayerStore();
 
     useEffect(() => {
         const load = async () => {
@@ -93,10 +98,10 @@ export const Home = () => {
                     <span className="w-2 h-8 bg-primary rounded-full"></span>
                     Recent Releases
                 </h2>
-                <a href="#/albums" className="btn btn-ghost btn-sm group">
+                <Link to="/albums" className="btn btn-ghost btn-sm group">
                     View All 
                     <span className="group-hover:translate-x-1 transition-transform">→</span>
-                </a>
+                </Link>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
@@ -111,8 +116,9 @@ export const Home = () => {
                                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                 />
                                 {/* Play overlay */}
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
                                     <button 
+                                        aria-label={`Play ${album.title}`}
                                         className="btn btn-circle btn-lg btn-primary text-white shadow-xl scale-90 hover:scale-105 transition-transform border-none"
                                         onClick={async (e) => {
                                             e.preventDefault();
@@ -133,8 +139,19 @@ export const Home = () => {
                                 </div>
                             </figure>
                             <div className="card-body p-4 gap-1">
-                                <h3 className="card-title text-base font-bold truncate leading-tight" title={album.title}>{album.title}</h3>
-                                <p className="text-sm opacity-60 truncate hover:opacity-100 transition-opacity">{album.artistName || album.artist_name}</p>
+                                <h3 className="card-title text-base font-bold truncate leading-tight" title={album.title}>
+                                    <Link to={`/albums/${album.slug || album.id}`} className="hover:underline focus:underline outline-none">
+                                        {album.title}
+                                    </Link>
+                                </h3>
+                                <p className="text-sm opacity-60 truncate hover:opacity-100 transition-opacity">
+                                    <Link
+                                        to={`/artists/${album.artistSlug || album.artist_slug || album.artistId}`}
+                                        className="hover:underline focus:underline outline-none"
+                                    >
+                                        {album.artistName || album.artist_name}
+                                    </Link>
+                                </p>
                                 <div className="card-actions justify-start mt-2">
                                     <span className="badge badge-xs badge-neutral">{album.year}</span>
                                     <span className={`badge badge-xs ${album.type === 'album' ? 'badge-secondary' : 'badge-primary'} badge-outline`}>{album.type}</span>

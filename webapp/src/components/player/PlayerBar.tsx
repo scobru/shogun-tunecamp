@@ -163,6 +163,7 @@ export const PlayerBar = () => {
                         <button 
                             className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-lg lg:hidden"
                             onClick={() => document.querySelector('.drawer')?.classList.add('drawer-end')} // Placeholder for full player expansion if needed
+                            aria-label="View current track details"
                         >
                             <span className="text-white text-xs">View</span>
                         </button>
@@ -194,7 +195,7 @@ export const PlayerBar = () => {
                         
                         <div className="tooltip" data-tip={isPlaying ? "Pause" : "Play"}>
                             <button 
-                                aria-label={isPlaying ? "Pause" : "Play"}
+                                aria-label={isPlaying ? "Pause" : `Play ${currentTrack.title}`}
                                 className="btn btn-circle btn-primary text-primary-content shadow-lg shadow-primary/20 lg:scale-110 hover:scale-110 transition-transform" 
                                 onClick={togglePlay}
                             >
@@ -237,7 +238,7 @@ export const PlayerBar = () => {
                              {Number.isFinite(currentTime) ? new Date(currentTime * 1000).toISOString().substr(14, 5) : '0:00'}
                          </span>
                          <input 
-                             aria-label="Seek track"
+                             aria-label="Seek track position"
                              type="range" 
                              className="range range-xs range-primary flex-1 z-10 h-1.5 hover:h-2 transition-all" 
                              min="0" max="100" 
@@ -257,7 +258,7 @@ export const PlayerBar = () => {
                            <Volume2 size={18} className={`opacity-70 group-hover:text-primary transition-colors ${volume === 0 ? 'text-error' : ''}`} />
                        </button>
                        <input 
-                            aria-label="Volume"
+                            aria-label="Volume control"
                             type="range" className="range range-xs w-24 range-secondary" 
                             min="0" max="1" step="0.05"
                             value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} 
