@@ -106,6 +106,22 @@ export function createUploadRoutes(
                 console.log(`   Target Release Slug: ${releaseSlug}`);
             }
 
+            // Get release if applicable
+            const release = releaseSlug ? database.getAlbumBySlug(releaseSlug) : undefined;
+            if (releaseSlug && !release) {
+                console.warn(`⚠️ Target release not found: ${releaseSlug}`);
+            }
+
+            // SECURITY FIX: Prevent uploading to another artist's release
+            if (release && (req as any).artistId && release.artist_id !== (req as any).artistId) {
+                console.warn(`⛔ Access Denied: User ${(req as any).username} (Artist ${(req as any).artistId}) tried to upload to release ${release.slug} (Artist ${release.artist_id})`);
+                // Cleanup temp files
+                for (const file of files) {
+                    await fs.remove(file.path).catch(() => {});
+                }
+                return res.status(403).json({ error: "Access denied: Cannot upload tracks to another artist's release" });
+            }
+
             // Move files from temp to musicDir/tracks
             const destDir = path.join(musicDir, "tracks");
             await fs.ensureDir(destDir);
@@ -113,12 +129,6 @@ export function createUploadRoutes(
             let movedCount = 0;
             let processedCount = 0;
             const scannerResults = [];
-
-            // Get release if applicable
-            const release = releaseSlug ? database.getAlbumBySlug(releaseSlug) : undefined;
-            if (releaseSlug && !release) {
-                console.warn(`⚠️ Target release not found: ${releaseSlug}`);
-            }
 
             for (const file of files) {
                 const sanitizedName = sanitizeFilename(file.originalname);
