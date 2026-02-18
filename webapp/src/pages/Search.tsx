@@ -49,7 +49,7 @@ export const Search = () => {
                     <input 
                         type="text" 
                         placeholder="Search for songs, artists, albums..." 
-                        className="input input-bordered w-full max-w-xl text-lg" 
+                        className="input input-bordered w-full text-lg"
                         value={query}
                         onChange={e => updateQuery(e.target.value)}
                         autoFocus
