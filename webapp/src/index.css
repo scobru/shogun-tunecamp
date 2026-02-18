@@ -63,6 +63,12 @@
   /* Legacy Color mappings for existing code using specific utils */
   --color-tunecamp-bg: oklch(15% 0.02 240);
   --color-tunecamp-surface: oklch(20% 0.02 240);
+
+  /* Material 3 Elevation Shadows */
+  --shadow-m3-1:
+    0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+  --shadow-m3-2:
+    0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
 }
 
 /* Custom Utilities */
