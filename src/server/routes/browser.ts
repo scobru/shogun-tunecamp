@@ -5,7 +5,38 @@ import path from "path";
 const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
 
-export function createBrowserRoutes(musicDir: string) {
+/**
+ * Robustly resolves a relative path against a root directory, ensuring no traversal.
+ * Returns null if the path is invalid, tries to traverse out of root, or contains null bytes.
+ */
+function resolveSafePath(rootDir: string, userPath: string): string | null {
+    // Prevent null byte injection
+    if (userPath.indexOf('\0') !== -1) {
+        return null;
+    }
+
+    const resolvedRoot = path.resolve(rootDir);
+
+    // Normalize user path by removing leading slashes to treat it as relative
+    let relativePath = userPath;
+    while (relativePath.startsWith('/') || relativePath.startsWith('\\')) {
+        relativePath = relativePath.substring(1);
+    }
+
+    const absPath = path.resolve(resolvedRoot, relativePath);
+
+    // Check if path is within root
+    const relative = path.relative(resolvedRoot, absPath);
+
+    // path.relative returns strings like '..' if outside, or absolute path if different drive
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+        return null;
+    }
+
+    return absPath;
+}
+
+export function createBrowserRoutes(musicDir: string): Router {
     const router = Router();
 
     /**
@@ -16,19 +47,12 @@ export function createBrowserRoutes(musicDir: string) {
      */
     router.get("/", async (req, res) => {
         try {
-            let relPath = (req.query.path as string) || "";
+            const relPath = (req.query.path as string) || "";
+            const absPath = resolveSafePath(musicDir, relPath);
 
-            // Normalize path: remove leading slash to make it relative
-            if (relPath.startsWith("/")) {
-                relPath = relPath.substring(1);
-            }
-
-            // Security check: unexpected ".." or absolute paths
-            if (relPath.includes("..") || path.isAbsolute(relPath)) {
+            if (!absPath) {
                 return res.status(400).json({ error: "Invalid path" });
             }
-
-            const absPath = path.join(musicDir, relPath);
 
             if (!(await fs.pathExists(absPath))) {
                 return res.status(404).json({ error: "Path not found" });
@@ -44,14 +68,20 @@ export function createBrowserRoutes(musicDir: string) {
             const dirs = [];
             const files = [];
 
+            // Reconstruct relative path for response
+            const responseRelPath = path.relative(musicDir, absPath).replace(/\\/g, "/");
+
             for (const entry of entries) {
                 const entryPath = path.join(absPath, entry.name);
                 const entryStats = await fs.stat(entryPath);
 
+                // Construct relative path for the item
+                const itemRelPath = path.relative(musicDir, entryPath).replace(/\\/g, "/");
+
                 if (entry.isDirectory()) {
                     dirs.push({
                         name: entry.name,
-                        path: path.join(relPath, entry.name).replace(/\\/g, "/"),
+                        path: itemRelPath,
                         type: "directory",
                         mtime: entryStats.mtime
                     });
@@ -59,7 +89,7 @@ export function createBrowserRoutes(musicDir: string) {
                     const ext = path.extname(entry.name).toLowerCase();
                     const item = {
                         name: entry.name,
-                        path: path.join(relPath, entry.name).replace(/\\/g, "/"),
+                        path: itemRelPath,
                         size: entryStats.size,
                         mtime: entryStats.mtime,
                         ext: ext
@@ -78,8 +108,8 @@ export function createBrowserRoutes(musicDir: string) {
             files.sort((a, b) => a.name.localeCompare(b.name));
 
             res.json({
-                path: relPath,
-                parent: relPath ? path.dirname(relPath).replace(/\\/g, "/") : null,
+                path: responseRelPath === "" ? "" : responseRelPath, // Empty string for root
+                parent: responseRelPath ? path.dirname(responseRelPath).replace(/\\/g, "/") : null,
                 entries: [...dirs, ...files]
             });
         } catch (error) {
@@ -97,12 +127,11 @@ export function createBrowserRoutes(musicDir: string) {
     router.get("/file", async (req, res) => {
         try {
             const relPath = (req.query.path as string) || "";
-            // Security check
-            if (relPath.includes("..") || path.isAbsolute(relPath)) {
+            const absPath = resolveSafePath(musicDir, relPath);
+
+            if (!absPath) {
                 return res.status(400).json({ error: "Invalid path" });
             }
-
-            const absPath = path.join(musicDir, relPath);
 
             if (!(await fs.pathExists(absPath))) {
                 return res.status(404).json({ error: "File not found" });
@@ -120,8 +149,6 @@ export function createBrowserRoutes(musicDir: string) {
         }
     });
 
-
-
     /**
      * DELETE /api/browser
      * Delete a file or directory
@@ -130,26 +157,20 @@ export function createBrowserRoutes(musicDir: string) {
      */
     router.delete("/", async (req, res) => {
         try {
-            let relPath = (req.query.path as string) || "";
+            const relPath = (req.query.path as string) || "";
+            const absPath = resolveSafePath(musicDir, relPath);
 
-            // Normalize path
-            if (relPath.startsWith("/")) {
-                relPath = relPath.substring(1);
-            }
-
-            // Security check
-            if (relPath.includes("..") || path.isAbsolute(relPath) || relPath === "" || relPath === "." || relPath === "./") {
+            // Block invalid paths AND root directory deletion
+            if (!absPath || absPath === path.resolve(musicDir)) {
                 return res.status(400).json({ error: "Invalid path or root directory protection" });
             }
-
-            const absPath = path.join(musicDir, relPath);
 
             if (!(await fs.pathExists(absPath))) {
                 return res.status(404).json({ error: "Path not found" });
             }
 
             await fs.remove(absPath);
-            console.log(`🗑️ Deleted via browser: ${relPath}`);
+            console.log(`🗑️ Deleted via browser: ${path.relative(musicDir, absPath)}`);
 
             res.json({ message: "Deleted successfully" });
         } catch (error) {

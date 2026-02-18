@@ -6,7 +6,7 @@ import { metadataService } from "../metadata.js";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 
-export function createMetadataRoutes(database: DatabaseService, musicDir: string) {
+export function createMetadataRoutes(database: DatabaseService, musicDir: string): Router {
     const router = Router();
 
     /**

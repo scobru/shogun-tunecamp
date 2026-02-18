@@ -4,7 +4,6 @@ import type { ScannerService } from "../scanner.js";
 import type { GunDBService } from "../gundb.js";
 import type { ServerConfig } from "../config.js";
 import type { AuthService } from "../auth.js";
-import { ConsolidationService } from "../consolidate.js";
 import { validatePassword } from "../validators.js";
 import type { PublishingService } from "../publishing.js";
 
@@ -16,7 +15,7 @@ export function createAdminRoutes(
     config: ServerConfig,
     authService: AuthService,
     publishingService: PublishingService
-) {
+): Router {
     const router = Router();
 
     /**
@@ -99,39 +98,6 @@ export function createAdminRoutes(
     });
 
     /**
-     * POST /api/admin/consolidate
-     * Consolidate library into universal format (runs in background)
-     */
-    router.post("/consolidate", async (req: any, res) => {
-        try {
-            // Only root admin can trigger consolidation
-            if (!authService.isRootAdmin(req.username || "")) {
-                return res.status(403).json({ error: "Only root admin can trigger consolidation" });
-            }
-
-            const consolidator = new ConsolidationService(database, musicDir);
-
-            // Start in background
-            consolidator.consolidateAll()
-                .then(result => {
-                    console.log(`✅ Library consolidated: ${result.success} moved, ${result.failed} failed.`);
-                    // Trigger a scan after consolidation to update paths in memory/watcher
-                    scanner.scanDirectory(musicDir).catch(e => console.error("Scan after consolidation failed:", e));
-                })
-                .catch(error => {
-                    console.error("❌ Consolidation background process failed:", error);
-                });
-
-            res.json({
-                message: "Consolidation started in background",
-            });
-        } catch (error) {
-            console.error("Error starting consolidation:", error);
-            res.status(500).json({ error: "Failed to start consolidation" });
-        }
-    });
-
-    /**
      * GET /api/admin/stats
      * Get admin statistics
      */
@@ -170,11 +136,15 @@ export function createAdminRoutes(
                 return res.status(403).json({ error: "Only root admin can change site settings" });
             }
 
-            const { siteName, siteDescription, publicUrl, artistName, coverImage } = req.body;
+            const { siteName, siteDescription, publicUrl, artistName, coverImage, mode } = req.body;
             let settingsChanged = false;
 
             if (siteName !== undefined) {
                 database.setSetting("siteName", siteName);
+                settingsChanged = true;
+            }
+            if (mode !== undefined) {
+                database.setSetting("mode", mode);
                 settingsChanged = true;
             }
             if (siteDescription !== undefined) {

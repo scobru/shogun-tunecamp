@@ -35,6 +35,7 @@ import { createBackupRoutes } from "./routes/backup.js";
 import { createPostsRoutes } from "./routes/posts.js";
 import { createSubsonicRouter } from "./routes/subsonic.js";
 import { WaveformService } from "./modules/waveform/waveform.service.js";
+import { securityHeaders } from "./middleware/security.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,6 +46,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const server = http.createServer(app);
 
     // Middleware
+    app.use(securityHeaders);
     app.use(cors({ origin: config.corsOrigins }));
 
     // Initialize database

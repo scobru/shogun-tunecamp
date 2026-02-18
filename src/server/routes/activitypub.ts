@@ -71,7 +71,7 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
         const releases = albums.filter(a => a.is_release && a.is_public);
 
         // Get posts (only public)
-        const posts = db.getPostsByArtist(artist.id).filter(p => p.visibility === 'public');
+        const posts = db.getPostsByArtist(artist.id, true);
 
         // OPTIMIZATION: Fetch all tracks for these releases in one go
         const releaseIds = releases.map(r => r.id);

@@ -3,7 +3,7 @@ import { validateUsername } from "../../utils/audioUtils.js";
 import type { GunDBService } from "../gundb.js";
 import type { DatabaseService } from "../database.js";
 
-export function createUsersRoutes(gundbService: GunDBService, database: DatabaseService) {
+export function createUsersRoutes(gundbService: GunDBService, database: DatabaseService): Router {
     const router = Router();
 
     /**

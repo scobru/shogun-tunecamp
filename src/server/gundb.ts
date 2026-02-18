@@ -5,6 +5,8 @@ import fetch from "node-fetch";
 import type { DatabaseService, Album, Track } from "./database.js";
 import { generateTrackSlug, normalizeUrl } from "../utils/audioUtils.js";
 import { isSafeUrl } from "../utils/networkUtils.js";
+import fs from "fs-extra";
+import path from "path";
 
 // Public GunDB peers for the community registry
 const REGISTRY_PEERS = [
@@ -70,6 +72,7 @@ export interface GunDBService {
     setIdentityKeyPair(pair: any): Promise<boolean>;
     syncNetwork(): Promise<void>;
     cleanupGlobalNetwork(): Promise<void>;
+    invalidateCache(): void;
 }
 
 export function createGunDBService(database: DatabaseService, server?: any, peers?: string[]): GunDBService {
@@ -86,6 +89,12 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         tracks: { data: [] as any[], timestamp: 0 },
         itemsTTL: 10 * 60 * 1000 // 10 minutes
     };
+
+    function invalidateCache() {
+        cache.sites = { data: [], timestamp: 0 };
+        cache.tracks = { data: [], timestamp: 0 };
+        console.log("🧹 GunDB Community Cache invalidated.");
+    }
 
     async function init(): Promise<boolean> {
         try {
@@ -171,7 +180,16 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         }
     }
 
-
+    async function clearRadata() {
+        const radataPath = path.join(process.cwd(), 'radata');
+        try {
+            console.warn(`⚠️ Attempting to clear GunDB radata directory at ${radataPath}...`);
+            await fs.emptyDir(radataPath);
+            console.log("✅ GunDB radata cleared successfully.");
+        } catch (error) {
+            console.error("❌ Failed to clear GunDB radata:", error);
+        }
+    }
 
     async function registerSite(siteInfo: SiteInfo): Promise<boolean> {
         if (!initialized || !gun || !serverPair) {
@@ -202,47 +220,64 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             pub: serverPair.pub // Public Key of the server
         };
 
-        return new Promise((resolve) => {
-            const user = gun.user();
+        const attemptRegistration = async (retryCount = 0): Promise<boolean> => {
+            return new Promise((resolve) => {
+                const user = gun.user();
 
-            // 1. Write to Private Node (User Graph) --> Signed by us
-            user.get('tunecamp').get('profile').put(siteRecord, async (ack: any) => {
-                if (ack.err) {
-                    console.warn("Failed to write to user graph:", ack.err);
-                    resolve(false);
-                    return;
-                }
+                // 1. Write to Private Node (User Graph) --> Signed by us
+                user.get('tunecamp').get('profile').put(siteRecord, async (ack: any) => {
+                    if (ack.err) {
+                        console.warn("Failed to write to user graph:", ack.err);
 
-                // 2. Write Reference to Public Directory
-                // We write a pointer to the public list so people can find us.
-                // IMPORTANT: We include our pub key so they can verify/load the private data.
-                console.log(`📝 Registering public reference for Site ID: ${siteId} with PubKey: ${serverPair.pub.slice(0, 8)}...`);
-                gun
-                    .get(REGISTRY_ROOT)
-                    .get(REGISTRY_NAMESPACE)
-                    .get("sites")
-                    .get(siteId)
-                    .put({
-                        id: siteId,
-                        pub: serverPair.pub,
-                        lastSeen: now,
-                        url: siteInfo.url, // Keep basic info for fast listing
-                        title: siteInfo.title,
-                        artistName: siteInfo.artistName
-                    }, (pubAck: any) => {
-                        if (pubAck.err) {
-                            console.warn("Failed to register site in directory:", pubAck.err);
-                            resolve(false);
-                        } else {
-                            console.log(`✅ Server registered in Tunecamp Community (Secure Mode) - Site ID: ${siteId}`);
-                            resolve(true);
+                        // Check for corruption (JSON error)
+                        const isJsonError = (typeof ack.err === 'string' && ack.err.includes("JSON error")) ||
+                                          (ack.err && ack.err.err === "JSON error!");
+
+                        if (isJsonError && retryCount < 1) {
+                            console.error("❌ GunDB Corruption detected (JSON error)! Attempting auto-recovery...");
+                            await clearRadata();
+                            console.log("🔄 Retrying registration after recovery...");
+                            const result = await attemptRegistration(retryCount + 1);
+                            resolve(result);
+                            return;
                         }
-                    });
-            });
 
-            // Timeout fallback
-            setTimeout(() => resolve(true), 5000);
-        });
+                        resolve(false);
+                        return;
+                    }
+
+                    // 2. Write Reference to Public Directory
+                    console.log(`📝 Registering public reference for Site ID: ${siteId} with PubKey: ${serverPair.pub.slice(0, 8)}...`);
+                    gun
+                        .get(REGISTRY_ROOT)
+                        .get(REGISTRY_NAMESPACE)
+                        .get("sites")
+                        .get(siteId)
+                        .put({
+                            id: siteId,
+                            pub: serverPair.pub,
+                            lastSeen: now,
+                            url: siteInfo.url,
+                            title: siteInfo.title,
+                            artistName: siteInfo.artistName
+                        }, (pubAck: any) => {
+                            if (pubAck.err) {
+                                console.warn("Failed to register site in directory:", pubAck.err);
+                                resolve(false);
+                            } else {
+                                console.log(`✅ Server registered in Tunecamp Community (Secure Mode) - Site ID: ${siteId}`);
+                                invalidateCache();
+                                resolve(true);
+                            }
+                        });
+                });
+
+                // Timeout fallback
+                setTimeout(() => resolve(true), 5000);
+            });
+        };
+
+        return attemptRegistration();
     }
 
     async function registerTracks(
@@ -260,35 +295,75 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
         // Write to User Graph -> tunecamp -> tracks
         const tracksRef = gun.user().get('tunecamp').get('tracks');
-
-        // Get artist name
         const artistName = album.artist_name || siteInfo.artistName || "";
 
-        // Register each track
-        for (const track of tracks) {
-            const trackSlug = generateTrackSlug(album.title, track.title);
-            const cleanBaseUrl = normalizeUrl(baseUrl);
-            const audioUrl = `${cleanBaseUrl}/api/tracks/${track.id}/stream`;
-            const coverUrl = album.id ? `${cleanBaseUrl}/api/albums/${album.id}/cover` : "";
+        const attemptRegisterTracks = async (retryCount = 0): Promise<boolean> => {
+            const promises = tracks.map(track => {
+                const trackSlug = generateTrackSlug(album.title, track.title);
+                const cleanBaseUrl = normalizeUrl(baseUrl);
+                const audioUrl = `${cleanBaseUrl}/api/tracks/${track.id}/stream`;
+                const coverUrl = album.id ? `${cleanBaseUrl}/api/albums/${album.id}/cover` : "";
 
-            const trackData = {
-                slug: trackSlug,
-                title: track.title || "Untitled",
-                audioUrl: audioUrl,
-                duration: track.duration || 0,
-                releaseTitle: album.title || "Unknown Release",
-                artistName: artistName,
-                coverUrl: coverUrl,
-                siteUrl: cleanBaseUrl,
-                addedAt: now,
-                pub: serverPair.pub
-            };
+                const trackData = {
+                    slug: trackSlug,
+                    title: track.title || "Untitled",
+                    audioUrl: audioUrl,
+                    duration: track.duration || 0,
+                    releaseTitle: album.title || "Unknown Release",
+                    artistName: artistName,
+                    coverUrl: coverUrl,
+                    siteUrl: cleanBaseUrl,
+                    addedAt: now,
+                    pub: serverPair.pub
+                };
 
-            tracksRef.get(trackSlug).put(trackData);
-        }
+                return new Promise<string | null>((resolve) => {
+                    let resolved = false;
+                    tracksRef.get(trackSlug).put(trackData, (ack: any) => {
+                        if (resolved) return;
+                        resolved = true;
+                        if (ack.err) resolve(ack.err);
+                        else resolve(null);
+                    });
 
-        console.log(`🎵 Registered ${tracks.length} tracks from "${album.title}" to secure graph`);
-        return true;
+                    // Fallback resolve if no ack
+                    setTimeout(() => {
+                        if (resolved) return;
+                        resolved = true;
+                        resolve(null);
+                    }, 5000);
+                });
+            });
+
+            // Wait for all puts (or errors)
+            const results = await Promise.all(promises);
+            const error = results.find(e => {
+                if (!e) return false;
+                if (typeof e === 'string' && e.includes("JSON error")) return true;
+                if (typeof e === 'object' && (e as any).err === "JSON error!") return true;
+                return false;
+            });
+
+            if (error && retryCount < 1) {
+                console.error("❌ GunDB Corruption detected in registerTracks (JSON error)! Attempting auto-recovery...");
+                await clearRadata();
+                console.log("🔄 Retrying track registration after recovery...");
+                return attemptRegisterTracks(retryCount + 1);
+            }
+
+            if (error) {
+                console.warn("Some tracks failed to register:", error);
+                // But we don't return false because some might have succeeded?
+                // Actually if one fails with JSON error, likely all fail or the file is bad.
+                // If we retry, we hope it works. If it still fails, we give up.
+            }
+
+            console.log(`🎵 Registered ${tracks.length} tracks from "${album.title}" to secure graph`);
+            invalidateCache();
+            return true;
+        };
+
+        return attemptRegisterTracks();
     }
 
     async function unregisterTracks(
@@ -309,6 +384,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         }
 
         console.log(`🗑️ Unregistered tracks from "${album.title}" from secure graph`);
+        invalidateCache();
         return true;
     }
 
@@ -866,7 +942,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         getIdentityKeyPair,
         setIdentityKeyPair,
         syncNetwork: cleanupNetwork,
-        cleanupGlobalNetwork
+        cleanupGlobalNetwork,
+        invalidateCache
     };
 
     /**
@@ -964,6 +1041,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
         } catch (error) {
             console.error("Error in network cleanup:", error);
+        } finally {
+            invalidateCache();
         }
     }
 
@@ -1022,6 +1101,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                             checked++;
                             if (checked >= total) {
                                 console.log(`✅ Global cleanup complete. Checked ${checked} sites, removed ${removed}.`);
+                                invalidateCache();
                                 resolve();
                             }
                         }
@@ -1033,6 +1113,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             setTimeout(() => {
                 if (checked < total) {
                     console.log(`⚠️ Global cleanup partial timeout. Checked ${checked}/${total}.`);
+                    invalidateCache();
                     resolve();
                 }
             }, 60000);

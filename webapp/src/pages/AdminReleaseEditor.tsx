@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
+import type { SiteSettings } from '../types';
 import { TrackPickerModal } from '../components/modals/TrackPickerModal';
 import { UnlockCodeManager } from '../components/modals/UnlockCodeManager';
 import { 
@@ -81,6 +82,9 @@ export default function AdminReleaseEditor() {
     const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
     const [uploadingFileIndex, setUploadingFileIndex] = useState<number | null>(null);
 
+    // Settings
+    const [settings, setSettings] = useState<SiteSettings | null>(null);
+
     // Track Picker
     const [showTrackPicker, setShowTrackPicker] = useState(false);
     
@@ -92,6 +96,7 @@ export default function AdminReleaseEditor() {
     const [showUnlockManager, setShowUnlockManager] = useState(false);
 
     useEffect(() => {
+        API.getSiteSettings().then(setSettings).catch(console.error);
         loadArtists();
         if (!isNew && id) {
             loadRelease(parseInt(id));
@@ -525,7 +530,8 @@ export default function AdminReleaseEditor() {
                             </div>
                         </div>
                         
-                        {/* Download Options */}
+                        {/* Download Options - Label Mode Only */}
+                        {settings?.mode !== 'personal' && (
                         <div className="form-control">
                             <label className="label">Download Method</label>
                             <div className="space-y-2">
@@ -592,6 +598,7 @@ export default function AdminReleaseEditor() {
                                 )}
                             </div>
                         </div>
+                        )}
 
                         {/* Visibility */}
                         <div className="form-control">

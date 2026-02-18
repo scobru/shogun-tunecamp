@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useNavigate } from 'react-router-dom';
-import { BarChart2, Settings, Database, RefreshCw, Save, User } from 'lucide-react';
+import { BarChart2, Settings, RefreshCw, Save, User, Globe, Lock } from 'lucide-react';
 import { AdminUserModal } from '../components/modals/AdminUserModal';
 import { AdminReleaseModal } from '../components/modals/AdminReleaseModal';
 import { AdminArtistModal } from '../components/modals/AdminArtistModal';
@@ -15,20 +15,25 @@ import { BackupPanel } from '../components/admin/BackupPanel';
 import type { SiteSettings } from '../types';
 
 export const Admin = () => {
-    const { adminUser, isAdminAuthenticated } = useAuthStore();
+    const { adminUser, isAdminAuthenticated, isAdminLoading } = useAuthStore();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'tracks' | 'users' | 'artists' | 'settings' | 'system' | 'identity' | 'activitypub' | 'backup'>('overview');
     const [stats, setStats] = useState<any>(null);
+    const [settings, setSettings] = useState<SiteSettings | null>(null);
 
     // const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        if (isAdminLoading) return;
         if (!isAdminAuthenticated || !adminUser?.isAdmin) {
              navigate('/');
              return;
         }
         loadStats();
-    }, [isAdminAuthenticated, adminUser]);
+        loadSettings();
+    }, [isAdminAuthenticated, adminUser, isAdminLoading]);
+
+    if (isAdminLoading) return <div className="p-12 text-center opacity-50">Loading dashboard...</div>;
 
     const loadStats = async () => {
         // setLoading(true);
@@ -42,11 +47,19 @@ export const Admin = () => {
         }
     };
 
-    const handleSystemAction = async (action: 'scan' | 'consolidate' | 'cleanup') => {
+    const loadSettings = async () => {
+        try {
+            const data = await API.getSiteSettings();
+            setSettings(data);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleSystemAction = async (action: 'scan' | 'cleanup') => {
         if (!confirm(`Are you sure you want to ${action === 'cleanup' ? 'cleanup the network' : action}? This may take a while.`)) return;
         try {
             if (action === 'scan') await API.rescan();
-            if (action === 'consolidate') await API.consolidate();
             if (action === 'cleanup') await API.cleanupNetwork();
             alert(`${action === 'cleanup' ? 'Network cleanup' : action} finished successfully.`);
         } catch (e) {
@@ -115,15 +128,6 @@ export const Admin = () => {
                             </div>
                             <div className="card bg-base-200 border border-white/5">
                                 <div className="card-body">
-                                    <h2 className="card-title text-secondary"><Database/> Consolidate</h2>
-                                    <p className="opacity-70 text-sm">Organize library files, generate waveforms, and cleanup orphan entries.</p>
-                                    <div className="card-actions justify-end mt-4">
-                                        <button className="btn btn-secondary btn-outline" onClick={() => handleSystemAction('consolidate')}>Consolidate</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="card bg-base-200 border border-white/5">
-                                <div className="card-body">
                                     <h2 className="card-title text-accent"><RefreshCw/> Cleanup</h2>
                                     <p className="opacity-70 text-sm">Check reachability of all registered sites on GunDB and remove dead entries.</p>
                                     <div className="card-actions justify-end mt-4">
@@ -139,18 +143,22 @@ export const Admin = () => {
                     <div className="space-y-6">
                         <h3 className="font-bold text-lg">Quick Actions</h3>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                            <button 
-                                className="btn btn-primary gap-2" 
-                                onClick={() => document.dispatchEvent(new CustomEvent('open-upload-tracks-modal'))}
-                            >
-                                📤 Upload Tracks
-                            </button>
-                            <button 
-                                className="btn btn-secondary gap-2" 
-                                onClick={() => navigate('/admin/release/new')}
-                            >
-                                💿 New Release
-                            </button>
+                            {settings && settings.mode !== 'personal' && (
+                                <>
+                                    <button
+                                        className="btn btn-primary gap-2"
+                                        onClick={() => document.dispatchEvent(new CustomEvent('open-upload-tracks-modal'))}
+                                    >
+                                        📤 Upload Tracks
+                                    </button>
+                                    <button
+                                        className="btn btn-secondary gap-2"
+                                        onClick={() => navigate('/admin/release/new')}
+                                    >
+                                        💿 New Release
+                                    </button>
+                                </>
+                            )}
                             <button 
                                 className="btn btn-outline gap-2" 
                                 onClick={() => document.dispatchEvent(new CustomEvent('open-admin-artist-modal'))}
@@ -199,7 +207,9 @@ export const Admin = () => {
                             <h3 className="font-bold text-lg">Releases</h3>
                             <div className="flex gap-2">
                                 <button className="btn btn-sm btn-outline" onClick={() => document.dispatchEvent(new CustomEvent('open-create-post-modal'))}>Create Post</button>
-                                <button className="btn btn-sm btn-primary" onClick={() => navigate('/admin/release/new')}>Create Release</button>
+                                {settings && settings.mode !== 'personal' && (
+                                    <button className="btn btn-sm btn-primary" onClick={() => navigate('/admin/release/new')}>Create Release</button>
+                                )}
                             </div>
                         </div>
                         <AdminReleasesList />
@@ -269,6 +279,33 @@ const AdminSettingsPanel = () => {
     return (
         <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
             <h3 className="font-bold text-lg">Site Settings</h3>
+
+            <div className="form-control">
+                <label className="label">
+                    <span className="label-text">Operation Mode</span>
+                    <span className="label-text-alt opacity-50">Choose between Label (Store & Releases) or Personal Library</span>
+                </label>
+                <div className="flex gap-4">
+                    <label className="label cursor-pointer justify-start gap-2 border border-base-content/10 p-3 rounded-lg hover:bg-base-200 flex-1">
+                        <input
+                            type="radio"
+                            className="radio radio-primary"
+                            checked={settings.mode !== 'personal'} // Default to label
+                            onChange={() => setSettings({...settings, mode: 'label'})}
+                        />
+                        <span className="label-text font-bold">Label Mode</span>
+                    </label>
+                    <label className="label cursor-pointer justify-start gap-2 border border-base-content/10 p-3 rounded-lg hover:bg-base-200 flex-1">
+                        <input
+                            type="radio"
+                            className="radio radio-secondary"
+                            checked={settings.mode === 'personal'}
+                            onChange={() => setSettings({...settings, mode: 'personal'})}
+                        />
+                        <span className="label-text font-bold">Personal Library</span>
+                    </label>
+                </div>
+            </div>
             
             <div className="form-control">
                 <label className="label">
@@ -498,12 +535,29 @@ const AdminReleasesList = () => {
         return () => window.removeEventListener('refresh-admin-releases', loadReleases);
     }, []);
 
+    const handleToggleVisibility = async (e: React.MouseEvent, release: any) => {
+        e.stopPropagation(); // prevent row click if any
+        const newVisibility = release.visibility === 'public' ? 'private' : 'public';
+
+        // Optimistic update
+        const oldReleases = [...releases];
+        setReleases(releases.map(r => r.id === release.id ? { ...r, visibility: newVisibility } : r));
+
+        try {
+            await API.toggleReleaseVisibility(release.id, newVisibility);
+        } catch (e) {
+            console.error(e);
+            alert('Failed to update visibility');
+            setReleases(oldReleases); // Rollback
+        }
+    };
+
     if (releases.length === 0) return <div className="opacity-50 text-center py-4">No releases found.</div>;
 
     return (
         <table className="table">
             <thead>
-                <tr><th>Title</th><th>Artist</th><th>Type</th><th>Actions</th></tr>
+                <tr><th>Title</th><th>Artist</th><th>Type</th><th>Visibility</th><th>Actions</th></tr>
             </thead>
             <tbody>
                 {releases.map(r => (
@@ -511,6 +565,16 @@ const AdminReleasesList = () => {
                         <td className="font-bold">{r.title}</td>
                         <td>{r.artistName}</td>
                         <td><div className="badge badge-sm">{r.type}</div></td>
+                        <td>
+                            <button
+                                className={`btn btn-xs btn-ghost gap-1 ${r.visibility === 'public' ? 'text-success' : 'text-base-content/50'}`}
+                                onClick={(e) => handleToggleVisibility(e, r)}
+                                title={r.visibility === 'public' ? 'Public' : 'Private'}
+                            >
+                                {r.visibility === 'public' ? <Globe size={14}/> : <Lock size={14}/>}
+                                <span className="hidden md:inline">{r.visibility}</span>
+                            </button>
+                        </td>
                         <td className="flex gap-2">
                             <button className="btn btn-xs btn-ghost" onClick={() => navigate(`/admin/release/${r.id}/edit`)}>Edit</button>
                         </td>

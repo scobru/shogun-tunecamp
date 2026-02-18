@@ -110,10 +110,11 @@ export const AuthModal = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="form-control">
-                        <label className="label">
+                        <label className="label" htmlFor="username">
                             <span className="label-text">Username</span>
                         </label>
                         <input 
+                            id="username"
                             type="text" 
                             placeholder="username" 
                             className="input input-bordered w-full" 
@@ -125,10 +126,11 @@ export const AuthModal = () => {
                     </div>
 
                     <div className="form-control">
-                        <label className="label">
+                        <label className="label" htmlFor="password">
                             <span className="label-text">Password</span>
                         </label>
                         <input 
+                            id="password"
                             type="password" 
                             placeholder="••••••" 
                             className="input input-bordered w-full" 
@@ -141,10 +143,11 @@ export const AuthModal = () => {
                     
                     {mode === 'register' && (
                         <div className="form-control">
-                            <label className="label">
+                            <label className="label" htmlFor="confirmPass">
                                 <span className="label-text">Confirm Password</span>
                             </label>
                             <input 
+                                id="confirmPass"
                                 type="password" 
                                 placeholder="••••••" 
                                 className="input input-bordered w-full" 

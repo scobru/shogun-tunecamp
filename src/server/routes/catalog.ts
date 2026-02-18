@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 
-export function createCatalogRoutes(database: DatabaseService) {
+export function createCatalogRoutes(database: DatabaseService): Router {
     const router = Router();
 
     /**
@@ -75,7 +75,9 @@ export function createCatalogRoutes(database: DatabaseService) {
             const donationLinks = donationLinksJson ? JSON.parse(donationLinksJson) : null;
 
             const backgroundImage = database.getSetting("backgroundImage") || undefined;
-            res.json({ siteName, siteDescription, donationLinks, backgroundImage });
+            const mode = database.getSetting("mode") || 'label';
+
+            res.json({ siteName, siteDescription, donationLinks, backgroundImage, mode });
         } catch (error) {
             console.error("Error getting settings:", error);
             res.status(500).json({ error: "Failed to get settings" });
