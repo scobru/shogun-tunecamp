@@ -36,7 +36,7 @@ function resolveSafePath(rootDir: string, userPath: string): string | null {
     return absPath;
 }
 
-export function createBrowserRoutes(musicDir: string) {
+export function createBrowserRoutes(musicDir: string): Router {
     const router = Router();
 
     /**

@@ -42,7 +42,7 @@ export function createReleaseRoutes(
     scanner: ScannerService,
     musicDir: string,
     publishingService: PublishingService
-) {
+): Router {
     const router = Router();
 
     router.post("/", async (req: any, res) => {

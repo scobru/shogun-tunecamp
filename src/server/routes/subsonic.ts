@@ -14,7 +14,7 @@ interface SubsonicContext {
     musicDir: string;
 }
 
-export const createSubsonicRouter = (context: SubsonicContext) => {
+export const createSubsonicRouter = (context: SubsonicContext): Router => {
     const router = Router();
     const { db, auth } = context;
 

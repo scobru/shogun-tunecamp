@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { DatabaseService } from "../database.js";
 
-export function createLibraryStatsRoutes(database: DatabaseService) {
+export function createLibraryStatsRoutes(database: DatabaseService): Router {
     const router = Router();
 
     /**

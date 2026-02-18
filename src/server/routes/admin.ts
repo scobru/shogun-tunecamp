@@ -15,7 +15,7 @@ export function createAdminRoutes(
     config: ServerConfig,
     authService: AuthService,
     publishingService: PublishingService
-) {
+): Router {
     const router = Router();
 
     /**

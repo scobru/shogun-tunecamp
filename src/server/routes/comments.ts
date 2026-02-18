@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { GunDBService } from "../gundb.js";
 
-export function createCommentsRoutes(gundbService: GunDBService) {
+export function createCommentsRoutes(gundbService: GunDBService): Router {
     const router = Router();
 
     /**
