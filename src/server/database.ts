@@ -804,8 +804,8 @@ export function createDatabase(dbPath: string): DatabaseService {
                 try {
                     const result = db
                         .prepare(
-                            `INSERT INTO albums (title, slug, artist_id, date, cover_path, genre, description, type, year, download, external_links, is_public, visibility, is_release, published_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                            `INSERT INTO albums (title, slug, artist_id, date, cover_path, genre, description, type, year, download, external_links, is_public, visibility, is_release, published_at, published_to_gundb, published_to_ap)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                         )
                         .run(
                             album.title,
@@ -822,7 +822,9 @@ export function createDatabase(dbPath: string): DatabaseService {
                             album.visibility === 'public' || album.visibility === 'unlisted' ? 1 : 0,
                             album.visibility || 'private',
                             album.is_release ? 1 : 0,
-                            album.published_at
+                            album.published_at,
+                            album.published_to_gundb ? 1 : 0,
+                            album.published_to_ap ? 1 : 0
                         );
                     return result.lastInsertRowid as number;
                 } catch (e: any) {
