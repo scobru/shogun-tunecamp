@@ -481,6 +481,13 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Column already exists
     }
 
+    // Migration: Add lower(title) index to tracks
+    try {
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_tracks_title_lower ON tracks(lower(title))`);
+    } catch (e) {
+        // Ignore
+    }
+
     // Migration: Add is_public column to playlists if it doesn't exist
     try {
         db.exec(`ALTER TABLE playlists ADD COLUMN is_public INTEGER DEFAULT 0`);
