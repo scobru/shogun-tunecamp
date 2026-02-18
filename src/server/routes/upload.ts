@@ -58,7 +58,7 @@ export function createUploadRoutes(
     database: DatabaseService,
     scanner: ScannerService,
     musicDir: string
-) {
+): Router {
     const router = Router();
 
     const upload = multer({

@@ -5,7 +5,7 @@ import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { getPlaceholderSVG } from "../../utils/audioUtils.js";
 
-export function createAlbumsRoutes(database: DatabaseService, musicDir: string) {
+export function createAlbumsRoutes(database: DatabaseService, musicDir: string): Router {
     const router = Router();
 
     /**

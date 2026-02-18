@@ -15,7 +15,7 @@ if (ffmpegPath) {
 
 import type { PublishingService } from "../publishing.js";
 
-export function createTracksRoutes(database: DatabaseService, publishingService: PublishingService, musicDir: string) {
+export function createTracksRoutes(database: DatabaseService, publishingService: PublishingService, musicDir: string): Router {
     const router = Router();
 
     /**

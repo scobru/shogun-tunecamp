@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 
-export function createCatalogRoutes(database: DatabaseService) {
+export function createCatalogRoutes(database: DatabaseService): Router {
     const router = Router();
 
     /**

@@ -4,7 +4,7 @@ import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { validatePassword } from "../validators.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 
-export function createAuthRoutes(authService: AuthService) {
+export function createAuthRoutes(authService: AuthService): Router {
     const router = Router();
 
     /**
