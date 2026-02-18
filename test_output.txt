@@ -1,13 +1,350 @@
 
-> tunecamp@2.0.0 test
+> tunecamp@2.0.0 test /app
 > node --experimental-vm-modules node_modules/jest/bin/jest.js
 
-(node:3279) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:2369) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
+FAIL src/server/routes/activitypub.bench.test.ts
+  ● ActivityPub Outbox Performance › Benchmark N+1 vs Bulk Fetch
+
+    Could not locate the bindings file. Tried:
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/default/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/compiled/22.22.0/linux/x64/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/binding/node-v127-linux-x64/better_sqlite3.node
+
+      252 |
+      253 | export function createDatabase(dbPath: string): DatabaseService {
+    > 254 |     const db = new Database(dbPath);
+          |                ^
+      255 |
+      256 |     // Enable WAL mode for better concurrency
+      257 |     db.pragma("journal_mode = WAL");
+
+      at bindings (node_modules/.pnpm/bindings@1.5.0/node_modules/bindings/bindings.js:126:9)
+      at new Database (node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/database.js:48:64)
+      at createDatabase (src/server/database.ts:254:16)
+      at Object.<anonymous> (src/server/routes/activitypub.bench.test.ts:15:21)
+
+
+  ● Test suite failed to run
+
+    TypeError: Cannot read properties of undefined (reading 'db')
+
+      60 |
+      61 |     afterAll(() => {
+    > 62 |         dbService.db.close();
+         |                   ^
+      63 |         if (fs.existsSync(DB_PATH)) {
+      64 |             fs.unlinkSync(DB_PATH);
+      65 |         }
+
+      at Object.<anonymous> (src/server/routes/activitypub.bench.test.ts:62:19)
+
+(node:2370) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+FAIL src/server/auth.test.ts
+  ● Console
+
+    console.log
+      Hello wonderful person! :) Thanks for using GUN, please ask for help on http://chat.gun.eco if anything takes you longer than 5min to figure out!
+
+      at Function.Gun.log (node_modules/.pnpm/gun@0.2020.1241/node_modules/gun/gun.js:542:55)
+
+  ● AuthService › init creates default admin
+
+    Could not locate the bindings file. Tried:
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/default/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/compiled/22.22.0/linux/x64/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/binding/node-v127-linux-x64/better_sqlite3.node
+
+       8 |
+       9 |     beforeEach(async () => {
+    > 10 |         db = new Database(":memory:");
+         |              ^
+      11 |         authService = createAuthService(db, "secret");
+      12 |         await authService.init();
+      13 |     });
+
+      at bindings (node_modules/.pnpm/bindings@1.5.0/node_modules/bindings/bindings.js:126:9)
+      at new Database (node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/database.js:48:64)
+      at Object.<anonymous> (src/server/auth.test.ts:10:14)
+
+  ● AuthService › init creates default admin
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      14 |
+      15 |     afterEach(() => {
+    > 16 |         db.close();
+         |            ^
+      17 |     });
+      18 |
+      19 |     test("init creates default admin", async () => {
+
+      at Object.<anonymous> (src/server/auth.test.ts:16:12)
+
+  ● AuthService › isDefaultPassword returns true for default admin
+
+    Could not locate the bindings file. Tried:
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/default/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/compiled/22.22.0/linux/x64/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/binding/node-v127-linux-x64/better_sqlite3.node
+
+       8 |
+       9 |     beforeEach(async () => {
+    > 10 |         db = new Database(":memory:");
+         |              ^
+      11 |         authService = createAuthService(db, "secret");
+      12 |         await authService.init();
+      13 |     });
+
+      at bindings (node_modules/.pnpm/bindings@1.5.0/node_modules/bindings/bindings.js:126:9)
+      at new Database (node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/database.js:48:64)
+      at Object.<anonymous> (src/server/auth.test.ts:10:14)
+
+  ● AuthService › isDefaultPassword returns true for default admin
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      14 |
+      15 |     afterEach(() => {
+    > 16 |         db.close();
+         |            ^
+      17 |     });
+      18 |
+      19 |     test("init creates default admin", async () => {
+
+      at Object.<anonymous> (src/server/auth.test.ts:16:12)
+
+  ● AuthService › isDefaultPassword returns false for changed password
+
+    Could not locate the bindings file. Tried:
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/default/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/compiled/22.22.0/linux/x64/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/binding/node-v127-linux-x64/better_sqlite3.node
+
+       8 |
+       9 |     beforeEach(async () => {
+    > 10 |         db = new Database(":memory:");
+         |              ^
+      11 |         authService = createAuthService(db, "secret");
+      12 |         await authService.init();
+      13 |     });
+
+      at bindings (node_modules/.pnpm/bindings@1.5.0/node_modules/bindings/bindings.js:126:9)
+      at new Database (node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/database.js:48:64)
+      at Object.<anonymous> (src/server/auth.test.ts:10:14)
+
+  ● AuthService › isDefaultPassword returns false for changed password
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      14 |
+      15 |     afterEach(() => {
+    > 16 |         db.close();
+         |            ^
+      17 |     });
+      18 |
+      19 |     test("init creates default admin", async () => {
+
+      at Object.<anonymous> (src/server/auth.test.ts:16:12)
+
+  ● AuthService › isDefaultPassword returns false for non-existent user
+
+    Could not locate the bindings file. Tried:
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Debug/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/out/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/Release/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/build/default/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/compiled/22.22.0/linux/x64/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node
+     → /app/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/binding/node-v127-linux-x64/better_sqlite3.node
+
+       8 |
+       9 |     beforeEach(async () => {
+    > 10 |         db = new Database(":memory:");
+         |              ^
+      11 |         authService = createAuthService(db, "secret");
+      12 |         await authService.init();
+      13 |     });
+
+      at bindings (node_modules/.pnpm/bindings@1.5.0/node_modules/bindings/bindings.js:126:9)
+      at new Database (node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/database.js:48:64)
+      at Object.<anonymous> (src/server/auth.test.ts:10:14)
+
+  ● AuthService › isDefaultPassword returns false for non-existent user
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      14 |
+      15 |     afterEach(() => {
+    > 16 |         db.close();
+         |            ^
+      17 |     });
+      18 |
+      19 |     test("init creates default admin", async () => {
+
+      at Object.<anonymous> (src/server/auth.test.ts:16:12)
+
+(node:2372) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/utils/networkUtils.test.ts
+PASS src/server/routes/upload.test.ts
+  ● Console
+
+    console.log
+      🔍 [Debug] Upload Request Headers: multipart/form-data; boundary=--------------------------bbba526a3f4ad36685c57c1c
+
+      at src/server/routes/upload.ts:182:17
+
+    console.log
+      🔍 [Debug] Multer fileFilter seeing file: file (test-image.jpg)
+
+      at fileFilter (src/server/routes/upload.ts:42:13)
+
+    console.log
+      📂 [Debug] Multer destination: /tmp
+
+      at DiskStorage.destination [as getDestination] (src/server/routes/upload.ts:20:21)
+
+    console.log
+      📄 [Debug] Multer filename: file-1771349977987-220170073.jpg
+
+      at DiskStorage.filename [as getFilename] (src/server/routes/upload.ts:28:21)
+
+    console.log
+      🔍 [Debug] Inside /cover handler
+
+      at src/server/routes/upload.ts:186:21
+
+    console.log
+      🔍 [Debug] req.file: test-image.jpg (18 bytes)
+
+      at src/server/routes/upload.ts:187:21
+
+    console.log
+      🔍 [Debug] req.body: [Object: null prototype] { releaseSlug: '../' }
+
+      at src/server/routes/upload.ts:188:21
+
+    console.log
+      🎨 Uploaded cover: test-image.jpg
+
+      at src/server/routes/upload.ts:198:21
+
+    console.log
+      🔍 [Debug] Upload Request Headers: multipart/form-data; boundary=--------------------------5240fe9712dacd2f59349470
+
+      at src/server/routes/upload.ts:182:17
+
+    console.log
+      🔍 [Debug] Multer fileFilter seeing file: file (valid.jpg)
+
+      at fileFilter (src/server/routes/upload.ts:42:13)
+
+    console.log
+      📂 [Debug] Multer destination: /tmp
+
+      at DiskStorage.destination [as getDestination] (src/server/routes/upload.ts:20:21)
+
+    console.log
+      📄 [Debug] Multer filename: file-1771349978018-557033445.jpg
+
+      at DiskStorage.filename [as getFilename] (src/server/routes/upload.ts:28:21)
+
+    console.log
+      🔍 [Debug] Inside /cover handler
+
+      at src/server/routes/upload.ts:186:21
+
+    console.log
+      🔍 [Debug] req.file: valid.jpg (19 bytes)
+
+      at src/server/routes/upload.ts:187:21
+
+    console.log
+      🔍 [Debug] req.body: [Object: null prototype] { releaseSlug: 'valid-album' }
+
+      at src/server/routes/upload.ts:188:21
+
+    console.log
+      🎨 Uploaded cover: valid.jpg
+
+      at src/server/routes/upload.ts:198:21
+
+    console.log
+         Moved cover to: /tmp/tunecamp-test-3xwFVF/releases/valid-album/artwork/cover-1771349978021.jpg
+
+      at src/server/routes/upload.ts:229:25
+
+    console.log
+      📀 Updated cover for album Valid Album -> releases/valid-album/artwork/cover-1771349978021.jpg
+
+      at src/server/routes/upload.ts:249:29
+
+    console.log
+      ✅ Cover upload completed: valid.jpg
+
+      at src/server/routes/upload.ts:280:21
+
+PASS src/server/routes/admin.test.ts
+  ● Console
+
+    console.log
+      🌐 Re-registered site and tracks on GunDB with updated settings: http://localhost
+
+      at src/server/routes/admin.ts:196:25
+
+PASS src/server/routes/releases.test.ts
 PASS src/server/password_security.test.ts
-(node:3275) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
-(Use `node --trace-warnings ...` to show where the warning was created)
-PASS src/server/routes/backup.test.ts (5.036 s)
+PASS src/server/routes/browser.test.ts
+PASS src/server/routes/backup.test.ts
   ● Console
 
     console.log
@@ -22,10 +359,10 @@ PASS src/server/routes/backup.test.ts (5.036 s)
 
     console.error
       ❌ [Restore] Failed: Error: ADM-ZIP: Invalid or unsupported zip format. No END header found
-          at Object.INVALID_FORMAT (/app/node_modules/adm-zip/util/errors.js:56:16)
-          at readMainHeader (/app/node_modules/adm-zip/zipFile.js:123:49)
-          at new Object.<anonymous>.module.exports (/app/node_modules/adm-zip/zipFile.js:21:9)
-          at new Object.<anonymous>.module.exports (/app/node_modules/adm-zip/adm-zip.js:67:18)
+          at Object.INVALID_FORMAT (/app/node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/util/errors.js:56:16)
+          at readMainHeader (/app/node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/zipFile.js:123:49)
+          at new Object.<anonymous>.module.exports (/app/node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/zipFile.js:21:9)
+          at new Object.<anonymous>.module.exports (/app/node_modules/.pnpm/adm-zip@0.5.16/node_modules/adm-zip/adm-zip.js:67:18)
           at performRestore (/app/src/server/routes/backup.ts:24:21)
           at /app/src/server/routes/backup.ts:356:21
 
@@ -40,72 +377,42 @@ PASS src/server/routes/backup.test.ts (5.036 s)
       at performRestore (src/server/routes/backup.ts:119:17)
       at src/server/routes/backup.ts:356:21
 
-PASS src/server/auth.test.ts
-  ● Console
-
-    console.log
-      Hello wonderful person! :) Thanks for using GUN, please ask for help on http://chat.gun.eco if anything takes you longer than 5min to figure out!
-
-      at Function.Gun.log (node_modules/gun/gun.js:542:55)
-
-    console.log
-      🆕 First run detected: Creating default admin 'admin' with password 'tunecamp'
-
-      at Object.init (src/server/auth.ts:115:25)
-
-    console.log
-      🆕 First run detected: Creating default admin 'admin' with password 'tunecamp'
-
-      at Object.init (src/server/auth.ts:115:25)
-
-    console.log
-      🆕 First run detected: Creating default admin 'admin' with password 'tunecamp'
-
-      at Object.init (src/server/auth.ts:115:25)
-
-    console.log
-      🆕 First run detected: Creating default admin 'admin' with password 'tunecamp'
-
-      at Object.init (src/server/auth.ts:115:25)
-
 PASS src/server/config.test.ts
 PASS src/utils/stringUtils.test.ts
-PASS src/utils/networkUtils.test.ts
-(node:3276) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
-(Use `node --trace-warnings ...` to show where the warning was created)
-PASS src/server/error-handling.test.ts (5.506 s)
+PASS src/server/middleware/rateLimit.test.ts
+PASS src/server/error-handling.test.ts
   ● Console
 
     console.log
       Hello wonderful person! :) Thanks for using GUN, please ask for help on http://chat.gun.eco if anything takes you longer than 5min to figure out!
 
-      at Function.Gun.log (node_modules/gun/gun.js:542:55)
+      at Function.Gun.log (node_modules/.pnpm/gun@0.2020.1241/node_modules/gun/gun.js:542:55)
 
     console.error
       🔥 Global error: Error: Database connection failed: user=postgres password=secret host=10.0.0.1
           at /app/src/server/error-handling.test.ts:26:27
-          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
-          at next (/app/node_modules/express/lib/router/route.js:149:13)
-          at Route.dispatch (/app/node_modules/express/lib/router/route.js:119:3)
-          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
-          at /app/node_modules/express/lib/router/index.js:284:15
-          at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)
-          at next (/app/node_modules/express/lib/router/index.js:280:10)
-          at expressInit (/app/node_modules/express/lib/middleware/init.js:40:5)
-          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
-          at trim_prefix (/app/node_modules/express/lib/router/index.js:328:13)
-          at /app/node_modules/express/lib/router/index.js:286:9
-          at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)
-          at next (/app/node_modules/express/lib/router/index.js:280:10)
-          at query (/app/node_modules/express/lib/middleware/query.js:45:5)
-          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
-          at trim_prefix (/app/node_modules/express/lib/router/index.js:328:13)
-          at /app/node_modules/express/lib/router/index.js:286:9
-          at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)
-          at next (/app/node_modules/express/lib/router/index.js:280:10)
-          at Function.handle (/app/node_modules/express/lib/router/index.js:175:3)
-          at Function.handle (/app/node_modules/express/lib/application.js:181:10)
-          at Server.app (/app/node_modules/express/lib/express.js:39:9)
+          at Layer.handle [as handle_request] (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+          at next (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/route.js:149:13)
+          at Route.dispatch (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/route.js:119:3)
+          at Layer.handle [as handle_request] (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+          at /app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:284:15
+          at Function.process_params (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+          at next (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+          at expressInit (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/middleware/init.js:40:5)
+          at Layer.handle [as handle_request] (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+          at trim_prefix (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:328:13)
+          at /app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9
+          at Function.process_params (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+          at next (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+          at query (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/middleware/query.js:45:5)
+          at Layer.handle [as handle_request] (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+          at trim_prefix (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:328:13)
+          at /app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9
+          at Function.process_params (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+          at next (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+          at Function.handle (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:175:3)
+          at Function.handle (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/application.js:181:10)
+          at Server.app (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/express.js:39:9)
           at Server.emit (node:events:519:28)
           at parserOnIncoming (node:_http_server:1186:12)
           at HTTPParser.parserOnHeadersComplete (node:_http_common:122:17)
@@ -119,61 +426,61 @@ PASS src/server/error-handling.test.ts (5.506 s)
       379 |     }
 
       at globalErrorHandler (src/server/server.ts:376:13)
-      at Layer.handle_error (node_modules/express/lib/router/layer.js:71:5)
-      at trim_prefix (node_modules/express/lib/router/index.js:326:13)
-      at node_modules/express/lib/router/index.js:286:9
-      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
-      at next (node_modules/express/lib/router/index.js:280:10)
-      at next (node_modules/express/lib/router/route.js:141:14)
+      at Layer.handle_error (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:71:5)
+      at trim_prefix (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:326:13)
+      at node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/route.js:141:14)
       at src/server/error-handling.test.ts:27:13
-      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
-      at next (node_modules/express/lib/router/route.js:149:13)
-      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
-      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
-      at node_modules/express/lib/router/index.js:284:15
-      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
-      at next (node_modules/express/lib/router/index.js:280:10)
-      at expressInit (node_modules/express/lib/middleware/init.js:40:5)
-      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
-      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
-      at node_modules/express/lib/router/index.js:286:9
-      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
-      at next (node_modules/express/lib/router/index.js:280:10)
-      at query (node_modules/express/lib/middleware/query.js:45:5)
-      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
-      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
-      at node_modules/express/lib/router/index.js:286:9
-      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
-      at next (node_modules/express/lib/router/index.js:280:10)
-      at Function.handle (node_modules/express/lib/router/index.js:175:3)
-      at Function.handle (node_modules/express/lib/application.js:181:10)
-      at Server.app (node_modules/express/lib/express.js:39:9)
+      at Layer.handle [as handle_request] (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:284:15
+      at Function.process_params (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+      at expressInit (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/middleware/init.js:40:5)
+      at Layer.handle [as handle_request] (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:328:13)
+      at node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+      at query (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/middleware/query.js:45:5)
+      at Layer.handle [as handle_request] (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:328:13)
+      at node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:175:3)
+      at Function.handle (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/application.js:181:10)
+      at Server.app (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/express.js:39:9)
 
     console.error
       🔥 Global error: Error: Database connection failed: user=postgres password=secret host=10.0.0.1
           at /app/src/server/error-handling.test.ts:26:27
-          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
-          at next (/app/node_modules/express/lib/router/route.js:149:13)
-          at Route.dispatch (/app/node_modules/express/lib/router/route.js:119:3)
-          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
-          at /app/node_modules/express/lib/router/index.js:284:15
-          at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)
-          at next (/app/node_modules/express/lib/router/index.js:280:10)
-          at expressInit (/app/node_modules/express/lib/middleware/init.js:40:5)
-          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
-          at trim_prefix (/app/node_modules/express/lib/router/index.js:328:13)
-          at /app/node_modules/express/lib/router/index.js:286:9
-          at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)
-          at next (/app/node_modules/express/lib/router/index.js:280:10)
-          at query (/app/node_modules/express/lib/middleware/query.js:45:5)
-          at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
-          at trim_prefix (/app/node_modules/express/lib/router/index.js:328:13)
-          at /app/node_modules/express/lib/router/index.js:286:9
-          at Function.process_params (/app/node_modules/express/lib/router/index.js:346:12)
-          at next (/app/node_modules/express/lib/router/index.js:280:10)
-          at Function.handle (/app/node_modules/express/lib/router/index.js:175:3)
-          at Function.handle (/app/node_modules/express/lib/application.js:181:10)
-          at Server.app (/app/node_modules/express/lib/express.js:39:9)
+          at Layer.handle [as handle_request] (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+          at next (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/route.js:149:13)
+          at Route.dispatch (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/route.js:119:3)
+          at Layer.handle [as handle_request] (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+          at /app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:284:15
+          at Function.process_params (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+          at next (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+          at expressInit (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/middleware/init.js:40:5)
+          at Layer.handle [as handle_request] (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+          at trim_prefix (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:328:13)
+          at /app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9
+          at Function.process_params (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+          at next (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+          at query (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/middleware/query.js:45:5)
+          at Layer.handle [as handle_request] (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+          at trim_prefix (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:328:13)
+          at /app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9
+          at Function.process_params (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+          at next (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+          at Function.handle (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:175:3)
+          at Function.handle (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/application.js:181:10)
+          at Server.app (/app/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/express.js:39:9)
           at Server.emit (node:events:519:28)
           at parserOnIncoming (node:_http_server:1186:12)
           at HTTPParser.parserOnHeadersComplete (node:_http_common:122:17)
@@ -187,63 +494,40 @@ PASS src/server/error-handling.test.ts (5.506 s)
       379 |     }
 
       at globalErrorHandler (src/server/server.ts:376:13)
-      at Layer.handle_error (node_modules/express/lib/router/layer.js:71:5)
-      at trim_prefix (node_modules/express/lib/router/index.js:326:13)
-      at node_modules/express/lib/router/index.js:286:9
-      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
-      at next (node_modules/express/lib/router/index.js:280:10)
-      at next (node_modules/express/lib/router/route.js:141:14)
+      at Layer.handle_error (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:71:5)
+      at trim_prefix (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:326:13)
+      at node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/route.js:141:14)
       at src/server/error-handling.test.ts:27:13
-      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
-      at next (node_modules/express/lib/router/route.js:149:13)
-      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
-      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
-      at node_modules/express/lib/router/index.js:284:15
-      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
-      at next (node_modules/express/lib/router/index.js:280:10)
-      at expressInit (node_modules/express/lib/middleware/init.js:40:5)
-      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
-      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
-      at node_modules/express/lib/router/index.js:286:9
-      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
-      at next (node_modules/express/lib/router/index.js:280:10)
-      at query (node_modules/express/lib/middleware/query.js:45:5)
-      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
-      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
-      at node_modules/express/lib/router/index.js:286:9
-      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
-      at next (node_modules/express/lib/router/index.js:280:10)
-      at Function.handle (node_modules/express/lib/router/index.js:175:3)
-      at Function.handle (node_modules/express/lib/application.js:181:10)
-      at Server.app (node_modules/express/lib/express.js:39:9)
+      at Layer.handle [as handle_request] (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:284:15
+      at Function.process_params (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+      at expressInit (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/middleware/init.js:40:5)
+      at Layer.handle [as handle_request] (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:328:13)
+      at node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+      at query (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/middleware/query.js:45:5)
+      at Layer.handle [as handle_request] (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:328:13)
+      at node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:175:3)
+      at Function.handle (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/application.js:181:10)
+      at Server.app (node_modules/.pnpm/express@4.22.1/node_modules/express/lib/express.js:39:9)
 
-FAIL src/server/routes/activitypub.bench.test.ts
-  ● Test suite failed to run
 
-    [96msrc/server/routes/activitypub.bench.test.ts[0m:[93m22[0m:[93m51[0m - [91merror[0m[90m TS2345: [0mArgument of type '{ title: string; slug: string; artist_id: number; date: string; is_public: true; visibility: "public"; is_release: true; cover_path: null; genre: string; description: string; download: null; external_links: null; published_at: string; type: "album"; year: number; }' is not assignable to parameter of type 'Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">'.
-      Type '{ title: string; slug: string; artist_id: number; date: string; is_public: true; visibility: "public"; is_release: true; cover_path: null; genre: string; description: string; download: null; external_links: null; published_at: string; type: "album"; year: number; }' is missing the following properties from type 'Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">': published_to_gundb, published_to_ap
-
-    [7m 22[0m             const albumId = dbService.createAlbum({
-    [7m   [0m [91m                                                  ~[0m
-    [7m 23[0m                 title: `Release ${i}`,
-    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-    [7m...[0m
-    [7m 37[0m                 year: 2023
-    [7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-    [7m 38[0m             });
-    [7m   [0m [91m~~~~~~~~~~~~~[0m
-
-FAIL src/server/routes/admin.test.ts
-  ● Test suite failed to run
-
-    [96msrc/server/routes/admin.test.ts[0m:[93m86[0m:[93m13[0m - [91merror[0m[90m TS2345: [0mArgument of type 'ActivityPubService' is not assignable to parameter of type 'PublishingService'.
-      Type 'ActivityPubService' is missing the following properties from type 'PublishingService': gundb, ap, getSiteInfo, publishReleaseToGunDB, and 7 more.
-
-    [7m86[0m             mockApService
-    [7m  [0m [91m            ~~~~~~~~~~~~~[0m
-
-Test Suites: 2 failed, 7 passed, 9 total
-Tests:       35 passed, 35 total
+Test Suites: 2 failed, 11 passed, 13 total
+Tests:       5 failed, 46 passed, 51 total
 Snapshots:   0 total
-Time:        6.657 s, estimated 8 s
+Time:        6.742 s, estimated 9 s
 Ran all test suites.
+ ELIFECYCLE  Test failed. See above for more details.
