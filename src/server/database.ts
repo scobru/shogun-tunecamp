@@ -1365,35 +1365,43 @@ export function createDatabase(dbPath: string): DatabaseService {
             const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
             const monthStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-            // Optimized: Combine 6 queries into 1 to reduce overhead
-            interface ListeningStatsRow {
-                totalPlays: number;
-                uniqueTracks: number;
-                playsToday: number | null;
-                playsThisWeek: number | null;
-                playsThisMonth: number | null;
-                totalListeningTime: number;
-            }
+            // Bolt ⚡: Optimized to avoid full table scan on play_history.
+            // Split into separate queries to use specific indexes for each metric.
 
-            const stats = db.prepare(`
-                SELECT
-                    COUNT(ph.id) as totalPlays,
-                    COUNT(DISTINCT ph.track_id) as uniqueTracks,
-                    SUM(CASE WHEN ph.played_at >= ? THEN 1 ELSE 0 END) as playsToday,
-                    SUM(CASE WHEN ph.played_at >= ? THEN 1 ELSE 0 END) as playsThisWeek,
-                    SUM(CASE WHEN ph.played_at >= ? THEN 1 ELSE 0 END) as playsThisMonth,
-                    COALESCE(SUM(t.duration), 0) as totalListeningTime
-                FROM play_history ph
-                LEFT JOIN tracks t ON ph.track_id = t.id
-            `).get(todayStart, weekStart, monthStart) as ListeningStatsRow;
+            // 1. Total Plays (COUNT(*)) - Fast with index
+            const totalPlays = (db.prepare("SELECT COUNT(*) as count FROM play_history").get() as { count: number }).count;
+
+            // 2. Plays Today (Range Scan Index) - Uses idx_play_history_played_at
+            const playsToday = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(todayStart) as { count: number }).count;
+
+            // 3. Plays Week (Range Scan Index) - Uses idx_play_history_played_at
+            const playsThisWeek = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(weekStart) as { count: number }).count;
+
+            // 4. Plays Month (Range Scan Index) - Uses idx_play_history_played_at
+            const playsThisMonth = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(monthStart) as { count: number }).count;
+
+            // 5. Unique Tracks (Index Scan) - Uses idx_play_history_track_id
+            const uniqueTracks = (db.prepare("SELECT COUNT(DISTINCT track_id) as count FROM play_history").get() as { count: number }).count;
+
+            // 6. Total Listening Time (Group By + Join)
+            // Group by track_id first to reduce join cardinality from N (history) to M (unique tracks)
+            const timeRow = db.prepare(`
+                SELECT COALESCE(SUM(ph.cnt * t.duration), 0) as totalListeningTime
+                FROM (
+                    SELECT track_id, COUNT(*) as cnt
+                    FROM play_history
+                    GROUP BY track_id
+                ) ph
+                JOIN tracks t ON ph.track_id = t.id
+            `).get() as { totalListeningTime: number };
 
             return {
-                totalPlays: stats.totalPlays,
-                totalListeningTime: Math.round(stats.totalListeningTime),
-                uniqueTracks: stats.uniqueTracks,
-                playsToday: stats.playsToday || 0,
-                playsThisWeek: stats.playsThisWeek || 0,
-                playsThisMonth: stats.playsThisMonth || 0,
+                totalPlays,
+                totalListeningTime: Math.round(timeRow.totalListeningTime),
+                uniqueTracks,
+                playsToday,
+                playsThisWeek,
+                playsThisMonth,
             };
         },
 
