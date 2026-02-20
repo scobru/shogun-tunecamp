@@ -1,3 +1,6 @@
+import fs from 'fs';
+import crypto from 'crypto';
+import { jest } from '@jest/globals';
 import { loadConfig } from './config.js';
 
 describe('ServerConfig', () => {
@@ -6,6 +9,11 @@ describe('ServerConfig', () => {
     beforeEach(() => {
         // jest.resetModules(); // Not needed as loadConfig reads env every time
         process.env = { ...originalEnv };
+        jest.clearAllMocks();
+    });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
     });
 
     afterAll(() => {
@@ -23,5 +31,56 @@ describe('ServerConfig', () => {
         process.env.TUNECAMP_CORS_ORIGINS = 'http://localhost:3000,https://example.com';
         const config = loadConfig();
         expect(config.corsOrigins).toEqual(['http://localhost:3000', 'https://example.com']);
+    });
+
+    test('should use TUNECAMP_JWT_SECRET from environment', () => {
+        process.env.TUNECAMP_JWT_SECRET = 'test-secret';
+        const config = loadConfig();
+        expect(config.jwtSecret).toBe('test-secret');
+    });
+
+    test('should use jwtSecret override', () => {
+        const config = loadConfig({ jwtSecret: 'override-secret' });
+        expect(config.jwtSecret).toBe('override-secret');
+    });
+
+    test('should read jwtSecret from .jwt-secret file if it exists', () => {
+        const existsSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+        const readSpy = jest.spyOn(fs, 'readFileSync').mockReturnValue('file-secret');
+
+        const config = loadConfig();
+
+        expect(existsSpy).toHaveBeenCalledWith(expect.stringContaining('.jwt-secret'));
+        expect(readSpy).toHaveBeenCalledWith(expect.stringContaining('.jwt-secret'), 'utf-8');
+        expect(config.jwtSecret).toBe('file-secret');
+    });
+
+    test('should generate and save new jwtSecret if it does not exist', () => {
+        jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+        const writeSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+        const randomBytesSpy = jest.spyOn(crypto, 'randomBytes').mockReturnValue({
+            toString: () => 'generated-secret'
+        } as any);
+
+        const config = loadConfig();
+
+        expect(writeSpy).toHaveBeenCalledWith(expect.stringContaining('.jwt-secret'), 'generated-secret');
+        expect(config.jwtSecret).toBe('generated-secret');
+    });
+
+    test('should still return generated secret if saving to file fails', () => {
+        jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+        jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {
+            throw new Error('disk full');
+        });
+        jest.spyOn(crypto, 'randomBytes').mockReturnValue({
+            toString: () => 'generated-secret'
+        } as any);
+        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+        const config = loadConfig();
+
+        expect(config.jwtSecret).toBe('generated-secret');
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Could not save JWT secret'), expect.any(Error));
     });
 });
