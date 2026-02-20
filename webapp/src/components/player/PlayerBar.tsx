@@ -161,7 +161,7 @@ export const PlayerBar = () => {
                              </div>
                         )}
                         <button 
-                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-lg lg:hidden"
+                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity rounded-lg lg:hidden"
                             onClick={() => document.querySelector('.drawer')?.classList.add('drawer-end')} // Placeholder for full player expansion if needed
                         >
                             <span className="text-white text-xs">View</span>

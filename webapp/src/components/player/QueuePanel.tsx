@@ -39,7 +39,7 @@ export const QueuePanel = () => {
                                 
                                 {i !== queueIndex && (
                                     <button 
-                                        className="btn btn-ghost btn-xs btn-circle opacity-0 group-hover:opacity-100 transition-opacity text-error"
+                                        className="btn btn-ghost btn-xs btn-circle opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-error"
                                         onClick={(e) => { e.stopPropagation(); removeFromQueue(i); }}
                                         aria-label={`Remove ${track.title} from queue`}
                                     >
