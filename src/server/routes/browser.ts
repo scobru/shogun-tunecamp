@@ -150,6 +150,50 @@ export function createBrowserRoutes(musicDir: string): Router {
     });
 
     /**
+     * PUT /api/browser
+     * Rename a file or directory
+     * Body:
+     * - oldPath: Relative path from musicDir
+     * - newPath: Relative path from musicDir
+     */
+    router.put("/", async (req, res) => {
+        try {
+            const { oldPath, newPath } = req.body;
+
+            if (!oldPath || !newPath) {
+                return res.status(400).json({ error: "Missing oldPath or newPath" });
+            }
+
+            const absOldPath = resolveSafePath(musicDir, oldPath);
+            const absNewPath = resolveSafePath(musicDir, newPath);
+
+            // Block invalid paths AND root directory protection
+            if (!absOldPath || absOldPath === path.resolve(musicDir)) {
+                return res.status(400).json({ error: "Invalid oldPath or root directory protection" });
+            }
+            if (!absNewPath || absNewPath === path.resolve(musicDir)) {
+                return res.status(400).json({ error: "Invalid newPath or root directory protection" });
+            }
+
+            if (!(await fs.pathExists(absOldPath))) {
+                return res.status(404).json({ error: "Source path not found" });
+            }
+
+            if (await fs.pathExists(absNewPath)) {
+                return res.status(409).json({ error: "Destination path already exists" });
+            }
+
+            await fs.move(absOldPath, absNewPath);
+            console.log(`✏️ Renamed via browser: ${oldPath} -> ${newPath}`);
+
+            res.json({ message: "Renamed successfully" });
+        } catch (error) {
+            console.error("Error renaming path:", error);
+            res.status(500).json({ error: "Failed to rename" });
+        }
+    });
+
+    /**
      * DELETE /api/browser
      * Delete a file or directory
      * Query params:

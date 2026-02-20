@@ -210,6 +210,7 @@ export const API = {
     getAdminStats: () => handleResponse(api.get<AdminStats>('/admin/stats')),
     getBrowser: (path = '') => handleResponse(api.get<any>(`/browser?path=${encodeURIComponent(path)}`)),
     deleteBrowserPath: (path: string) => handleResponse(api.delete(`/browser?path=${encodeURIComponent(path)}`)),
+    renameBrowserPath: (oldPath: string, newPath: string) => handleResponse(api.put("/browser", { oldPath, newPath })),
     syncActivityPub: () => handleResponse(api.post('/ap/sync')),
     uploadBackup: async (file: File, onProgress?: (percent: number) => void) => {
         // Chunked upload to avoid timeouts on large files/slow connections
