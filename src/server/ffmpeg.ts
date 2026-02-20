@@ -13,7 +13,7 @@ if (ffprobePath && ffprobePath.path) {
 }
 
 /**
- * Convert a WAV file to MP3 using ffmpeg
+ * Get duration of an audio file using ffprobe
  * Returns the path to the new MP3 file
  */
 export function getDurationFromFfmpeg(filePath: string): Promise<number | null> {
@@ -63,5 +63,44 @@ export function convertWavToMp3(inputPath: string, bitrate: string = '320k'): Pr
                 reject(err);
             })
             .save(mp3Path);
+    });
+}
+
+/**
+ * Update metadata for audio files (FLAC, OGG, M4A, etc.) using ffmpeg
+ * Copies audio stream without re-encoding
+ */
+export function writeMetadata(filePath: string, metadata: { title?: string, artist?: string, album?: string, track?: string }): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const ext = path.extname(filePath);
+        // Create a temp file path next to original
+        const tempPath = path.join(path.dirname(filePath), `${path.basename(filePath, ext)}.temp${ext}`);
+
+        const command = ffmpeg(filePath)
+            .outputOptions('-c', 'copy') // Copy streams (no re-encode)
+            .outputOptions('-map_metadata', '0'); // Copy existing metadata
+
+        // Set new metadata
+        if (metadata.title) command.outputOptions('-metadata', `title=${metadata.title}`);
+        if (metadata.artist) command.outputOptions('-metadata', `artist=${metadata.artist}`);
+        if (metadata.album) command.outputOptions('-metadata', `album=${metadata.album}`);
+        if (metadata.track) command.outputOptions('-metadata', `track=${metadata.track}`);
+
+        command
+            .save(tempPath)
+            .on('end', async () => {
+                try {
+                    await fs.move(tempPath, filePath, { overwrite: true });
+                    resolve();
+                } catch (e) {
+                    await fs.remove(tempPath).catch(() => {});
+                    reject(e);
+                }
+            })
+            .on('error', (err) => {
+                fs.remove(tempPath).catch(() => {});
+                console.error(`    [FFmpeg] Metadata update failed for ${path.basename(filePath)}: ${err.message}`);
+                reject(err);
+            });
     });
 }

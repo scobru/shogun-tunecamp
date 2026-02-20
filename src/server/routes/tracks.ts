@@ -1,3 +1,4 @@
+import { writeMetadata } from "../ffmpeg.js";
 import { Router } from "express";
 import fs from "fs-extra";
 import path from "path";
@@ -284,27 +285,38 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             // Get updated track
             const updatedTrack = database.getTrack(id);
 
-            // WRITE TAGS TO FILE (MP3 ONLY)
+            // WRITE TAGS TO FILE
             // This prevents the scanner from reverting changes when it re-scans the file
             try {
                 if (updatedTrack && updatedTrack.file_path) {
                     const fullPath = path.join(musicDir, updatedTrack.file_path);
                     const ext = path.extname(fullPath).toLowerCase();
 
-                    if (ext === '.mp3' && await fs.pathExists(fullPath)) {
-                        const tags: any = {
+                    if (await fs.pathExists(fullPath)) {
+                        const tags = {
                             title: updatedTrack.title,
                             artist: updatedTrack.artist_name || undefined,
                             album: updatedTrack.album_title || undefined,
                             trackNumber: updatedTrack.track_num?.toString() || undefined
                         };
 
-                        // NodeID3.update is synchronous
-                        const success = NodeID3.update(tags, fullPath);
-                        if (success) {
-                            console.log(`[Tags] Updated ID3 tags for: ${path.basename(fullPath)}`);
-                        } else {
-                            console.warn(`[Tags] Failed to update ID3 tags for: ${path.basename(fullPath)}`);
+                        if (ext === '.mp3') {
+                            // NodeID3.update is synchronous
+                            const success = NodeID3.update(tags as any, fullPath);
+                            if (success) {
+                                console.log(`[Tags] Updated ID3 tags for: ${path.basename(fullPath)}`);
+                            } else {
+                                console.warn(`[Tags] Failed to update ID3 tags for: ${path.basename(fullPath)}`);
+                            }
+                        } else if (['.flac', '.ogg', '.m4a', '.wav'].includes(ext)) {
+                            // Use ffmpeg for other formats
+                            await writeMetadata(fullPath, {
+                                title: tags.title,
+                                artist: tags.artist,
+                                album: tags.album,
+                                track: tags.trackNumber
+                            });
+                            console.log(`[Tags] Updated metadata for: ${path.basename(fullPath)}`);
                         }
                     }
                 }
