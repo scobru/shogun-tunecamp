@@ -354,24 +354,56 @@ export function createAuthService(
 
         // Encryption helpers
         encryptGunPriv(priv: any): string {
-            const json = JSON.stringify(priv);
-            const iv = crypto.randomBytes(16);
-            // Derive a 32-byte key from jwtSecret properly
-            const key = crypto.createHash('sha256').update(jwtSecret).digest();
-            const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
-            let encrypted = cipher.update(json, "utf8", "hex");
-            encrypted += cipher.final("hex");
-            return `${iv.toString("hex")}:${encrypted}`;
+            return encryptGunPrivHelper(priv, jwtSecret);
         },
 
         decryptGunPriv(encrypted: string): any {
-            const [ivHex, dataHex] = encrypted.split(":");
-            const iv = Buffer.from(ivHex, "hex");
-            const key = crypto.createHash('sha256').update(jwtSecret).digest();
-            const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
-            let decrypted = decipher.update(dataHex, "hex", "utf8");
-            decrypted += decipher.final("utf8");
-            return JSON.parse(decrypted);
+            return decryptGunPrivHelper(encrypted, jwtSecret);
         }
     };
+}
+
+/**
+ * Encrypts a private key using AES-256-GCM (Authenticated Encryption)
+ */
+export function encryptGunPrivHelper(priv: any, secret: string): string {
+    const json = JSON.stringify(priv);
+    // GCM standard IV is 12 bytes
+    const iv = crypto.randomBytes(12);
+    // Derive a 32-byte key from secret
+    const key = crypto.createHash('sha256').update(secret).digest();
+    const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+    let encrypted = cipher.update(json, "utf8", "hex");
+    encrypted += cipher.final("hex");
+    const authTag = cipher.getAuthTag();
+    // Format: IV:Data:AuthTag
+    return `${iv.toString("hex")}:${encrypted}:${authTag.toString("hex")}`;
+}
+
+/**
+ * Decrypts a private key using AES-256-GCM (or AES-256-CBC for legacy data)
+ */
+export function decryptGunPrivHelper(encrypted: string, secret: string): any {
+    const parts = encrypted.split(":");
+    const key = crypto.createHash('sha256').update(secret).digest();
+
+    if (parts.length === 3) {
+        // GCM (New Format)
+        const [ivHex, dataHex, authTagHex] = parts;
+        const iv = Buffer.from(ivHex, "hex");
+        const authTag = Buffer.from(authTagHex, "hex");
+        const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+        decipher.setAuthTag(authTag);
+        let decrypted = decipher.update(dataHex, "hex", "utf8");
+        decrypted += decipher.final("utf8");
+        return JSON.parse(decrypted);
+    } else {
+        // CBC (Legacy Format) - no auth tag
+        const [ivHex, dataHex] = parts;
+        const iv = Buffer.from(ivHex, "hex");
+        const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+        let decrypted = decipher.update(dataHex, "hex", "utf8");
+        decrypted += decipher.final("utf8");
+        return JSON.parse(decrypted);
+    }
 }
