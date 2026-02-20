@@ -36,6 +36,7 @@ import { createPostsRoutes } from "./routes/posts.js";
 import { createSubsonicRouter } from "./routes/subsonic.js";
 import { WaveformService } from "./modules/waveform/waveform.service.js";
 import { securityHeaders } from "./middleware/security.js";
+import { rateLimit } from "./middleware/rateLimit.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,6 +48,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     // Middleware
     app.use(securityHeaders);
+    app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 })); // General rate limit: 1000 requests per 15 minutes
     app.use(cors({ origin: config.corsOrigins }));
 
     // Initialize database
