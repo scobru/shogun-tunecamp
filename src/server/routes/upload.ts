@@ -52,6 +52,22 @@ function fileFilter(
     }
 }
 
+/**
+ * File filter for images only
+ */
+function imageFileFilter(
+    _req: Express.Request,
+    file: Express.Multer.File,
+    cb: multer.FileFilterCallback
+) {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (IMAGE_EXTENSIONS.includes(ext)) {
+        cb(null, true);
+    } else {
+        cb(new Error(`Unsupported image type: ${ext}`));
+    }
+}
+
 // Removed createBackgroundStorage in favor of createTempStorage
 
 export function createUploadRoutes(
@@ -74,18 +90,58 @@ export function createUploadRoutes(
         limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit for covers
     });
 
-    const uploadBackground = multer({
+    const imageUpload = multer({
         storage: createTempStorage(),
-        fileFilter: (_req, file, cb) => {
-            const ext = path.extname(file.originalname).toLowerCase();
-            if (IMAGE_EXTENSIONS.includes(ext)) {
-                cb(null, true);
-            } else {
-                cb(new Error(`Unsupported image type: ${ext}`));
-            }
-        },
+        fileFilter: imageFileFilter,
         limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
     });
+
+    /**
+     * Helper for site-wide image uploads (background, site cover)
+     */
+    async function handleSiteSettingImageUpload(
+        req: any,
+        res: any,
+        options: {
+            type: string,
+            settingKey: string,
+            apiUrl: string,
+            errorLabel: string
+        }
+    ) {
+        try {
+            if (req.artistId) {
+                if (req.file) await fs.remove(req.file.path);
+                return res.status(403).json({ error: `Restricted admins cannot change ${options.errorLabel}` });
+            }
+            const file = req.file;
+            if (!file) {
+                return res.status(400).json({ error: "No file uploaded" });
+            }
+            console.log(`🖼️ Uploaded ${options.errorLabel}: ${file.originalname}`);
+
+            // Move to assets
+            const assetsDir = path.join(musicDir, "assets");
+            await fs.ensureDir(assetsDir);
+
+            const ext = path.extname(file.originalname).toLowerCase() || ".png";
+            const targetFilename = options.type + (IMAGE_EXTENSIONS.includes(ext) ? ext : ".png");
+            const targetPath = path.join(assetsDir, targetFilename);
+
+            await fs.move(file.path, targetPath, { overwrite: true });
+
+            database.setSetting(options.settingKey, options.apiUrl);
+            res.json({
+                message: `${options.errorLabel.charAt(0).toUpperCase() + options.errorLabel.slice(1)} uploaded`,
+                url: options.apiUrl,
+                file: { name: targetFilename, size: file.size },
+            });
+        } catch (error) {
+            console.error(`${options.errorLabel} upload error:`, error);
+            if (req.file) await fs.remove(req.file.path).catch(() => { });
+            res.status(500).json({ error: `${options.errorLabel.charAt(0).toUpperCase() + options.errorLabel.slice(1)} upload failed` });
+        }
+    }
 
     /**
      * POST /api/admin/upload/tracks
@@ -191,7 +247,7 @@ export function createUploadRoutes(
     router.post("/cover", (req, res, next) => {
         console.log("🔍 [Debug] Upload Request Headers:", req.headers['content-type']);
         next();
-    }, upload.single("file"), async (req, res) => {
+    }, imageUpload.single("file"), async (req, res) => {
         try {
             console.log("🔍 [Debug] Inside /cover handler");
             console.log("🔍 [Debug] req.file:", req.file ? `${req.file.originalname} (${req.file.size} bytes)` : "undefined");
@@ -300,7 +356,7 @@ export function createUploadRoutes(
      * POST /api/admin/upload/avatar
      * Upload avatar for an artist
      */
-    router.post("/avatar", upload.single("file"), async (req, res) => {
+    router.post("/avatar", imageUpload.single("file"), async (req, res) => {
         try {
             const file = req.file;
             const artistIdRaw = req.body.artistId;
@@ -320,14 +376,9 @@ export function createUploadRoutes(
                 return res.status(403).json({ error: "Access denied: You can only upload avatars for your own artist" });
             }
 
-            // Check file type
-            const ext = path.extname(file.originalname).toLowerCase();
-            if (!IMAGE_EXTENSIONS.includes(ext)) {
-                await fs.remove(file.path);
-                return res.status(400).json({ error: "Only image files allowed" });
-            }
-
             console.log(`👤 Uploaded avatar for artist ${artistId}: ${file.originalname}`);
+
+            const ext = path.extname(file.originalname).toLowerCase();
 
             // Move avatar to assets folder
             const assetsDir = path.join(musicDir, "assets");
@@ -366,97 +417,30 @@ export function createUploadRoutes(
 
     // Removed createSiteCoverStorage
 
-    const uploadSiteCover = multer({
-        storage: createTempStorage(),
-        fileFilter: (_req, file, cb) => {
-            const ext = path.extname(file.originalname).toLowerCase();
-            if (IMAGE_EXTENSIONS.includes(ext)) {
-                cb(null, true);
-            } else {
-                cb(new Error(`Unsupported image type: ${ext}`));
-            }
-        },
-        limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-    });
-
     /**
      * POST /api/admin/upload/background
      * Upload site background image (saved to server, URL stored in settings)
      */
-    router.post("/background", uploadBackground.single("file"), async (req: any, res) => {
-        try {
-            if (req.artistId) {
-                if (req.file) await fs.remove(req.file.path);
-                return res.status(403).json({ error: "Restricted admins cannot change site background" });
-            }
-            const file = req.file;
-            if (!file) {
-                return res.status(400).json({ error: "No file uploaded" });
-            }
-            console.log(`🖼️ Uploaded background image: ${file.originalname}`);
-
-            // Move to assets
-            const assetsDir = path.join(musicDir, "assets");
-            await fs.ensureDir(assetsDir);
-
-            const ext = path.extname(file.originalname).toLowerCase() || ".png";
-            const targetFilename = "background" + (IMAGE_EXTENSIONS.includes(ext) ? ext : ".png");
-            const targetPath = path.join(assetsDir, targetFilename);
-
-            await fs.move(file.path, targetPath, { overwrite: true });
-
-            const url = "/api/settings/background";
-            database.setSetting("backgroundImage", url);
-            res.json({
-                message: "Background image uploaded",
-                url,
-                file: { name: targetFilename, size: file.size },
-            });
-        } catch (error) {
-            console.error("Background upload error:", error);
-            if (req.file) await fs.remove(req.file.path).catch(() => { });
-            res.status(500).json({ error: "Background upload failed" });
-        }
+    router.post("/background", imageUpload.single("file"), async (req: any, res) => {
+        await handleSiteSettingImageUpload(req, res, {
+            type: "background",
+            settingKey: "backgroundImage",
+            apiUrl: "/api/settings/background",
+            errorLabel: "site background"
+        });
     });
 
     /**
      * POST /api/admin/upload/site-cover
      * Upload site cover image (for network list)
      */
-    router.post("/site-cover", uploadSiteCover.single("file"), async (req: any, res) => {
-        try {
-            if (req.artistId) {
-                if (req.file) await fs.remove(req.file.path);
-                return res.status(403).json({ error: "Restricted admins cannot change site cover" });
-            }
-            const file = req.file;
-            if (!file) {
-                return res.status(400).json({ error: "No file uploaded" });
-            }
-            console.log(`🖼️ Uploaded site cover: ${file.originalname}`);
-
-            // Move to assets
-            const assetsDir = path.join(musicDir, "assets");
-            await fs.ensureDir(assetsDir);
-
-            const ext = path.extname(file.originalname).toLowerCase() || ".png";
-            const targetFilename = "site-cover" + (IMAGE_EXTENSIONS.includes(ext) ? ext : ".png");
-            const targetPath = path.join(assetsDir, targetFilename);
-
-            await fs.move(file.path, targetPath, { overwrite: true });
-
-            const url = "/api/settings/cover";
-            database.setSetting("coverImage", url);
-            res.json({
-                message: "Site cover uploaded",
-                url,
-                file: { name: targetFilename, size: file.size },
-            });
-        } catch (error) {
-            console.error("Site cover upload error:", error);
-            if (req.file) await fs.remove(req.file.path).catch(() => { });
-            res.status(500).json({ error: "Site cover upload failed" });
-        }
+    router.post("/site-cover", imageUpload.single("file"), async (req: any, res) => {
+        await handleSiteSettingImageUpload(req, res, {
+            type: "site-cover",
+            settingKey: "coverImage",
+            apiUrl: "/api/settings/cover",
+            errorLabel: "site cover"
+        });
     });
 
     return router;
