@@ -15,81 +15,17 @@ export const Waveform = ({
     colorPlayed = '#1db954',
     colorRemaining = 'rgba(255, 255, 255, 0.15)' 
 }: WaveformProps) => {
+    // Memoize the SVG background image if data is an SVG string
+    const bgImage = useMemo(() => {
+        if (typeof data === 'string' && data.includes('<svg')) {
+            const encodedSvg = encodeURIComponent(data);
+            return `url("data:image/svg+xml;utf8,${encodedSvg}")`;
+        }
+        return null;
+    }, [data]);
     
-    // If data is SVG string
-    if (typeof data === 'string' && data.includes('<svg')) {
-        const svgData = "data:image/svg+xml;base64," + btoa(data);
-        
-        return (
-            <div 
-                className="w-full h-full relative"
-                style={{ height: `${height}px` }}
-            >
-                {/* Background (Remaining) */}
-                <div 
-                    className="absolute inset-0 w-full h-full"
-                    style={{ 
-                        maskImage: `url('${svgData}')`, 
-                        maskSize: '100% 100%',
-                        backgroundColor: colorRemaining
-                    }}
-                />
-                
-                {/* Foreground (Played) */}
-                <div 
-                    className="absolute inset-0 h-full transition-all duration-100 ease-linear"
-                    style={{ 
-                        width: `${progress * 100}%`,
-                        maskImage: `url('${svgData}')`, 
-                        maskSize: `${100 / progress}% 100%`, // Trick to keep mask static? No.
-                        // Better approach: Use clip-path or simple overflow hidden container
-                    }}
-                />
-                
-                {/* Alternative: Two overlaid images with overflow hidden on top one */}
-                 <div 
-                    className="absolute inset-0 w-full h-full"
-                    style={{ 
-                        maskImage: `url('${svgData}')`, 
-                        maskSize: '100% 100%',
-                        backgroundColor: colorRemaining
-                    }}
-                />
-                 <div 
-                    className="absolute inset-0 h-full overflow-hidden"
-                    style={{ width: `${progress * 100}%` }}
-                >
-                     <div 
-                        className="absolute top-0 left-0 h-full"
-                        style={{ 
-                            width: `${100 / (progress || 0.01)}%`, // Counter-scale? No. 
-                            // If we use mask on container, we need the inner div to be full width
-                        }}
-                    >
-                         {/* This approach is complex with CSS masks. 
-                             Simpler: Set CSS variable for progress? 
-                             Or just standard mask-image on a div that is width 100% but background-image is a gradient?
-                         */}
-                    </div>
-                </div>
-            </div>
-        );
-    }
-    
-    // SVG APPROACH 2:
-    // Render the SVG inline and use a mask/clipPath inside it? 
-    // Or just use the SVG as a mask for a div with a gradient background.
-    
-    // Simplest robust way:
-    // The SVG is black/transparent paths.
-    // 1. Render SVG as mask for "Remaining" color div.
-    // 2. Render SVG as mask for "Played" color div, wrapped in a container with width=progress.
-    
-    if (typeof data === 'string' && data.includes('<svg')) {
-       // Clean up SVG string if needed (remove xml declaration for data URI) or use encodeURIComponent
-       const encodedSvg = encodeURIComponent(data);
-       const bgImage = `url("data:image/svg+xml;utf8,${encodedSvg}")`;
-
+    // Render SVG Waveform if memoized bgImage is available
+    if (bgImage) {
        return (
             <div className="w-full h-full relative" style={{ height: `${height}px` }}>
                 {/* Base layer (Remaining) */}
