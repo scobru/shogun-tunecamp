@@ -28,7 +28,7 @@ export const Sidebar = () => {
       <Link 
         to={to} 
         className={clsx(
-            "flex items-center justify-center p-3 rounded-lg transition-colors aspect-square",
+            "flex items-center justify-center p-2 rounded-lg transition-colors aspect-square",
             isActive(to) ? "bg-primary/10 text-primary active" : "hover:bg-base-200"
         )}
       >
@@ -56,7 +56,7 @@ export const Sidebar = () => {
       {/* Library Nav */}
       <div className="w-full h-px bg-white/5 my-2"></div>
 
-      <ul className="menu bg-base-200/50 rounded-box w-full gap-1 p-1 font-medium flex-1 overflow-y-auto scrollbar-thin items-center no-scrollbar">
+      <ul className="menu bg-base-200/50 rounded-box w-full gap-1 p-1 font-medium flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin items-center no-scrollbar">
         <NavItem to="/albums" icon={Disc} label="Albums" />
         <NavItem to="/artists" icon={User} label="Artists" />
         <NavItem to="/tracks" icon={Music} label="Tracks" />
