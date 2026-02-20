@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Folder, File, ArrowLeft, Music, Image as ImageIcon, Trash2, MoreHorizontal } from 'lucide-react';
+import { Folder, File, ArrowLeft, Music, Image as ImageIcon, Trash2, MoreHorizontal, Edit2 } from 'lucide-react';
 import { StringUtils } from '../utils/stringUtils';
 import { usePlayerStore } from '../stores/usePlayerStore';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -78,6 +78,24 @@ export const Files = () => {
         }
     };
 
+    const handleRename = async (e: React.MouseEvent, item: any) => {
+        e.stopPropagation();
+        const newName = prompt("Enter new name:", item.name);
+        if (!newName || newName === item.name) return;
+
+        const parts = item.path.split("/");
+        parts.pop();
+        parts.push(newName);
+        const newPath = parts.join("/");
+
+        try {
+            await API.renameBrowserPath(item.path, newPath);
+            loadData(currentPath);
+        } catch (err: any) {
+            alert("Failed to rename: " + err.message);
+        }
+    };
+
     const handleDelete = async (e: React.MouseEvent, item: any) => {
         e.stopPropagation();
         if (!confirm(`Are you sure you want to delete ${item.name}?`)) return;
@@ -147,6 +165,11 @@ export const Files = () => {
                                                 <MoreHorizontal size={16}/>
                                             </label>
                                             <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 border border-white/10">
+                                                <li>
+                                                    <a onClick={(e) => handleRename(e, item)}>
+                                                        <Edit2 size={16}/> Rename
+                                                    </a>
+                                                </li>
                                                 <li>
                                                     <a onClick={(e) => handleDelete(e, item)} className="text-error">
                                                         <Trash2 size={16}/> Delete

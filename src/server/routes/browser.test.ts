@@ -10,6 +10,7 @@ jest.unstable_mockModule("fs-extra", () => ({
         stat: jest.fn(),
         readdir: jest.fn(),
         remove: jest.fn(),
+        move: jest.fn(),
         createReadStream: jest.fn(),
     }
 }));
@@ -23,6 +24,7 @@ describe("Browser Routes Security", () => {
 
     beforeEach(() => {
         app = express();
+        app.use(express.json());
         app.use("/", createBrowserRoutes(musicDir));
         jest.clearAllMocks();
 
@@ -60,5 +62,34 @@ describe("Browser Routes Security", () => {
         // Should succeed (200) with robust check
         expect(res.status).toBe(200);
         expect(fs.pathExists).toHaveBeenCalledWith(path.resolve(musicDir, "My..Folder"));
+    });
+
+    test("should allow renaming a file", async () => {
+        (fs.pathExists as any).mockImplementation((p: string) => {
+            if (p.endsWith("old.mp3")) return Promise.resolve(true); // Source exists
+            if (p.endsWith("new.mp3")) return Promise.resolve(false); // Dest doesn't exist
+            return Promise.resolve(false);
+        });
+
+        const res = await request(app)
+            .put("/")
+            .send({ oldPath: "old.mp3", newPath: "new.mp3" });
+
+        expect(res.status).toBe(200);
+        expect(fs.move).toHaveBeenCalledWith(
+            path.resolve(musicDir, "old.mp3"),
+            path.resolve(musicDir, "new.mp3")
+        );
+    });
+
+    test("should prevent renaming to existing file", async () => {
+        (fs.pathExists as any).mockResolvedValue(true); // Both exist
+
+        const res = await request(app)
+            .put("/")
+            .send({ oldPath: "old.mp3", newPath: "exists.mp3" });
+
+        expect(res.status).toBe(409);
+        expect(fs.move).not.toHaveBeenCalled();
     });
 });
