@@ -59,7 +59,7 @@ export function createAuthRoutes(authService: AuthService): Router {
      * POST /api/auth/setup
      * Set initial admin password (first run only)
      */
-    router.post("/setup", async (req, res) => {
+    router.post("/setup", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), async (req, res) => {
         try {
             if (!authService.isFirstRun()) {
                 return res.status(400).json({ error: "Admin account already set up" });
@@ -99,7 +99,7 @@ export function createAuthRoutes(authService: AuthService): Router {
      * POST /api/auth/password
      * Change admin password (requires auth)
      */
-    router.post("/password", async (req: AuthenticatedRequest, res) => {
+    router.post("/password", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), async (req: AuthenticatedRequest, res) => {
         try {
             // This route should be protected by requireAdmin middleware
             const { currentPassword, newPassword } = req.body;
@@ -166,7 +166,7 @@ export function createAuthRoutes(authService: AuthService): Router {
      * POST /api/auth/mastodon/init
      * Start Mastodon OAuth flow
      */
-    router.post("/mastodon/init", async (req, res) => {
+    router.post("/mastodon/init", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), async (req, res) => {
         try {
             const { instanceUrl, redirectUri } = req.body;
 
@@ -189,7 +189,7 @@ export function createAuthRoutes(authService: AuthService): Router {
      * POST /api/auth/mastodon/callback
      * Handle Mastodon OAuth callback
      */
-    router.post("/mastodon/callback", async (req, res) => {
+    router.post("/mastodon/callback", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), async (req, res) => {
         try {
             const { instanceUrl, code, redirectUri } = req.body;
 
