@@ -126,6 +126,9 @@ export class Scanner implements ScannerService {
     // Map directory paths to artist IDs
     private folderToArtistMap = new Map<string, number>();
 
+    // Map directory paths to EXISTING album IDs (from DB scan)
+    private folderToExistingAlbumMap = new Map<string, number>();
+
     // Keep track of the monitored music directory
     private musicDirectory: string | null = null;
 
@@ -248,9 +251,24 @@ export class Scanner implements ScannerService {
                 }
             }
 
-            // Check for existing album by SLUG to avoid duplicates (race condition between watcher/scanner)
+            // Check for existing album by SLUG
             const slug = slugify(config.title);
-            const existingAlbum = this.database.getAlbumBySlug(slug);
+            let existingAlbum = this.database.getAlbumBySlug(slug);
+
+            // If not found by slug, check by FOLDER mapping (handling renamed albums)
+            if (!existingAlbum) {
+                // Normalize dir relative to musicDir for lookup
+                const relativeDir = this.normalizePath(dir, musicDir);
+                const mappedAlbumId = this.folderToExistingAlbumMap.get(relativeDir);
+                if (mappedAlbumId) {
+                    const mappedAlbum = this.database.getAlbum(mappedAlbumId);
+                    if (mappedAlbum) {
+                         existingAlbum = mappedAlbum;
+                         console.log(`  [Scanner] Matched folder '${relativeDir}' to existing album '${existingAlbum.title}' (ID ${existingAlbum.id}), ignoring title/slug mismatch.`);
+                    }
+                }
+            }
+
             let albumId: number;
 
             // Prepare external links
@@ -271,10 +289,9 @@ export class Scanner implements ScannerService {
             if (existingAlbum) {
                 albumId = existingAlbum.id;
 
-                // Update artist if we have one and existing doesn't
+                // Update artist only if missing (don't overwrite user selection)
                 if (artistId && !existingAlbum.artist_id) {
                     this.database.updateAlbumArtist(albumId, artistId);
-                    console.log(`  Updated album artist: ${config.title} -> ID ${artistId}`);
                 }
 
                 // Update download setting
@@ -288,11 +305,11 @@ export class Scanner implements ScannerService {
                     this.database.updateAlbumCover(albumId, coverPath);
                 }
 
-                // Mark existing album as a release if it wasn't already
+                // Do NOT force promoteToRelease if the album exists.
                 if (!existingAlbum.is_release) {
-                    this.database.promoteToRelease(albumId);
+                    console.log(`  [Scanner] Album '${existingAlbum.title}' has release.yaml but is_release=false in DB. Respecting DB state.`);
                 }
-                console.log(`  Found existing album: ${config.title}`);
+                console.log(`  Updated existing album config: ${existingAlbum.title}`);
             } else {
                 albumId = this.database.createAlbum({
                     title: config.title,
@@ -526,6 +543,43 @@ export class Scanner implements ScannerService {
         return this.pendingScan;
     }
 
+    private async mapFoldersToExistingAlbums(): Promise<void> {
+        this.folderToExistingAlbumMap.clear();
+        const allTracks = this.database.getTracks();
+        const counts = new Map<string, Map<number, number>>();
+
+        for (const track of allTracks) {
+            if (!track.album_id || !track.file_path) continue;
+
+            // track.file_path is relative to musicDir, stored with forward slashes
+            const dir = path.dirname(track.file_path).replace(/\\/g, "/");
+
+            if (!counts.has(dir)) {
+                counts.set(dir, new Map());
+            }
+            const albumCounts = counts.get(dir)!;
+            albumCounts.set(track.album_id, (albumCounts.get(track.album_id) || 0) + 1);
+        }
+
+        // Determine winner for each folder
+        for (const [dir, albumCounts] of counts.entries()) {
+            let maxCount = 0;
+            let bestAlbumId = -1;
+
+            for (const [albumId, count] of albumCounts.entries()) {
+                if (count > maxCount) {
+                    maxCount = count;
+                    bestAlbumId = albumId;
+                }
+            }
+
+            if (bestAlbumId !== -1) {
+                this.folderToExistingAlbumMap.set(dir, bestAlbumId);
+            }
+        }
+        console.log(`[Scanner] Mapped ${this.folderToExistingAlbumMap.size} folders to existing DB albums.`);
+    }
+
     private async doScan(dir: string): Promise<ScanResult> {
         console.log("Scanning directory: " + dir);
 
@@ -533,6 +587,9 @@ export class Scanner implements ScannerService {
             console.warn("Directory does not exist: " + dir);
             return { successful: [], failed: [] };
         }
+
+        // Pre-scan DB to identify renamed albums
+        await this.mapFoldersToExistingAlbums();
 
         // Reset maps
         this.folderToAlbumMap.clear();
