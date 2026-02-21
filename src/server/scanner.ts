@@ -623,7 +623,10 @@ export class Scanner implements ScannerService {
             const orphans = this.database.db.prepare("SELECT * FROM albums WHERE artist_id IS NULL").all() as Album[];
 
             for (const orphan of orphans) {
-                const tracks = this.database.getTracks(orphan.id);
+                const tracks = orphan.is_release
+                    ? this.database.getTracksByReleaseId(orphan.id)
+                    : this.database.getTracks(orphan.id);
+
                 if (tracks.length === 0) continue;
 
                 // Collect unique artist IDs from tracks
@@ -713,8 +716,8 @@ export class Scanner implements ScannerService {
                 // Note: If conversion was already queued in this scan, primaryExists would be true (via knownFiles update).
                 // So reaching here means it was NOT queued, so we must queue it.
                 if (track.lossless_path) {
-                     const resolvedLossless = path.join(musicDir, track.lossless_path);
-                     this.processQueue.add(() => convertWavToMp3(resolvedLossless).catch(console.error));
+                    const resolvedLossless = path.join(musicDir, track.lossless_path);
+                    this.processQueue.add(() => convertWavToMp3(resolvedLossless).catch(console.error));
                 }
             } else if (primaryExists && track.lossless_path && !losslessExists) {
                 console.log(`  [Cleanup] Track ${track.title} missing lossless file (${track.lossless_path}). Updating record.`);

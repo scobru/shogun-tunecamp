@@ -63,6 +63,8 @@ export function createReleaseRoutes(
                 } else {
                     artistId = database.createArtist(body.artistName);
                 }
+            } else if (!artistId && (req as any).artistId) {
+                artistId = (req as any).artistId;
             }
 
             const slug = slugify(body.title);
@@ -192,10 +194,10 @@ export function createReleaseRoutes(
 
             let federationChanged = false;
             if (body.publishedToGunDB !== undefined || body.publishedToAP !== undefined) {
-                 const newGunDB = body.publishedToGunDB !== undefined ? body.publishedToGunDB : (!!album.published_to_gundb);
-                 const newAP = body.publishedToAP !== undefined ? body.publishedToAP : (!!album.published_to_ap);
-                 database.updateAlbumFederationSettings(id, newGunDB, newAP);
-                 federationChanged = true;
+                const newGunDB = body.publishedToGunDB !== undefined ? body.publishedToGunDB : (!!album.published_to_gundb);
+                const newAP = body.publishedToAP !== undefined ? body.publishedToAP : (!!album.published_to_ap);
+                database.updateAlbumFederationSettings(id, newGunDB, newAP);
+                federationChanged = true;
             }
 
             // Update type and year in DB - these were recently added columns
