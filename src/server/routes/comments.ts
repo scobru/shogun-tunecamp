@@ -83,7 +83,7 @@ export function createCommentsRoutes(gundbService: GunDBService): Router {
             }
 
             // Get the comment to verify ownership
-            const success = await gundbService.deleteComment(commentId, pubKey);
+            const success = await gundbService.deleteComment(commentId, pubKey, signature);
 
             if (success) {
                 res.json({ success: true });

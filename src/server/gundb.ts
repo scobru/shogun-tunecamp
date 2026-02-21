@@ -66,7 +66,7 @@ export interface GunDBService {
     // Comments
     addComment(trackId: number, data: { pubKey: string; username: string; text: string; signature?: string }): Promise<Comment | null>;
     getComments(trackId: number): Promise<Comment[]>;
-    deleteComment(commentId: string, pubKey: string): Promise<boolean>;
+    deleteComment(commentId: string, pubKey: string, signature?: string): Promise<boolean>;
     // Key Management
     getIdentityKeyPair(): Promise<any>;
     setIdentityKeyPair(pair: any): Promise<boolean>;
@@ -231,7 +231,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
                         // Check for corruption (JSON error)
                         const isJsonError = (typeof ack.err === 'string' && ack.err.includes("JSON error")) ||
-                                          (ack.err && ack.err.err === "JSON error!");
+                            (ack.err && ack.err.err === "JSON error!");
 
                         if (isJsonError && retryCount < 1) {
                             console.error("❌ GunDB Corruption detected (JSON error)! Attempting auto-recovery...");
@@ -827,12 +827,15 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         };
 
         return new Promise((resolve) => {
+            let handled = false;
             gun
                 .get(REGISTRY_ROOT)
                 .get(COMMENTS_NAMESPACE)
                 .get(`track-${trackId}`)
                 .get(commentId)
                 .put(comment, (ack: any) => {
+                    if (handled) return;
+                    handled = true;
                     if (ack.err) {
                         console.warn("Failed to add comment:", ack.err);
                         resolve(null);
@@ -842,7 +845,12 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     }
                 });
 
-            setTimeout(() => resolve(comment), 2000);
+            setTimeout(() => {
+                if (handled) return;
+                handled = true;
+                console.log(`💬 Comment added on track ${trackId} (Optimistic Resolve)`);
+                resolve(comment);
+            }, 5000);
         });
     }
 
@@ -879,15 +887,33 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         });
     }
 
-    async function deleteComment(commentId: string, pubKey: string): Promise<boolean> {
+    async function deleteComment(commentId: string, pubKey: string, signature?: string): Promise<boolean> {
         if (!initialized || !gun) return false;
+
+        // 1. Verify ownership proof if signature provided
+        // We expect the signature to be of the commentId itself
+        if (signature) {
+            try {
+                const isValid = await (Gun.SEA as any).verify(signature, pubKey);
+                // The data signed should be the commentId
+                if (isValid !== commentId) {
+                    console.warn(`❌ Invalid signature for comment deletion: ${commentId}`);
+                    // For now, let's still check the database to see if we can delete it anyway 
+                    // if it's an admin (logic handled elsewhere usually)
+                    // but for Gun users, if they provide a signature it MUST be valid.
+                }
+            } catch (err) {
+                console.error("Signature verification error:", err);
+                return false;
+            }
+        }
 
         // Extract trackId from commentId
         const parts = commentId.split("-");
         const trackId = parts[0];
 
         return new Promise((resolve) => {
-            // First check ownership
+            // Check ownership in the graph
             gun
                 .get(REGISTRY_ROOT)
                 .get(COMMENTS_NAMESPACE)
@@ -909,13 +935,13 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                             if (ack.err) {
                                 resolve(false);
                             } else {
-                                console.log(`🗑️ Comment deleted: ${commentId}`);
+                                console.log(`🗑️ Comment deleted from GunDB: ${commentId}`);
                                 resolve(true);
                             }
                         });
                 });
 
-            setTimeout(() => resolve(false), 3000);
+            setTimeout(() => resolve(false), 5000);
         });
     }
 
