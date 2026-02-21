@@ -487,9 +487,14 @@ export class Scanner implements ScannerService {
             let queuedConversion = false;
             if (filePath.toLowerCase().endsWith(".wav") && currentFilePath === filePath) {
                 queuedConversion = true;
-                this.processQueue.add(() => convertWavToMp3(filePath).catch(err => {
-                    console.error(`    [Scanner] Background WAV conversion failed:`, err);
-                }));
+                console.log(`    [Scanner] Awaiting WAV to MP3 conversion for: ${path.basename(filePath)}`);
+                try {
+                    await this.processQueue.add(() => convertWavToMp3(filePath));
+                } catch (err) {
+                    console.error(`    [Scanner] WAV conversion failed:`, err);
+                    // We still have the WAV, so we could technically fall back, 
+                    // but the user wants MP3 for streaming.
+                }
             }
 
             return { originalPath: filePath, success: true, message: "Track processed successfully.", convertedPath: currentFilePath !== filePath ? currentFilePath : undefined, trackId: trackId, queuedConversion };

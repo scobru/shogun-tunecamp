@@ -248,7 +248,60 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 return res.status(404).json({ error: "Track file not found on disk" });
             }
 
-            const { title, artist, artistId, album, albumId, trackNumber, genre } = req.body;
+            const { title, artist, artistId, album, albumId, trackNumber, genre, fileName: newFileName } = req.body;
+
+            // HANDLE FILE RENAMING
+            if (newFileName && typeof newFileName === 'string') {
+                const oldPath = track.file_path;
+                const oldDir = path.dirname(oldPath);
+                const oldExt = path.extname(oldPath);
+
+                // Sanitize new filename and ensure correct extension
+                let sanitizedName = path.parse(newFileName).name; // Get name without extension
+                sanitizedName = sanitizedName.replace(/[^a-z0-9_\-]/gi, '_'); // Basic sanitization
+
+                const newPath = path.posix.join(oldDir, sanitizedName + oldExt);
+
+                if (newPath !== oldPath) {
+                    console.log(`[Tracks] Renaming track file: ${oldPath} -> ${newPath}`);
+
+                    const fullOldPath = path.join(musicDir, oldPath);
+                    const fullNewPath = path.join(musicDir, newPath);
+
+                    try {
+                        if (await fs.pathExists(fullOldPath)) {
+                            await fs.move(fullOldPath, fullNewPath);
+                        }
+
+                        // Update primary path in DB
+                        database.updateTrackPath(id, newPath, track.album_id);
+
+                        // Handle lossless file renaming if it exists
+                        if (track.lossless_path) {
+                            const oldLosslessPath = track.lossless_path;
+                            const losslessExt = path.extname(oldLosslessPath);
+                            const newLosslessPath = path.posix.join(path.dirname(oldLosslessPath), sanitizedName + losslessExt);
+
+                            const fullOldLosslessPath = path.join(musicDir, oldLosslessPath);
+                            const fullNewLosslessPath = path.join(musicDir, newLosslessPath);
+
+                            if (await fs.pathExists(fullOldLosslessPath)) {
+                                await fs.move(fullOldLosslessPath, fullNewLosslessPath);
+                            }
+
+                            database.updateTrackLosslessPath(id, newLosslessPath);
+                        }
+
+                        // Update local track object for subsequent operations
+                        track.file_path = newPath;
+                    } catch (renameError) {
+                        console.error("[Tracks] Error renaming files:", renameError);
+                        // Continue with other metadata updates even if rename fails? 
+                        // Probably better to report error if rename was explicitly requested
+                        return res.status(500).json({ error: "Failed to rename physical files" });
+                    }
+                }
+            }
 
             // ... (ID3 tag updates remain same for MP3) ...
 
