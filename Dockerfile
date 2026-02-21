@@ -15,7 +15,6 @@ FROM node:22-alpine AS builder
 
 # Re-declare ARGs needed in this stage (multi-stage build)
 ARG CAPROVER_GIT_COMMIT_SHA
-ARG RELAY_CACHE_BUST=v210226-1
 ARG TUNECAMP_PUBLIC_URL
 
 WORKDIR /app
