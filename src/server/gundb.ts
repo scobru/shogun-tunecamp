@@ -260,9 +260,23 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                             url: siteInfo.url,
                             title: siteInfo.title,
                             artistName: siteInfo.artistName
-                        }, (pubAck: any) => {
+                        }, async (pubAck: any) => {
                             if (pubAck.err) {
                                 console.warn("Failed to register site in directory:", pubAck.err);
+
+                                // Check for corruption (JSON error)
+                                const isJsonError = (typeof pubAck.err === 'string' && pubAck.err.includes("JSON error")) ||
+                                    (pubAck.err && pubAck.err.err === "JSON error!");
+
+                                if (isJsonError && retryCount < 1) {
+                                    console.error("❌ GunDB Corruption detected in public directory (JSON error)! Attempting auto-recovery...");
+                                    await clearRadata();
+                                    console.log("🔄 Retrying registration after recovery...");
+                                    const result = await attemptRegistration(retryCount + 1);
+                                    resolve(result);
+                                    return;
+                                }
+
                                 resolve(false);
                             } else {
                                 console.log(`✅ Server registered in Tunecamp Community (Secure Mode) - Site ID: ${siteId}`);
