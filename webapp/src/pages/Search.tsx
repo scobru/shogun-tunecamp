@@ -49,6 +49,7 @@ export const Search = () => {
                     <input 
                         type="text" 
                         placeholder="Search for songs, artists, albums..." 
+                        aria-label="Search"
                         className="input input-bordered w-full text-lg"
                         value={query}
                         onChange={e => updateQuery(e.target.value)}
@@ -127,8 +128,16 @@ export const Search = () => {
                             <div className="flex flex-col gap-1">
                                 {results.tracks.map((track) => (
                                     <div key={track.id} className="flex items-center gap-4 p-2 hover:bg-white/5 rounded-lg group">
-                                        <button onClick={() => playTrack(track, results.tracks)} className="relative w-10 h-10 shrink-0">
-                                             <img src={API.getAlbumCoverUrl(track.albumId)} className="w-full h-full rounded object-cover opacity-70 group-hover:opacity-100" />
+                                        <button
+                                            onClick={() => playTrack(track, results.tracks)}
+                                            className="relative w-10 h-10 shrink-0"
+                                            aria-label={`Play ${track.title} by ${track.artistName || 'Unknown Artist'}`}
+                                        >
+                                             <img
+                                                src={API.getAlbumCoverUrl(track.albumId)}
+                                                alt={track.albumName ? `${track.albumName} cover` : "Album cover"}
+                                                className="w-full h-full rounded object-cover opacity-70 group-hover:opacity-100"
+                                             />
                                              <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
                                                  <Music size={16} />
                                              </div>
