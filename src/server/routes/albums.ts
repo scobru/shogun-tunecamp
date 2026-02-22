@@ -169,18 +169,15 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 return res.send(svg);
             }
 
-            const ext = path.extname(resolvedPath as string).toLowerCase();
-            const contentTypes: Record<string, string> = {
-                ".jpg": "image/jpeg",
-                ".jpeg": "image/jpeg",
-                ".png": "image/png",
-                ".gif": "image/gif",
-                ".webp": "image/webp",
-            };
-
-            res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
-            res.setHeader("Cache-Control", "public, max-age=0");
-            fs.createReadStream(resolvedPath).pipe(res);
+            // Use res.sendFile to handle ETag/Last-Modified and correct Content-Type automatically
+            // Cache for 24 hours (86400000ms)
+            // Frontend uses cache busting (?v=timestamp) when covers change, so we can safely cache.
+            res.sendFile(path.resolve(resolvedPath), { maxAge: 86400000 }, (err) => {
+                if (err && !res.headersSent) {
+                    console.error(`❌ [Debug] Error sending file: ${err}`);
+                    res.status(500).end();
+                }
+            });
         } catch (error) {
             console.error("Error getting cover:", error);
             res.status(500).json({ error: "Failed to get cover" });
