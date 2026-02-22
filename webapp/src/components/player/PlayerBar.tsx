@@ -220,11 +220,12 @@ export const PlayerBar = () => {
               onDuration={(d: number) => setProgress(currentTime, d)}
               onEnded={() => next()}
               onError={(e: any) => console.error("ReactPlayer Error:", e)}
-              config={{
-                youtube: { embedOptions: {} } as any,
-                // @ts-ignore
-                soundcloud: { options: { visual: true } },
-              }}
+              config={
+                {
+                  youtube: { embedOptions: {} },
+                  soundcloud: { options: { visual: true } },
+                } as any
+              }
             />
           </div>
         )}
