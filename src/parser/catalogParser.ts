@@ -101,7 +101,7 @@ export class CatalogParser {
     }
 
     // Find tracks
-    const tracks = await this.findTracks(releaseDir);
+    const tracks = await this.findTracks(releaseDir, releaseConfig);
 
     if (tracks.length === 0) {
       console.warn(`  ⚠️  No tracks found in ${dirName}`);
@@ -124,7 +124,7 @@ export class CatalogParser {
     return release;
   }
 
-  private async findTracks(releaseDir: string): Promise<Track[]> {
+  private async findTracks(releaseDir: string, releaseConfig?: ReleaseConfig): Promise<Track[]> {
     const tracks: Track[] = [];
     const seenFiles = new Set<string>(); // Track seen filenames to prevent duplicates
 
@@ -154,7 +154,27 @@ export class CatalogParser {
 
           const fullPath = path.join(dir, audioFile);
           const metadata = await readAudioMetadata(fullPath);
+          // @ts-ignore - id is required in updated Track type
+          metadata.id = createSlug(metadata.title);
           tracks.push(metadata);
+        }
+      }
+    }
+
+    // Process tracks defined in releaseConfig if any (e.g. external URLs)
+    if (releaseConfig && releaseConfig.metadata?.tracks) {
+      const configTracks = releaseConfig.metadata.tracks as any[];
+      for (const ct of configTracks) {
+        if (ct.url) {
+          const service = (ct.service as any) || (ct.url.includes('youtube') ? 'youtube' : ct.url.includes('spotify') ? 'spotify' : ct.url.includes('soundcloud') ? 'soundcloud' : 'local');
+          tracks.push({
+            id: createSlug(ct.title || 'external-track'),
+            url: ct.url,
+            filename: ct.url,
+            title: ct.title || 'External Track',
+            service: service,
+            externalArtwork: ct.artwork || (service === 'youtube' ? `https://img.youtube.com/vi/${ct.url.split('v=')[1]?.split('&')[0]}/hqdefault.jpg` : undefined),
+          } as any);
         }
       }
     }

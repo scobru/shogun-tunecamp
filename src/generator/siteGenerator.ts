@@ -257,7 +257,7 @@ export class SiteGenerator {
         coverUrl: release.coverPath ? path.basename(release.coverPath) : null,
         tracks: release.tracks.map((track: any) => ({
           ...track,
-          url: path.basename(track.file),
+          url: track.file ? path.basename(track.file) : track.url,
         })),
         slug: release.slug,
       },
@@ -382,12 +382,14 @@ export class SiteGenerator {
 
       // Copy tracks
       for (const track of release.tracks) {
-        const trackSrc = track.file;
-        const trackDest = path.join(
-          releaseOutputDir,
-          path.basename(track.file)
-        );
-        mediaTasks.push({ src: trackSrc, dest: trackDest });
+        if (track.file) {
+          const trackSrc = track.file;
+          const trackDest = path.join(
+            releaseOutputDir,
+            path.basename(track.file)
+          );
+          mediaTasks.push({ src: trackSrc, dest: trackDest });
+        }
       }
     }
 
@@ -452,8 +454,8 @@ export class SiteGenerator {
     for (const track of release.tracks) {
       const duration = track.duration ? Math.round(track.duration) : -1;
       const trackUrl = siteUrl
-        ? `${siteUrl.replace(/\/$/, "")}${basePath}/releases/${release.slug}/${path.basename(track.file)}`
-        : path.basename(track.file);
+        ? `${siteUrl.replace(/\/$/, "")}${basePath}/releases/${release.slug}/${track.file ? path.basename(track.file) : track.url}`
+        : (track.file ? path.basename(track.file) : track.url || "");
 
       lines.push(`#EXTINF:${duration},${artistName} - ${track.title}`);
       lines.push(trackUrl);
@@ -481,8 +483,8 @@ export class SiteGenerator {
       for (const track of release.tracks) {
         const duration = track.duration ? Math.round(track.duration) : -1;
         const trackUrl = siteUrl
-          ? `${normalizeUrl(siteUrl)}${basePath}/releases/${release.slug}/${path.basename(track.file)}`
-          : `releases/${release.slug}/${path.basename(track.file)}`;
+          ? `${normalizeUrl(siteUrl)}${basePath}/releases/${release.slug}/${track.file ? path.basename(track.file) : track.url}`
+          : `releases/${release.slug}/${track.file ? path.basename(track.file) : track.url}`;
 
         lines.push(`#EXTINF:${duration},${artistName} - ${track.title}`);
         lines.push(trackUrl);
@@ -596,7 +598,7 @@ export class SiteGenerator {
     const basePath = this.options.basePath || this.catalog.config.basePath || "";
     const coverUrl = release.coverPath ? path.basename(release.coverPath) : null;
     const artistName = this.catalog.artist?.name || "Unknown Artist";
-    const firstTrackUrl = release.tracks.length > 0 ? path.basename(release.tracks[0].file) : null;
+    const firstTrackUrl = release.tracks.length > 0 && release.tracks[0].file ? path.basename(release.tracks[0].file) : null;
 
     return `<!DOCTYPE html>
 <html>

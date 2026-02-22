@@ -173,12 +173,13 @@ ${items}
     private generateEpisodeItem(track: Track, release: Release, episodeNumber: number): string {
         const title = this.escapeXml(`${track.title} (from ${release.config.title})`);
         const description = this.escapeXml(track.description || release.config.description || `Episode ${episodeNumber}`);
-        const audioUrl = this.getUrl(`releases/${release.slug}/${path.basename(track.file)}`);
+        const isLocalTrack = !!track.file;
+        const audioUrl = isLocalTrack ? this.getUrl(`releases/${release.slug}/${path.basename(track.file!)}`) : (track.url || "");
         const pageUrl = this.getUrl(`releases/${release.slug}/index.html`);
         const pubDate = this.formatRssDate(release.config.date);
         const duration = this.formatItunesDuration(track.duration);
-        const mimeType = this.getAudioMimeType(track.file);
-        const guid = `${release.slug}-${path.basename(track.file, path.extname(track.file))}`;
+        const mimeType = isLocalTrack ? this.getAudioMimeType(track.file!) : "audio/mpeg";
+        const guid = isLocalTrack ? `${release.slug}-${path.basename(track.file!, path.extname(track.file!))}` : `${release.slug}-${track.id}`;
         const artist = this.catalog.artist?.name || "Unknown Artist";
 
         // Get cover image

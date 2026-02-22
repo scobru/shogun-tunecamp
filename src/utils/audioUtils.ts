@@ -14,6 +14,7 @@ export async function readAudioMetadata(filePath: string): Promise<Track> {
     const filename = path.basename(filePath);
 
     return {
+      id: StringUtils.slugify(metadata.common.title || filename.replace(/\.[^.]+$/, '')),
       file: filePath,
       filename,
       title: metadata.common.title || filename.replace(/\.[^.]+$/, ''),
@@ -31,6 +32,7 @@ export async function readAudioMetadata(filePath: string): Promise<Track> {
     // Fallback if metadata reading fails
     const filename = path.basename(filePath);
     return {
+      id: StringUtils.slugify(filename.replace(/\.[^.]+$/, '')),
       file: filePath,
       filename,
       title: filename.replace(/\.[^.]+$/, ''),
@@ -174,6 +176,40 @@ export function formatAlbumDirectory(artist: string, album: string): string {
  */
 export function getStandardCoverFilename(extension: string): string {
   return LibraryUtils.getStandardCoverFilename(extension || 'jpg');
+}
+
+/**
+ * Detects the service provider from a URL
+ */
+export function detectService(url?: string): 'youtube' | 'spotify' | 'soundcloud' | 'local' {
+  if (!url) return 'local';
+  if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
+  if (url.includes('spotify.com')) return 'spotify';
+  if (url.includes('soundcloud.com')) return 'soundcloud';
+  return 'local';
+}
+
+/**
+ * Extracts YouTube video ID from URL
+ */
+export function getYouTubeId(url: string): string | null {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+}
+
+/**
+ * Returns artwork URL for external services
+ */
+export function getExternalArtworkUrl(url: string): string | null {
+  const service = detectService(url);
+  if (service === 'youtube') {
+    const id = getYouTubeId(url);
+    if (id) return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
+  }
+  // Spotify and SoundCloud usually require API keys or OEmbed to get artwork properly,
+  // but we can try some heuristics or placeholders if needed.
+  return null;
 }
 
 

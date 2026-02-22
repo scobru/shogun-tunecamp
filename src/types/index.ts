@@ -94,14 +94,17 @@ export interface Credit {
 }
 
 export interface TrackConfig {
-  file: string;
+  file?: string;
+  url?: string;
   title?: string;
   description?: string;
   metadata?: Record<string, any>;
 }
 
 export interface Track {
-  file: string;
+  id: string; // Required for store/player logic
+  file?: string;
+  url?: string;
   filename: string;
   title: string;
   artist?: string;
@@ -114,6 +117,15 @@ export interface Track {
   sampleRate?: number;
   description?: string;
   genre?: string[];
+  service?: 'youtube' | 'spotify' | 'soundcloud' | 'local';
+  externalArtwork?: string;
+  streamUrl?: string;
+  waveform?: string | number[];
+  coverUrl?: string; // Resolved cover URL
+  coverImage?: string; // Path to local cover
+  albumId?: string;
+  artistId?: string;
+  artistName?: string;
 }
 
 export interface Release {

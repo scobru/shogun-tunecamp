@@ -43,7 +43,7 @@ export class EmbedGenerator {
       : null;
     const artistName = this.catalog.artist?.name || "Unknown Artist";
     const trackCount = release.tracks.length;
-    const firstTrackUrl = release.tracks.length > 0
+    const firstTrackUrl = release.tracks.length > 0 && release.tracks[0].file
       ? this.getUrl(`releases/${release.slug}/${path.basename(release.tracks[0].file)}`)
       : null;
 
