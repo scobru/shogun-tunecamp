@@ -18,6 +18,7 @@ import {
   Key,
   Download,
   Unlock,
+  Link as LinkIcon,
 } from "lucide-react";
 
 interface LocalTrack {
@@ -26,7 +27,10 @@ interface LocalTrack {
   duration: number;
   position: number;
   price?: number;
-  file_path: string;
+  file_path: string | null;
+  url: string | null;
+  service: string | null;
+  external_artwork?: string;
   lossless_path?: string;
   artistName?: string;
   format?: string;
@@ -166,7 +170,9 @@ export default function AdminReleaseEditor() {
       duration: t.duration,
       position: tracks.length + 1, // Append
       price: 0,
-      file_path: t.file_path || t.path,
+      file_path: t.file_path || t.path || null,
+      url: t.url || null,
+      service: t.service || "local",
       artistName: t.artist_name || t.artistName,
     }));
 
@@ -176,6 +182,55 @@ export default function AdminReleaseEditor() {
     );
 
     setTracks((prev) => [...prev, ...unique]);
+  };
+
+  const handleAddExternalLink = async () => {
+    const url = window.prompt("Enter URL (YouTube, SoundCloud, Spotify):");
+    if (!url) return;
+
+    setSaving(true);
+    try {
+      // Basic detection
+      let service: "youtube" | "spotify" | "soundcloud" | "local" = "local";
+      let externalArtwork = undefined;
+
+      if (url.includes("youtube.com") || url.includes("youtu.be")) {
+        service = "youtube";
+        const regExp =
+          /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        const id = match && match[2].length === 11 ? match[2] : null;
+        if (id)
+          externalArtwork = `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
+      } else if (url.includes("spotify.com")) {
+        service = "spotify";
+      } else if (url.includes("soundcloud.com")) {
+        service = "soundcloud";
+      }
+
+      const newTrack: any = await API.createTrack({
+        title: "New External Track",
+        url: url,
+        service: service,
+        externalArtwork: externalArtwork,
+        albumId: metadata.id ? parseInt(String(metadata.id)) : undefined,
+        artistId: metadata.artist_id,
+        trackNum: tracks.length + 1,
+      });
+
+      setTracks((prev) => [
+        ...prev,
+        {
+          ...newTrack,
+          isDirty: false, // It was just created with default "New External Track"
+        },
+      ]);
+    } catch (e) {
+      console.error("Failed to add external track", e);
+      alert("Failed to add external track");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleRemoveTrack = (index: number) => {
@@ -264,11 +319,16 @@ export default function AdminReleaseEditor() {
         const tracksToUpdate = tracks.filter((t) => t.isDirty);
         for (const t of tracksToUpdate) {
           try {
-            const fileName = t.file_path.split("/").pop() || "";
-            await API.updateTrack(String(t.id), {
-              title: t.title,
-              fileName: fileName, // Backend will handle the renaming logic
-            } as any);
+            const updateData: any = { title: t.title };
+
+            if (t.file_path) {
+              updateData.fileName = t.file_path.split("/").pop() || "";
+            } else if (t.url) {
+              updateData.url = t.url;
+              updateData.service = t.service;
+            }
+
+            await API.updateTrack(String(t.id), updateData);
           } catch (e) {
             console.error(`Failed to update track ${t.id}`, e);
           }
@@ -378,6 +438,12 @@ export default function AdminReleaseEditor() {
                 >
                   <Library className="w-4 h-4" /> Add from Library
                 </button>
+                <button
+                  className="btn btn-sm btn-outline"
+                  onClick={handleAddExternalLink}
+                >
+                  <LinkIcon className="w-4 h-4" /> Add External Link
+                </button>
                 <label className="btn btn-sm btn-primary">
                   <Plus className="w-4 h-4" /> Upload Audio
                   <input
@@ -433,25 +499,33 @@ export default function AdminReleaseEditor() {
                       />
                       <div className="flex items-center gap-2 px-2">
                         <span className="text-[10px] opacity-40 font-mono uppercase">
-                          File:
+                          {track.url ? "URL:" : "File:"}
                         </span>
                         <input
                           type="text"
-                          value={track.file_path.split("/").pop() || ""}
+                          value={
+                            track.url || track.file_path?.split("/").pop() || ""
+                          }
                           onChange={(e) => {
                             const newTracks = [...tracks];
-                            const dir = track.file_path.includes("/")
-                              ? track.file_path.substring(
-                                  0,
-                                  track.file_path.lastIndexOf("/") + 1,
-                                )
-                              : "";
-                            newTracks[idx].file_path = dir + e.target.value;
+                            if (track.url) {
+                              newTracks[idx].url = e.target.value;
+                            } else {
+                              const dir = (track.file_path || "").includes("/")
+                                ? track.file_path!.substring(
+                                    0,
+                                    track.file_path!.lastIndexOf("/") + 1,
+                                  )
+                                : "";
+                              newTracks[idx].file_path = dir + e.target.value;
+                            }
                             newTracks[idx].isDirty = true;
                             setTracks(newTracks);
                           }}
                           className="input input-ghost input-xs w-full opacity-50 focus:opacity-100 font-mono text-[10px] focus:bg-base-200"
-                          placeholder="filename.mp3"
+                          placeholder={
+                            track.url ? "https://..." : "filename.mp3"
+                          }
                         />
                       </div>
                       {track.artistName && (

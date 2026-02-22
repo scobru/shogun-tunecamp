@@ -156,6 +156,8 @@ export const API = {
     deleteArtist: (id: string) => handleResponse(api.delete(`/artists/${id}`)),
 
     // --- Admin: Tracks ---
+    createTrack: (data: { title: string, albumId?: number, artistId?: number, trackNum?: number, url?: string, service?: string, externalArtwork?: string, duration?: number }) =>
+        handleResponse(api.post<Track>('/tracks', data)),
     updateTrack: (id: string, data: Partial<Track>) => handleResponse(api.put<Track>(`/tracks/${id}`, data)),
     deleteTrack: (id: string, deleteFile = false) =>
         handleResponse(api.delete(`/tracks/${id}${deleteFile ? '?deleteFile=true' : ''}`)),

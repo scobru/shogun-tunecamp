@@ -43,6 +43,53 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
     });
 
     /**
+     * POST /api/tracks
+     * Create a new track (usually for external links)
+     */
+    router.post("/", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        try {
+            const { title, albumId, artistId, trackNum, url, service, externalArtwork, duration } = req.body;
+
+            if (!title) {
+                return res.status(400).json({ error: "Title is required" });
+            }
+
+            const trackId = database.createTrack({
+                title,
+                album_id: albumId || null,
+                artist_id: artistId || null,
+                track_num: trackNum || null,
+                duration: duration || 0,
+                file_path: null,
+                format: null,
+                bitrate: null,
+                sample_rate: null,
+                lossless_path: null,
+                url: url || null,
+                service: service || null,
+                external_artwork: externalArtwork || null,
+                waveform: null
+            });
+
+            const newTrack = database.getTrack(trackId);
+            res.status(201).json(newTrack);
+
+            // Sync release if associated
+            if (albumId && publishingService) {
+                publishingService.syncRelease(albumId).catch(e => console.error("Failed to sync release after track creation:", e));
+            }
+
+        } catch (error) {
+            console.error("Error creating track:", error);
+            res.status(500).json({ error: "Failed to create track" });
+        }
+    });
+
+    /**
      * GET /api/tracks/:id/lyrics
      * Get track lyrics from metadata
      */

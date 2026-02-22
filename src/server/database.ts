@@ -986,8 +986,8 @@ export function createDatabase(dbPath: string): DatabaseService {
         createTrack(track: Omit<Track, "id" | "created_at" | "album_title" | "artist_name">): number {
             const result = db
                 .prepare(
-                    `INSERT INTO tracks (title, album_id, artist_id, track_num, duration, file_path, format, bitrate, sample_rate, lossless_path)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                    `INSERT INTO tracks (title, album_id, artist_id, track_num, duration, file_path, format, bitrate, sample_rate, lossless_path, url, service, external_artwork)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                 )
                 .run(
                     track.title,
@@ -999,7 +999,10 @@ export function createDatabase(dbPath: string): DatabaseService {
                     track.format,
                     track.bitrate,
                     track.sample_rate,
-                    track.lossless_path || null
+                    track.lossless_path || null,
+                    track.url || null,
+                    track.service || null,
+                    track.external_artwork || null
                 );
             return result.lastInsertRowid as number;
         },
