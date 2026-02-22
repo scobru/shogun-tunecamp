@@ -240,6 +240,9 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             if (tracks.length === 1) {
                 const track = tracks[0];
                 const trackFile = (useLossless && track.lossless_path) ? track.lossless_path : track.file_path;
+                if (!trackFile) {
+                    return res.status(400).json({ error: "External tracks cannot be downloaded directly" });
+                }
                 const trackPath = path.join(musicDir, trackFile);
 
                 if (!await fs.pathExists(trackPath)) {
@@ -264,6 +267,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             for (const track of tracks) {
                 // Use lossless path if requested and available, fallback to primary path
                 const trackFile = (useLossless && track.lossless_path) ? track.lossless_path : track.file_path;
+                if (!trackFile) continue; // Skip external tracks in ZIP
                 const trackPath = path.join(musicDir, trackFile);
 
                 if (await fs.pathExists(trackPath)) {

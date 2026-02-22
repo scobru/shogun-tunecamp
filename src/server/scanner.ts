@@ -6,7 +6,7 @@ import { parse } from "yaml";
 
 import type { DatabaseService, Artist, Album, Track } from "./database.js";
 import { WaveformService } from "./waveform.js";
-import { slugify, getStandardCoverFilename } from "../utils/audioUtils.js";
+import { slugify, getStandardCoverFilename, detectService, getExternalArtworkUrl } from "../utils/audioUtils.js";
 import { convertWavToMp3, getDurationFromFfmpeg } from "./ffmpeg.js";
 
 /**
@@ -96,6 +96,9 @@ interface ReleaseConfig {
     year?: number; // Added
     download?: string; // 'free' | 'paid'
     links?: { label: string; url: string }[] | { [key: string]: string }; // Array or Object
+    metadata?: {
+        tracks?: any[];
+    };
 }
 
 interface ExternalLink {
@@ -333,10 +336,39 @@ export class Scanner implements ScannerService {
                 console.log(`  Created release from config: ${config.title}`);
             }
 
-            // Map this folder and its subfolders (like 'tracks', 'audio') to this album
             this.folderToAlbumMap.set(dir, albumId);
             this.folderToAlbumMap.set(path.join(dir, "tracks"), albumId);
             this.folderToAlbumMap.set(path.join(dir, "audio"), albumId);
+
+            // Process external tracks defined in config
+            if (config.metadata?.tracks) {
+                for (const tc of config.metadata.tracks) {
+                    if (tc.url) {
+                        const trackTitle = tc.title || "External Track";
+                        const existingTrack = this.database.getTrackByMetadata(trackTitle, artistId, albumId);
+
+                        if (!existingTrack) {
+                            this.database.createTrack({
+                                title: trackTitle,
+                                album_id: albumId,
+                                artist_id: artistId,
+                                track_num: tc.trackNum || tc.track || null,
+                                duration: tc.duration || null,
+                                file_path: null,
+                                format: tc.service || 'external',
+                                bitrate: null,
+                                sample_rate: null,
+                                lossless_path: null,
+                                waveform: null,
+                                url: tc.url,
+                                service: tc.service || detectService(tc.url),
+                                external_artwork: tc.artwork || getExternalArtworkUrl(tc.url) || null
+                            });
+                            console.log(`  Added external track to DB: ${trackTitle}`);
+                        }
+                    }
+                }
+            }
         } catch (e) {
             console.error(`Error processing release config ${filePath}:`, e);
         }
@@ -419,10 +451,7 @@ export class Scanner implements ScannerService {
                 console.log(`    [Scanner] Adding LOSSLESS path to existing track: ${existing.title}`);
                 this.database.updateTrackLosslessPath(existing.id, normalizedPath);
             }
-            // If we found an existing track and this is the MP3 version (primary path)
-            else if (ext === '.mp3' && (existing.file_path !== normalizedPath)) {
-                // If the existing record has a non-MP3 file_path (e.g. was created from WAV)
-                // we want to move the current WAV to lossless_path and use MP3 for streaming
+            if (existing.file_path) {
                 const oldExt = path.extname(existing.file_path).toLowerCase();
                 if (LOSSLESS_EXTENSIONS.includes(oldExt)) {
                     console.log(`    [Scanner] Swapping primary path to MP3 and moving ${oldExt.toUpperCase()} to lossless_path`);
@@ -432,6 +461,9 @@ export class Scanner implements ScannerService {
                     // Just update the path if it's different and not a swap
                     this.database.updateTrackPath(existing.id, normalizedPath, albumId);
                 }
+            } else {
+                // Update path if it was null (e.g. from external to local, though unlikely)
+                this.database.updateTrackPath(existing.id, normalizedPath, albumId);
             }
 
             // Ensure linked to album
@@ -487,7 +519,10 @@ export class Scanner implements ScannerService {
                 bitrate: format.bitrate ? Math.round(format.bitrate / 1000) : null,
                 sample_rate: format.sampleRate || null,
                 lossless_path: isLossless ? this.normalizePath(currentFilePath, musicDir) : null,
-                waveform: null
+                waveform: null,
+                url: null,
+                service: null,
+                external_artwork: null
             });
 
             this.processQueue.add(() => WaveformService.generateWaveform(currentFilePath))
@@ -759,6 +794,8 @@ export class Scanner implements ScannerService {
 
         let removed = 0;
         for (const track of allTracks) {
+            if (!track.file_path) continue; // Skip external tracks for file existence check
+
             // Check if primary file exists using knownFiles Set (O(1))
             const primaryKey = isCaseInsensitive ? track.file_path.toLowerCase() : track.file_path;
             const primaryExists = knownFiles.has(primaryKey);

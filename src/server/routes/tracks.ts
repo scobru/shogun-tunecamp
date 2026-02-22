@@ -122,6 +122,9 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 }
             }
 
+            if (!track.file_path) {
+                return res.status(400).json({ error: "External tracks cannot be streamed directly from this endpoint. Use the external URL." });
+            }
             const trackPath = path.join(musicDir, track.file_path);
             if (!await fs.pathExists(trackPath)) {
                 console.warn(`❌ [Stream] Could not resolve file path: ${track.file_path}`);

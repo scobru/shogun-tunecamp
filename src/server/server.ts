@@ -174,6 +174,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
             const track = database.getTrack(trackId);
             if (!track) return res.status(404).send("Track not found");
 
+            if (!track.file_path) return res.status(400).send("Waveform not available for external tracks");
             const filePath = path.join(config.musicDir, track.file_path);
             const svg = await waveformService.getWaveformSVG(trackId, filePath);
 

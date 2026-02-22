@@ -340,7 +340,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         if (id.startsWith('tr_')) {
             const track = db.getTrack(parseInt(id.substring(3)));
-            if (track) {
+            if (track && track.file_path) {
                 const fullPath = path.resolve(context.musicDir, track.file_path);
                 if (await fs.pathExists(fullPath)) {
                     // res.sendFile handles Range headers automatically
@@ -435,7 +435,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                             '@coverArt': `al_${album.id}`,
                             '@artistId': `ar_${album.artist_id}`,
                             '@albumId': id,
-                            '@path': track.file_path,
+                            '@path': track.file_path || '',
                             '@suffix': track.format || 'mp3',
                             '@contentType': 'audio/mpeg',
                             '@duration': Math.floor(track.duration || 0),

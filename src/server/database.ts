@@ -72,12 +72,15 @@ export interface Track {
     artist_name?: string;
     track_num: number | null;
     duration: number | null;
-    file_path: string;
+    file_path: string | null;
     format: string | null;
     bitrate: number | null;
     sample_rate: number | null;
     lossless_path: string | null;
     waveform: string | null; // JSON string of number[]
+    url: string | null;
+    service: string | null;
+    external_artwork: string | null;
     created_at: string;
 }
 
@@ -333,11 +336,14 @@ export function createDatabase(dbPath: string): DatabaseService {
       artist_id INTEGER REFERENCES artists(id),
       track_num INTEGER,
       duration REAL,
-      file_path TEXT NOT NULL UNIQUE,
+      file_path TEXT,
       format TEXT,
       bitrate INTEGER,
       sample_rate INTEGER,
       waveform TEXT,
+      url TEXT,
+      service TEXT,
+      external_artwork TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -573,6 +579,16 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.log("📦 Migrated database: added published_at to posts");
     } catch (e) {
         // Column already exists
+    }
+
+    // Migration: Add external track columns
+    try {
+        db.exec(`ALTER TABLE tracks ADD COLUMN url TEXT`);
+        db.exec(`ALTER TABLE tracks ADD COLUMN service TEXT`);
+        db.exec(`ALTER TABLE tracks ADD COLUMN external_artwork TEXT`);
+        console.log("📦 Migrated database: added external track columns (url, service, external_artwork)");
+    } catch (e) {
+        // Columns already exist
     }
 
     // Prepared statements for release tracks

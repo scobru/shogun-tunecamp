@@ -52,7 +52,7 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
                 // But we can guess from cover_path or first track
                 const tracks = database.getTracks(albumId);
                 let dir = "";
-                if (tracks.length > 0) {
+                if (tracks.length > 0 && tracks[0].file_path) {
                     dir = path.dirname(tracks[0].file_path);
                 } else if (album.cover_path) {
                     dir = path.dirname(album.cover_path);

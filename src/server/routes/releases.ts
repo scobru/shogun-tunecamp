@@ -272,7 +272,7 @@ export function createReleaseRoutes(
 
             let releaseDir: string | null = null;
             const tracks = database.getTracksByReleaseId(id);
-            if (tracks.length > 0) {
+            if (tracks.length > 0 && tracks[0].file_path) {
                 const trackDir = path.dirname(tracks[0].file_path);
                 releaseDir = trackDir.includes("tracks") ? path.dirname(trackDir) : trackDir;
             } else {
@@ -312,7 +312,12 @@ export function createReleaseRoutes(
             const tracks = database.getTracksByReleaseId(id);
             if (tracks.length === 0) return res.json({ folder: null, files: [] });
 
-            const trackDir = path.dirname(tracks[0].file_path);
+            const firstWithFile = tracks.find(t => t.file_path);
+            if (!firstWithFile || !firstWithFile.file_path) {
+                return res.json({ folder: null, files: [] });
+            }
+
+            const trackDir = path.dirname(firstWithFile.file_path);
             const releaseDir = trackDir.includes("tracks") ? path.dirname(trackDir) : trackDir;
 
             const files: any[] = [];

@@ -170,29 +170,39 @@ export class ActivityPubService {
             });
         }
 
-        // 2. Audio (First Track)
         if (tracks.length > 0) {
             const track = tracks[0];
-            const ext = track.file_path.split('.').pop()?.toLowerCase();
+            if (track.file_path) {
+                const ext = track.file_path.split('.').pop()?.toLowerCase();
 
-            const contentTypes: Record<string, string> = {
-                "mp3": "audio/mpeg",
-                "flac": "audio/flac",
-                "ogg": "audio/ogg",
-                "wav": "audio/wav",
-                "m4a": "audio/mp4",
-                "aac": "audio/aac",
-                "opus": "audio/opus",
-            };
-            const mediaType = contentTypes[ext || ""] || "audio/mpeg";
+                const contentTypes: Record<string, string> = {
+                    "mp3": "audio/mpeg",
+                    "flac": "audio/flac",
+                    "ogg": "audio/ogg",
+                    "wav": "audio/wav",
+                    "m4a": "audio/mp4",
+                    "aac": "audio/aac",
+                    "opus": "audio/opus",
+                };
+                const mediaType = contentTypes[ext || ""] || "audio/mpeg";
 
-            attachments.push({
-                type: "Audio",
-                mediaType: mediaType,
-                url: `${baseUrl}/api/tracks/${track.id}/stream`,
-                name: track.title,
-                duration: track.duration ? new Date(track.duration * 1000).toISOString().substr(11, 8) : undefined // ISO duration or similar if needed, mostly handled by players via metadata
-            });
+                attachments.push({
+                    type: "Audio",
+                    mediaType: mediaType,
+                    url: `${baseUrl}/api/tracks/${track.id}/stream`,
+                    name: track.title,
+                    duration: track.duration ? new Date(track.duration * 1000).toISOString().substr(11, 8) : undefined
+                });
+            } else if (track.url) {
+                // For external tracks, we can't easily provide a direct audio mediaType
+                // but we can link to the external URL in the content or as a link attachment
+                attachments.push({
+                    type: "Link",
+                    mediaType: "text/html",
+                    url: track.url,
+                    name: `${track.title} (${track.service || 'External'})`
+                });
+            }
         }
 
         // Note: We use the canonical API URL for the ID, so it can be resolved by servers
