@@ -13,7 +13,7 @@ describe("AuthService", () => {
     });
 
     afterEach(() => {
-        db.close();
+        if (db) db.close();
     });
 
     test("init creates default admin", async () => {

@@ -72,7 +72,7 @@ describe('PublishingService - Visibility Toggle', () => {
     });
 
     afterEach(() => {
-        db.db.close();
+        if (db && db.db) db.db.close();
     });
 
     test('should call unregisterTracks when album visibility changes to private', async () => {

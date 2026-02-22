@@ -263,8 +263,8 @@ export class Scanner implements ScannerService {
                 if (mappedAlbumId) {
                     const mappedAlbum = this.database.getAlbum(mappedAlbumId);
                     if (mappedAlbum) {
-                         existingAlbum = mappedAlbum;
-                         console.log(`  [Scanner] Matched folder '${relativeDir}' to existing album '${existingAlbum.title}' (ID ${existingAlbum.id}), ignoring title/slug mismatch.`);
+                        existingAlbum = mappedAlbum;
+                        console.log(`  [Scanner] Matched folder '${relativeDir}' to existing album '${existingAlbum.title}' (ID ${existingAlbum.id}), ignoring title/slug mismatch.`);
                     }
                 }
             }
@@ -483,7 +483,7 @@ export class Scanner implements ScannerService {
                 track_num: common.track?.no || null,
                 duration: duration || null,
                 file_path: isLossless ? this.normalizePath(currentFilePath.replace(new RegExp(`\\${ext}$`, 'i'), '.mp3'), musicDir) : this.normalizePath(currentFilePath, musicDir),
-                format: format.codec || ext.substring(1),
+                format: isLossless ? 'mp3' : (format.codec || ext.substring(1)),
                 bitrate: format.bitrate ? Math.round(format.bitrate / 1000) : null,
                 sample_rate: format.sampleRate || null,
                 lossless_path: isLossless ? this.normalizePath(currentFilePath, musicDir) : null,

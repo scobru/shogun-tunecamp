@@ -157,10 +157,10 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 targetFormat = 'mp3';
             }
 
-            const shouldTranscode = !!targetFormat;
+            const shouldTranscode = !!targetFormat && targetFormat !== ext.substring(1);
 
             if (shouldTranscode) {
-                const format = targetFormat || 'mp3';
+                const format = targetFormat;
                 const bitrate = (req.query.bitrate as string) || '128k';
 
                 const contentTypeMap: Record<string, string> = {

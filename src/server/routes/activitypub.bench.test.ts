@@ -59,16 +59,21 @@ describe("ActivityPub Outbox Performance", () => {
     });
 
     afterAll(() => {
-        dbService.db.close();
-        if (fs.existsSync(DB_PATH)) {
-            fs.unlinkSync(DB_PATH);
-        }
-        if (fs.existsSync(`${DB_PATH}-wal`)) {
-            fs.unlinkSync(`${DB_PATH}-wal`);
-        }
-        if (fs.existsSync(`${DB_PATH}-shm`)) {
-            fs.unlinkSync(`${DB_PATH}-shm`);
-        }
+        if (dbService && dbService.db) dbService.db.close();
+
+        const cleanup = (filePath: string) => {
+            if (fs.existsSync(filePath)) {
+                try {
+                    fs.unlinkSync(filePath);
+                } catch (e) {
+                    console.warn(`⚠️ Could not delete ${filePath}: ${e}`);
+                }
+            }
+        };
+
+        cleanup(DB_PATH);
+        cleanup(`${DB_PATH}-wal`);
+        cleanup(`${DB_PATH}-shm`);
     });
 
     test("Benchmark N+1 vs Bulk Fetch", () => {
