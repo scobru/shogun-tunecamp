@@ -65,47 +65,62 @@ export function createBrowserRoutes(musicDir: string): Router {
 
             const entries = await fs.readdir(absPath, { withFileTypes: true });
 
-            const dirs = [];
-            const files = [];
+            // Bolt ⚡: Optimized to fetch stats in parallel
+            const results = await Promise.all(entries.map(async (entry) => {
+                const entryPath = path.join(absPath, entry.name);
+                try {
+                    const entryStats = await fs.stat(entryPath);
+                    const itemRelPath = path.relative(musicDir, entryPath).replace(/\\/g, "/");
+
+                    if (entry.isDirectory()) {
+                        return {
+                            type: 'directory',
+                            data: {
+                                name: entry.name,
+                                path: itemRelPath,
+                                type: "directory",
+                                mtime: entryStats.mtime
+                            }
+                        };
+                    } else {
+                        const ext = path.extname(entry.name).toLowerCase();
+                        const item = {
+                            name: entry.name,
+                            path: itemRelPath,
+                            size: entryStats.size,
+                            mtime: entryStats.mtime,
+                            ext: ext
+                        };
+
+                        if (AUDIO_EXTENSIONS.includes(ext)) {
+                            return { type: 'file', data: { ...item, type: "file" } };
+                        } else if (IMAGE_EXTENSIONS.includes(ext)) {
+                            return { type: 'image', data: { ...item, type: "image" } };
+                        }
+                    }
+                } catch (e) {
+                    // File might have been deleted or inaccessible
+                    return null;
+                }
+                return null;
+            }));
+
+            const validResults = results.filter((r): r is NonNullable<typeof r> => r !== null);
+
+            const dirs = validResults
+                .filter(r => r.type === 'directory')
+                .map(r => r.data);
+
+            const files = validResults
+                .filter(r => r.type === 'file' || r.type === 'image')
+                .map(r => r.data);
 
             // Reconstruct relative path for response
             const responseRelPath = path.relative(musicDir, absPath).replace(/\\/g, "/");
 
-            for (const entry of entries) {
-                const entryPath = path.join(absPath, entry.name);
-                const entryStats = await fs.stat(entryPath);
-
-                // Construct relative path for the item
-                const itemRelPath = path.relative(musicDir, entryPath).replace(/\\/g, "/");
-
-                if (entry.isDirectory()) {
-                    dirs.push({
-                        name: entry.name,
-                        path: itemRelPath,
-                        type: "directory",
-                        mtime: entryStats.mtime
-                    });
-                } else {
-                    const ext = path.extname(entry.name).toLowerCase();
-                    const item = {
-                        name: entry.name,
-                        path: itemRelPath,
-                        size: entryStats.size,
-                        mtime: entryStats.mtime,
-                        ext: ext
-                    };
-
-                    if (AUDIO_EXTENSIONS.includes(ext)) {
-                        files.push({ ...item, type: "file" });
-                    } else if (IMAGE_EXTENSIONS.includes(ext)) {
-                        files.push({ ...item, type: "image" });
-                    }
-                }
-            }
-
             // Sort: Directories first, then files
-            dirs.sort((a, b) => a.name.localeCompare(b.name));
-            files.sort((a, b) => a.name.localeCompare(b.name));
+            dirs.sort((a: any, b: any) => a.name.localeCompare(b.name));
+            files.sort((a: any, b: any) => a.name.localeCompare(b.name));
 
             res.json({
                 path: responseRelPath === "" ? "" : responseRelPath, // Empty string for root
