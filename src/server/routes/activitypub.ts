@@ -280,7 +280,7 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     });
 
     // Delete published note
-    router.delete("/note", async (req, res) => {
+    router.delete("/note", authMiddleware.requireAdmin, async (req, res) => {
         const noteId = req.query.id as string;
         if (!noteId) return res.status(400).send("Missing id");
 
