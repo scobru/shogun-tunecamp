@@ -20,6 +20,9 @@ export interface Track {
     lyrics?: string;
     streamUrl?: string; // For remote/network tracks
     coverUrl?: string; // For remote/network tracks
+    url?: string; // External URL (YouTube, etc.)
+    service?: 'youtube' | 'spotify' | 'soundcloud' | 'local';
+    externalArtwork?: string;
 }
 
 export interface Artist {

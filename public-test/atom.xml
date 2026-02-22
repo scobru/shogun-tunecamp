@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>External Test Catalog</title>
+  <subtitle>A catalog to test external tracks.</subtitle>
+  <link href="https://example.com/" rel="alternate" type="text/html"/>
+  <link href="https://example.com/atom.xml" rel="self" type="application/atom+xml"/>
+  <id>https://example.com/</id>
+  <updated>2026-02-22T15:11:27.887Z</updated>
+  <generator uri="https://github.com/scobru/tunecamp" version="1.0.1">Tunecamp</generator>
+  <author>
+    <name>Test Artist</name>
+  </author>
+  <entry>
+    <title>Test Release</title>
+    <link href="https://example.com/releases/test-release/index.html" rel="alternate" type="text/html"/>
+    <id>https://example.com/releases/test-release/</id>
+    <updated>2026-02-22T00:00:00.000Z</updated>
+    <published>2026-02-22T00:00:00.000Z</published>
+    <summary>New release: Test Release</summary>
+    <content type="html"><![CDATA[<p>New release: Test Release</p><p>Tracks: 1</p>]]></content>
+  </entry>
+</feed>

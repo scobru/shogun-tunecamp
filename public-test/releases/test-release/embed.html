@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Release - Embed</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1e293b; }
+    .embed-container { max-width: 400px; margin: 0 auto; }
+    .cover { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    .cover-placeholder { width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 4rem; color: rgba(255,255,255,0.3); }
+    .info { padding: 1rem; }
+    .title { font-size: 1.1rem; font-weight: 600; color: #f1f5f9; margin-bottom: 0.25rem; }
+    .artist { font-size: 0.9rem; color: #94a3b8; }
+    .tracks { font-size: 0.8rem; color: #64748b; margin-top: 0.5rem; }
+    audio { width: 100%; height: 40px; }
+    .footer { padding: 0.5rem 1rem; background: #0f172a; font-size: 0.7rem; color: #64748b; text-align: right; }
+    .footer a { color: #6366f1; text-decoration: none; }
+    .link { display: block; text-decoration: none; color: inherit; }
+  </style>
+</head>
+<body>
+  <div class="embed-container">
+    <a href="index.html" class="link" target="_top">
+      <div class="cover-placeholder">♪</div>
+      <div class="info">
+        <div class="title">Test Release</div>
+        <div class="artist">Test Artist</div>
+        <div class="tracks">1 track</div>
+      </div>
+    </a>
+    
+    <div class="footer">
+      Powered by <a href="https://github.com/scobru/tunecamp" target="_blank">Tunecamp</a>
+    </div>
+  </div>
+</body>
+</html>
