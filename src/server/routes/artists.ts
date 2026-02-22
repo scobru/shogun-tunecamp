@@ -275,12 +275,8 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 console.log(`🖼️ [Debug] Serving artist cover: ${photoPath}`);
                 if (await fs.pathExists(photoPath)) {
                     // Use res.sendFile to handle ETag/Last-Modified and correct Content-Type automatically
-                    // Set Cache-Control to revalidate immediately so updates are seen
-                    return res.sendFile(path.resolve(photoPath), {
-                        headers: {
-                            "Cache-Control": "public, max-age=0, must-revalidate"
-                        }
-                    }, (err) => {
+                    // Cache for 24 hours (86400000ms)
+                    return res.sendFile(path.resolve(photoPath), { maxAge: 86400000 }, (err) => {
                         if (err) console.error(`❌ [Debug] Error sending file: ${err}`);
                     });
                 } else {
@@ -294,11 +290,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 if (album.cover_path) {
                     const coverPath = path.join(musicDir, album.cover_path);
                     if (await fs.pathExists(coverPath)) {
-                        return res.sendFile(path.resolve(coverPath), {
-                            headers: {
-                                "Cache-Control": "public, max-age=0, must-revalidate"
-                            }
-                        });
+                        return res.sendFile(path.resolve(coverPath), { maxAge: 86400000 });
                     }
                 }
             }
