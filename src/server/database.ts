@@ -591,6 +591,64 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Columns already exist
     }
 
+    // Migration: Fix NOT NULL constraint on tracks.file_path for external tracks
+    try {
+        const columns = db.pragma("table_info(tracks)") as any[];
+        const filePathCol = columns.find(c => c.name === "file_path");
+        if (filePathCol && filePathCol.notnull === 1) {
+            console.log("📦 Migrating database: making tracks.file_path nullable...");
+            db.transaction(() => {
+                // 1. Create new table with correct schema
+                db.exec(`
+                    CREATE TABLE tracks_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        title TEXT NOT NULL,
+                        album_id INTEGER REFERENCES albums(id),
+                        artist_id INTEGER REFERENCES artists(id),
+                        track_num INTEGER,
+                        duration REAL,
+                        file_path TEXT,
+                        format TEXT,
+                        bitrate INTEGER,
+                        sample_rate INTEGER,
+                        waveform TEXT,
+                        url TEXT,
+                        service TEXT,
+                        external_artwork TEXT,
+                        lossless_path TEXT,
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    );
+                `);
+
+                // 2. Copy data
+                db.exec(`
+                    INSERT INTO tracks_new (
+                        id, title, album_id, artist_id, track_num, duration, 
+                        file_path, format, bitrate, sample_rate, waveform, 
+                        url, service, external_artwork, lossless_path, created_at
+                    )
+                    SELECT 
+                        id, title, album_id, artist_id, track_num, duration, 
+                        file_path, format, bitrate, sample_rate, waveform, 
+                        url, service, external_artwork, lossless_path, created_at 
+                    FROM tracks;
+                `);
+
+                // 3. Swap tables
+                db.exec(`DROP TABLE tracks;`);
+                db.exec(`ALTER TABLE tracks_new RENAME TO tracks;`);
+
+                // 4. Re-create indexes
+                db.exec(`CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_id);`);
+                db.exec(`CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist_id);`);
+                db.exec(`CREATE INDEX IF NOT EXISTS idx_tracks_title_lower ON tracks(lower(title));`);
+            })();
+            console.log("✅ Database migrated: tracks.file_path is now nullable.");
+        }
+    } catch (e) {
+        console.warn("⚠️  Migration warning (tracks.file_path):", e);
+    }
+
     // Prepared statements for release tracks
     const addReleaseTrackStmt = db.prepare("INSERT OR IGNORE INTO release_tracks (release_id, track_id) VALUES (?, ?)");
     const removeReleaseTrackStmt = db.prepare("DELETE FROM release_tracks WHERE release_id = ? AND track_id = ?");

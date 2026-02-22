@@ -438,28 +438,30 @@ export default function AdminReleaseEditor() {
                 >
                   <Library className="w-4 h-4" /> Add from Library
                 </button>
-                <button
-                  className="btn btn-sm btn-outline"
-                  onClick={handleAddExternalLink}
-                >
-                  <LinkIcon className="w-4 h-4" /> Add External Link
-                </button>
-                <label className="btn btn-sm btn-primary">
-                  <Plus className="w-4 h-4" /> Upload Audio
-                  <input
-                    type="file"
-                    multiple
-                    accept="audio/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files)
-                        setFilesToUpload((prev) => [
-                          ...prev,
-                          ...Array.from(e.target.files!),
-                        ]);
-                    }}
-                  />
-                </label>
+                <div className="join">
+                  <label className="btn btn-sm btn-primary join-item">
+                    <Plus className="w-4 h-4" /> Upload Audio
+                    <input
+                      type="file"
+                      multiple
+                      accept="audio/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files)
+                          setFilesToUpload((prev) => [
+                            ...prev,
+                            ...Array.from(e.target.files!),
+                          ]);
+                      }}
+                    />
+                  </label>
+                  <button
+                    className="btn btn-sm btn-primary btn-outline join-item"
+                    onClick={handleAddExternalLink}
+                  >
+                    <LinkIcon className="w-4 h-4" /> Add External Link
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -497,8 +499,8 @@ export default function AdminReleaseEditor() {
                         className="input input-ghost input-sm w-full font-medium focus:bg-base-200 px-2"
                         placeholder="Track Title"
                       />
-                      <div className="flex items-center gap-2 px-2">
-                        <span className="text-[10px] opacity-40 font-mono uppercase">
+                      <div className="flex items-center gap-2 px-2 overflow-hidden">
+                        <span className="text-[10px] opacity-40 font-mono uppercase shrink-0">
                           {track.url ? "URL:" : "File:"}
                         </span>
                         <input
@@ -522,11 +524,16 @@ export default function AdminReleaseEditor() {
                             newTracks[idx].isDirty = true;
                             setTracks(newTracks);
                           }}
-                          className="input input-ghost input-xs w-full opacity-50 focus:opacity-100 font-mono text-[10px] focus:bg-base-200"
+                          className="input input-ghost input-xs w-full opacity-50 focus:opacity-100 font-mono text-[10px] focus:bg-base-200 px-1"
                           placeholder={
                             track.url ? "https://..." : "filename.mp3"
                           }
                         />
+                        {track.service && track.service !== "local" && (
+                          <span className="badge badge-secondary badge-xs opacity-70 scale-75 shrink-0">
+                            {track.service}
+                          </span>
+                        )}
                       </div>
                       {track.artistName && (
                         <div className="text-xs opacity-50 px-2">
