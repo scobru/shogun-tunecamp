@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import ReactPlayer from "react-player";
+const Player = ReactPlayer as any;
 import { usePlayerStore } from "../../stores/usePlayerStore";
 import API from "../../services/api";
 import {
@@ -209,7 +210,7 @@ export const PlayerBar = () => {
           />
         ) : (
           <div className="hidden">
-            <ReactPlayer
+            <Player
               ref={playerRef}
               url={currentTrack.url}
               playing={isPlaying}
