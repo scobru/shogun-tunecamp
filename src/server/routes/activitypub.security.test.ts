@@ -23,8 +23,24 @@ const mockApService = {
 const mockAuthMiddleware = {
     requireAdmin: (req: any, res: any, next: any) => {
         // Mock middleware that blocks if no token
-        if (!req.headers.authorization) {
+        const token = req.headers.authorization;
+        if (!token) {
             return res.status(401).json({ error: "No token provided" });
+        }
+
+        if (token === 'Bearer root') {
+            req.isAdmin = true;
+            req.artistId = null; // Root admin
+        } else if (token === 'Bearer artist1') {
+            req.isAdmin = true;
+            req.artistId = 1;
+        } else if (token === 'Bearer artist2') {
+            req.isAdmin = true;
+            req.artistId = 2;
+        } else {
+             // Default generic admin for existing tests compatibility, or treat as restricted?
+             // Let's treat as root for 'validtoken' to keep existing test passing (mostly)
+             req.isAdmin = true;
         }
         next();
     },
@@ -56,22 +72,40 @@ describe('ActivityPub Security', () => {
         expect(response.status).toBe(401);
     });
 
-    test('DELETE /note should succeed for authenticated admin', async () => {
+    test('DELETE /note should succeed for authenticated root admin', async () => {
         (mockDb.getApNote as jest.Mock).mockReturnValue({
             note_id: 'http://example.com/note/1',
             note_type: 'release',
-            content_id: 123
+            content_id: 123,
+            artist_id: 2
         });
-        (mockDb.getAlbum as jest.Mock).mockReturnValue({ id: 123 });
+        (mockDb.getAlbum as jest.Mock).mockReturnValue({ id: 123, artist_id: 2 });
 
-        // Fix for TS error: explicit cast or simple return
         (mockApService.broadcastDelete as jest.Mock).mockImplementation(async () => {});
 
         const response = await request(app)
             .delete('/ap/note?id=http://example.com/note/1')
-            .set('Authorization', 'Bearer validtoken');
+            .set('Authorization', 'Bearer root');
 
         expect(response.status).toBe(200);
         expect(mockApService.broadcastDelete).toHaveBeenCalled();
+    });
+
+    test('DELETE /note should deny access if artist does not own the note', async () => {
+        // Note belongs to Artist 2
+        (mockDb.getApNote as jest.Mock).mockReturnValue({
+            note_id: 'http://example.com/note/1',
+            artist_id: 2,
+            note_type: 'release',
+            content_id: 123
+        });
+        (mockDb.getAlbum as jest.Mock).mockReturnValue({ id: 123, artist_id: 2 });
+
+        // Request from Artist 1
+        const response = await request(app)
+            .delete('/ap/note?id=http://example.com/note/1')
+            .set('Authorization', 'Bearer artist1');
+
+        expect(response.status).toBe(403);
     });
 });
