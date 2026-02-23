@@ -466,7 +466,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             const deleteFile = req.query.deleteFile === "true";
 
             const track = database.getTrack(id);
-            if (!track || !track.file_path) {
+            if (!track) {
                 return res.status(404).json({ error: "Track not found" });
             }
 
@@ -475,7 +475,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 return res.status(403).json({ error: "Access denied: You can only delete your own tracks" });
             }
 
-            if (deleteFile) {
+            if (deleteFile && track.file_path) {
                 const trackPath = path.join(musicDir, track.file_path);
                 if (await fs.pathExists(trackPath)) {
                     try {
