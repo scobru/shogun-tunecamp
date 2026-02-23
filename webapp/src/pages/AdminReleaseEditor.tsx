@@ -191,7 +191,8 @@ export default function AdminReleaseEditor() {
     setSaving(true);
     try {
       // Basic detection
-      let service: "youtube" | "spotify" | "soundcloud" | "local" = "local";
+      let service: "youtube" | "spotify" | "soundcloud" | "local" | "external" =
+        "external";
       let externalArtwork = undefined;
 
       if (url.includes("youtube.com") || url.includes("youtu.be")) {

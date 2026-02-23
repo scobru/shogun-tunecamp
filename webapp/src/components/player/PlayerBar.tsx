@@ -47,7 +47,11 @@ export const PlayerBar = () => {
     null,
   );
 
-  const isExternal = !!(currentTrack?.url && currentTrack?.service !== "local");
+  const isExternal = !!(
+    currentTrack?.url &&
+    (currentTrack?.service !== "local" ||
+      (!(currentTrack as any).file_path && !currentTrack.path))
+  );
 
   useEffect(() => {
     if (!currentTrack) return;

@@ -284,7 +284,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             const id = parseInt(req.params.id as string, 10);
             const track = database.getTrack(id);
 
-            if (!track || !track.file_path) {
+            if (!track) {
                 return res.status(404).json({ error: "Track not found" });
             }
 
@@ -293,15 +293,10 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 return res.status(403).json({ error: "Access denied: You can only edit your own tracks" });
             }
 
-            const trackPath = path.join(musicDir, track.file_path);
-            if (!await fs.pathExists(trackPath)) {
-                return res.status(404).json({ error: "Track file not found on disk" });
-            }
+            const { title, artist, artistId, album, albumId, trackNumber, genre, fileName: newFileName, url, service, externalArtwork } = req.body;
 
-            const { title, artist, artistId, album, albumId, trackNumber, genre, fileName: newFileName } = req.body;
-
-            // HANDLE FILE RENAMING
-            if (newFileName && typeof newFileName === 'string') {
+            // HANDLE FILE RENAMING (Only if local track)
+            if (track.file_path && newFileName && typeof newFileName === 'string') {
                 const oldPath = track.file_path;
                 const oldDir = path.dirname(oldPath);
                 const oldExt = path.extname(oldPath);
@@ -353,11 +348,22 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 }
             }
 
-            // ... (ID3 tag updates remain same for MP3) ...
-
-            // Update database
+            // Update database title
             if (title !== undefined) {
                 database.updateTrackTitle(id, title);
+            }
+
+            // Update external fields
+            if (url !== undefined || service !== undefined || externalArtwork !== undefined) {
+                // We need a way to update these in DB. 
+                // Currently database.ts doesn't have specific methods for all fields, 
+                // but we can use db.prepare directly if needed or check if there's a generic update.
+                // Let's check database.ts for more update methods.
+                (database as any).db.prepare("UPDATE tracks SET url = ?, service = ?, external_artwork = ? WHERE id = ?")
+                    .run(url !== undefined ? url : track.url,
+                        service !== undefined ? service : track.service,
+                        externalArtwork !== undefined ? externalArtwork : track.external_artwork,
+                        id);
             }
 
             // Update artist
@@ -379,17 +385,22 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             // Update album
             if (albumId !== undefined) {
                 database.updateTrackAlbum(id, albumId ? parseInt(albumId) : null);
-            } else if (album !== undefined) {
-                // Fallback to name-based? (Not implemented in original, lets keep it simple or implement if needed)
-                // Original code didn't handle album update via name.
-                // We'll stick to ID for album as names are ambiguous.
+            }
+
+            // Update duration (optional, if provided in body)
+            if (req.body.duration !== undefined) {
+                database.updateTrackDuration(id, parseFloat(req.body.duration));
+            }
+
+            // Update track number
+            if (trackNumber !== undefined) {
+                (database as any).db.prepare("UPDATE tracks SET track_num = ? WHERE id = ?").run(trackNumber, id);
             }
 
             // Get updated track
             const updatedTrack = database.getTrack(id);
 
-            // WRITE TAGS TO FILE
-            // This prevents the scanner from reverting changes when it re-scans the file
+            // WRITE TAGS TO FILE (Only for local files)
             try {
                 if (updatedTrack && updatedTrack.file_path) {
                     const fullPath = path.join(musicDir, updatedTrack.file_path);
