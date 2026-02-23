@@ -225,13 +225,14 @@ export const PlayerBar = () => {
           />
         ) : (
           <div
-            className="absolute p-0 m-0 overflow-hidden pointer-events-none"
+            className="fixed p-0 m-0 overflow-hidden pointer-events-none"
             style={{
-              width: 640,
-              height: 360,
-              top: -1000,
-              left: -1000,
-              opacity: 0.001,
+              width: "1px",
+              height: "1px",
+              bottom: "0",
+              left: "0",
+              opacity: 0.01,
+              zIndex: -1,
             }}
           >
             <Player
@@ -256,6 +257,7 @@ export const PlayerBar = () => {
                     playerVars: {
                       autoplay: 1,
                       controls: 0,
+                      origin: window.location.origin,
                     },
                     embedOptions: {},
                   },
