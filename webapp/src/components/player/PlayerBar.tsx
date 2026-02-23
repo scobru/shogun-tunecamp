@@ -225,8 +225,14 @@ export const PlayerBar = () => {
           />
         ) : (
           <div
-            className="absolute p-0 m-0 overflow-hidden pointer-events-none opacity-0"
-            style={{ width: 1, height: 1, top: -10, left: -10 }}
+            className="absolute p-0 m-0 overflow-hidden pointer-events-none"
+            style={{
+              width: 640,
+              height: 360,
+              top: -1000,
+              left: -1000,
+              opacity: 0.001,
+            }}
           >
             <Player
               ref={playerRef}
@@ -238,10 +244,21 @@ export const PlayerBar = () => {
               }
               onDuration={(d: number) => setProgress(currentTime, d)}
               onEnded={() => next()}
+              onReady={() => console.log("[Player] External player ready")}
+              onStart={() => console.log("[Player] External playback started")}
+              onPlay={() => console.log("[Player] External playing")}
+              onPause={() => console.log("[Player] External paused")}
+              onBuffer={() => console.log("[Player] External buffering...")}
               onError={(e: any) => console.error("ReactPlayer Error:", e)}
               config={
                 {
-                  youtube: { embedOptions: {} },
+                  youtube: {
+                    playerVars: {
+                      autoplay: 1,
+                      controls: 0,
+                    },
+                    embedOptions: {},
+                  },
                   soundcloud: { options: { visual: true } },
                 } as any
               }
