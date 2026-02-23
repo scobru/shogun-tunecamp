@@ -170,7 +170,11 @@ export const PlayerBar = () => {
   // Handle manual seek from waveform/progress bar
   const handleSeek = useCallback(
     (percent: number) => {
-      if (isExternal && playerRef.current) {
+      if (
+        isExternal &&
+        playerRef.current &&
+        typeof playerRef.current.seekTo === "function"
+      ) {
         playerRef.current.seekTo(percent, "fraction");
         return;
       }
@@ -227,8 +231,8 @@ export const PlayerBar = () => {
           <div
             className="fixed p-0 m-0 overflow-hidden pointer-events-none"
             style={{
-              width: "1px",
-              height: "1px",
+              width: "200px",
+              height: "112px",
               bottom: "0",
               left: "0",
               opacity: 0.01,
