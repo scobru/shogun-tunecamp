@@ -13,14 +13,14 @@ export const Files = () => {
     const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const { playTrack } = usePlayerStore();
-    const { isAdminAuthenticated, adminUser } = useAuthStore();
+    const { isAdminAuthenticated, adminUser, isAdminLoading } = useAuthStore();
     const routerNavigate = useNavigate();
 
     useEffect(() => {
-        if (!isAdminAuthenticated || !adminUser?.isAdmin) {
+        if (!isAdminLoading && (!isAdminAuthenticated || !adminUser?.isAdmin)) {
              routerNavigate('/');
         }
-    }, [isAdminAuthenticated, adminUser]);
+    }, [isAdminAuthenticated, adminUser, isAdminLoading]);
 
     useEffect(() => {
         loadData(currentPath);
@@ -160,20 +160,20 @@ export const Files = () => {
                                         {item.mtime ? new Date(item.mtime).toLocaleDateString() : '-'}
                                     </td>
                                     <td>
-                                        <div className="dropdown dropdown-end group-hover:opacity-100 opacity-0 transition-opacity">
-                                            <label tabIndex={0} className="btn btn-ghost btn-xs btn-circle" onClick={e => e.stopPropagation()}>
+                                        <div className="dropdown dropdown-end group-hover:opacity-100 focus-within:opacity-100 opacity-0 transition-opacity">
+                                            <label tabIndex={0} aria-label="More options" className="btn btn-ghost btn-xs btn-circle" onClick={e => e.stopPropagation()}>
                                                 <MoreHorizontal size={16}/>
                                             </label>
                                             <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 border border-white/10">
                                                 <li>
-                                                    <a onClick={(e) => handleRename(e, item)}>
+                                                    <button type="button" onClick={(e) => handleRename(e, item)} className="text-left">
                                                         <Edit2 size={16}/> Rename
-                                                    </a>
+                                                    </button>
                                                 </li>
                                                 <li>
-                                                    <a onClick={(e) => handleDelete(e, item)} className="text-error">
+                                                    <button type="button" onClick={(e) => handleDelete(e, item)} className="text-error text-left">
                                                         <Trash2 size={16}/> Delete
-                                                    </a>
+                                                    </button>
                                                 </li>
                                             </ul>
                                         </div>
