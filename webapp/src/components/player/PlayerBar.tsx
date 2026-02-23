@@ -54,6 +54,17 @@ export const PlayerBar = () => {
   );
 
   useEffect(() => {
+    if (isExternal && currentTrack) {
+      console.log("[Player] External track detected:", {
+        id: currentTrack.id,
+        title: currentTrack.title,
+        url: currentTrack.url,
+        service: currentTrack.service,
+      });
+    }
+  }, [isExternal, currentTrack]);
+
+  useEffect(() => {
     if (!currentTrack) return;
 
     if (!isExternal && audioRef.current) {
@@ -213,7 +224,10 @@ export const PlayerBar = () => {
             }
           />
         ) : (
-          <div className="hidden">
+          <div
+            className="absolute p-0 m-0 overflow-hidden pointer-events-none opacity-0"
+            style={{ width: 1, height: 1, top: -10, left: -10 }}
+          >
             <Player
               ref={playerRef}
               url={currentTrack.url}
