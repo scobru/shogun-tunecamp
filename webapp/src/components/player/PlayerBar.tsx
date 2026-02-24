@@ -259,12 +259,12 @@ export const PlayerBar = () => {
           <div
             className="fixed p-0 m-0 overflow-hidden pointer-events-none"
             style={{
-              width: "200px",
-              height: "200px",
-              left: "-1000px", // Put it way off-screen instead of just 0,0
-              top: "0",
+              width: "64px",
+              height: "64px",
+              right: "0",
+              bottom: "0",
               opacity: 0.001,
-              zIndex: -1, // Behind everything to ensure it doesn't block interactions
+              zIndex: -1,
             }}
           >
             <Player
@@ -294,12 +294,16 @@ export const PlayerBar = () => {
               }}
               onDuration={(d: number) => {
                 console.log("[Player] External duration loaded:", d);
+                // Ensure we update even if duration was 0 before
                 setProgress(currentTime, d);
               }}
-              onEnded={() => next()}
+              onEnded={() => {
+                console.log("[Player] External playback ended");
+                next();
+              }}
               onReady={() => console.log("[Player] External player ready")}
               onStart={() => {
-                console.log("[Player] External playback started");
+                console.log("[Player] External playback started (onStart)");
                 setIsPlaying(true);
               }}
               onPlay={() => {
