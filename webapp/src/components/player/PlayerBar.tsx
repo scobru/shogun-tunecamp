@@ -20,11 +20,15 @@ import { QueuePanel } from "./QueuePanel";
 import { ScrollingText } from "../ui/ScrollingText";
 
 const YT_RE =
-  /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?(?:[^&]*&)*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  /(?:https?:\/\/)?(?:(?:www|music)\.)?(?:youtube\.com\/(?:watch\?(?:[^&]*&)*v=|embed\/|shorts\/|v\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 
 const getYoutubeId = (url: string) => {
+  if (!url) return null;
   const match = url.match(YT_RE);
-  return match ? match[1] : url.length === 11 ? url : null;
+  if (match) return match[1];
+  // Fallback for 11-char IDs
+  if (url.length === 11 && /^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
+  return null;
 };
 
 export const PlayerBar = () => {
@@ -230,15 +234,9 @@ export const PlayerBar = () => {
 
   // Normalize external URL
   let playerUrl = currentTrack.url;
-  if (currentTrack.service === "youtube" && playerUrl) {
-    const ytId = getYoutubeId(playerUrl);
-    if (
-      ytId &&
-      !playerUrl.includes("youtube.com") &&
-      !playerUrl.includes("youtu.be")
-    ) {
-      playerUrl = `https://www.youtube.com/watch?v=${ytId}`;
-    }
+  const ytId = getYoutubeId(playerUrl || "");
+  if (ytId) {
+    playerUrl = `https://www.youtube.com/watch?v=${ytId}`;
   }
 
   return (
@@ -260,19 +258,20 @@ export const PlayerBar = () => {
 
         {/* External Player (always in DOM to avoid mount-blocks, but hidden) */}
         <div
-          className="fixed p-0 m-0 overflow-hidden pointer-events-none"
+          className="fixed p-0 m-0 overflow-hidden"
           style={{
             width: "200px",
             height: "200px",
             left: "0",
-            top: "0",
-            opacity: 0.01, // Slightly more visible to avoid browser throttling
-            zIndex: -50, // Behind everything
+            bottom: "0",
+            opacity: 0.05, // Visible enough for browser but almost invisible to user
+            zIndex: -1,    // Behind main content
             pointerEvents: "none",
           }}
         >
-          {isExternal && currentTrack?.url && (
+          {isExternal && playerUrl && (
             <Player
+              key={currentTrack.id}
               ref={playerRef}
               url={playerUrl}
               playing={isPlaying}
@@ -282,11 +281,11 @@ export const PlayerBar = () => {
               config={{
                 youtube: {
                   playerVars: {
-                    autoplay: 1,
+                    autoplay: 0, // Let ReactPlayer handle playback via 'playing' prop
                     controls: 0,
-                    mute: 0, // Explicitly unmute
                     modestbranding: 1,
                     rel: 0,
+                    origin: window.location.origin,
                   },
                 },
                 soundcloud: { options: { visual: true } },

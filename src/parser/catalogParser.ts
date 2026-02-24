@@ -167,13 +167,23 @@ export class CatalogParser {
       for (const ct of configTracks) {
         if (ct.url) {
           const service = (ct.service as any) || (ct.url.includes('youtube') ? 'youtube' : ct.url.includes('spotify') ? 'spotify' : ct.url.includes('soundcloud') ? 'soundcloud' : 'local');
+          
+          let externalArtwork = ct.artwork;
+          if (!externalArtwork && service === 'youtube') {
+            const ytMatch = ct.url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+            const ytId = ytMatch ? ytMatch[1] : null;
+            if (ytId) {
+              externalArtwork = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+            }
+          }
+
           tracks.push({
             id: createSlug(ct.title || 'external-track'),
             url: ct.url,
             filename: ct.url,
             title: ct.title || 'External Track',
             service: service,
-            externalArtwork: ct.artwork || (service === 'youtube' ? `https://img.youtube.com/vi/${ct.url.split('v=')[1]?.split('&')[0]}/hqdefault.jpg` : undefined),
+            externalArtwork: externalArtwork,
           } as any);
         }
       }
