@@ -259,12 +259,12 @@ export const PlayerBar = () => {
           <div
             className="fixed p-0 m-0 overflow-hidden pointer-events-none"
             style={{
-              width: "1px",
-              height: "1px",
-              left: "0",
+              width: "200px",
+              height: "200px",
+              left: "-1000px", // Put it way off-screen instead of just 0,0
               top: "0",
               opacity: 0.001,
-              zIndex: 999, // Make sure it's "on top"
+              zIndex: -1, // Behind everything to ensure it doesn't block interactions
             }}
           >
             <Player
