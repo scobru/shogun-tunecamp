@@ -701,10 +701,11 @@ export class Scanner implements ScannerService {
         }
 
         // Clean up duplicates
-        await this.deduplicateTracks();
+        let allTracks = this.database.getTracks();
+        allTracks = await this.deduplicateTracks(allTracks);
 
         // Clean up stale records
-        await this.cleanupStaleTracks(dir, knownFiles);
+        await this.cleanupStaleTracks(dir, knownFiles, allTracks);
 
         // Fix orphan albums
         await this.fixOrphanAlbums();
@@ -744,23 +745,24 @@ export class Scanner implements ScannerService {
         }
     }
 
-    private async deduplicateTracks() {
+    private async deduplicateTracks(tracks: Track[]): Promise<Track[]> {
         console.log("[Scanner] Checking for duplicate tracks to merge...");
-        const allTracks = this.database.getTracks();
-        const groups = new Map<string, any[]>();
+        const groups = new Map<string, Track[]>();
 
-        for (const track of allTracks) {
+        for (const track of tracks) {
             const key = `${track.album_id || 0}|${track.artist_id || 0}|${track.title.toLowerCase().trim()}`;
             if (!groups.has(key)) groups.set(key, []);
             groups.get(key)!.push(track);
         }
 
+        const tracksToRemove = new Set<number>();
         let merged = 0;
-        for (const [key, tracks] of groups.entries()) {
-            if (tracks.length > 1) {
+
+        for (const [key, groupTracks] of groups.entries()) {
+            if (groupTracks.length > 1) {
                 // Find primary (MP3) and lossless among duplicates
-                const primary = tracks.find(t => path.extname(t.file_path).toLowerCase() === '.mp3') || tracks[0];
-                const others = tracks.filter(t => t.id !== primary.id);
+                const primary = groupTracks.find(t => path.extname(t.file_path || '').toLowerCase() === '.mp3') || groupTracks[0];
+                const others = groupTracks.filter(t => t.id !== primary.id);
 
                 for (const other of others) {
                     console.log(`  [Dedupe] Merging duplicate track: ${other.title} (ID ${other.id}) into ID ${primary.id}`);
@@ -768,15 +770,18 @@ export class Scanner implements ScannerService {
                     // If other has a lossless path and primary doesn't, migrate it
                     if (other.lossless_path && !primary.lossless_path) {
                         this.database.updateTrackLosslessPath(primary.id, other.lossless_path);
+                        primary.lossless_path = other.lossless_path;
                     } else if (!primary.lossless_path) {
-                        const otherExt = path.extname(other.file_path).toLowerCase();
+                        const otherExt = path.extname(other.file_path || '').toLowerCase();
                         if (['.wav', '.flac'].includes(otherExt)) {
-                            this.database.updateTrackLosslessPath(primary.id, other.file_path);
+                            this.database.updateTrackLosslessPath(primary.id, other.file_path!);
+                            primary.lossless_path = other.file_path;
                         }
                     }
 
                     // Delete the duplicate
                     this.database.deleteTrack(other.id);
+                    tracksToRemove.add(other.id);
                     merged++;
                 }
             }
@@ -785,11 +790,12 @@ export class Scanner implements ScannerService {
         if (merged > 0) {
             console.log(`[Scanner] Merged ${merged} duplicate track(s).`);
         }
+
+        return tracks.filter(t => !tracksToRemove.has(t.id));
     }
 
-    private async cleanupStaleTracks(musicDir: string, knownFiles: Set<string>) {
+    private async cleanupStaleTracks(musicDir: string, knownFiles: Set<string>, allTracks: Track[]) {
         console.log("[Scanner] Cleaning up stale database records...");
-        const allTracks = this.database.getTracks();
         const isCaseInsensitive = process.platform === 'win32' || process.platform === 'darwin';
 
         let removed = 0;
