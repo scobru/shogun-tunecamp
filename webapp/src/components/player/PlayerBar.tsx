@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from "react";
+// @ts-ignore
 import ReactPlayer from "react-player/lazy";
 const Player = ReactPlayer as any;
 import { usePlayerStore } from "../../stores/usePlayerStore";
