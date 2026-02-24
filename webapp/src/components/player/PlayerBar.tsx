@@ -1,6 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from "react";
-// @ts-ignore
-import ReactPlayer from "react-player/lazy";
+import ReactPlayer from "react-player";
 const Player = ReactPlayer as any;
 import { usePlayerStore } from "../../stores/usePlayerStore";
 import API from "../../services/api";
@@ -266,7 +265,7 @@ export const PlayerBar = () => {
             left: "0",
             bottom: "0",
             opacity: 0.05, // Visible enough for browser but almost invisible to user
-            zIndex: -1,    // Behind main content
+            zIndex: -1, // Behind main content
             pointerEvents: "none",
           }}
         >
