@@ -222,11 +222,13 @@ export function getPlaceholderSVG(text: string = 'No Cover'): string {
   const fg = '#333';
   const textCol = '#666';
 
+  const safeText = StringUtils.escapeHtml(text);
+
   return `
 <svg width="500" height="500" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
   <rect width="500" height="500" fill="${bg}"/>
   <circle cx="250" cy="250" r="100" fill="${fg}"/>
   <path d="M250 190 L290 270 L210 270 Z" fill="${bg}" transform="rotate(90 250 230)"/>
-  <text x="50%" y="85%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="40" fill="${textCol}">${text}</text>
+  <text x="50%" y="85%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="40" fill="${textCol}">${safeText}</text>
 </svg>`.trim();
 }
