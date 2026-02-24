@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from "react";
-import ReactPlayer from "react-player";
+import ReactPlayer from "react-player/lazy";
 const Player = ReactPlayer as any;
 import { usePlayerStore } from "../../stores/usePlayerStore";
 import API from "../../services/api";
@@ -266,8 +266,9 @@ export const PlayerBar = () => {
             height: "200px",
             left: "-10000px", // Move far off-screen
             top: "0",
-            opacity: 0.1, // Technical visibility
+            opacity: 0.001, // Technical visibility (0 is throttled)
             zIndex: -1,
+            pointerEvents: "none",
           }}
         >
           {isExternal && currentTrack?.url && (
@@ -309,9 +310,13 @@ export const PlayerBar = () => {
                 setIsPlaying(true);
               }}
               onPlay={() => {
-                console.log("[Player] External playing");
+                console.log("[Player] External playing (onPlay)");
                 setIsPlaying(true);
               }}
+              onBuffer={() => console.log("[Player] External buffering...")}
+              onBufferEnd={() =>
+                console.log("[Player] External buffer finished")
+              }
               onPause={() => {
                 console.log("[Player] External paused");
               }}
