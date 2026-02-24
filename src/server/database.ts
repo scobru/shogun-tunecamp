@@ -1400,19 +1400,25 @@ export function createDatabase(dbPath: string): DatabaseService {
             dateLimit.setDate(dateLimit.getDate() - days);
             const dateStr = dateLimit.toISOString();
 
+            // Bolt ⚡: Use CTE to aggregate plays from history table FIRST (filtering by date immediately).
+            // This avoids joining the potentially large play_history table with tracks for every single track row.
             return db.prepare(`
+                WITH RecentPlays AS (
+                    SELECT track_id, COUNT(*) as play_count
+                    FROM play_history
+                    WHERE played_at >= ?
+                    GROUP BY track_id
+                )
                 SELECT 
                     t.*,
                     al.title as album_title,
                     ar.name as artist_name,
-                    COUNT(ph.id) as play_count
-                FROM tracks t
-                LEFT JOIN play_history ph ON ph.track_id = t.id AND ph.played_at >= ?
+                    rp.play_count
+                FROM RecentPlays rp
+                JOIN tracks t ON t.id = rp.track_id
                 LEFT JOIN albums al ON t.album_id = al.id
                 LEFT JOIN artists ar ON t.artist_id = ar.id
-                GROUP BY t.id
-                HAVING play_count > 0
-                ORDER BY play_count DESC
+                ORDER BY rp.play_count DESC
                 LIMIT ?
             `).all(dateStr, limit) as TrackWithPlayCount[];
         },
@@ -1422,16 +1428,21 @@ export function createDatabase(dbPath: string): DatabaseService {
             dateLimit.setDate(dateLimit.getDate() - days);
             const dateStr = dateLimit.toISOString();
 
+            // Bolt ⚡: Optimization: Aggregate plays by artist from history table before joining artist details.
             return db.prepare(`
+                WITH RecentPlays AS (
+                    SELECT t.artist_id, COUNT(*) as play_count
+                    FROM play_history ph
+                    JOIN tracks t ON ph.track_id = t.id
+                    WHERE ph.played_at >= ?
+                    GROUP BY t.artist_id
+                )
                 SELECT 
                     ar.*,
-                    COUNT(ph.id) as play_count
-                FROM artists ar
-                LEFT JOIN tracks t ON t.artist_id = ar.id
-                LEFT JOIN play_history ph ON ph.track_id = t.id AND ph.played_at >= ?
-                GROUP BY ar.id
-                HAVING play_count > 0
-                ORDER BY play_count DESC
+                    rp.play_count
+                FROM RecentPlays rp
+                JOIN artists ar ON ar.id = rp.artist_id
+                ORDER BY rp.play_count DESC
                 LIMIT ?
             `).all(dateStr, limit) as ArtistWithPlayCount[];
         },
