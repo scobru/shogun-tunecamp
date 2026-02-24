@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import API from "../services/api";
 import {
   Music,
@@ -14,7 +14,6 @@ import type { Track } from "../types";
 
 export const Tracks = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [filteredTracks, setFilteredTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const { playTrack } = usePlayerStore();
@@ -27,7 +26,6 @@ export const Tracks = () => {
     API.getTracks()
       .then((data) => {
         setTracks(data);
-        setFilteredTracks(data);
         setLoading(false);
       })
       .catch((error) => {
@@ -36,18 +34,16 @@ export const Tracks = () => {
       });
   }, [isAuthenticated, isAdminAuthenticated]);
 
-  useEffect(() => {
+  const filteredTracks = useMemo(() => {
     const lower = filter.toLowerCase();
-    setFilteredTracks(
-      tracks.filter((t) => {
-        if (!t || !t.title) return false;
-        return (
-          t.title.toLowerCase().includes(lower) ||
-          t.artistName?.toLowerCase().includes(lower) ||
-          t.albumName?.toLowerCase().includes(lower)
-        );
-      }),
-    );
+    return tracks.filter((t) => {
+      if (!t || !t.title) return false;
+      return (
+        t.title.toLowerCase().includes(lower) ||
+        t.artistName?.toLowerCase().includes(lower) ||
+        t.albumName?.toLowerCase().includes(lower)
+      );
+    });
   }, [filter, tracks]);
 
   const handleLike = () => {
@@ -93,6 +89,7 @@ export const Tracks = () => {
           />
           <input
             type="text"
+            aria-label="Filter tracks"
             placeholder="Filter tracks..."
             className="input input-sm input-bordered pl-10 w-64"
             value={filter}
@@ -120,13 +117,16 @@ export const Tracks = () => {
               return (
                 <tr
                   key={track.id}
-                  className="hover:bg-white/5 group border-b border-white/5 last:border-0 transition-colors"
+                  className="hover:bg-white/5 group border-b border-white/5 last:border-0 transition-colors focus-within:bg-white/5"
                 >
-                  <td className="text-center opacity-50 font-mono w-12 group-hover:text-primary">
-                    <span className="group-hover:hidden">{i + 1}</span>
+                  <td className="text-center font-mono w-12 relative">
+                    <span className="opacity-50 group-hover:opacity-0 group-focus-within:opacity-0 transition-opacity absolute inset-0 flex items-center justify-center pointer-events-none">
+                      {i + 1}
+                    </span>
                     <button
                       onClick={() => playTrack(track, filteredTracks)}
-                      className="hidden group-hover:flex items-center justify-center w-full"
+                      aria-label={`Play ${track.title}`}
+                      className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center text-primary w-full h-full"
                     >
                       <Play size={12} fill="currentColor" />
                     </button>
@@ -169,13 +169,15 @@ export const Tracks = () => {
                       .substr(14, 5)}
                   </td>
                   <td>
-                    <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100 transition-opacity">
-                      <label
+                    <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                      <div
+                        role="button"
                         tabIndex={0}
+                        aria-label={`More actions for ${track.title}`}
                         className="btn btn-ghost btn-xs btn-circle"
                       >
                         <MoreHorizontal size={16} />
-                      </label>
+                      </div>
                       <ul
                         tabIndex={0}
                         className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
