@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { DatabaseService, Track } from "../database.js";
 import type { ActivityPubService } from "../activitypub.js";
-import { createAuthMiddleware } from "../middleware/auth.js";
+import { createAuthMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
 
 export function createActivityPubRoutes(apService: ActivityPubService, db: DatabaseService, authMiddleware: ReturnType<typeof createAuthMiddleware>): Router {
     const router = Router();
@@ -280,12 +280,19 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     });
 
     // Delete published note
-    router.delete("/note", authMiddleware.requireAdmin, async (req, res) => {
+    router.delete("/note", authMiddleware.requireAdmin, async (req: any, res) => {
         const noteId = req.query.id as string;
         if (!noteId) return res.status(400).send("Missing id");
 
         const note = db.getApNote(noteId);
         if (!note) return res.status(404).send("Note not found");
+
+        // SECURITY FIX: Check if restricted admin owns this note
+        const request = req as AuthenticatedRequest;
+        if (request.artistId && note.artist_id !== request.artistId) {
+            console.warn(`⛔ Access Denied: Artist ${request.artistId} tried to delete note ${noteId} owned by Artist ${note.artist_id}`);
+            return res.status(403).send("Access denied");
+        }
 
         try {
             if (note.note_type === 'release') {
