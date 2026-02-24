@@ -20,7 +20,7 @@ import { QueuePanel } from "./QueuePanel";
 import { ScrollingText } from "../ui/ScrollingText";
 
 const YT_RE =
-  /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?(?:[^&]*&)*v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?(?:[^&]*&)*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 
 const getYoutubeId = (url: string) => {
   const match = url.match(YT_RE);
@@ -57,7 +57,9 @@ export const PlayerBar = () => {
 
   const isExternal = !!(
     currentTrack?.url &&
-    (currentTrack?.service !== "local" ||
+    (currentTrack?.service === "youtube" ||
+      currentTrack?.service === "soundcloud" ||
+      currentTrack?.service === "spotify" ||
       (!(currentTrack as any).file_path && !currentTrack.path))
   );
 
@@ -242,37 +244,39 @@ export const PlayerBar = () => {
   return (
     <>
       <div className="fixed bottom-0 left-0 right-0 lg:h-24 bg-base-200/90 backdrop-blur-xl border-t border-white/5 lg:px-6 flex flex-col lg:flex-row items-center gap-2 lg:gap-4 z-50 shadow-2xl pb-safe lg:pb-0 pt-2 lg:pt-0">
-        {!isExternal ? (
-          <audio
-            ref={audioRef}
-            className="hidden"
-            onError={(e) =>
+        <audio
+          ref={audioRef}
+          className="hidden"
+          onError={(e) => {
+            if (!isExternal) {
               console.error(
                 "Audio Element Error:",
                 e.currentTarget.error,
                 e.currentTarget.src,
-              )
+              );
             }
-          />
-        ) : null}
-        {isExternal && currentTrack?.url && (
-          <div
-            className="fixed p-0 m-0 overflow-hidden pointer-events-none"
-            style={{
-              width: "64px",
-              height: "64px",
-              right: "0",
-              bottom: "0",
-              opacity: 0.001,
-              zIndex: -1,
-            }}
-          >
+          }}
+        />
+
+        {/* External Player (always in DOM to avoid mount-blocks, but hidden) */}
+        <div
+          className="fixed p-0 m-0 overflow-hidden pointer-events-none"
+          style={{
+            width: "200px",
+            height: "200px",
+            left: "-10000px", // Move far off-screen
+            top: "0",
+            opacity: 0.1, // Technical visibility
+            zIndex: -1,
+          }}
+        >
+          {isExternal && currentTrack?.url && (
             <Player
               ref={playerRef}
               url={playerUrl}
               playing={isPlaying}
               volume={volume}
-              muted={false} // Explicitly ensure not muted
+              muted={false}
               playsinline
               config={{
                 youtube: {
@@ -287,14 +291,12 @@ export const PlayerBar = () => {
                 soundcloud: { options: { visual: true } },
               }}
               onProgress={(state: any) => {
-                // Only update if we have a valid duration to avoid jumping to 0
                 if (state.playedSeconds > 0 || duration > 0) {
                   setProgress(state.playedSeconds, duration || 0);
                 }
               }}
               onDuration={(d: number) => {
                 console.log("[Player] External duration loaded:", d);
-                // Ensure we update even if duration was 0 before
                 setProgress(currentTime, d);
               }}
               onEnded={() => {
@@ -313,17 +315,13 @@ export const PlayerBar = () => {
               onPause={() => {
                 console.log("[Player] External paused");
               }}
-              onBuffer={() => console.log("[Player] External buffering...")}
-              onBufferEnd={() =>
-                console.log("[Player] External buffering finished")
-              }
               onError={(e: any) => {
                 console.error("ReactPlayer Error:", e);
                 setIsPlaying(false);
               }}
             />
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Track Info */}
         <div className="flex items-center gap-3 lg:gap-4 w-full lg:w-64 shrink-0 px-4 lg:px-0">
