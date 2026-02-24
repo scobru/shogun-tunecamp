@@ -259,11 +259,12 @@ export const PlayerBar = () => {
           <div
             className="fixed p-0 m-0 overflow-hidden pointer-events-none"
             style={{
-              width: "200px",
-              height: "112px",
-              left: "-1000px", // Put it off-screen but keep it "visible" to the browser
+              width: "1px",
+              height: "1px",
+              left: "0",
               top: "0",
-              zIndex: 999, // Make sure it's "on top" but invisible due to position
+              opacity: 0.001,
+              zIndex: 999, // Make sure it's "on top"
             }}
           >
             <Player
@@ -271,6 +272,7 @@ export const PlayerBar = () => {
               url={playerUrl}
               playing={isPlaying}
               volume={volume}
+              muted={false} // Explicitly ensure not muted
               playsinline
               config={{
                 youtube: {
@@ -290,7 +292,10 @@ export const PlayerBar = () => {
                   setProgress(state.playedSeconds, duration || 0);
                 }
               }}
-              onDuration={(d: number) => setProgress(currentTime, d)}
+              onDuration={(d: number) => {
+                console.log("[Player] External duration loaded:", d);
+                setProgress(currentTime, d);
+              }}
               onEnded={() => next()}
               onReady={() => console.log("[Player] External player ready")}
               onStart={() => {
@@ -303,7 +308,6 @@ export const PlayerBar = () => {
               }}
               onPause={() => {
                 console.log("[Player] External paused");
-                // Don't auto-pause store if we're just buffering or it's a transient state
               }}
               onBuffer={() => console.log("[Player] External buffering...")}
               onBufferEnd={() =>
