@@ -264,10 +264,10 @@ export const PlayerBar = () => {
           style={{
             width: "200px",
             height: "200px",
-            left: "-10000px", // Move far off-screen
+            left: "0",
             top: "0",
-            opacity: 0.001, // Technical visibility (0 is throttled)
-            zIndex: -1,
+            opacity: 0.01, // Slightly more visible to avoid browser throttling
+            zIndex: -50, // Behind everything
             pointerEvents: "none",
           }}
         >
@@ -284,7 +284,7 @@ export const PlayerBar = () => {
                   playerVars: {
                     autoplay: 1,
                     controls: 0,
-                    origin: window.location.origin,
+                    mute: 0, // Explicitly unmute
                     modestbranding: 1,
                     rel: 0,
                   },
@@ -318,7 +318,7 @@ export const PlayerBar = () => {
                 console.log("[Player] External buffer finished")
               }
               onPause={() => {
-                console.log("[Player] External paused");
+                console.log("[Player] External paused (manual or event)");
               }}
               onError={(e: any) => {
                 console.error("ReactPlayer Error:", e);
