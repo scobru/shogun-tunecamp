@@ -19,6 +19,14 @@ import { LyricsPanel } from "./LyricsPanel";
 import { QueuePanel } from "./QueuePanel";
 import { ScrollingText } from "../ui/ScrollingText";
 
+const YT_RE =
+  /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?(?:[^&]*&)*v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+
+const getYoutubeId = (url: string) => {
+  const match = url.match(YT_RE);
+  return match ? match[1] : url.length === 11 ? url : null;
+};
+
 export const PlayerBar = () => {
   const {
     currentTrack,
@@ -205,12 +213,31 @@ export const PlayerBar = () => {
     );
 
   // Resolve cover URL
-  const coverUrl =
+  let coverUrl =
     currentTrack.externalArtwork ||
     currentTrack.coverUrl ||
     currentTrack.coverImage ||
     (currentTrack.albumId ? API.getAlbumCoverUrl(currentTrack.albumId) : "") ||
     (currentTrack.artistId ? API.getArtistCoverUrl(currentTrack.artistId) : "");
+
+  // Auto-generate YouTube thumbnail if missing
+  if (!coverUrl && currentTrack.service === "youtube" && currentTrack.url) {
+    const ytId = getYoutubeId(currentTrack.url);
+    if (ytId) coverUrl = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
+  }
+
+  // Normalize external URL
+  let playerUrl = currentTrack.url;
+  if (currentTrack.service === "youtube" && playerUrl) {
+    const ytId = getYoutubeId(playerUrl);
+    if (
+      ytId &&
+      !playerUrl.includes("youtube.com") &&
+      !playerUrl.includes("youtu.be")
+    ) {
+      playerUrl = `https://www.youtube.com/watch?v=${ytId}`;
+    }
+  }
 
   return (
     <>
@@ -227,47 +254,65 @@ export const PlayerBar = () => {
               )
             }
           />
-        ) : (
+        ) : null}
+        {isExternal && currentTrack?.url && (
           <div
             className="fixed p-0 m-0 overflow-hidden pointer-events-none"
             style={{
               width: "200px",
               height: "112px",
-              bottom: "0",
-              left: "0",
-              opacity: 0.01,
-              zIndex: -1,
+              left: "-1000px", // Put it off-screen but keep it "visible" to the browser
+              top: "0",
+              zIndex: 999, // Make sure it's "on top" but invisible due to position
             }}
           >
             <Player
               ref={playerRef}
-              url={currentTrack.url}
+              url={playerUrl}
               playing={isPlaying}
               volume={volume}
-              onProgress={(state: any) =>
-                setProgress(state.playedSeconds, duration || 0)
-              }
+              playsinline
+              config={{
+                youtube: {
+                  playerVars: {
+                    autoplay: 1,
+                    controls: 0,
+                    origin: window.location.origin,
+                    modestbranding: 1,
+                    rel: 0,
+                  },
+                },
+                soundcloud: { options: { visual: true } },
+              }}
+              onProgress={(state: any) => {
+                // Only update if we have a valid duration to avoid jumping to 0
+                if (state.playedSeconds > 0 || duration > 0) {
+                  setProgress(state.playedSeconds, duration || 0);
+                }
+              }}
               onDuration={(d: number) => setProgress(currentTime, d)}
               onEnded={() => next()}
               onReady={() => console.log("[Player] External player ready")}
-              onStart={() => console.log("[Player] External playback started")}
-              onPlay={() => console.log("[Player] External playing")}
-              onPause={() => console.log("[Player] External paused")}
+              onStart={() => {
+                console.log("[Player] External playback started");
+                setIsPlaying(true);
+              }}
+              onPlay={() => {
+                console.log("[Player] External playing");
+                setIsPlaying(true);
+              }}
+              onPause={() => {
+                console.log("[Player] External paused");
+                // Don't auto-pause store if we're just buffering or it's a transient state
+              }}
               onBuffer={() => console.log("[Player] External buffering...")}
-              onError={(e: any) => console.error("ReactPlayer Error:", e)}
-              config={
-                {
-                  youtube: {
-                    playerVars: {
-                      autoplay: 1,
-                      controls: 0,
-                      origin: window.location.origin,
-                    },
-                    embedOptions: {},
-                  },
-                  soundcloud: { options: { visual: true } },
-                } as any
+              onBufferEnd={() =>
+                console.log("[Player] External buffering finished")
               }
+              onError={(e: any) => {
+                console.error("ReactPlayer Error:", e);
+                setIsPlaying(false);
+              }}
             />
           </div>
         )}
