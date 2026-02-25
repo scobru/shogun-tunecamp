@@ -118,16 +118,12 @@ export const PlayerBar = () => {
 
     if (!isExternal && audioRef.current) {
       const audio = audioRef.current;
-      let newSrc = currentTrack.streamUrl || API.getStreamUrl(currentTrack.id);
+      
+      const isLosslessFormat = currentTrack.format && ["wav", "flac", "lossless"].includes(currentTrack.format.toLowerCase());
+      const isLosslessExt = currentTrack.filename && (currentTrack.filename.toLowerCase().endsWith('.wav') || currentTrack.filename.toLowerCase().endsWith('.flac'));
+      const forceMp3 = !currentTrack.streamUrl && (isLosslessFormat || isLosslessExt);
 
-      // Auto-transcode lossless/heavy formats to MP3 for streaming (matching legacy behavior)
-      if (
-        !currentTrack.streamUrl &&
-        currentTrack.format &&
-        ["wav", "flac"].includes(currentTrack.format.toLowerCase())
-      ) {
-        newSrc += "?format=mp3";
-      }
+      let newSrc = currentTrack.streamUrl || API.getStreamUrl(currentTrack.id, forceMp3 ? 'mp3' : undefined);
 
       if (
         audio.src !== newSrc &&

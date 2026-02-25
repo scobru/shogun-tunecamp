@@ -446,6 +446,7 @@ export class Scanner implements ScannerService {
         // 2. Handle pairing if record exists
         if (existing) {
             const isLossless = LOSSLESS_EXTENSIONS.includes(ext);
+            const mp3Path = isLossless ? normalizedPath.replace(new RegExp(`\\${ext}$`, 'i'), '.mp3') : normalizedPath;
 
             // If we found an existing track and this is a lossless version of it
             if (isLossless && !existing.lossless_path) {
@@ -457,14 +458,14 @@ export class Scanner implements ScannerService {
                 if (LOSSLESS_EXTENSIONS.includes(oldExt)) {
                     console.log(`    [Scanner] Swapping primary path to MP3 and moving ${oldExt.toUpperCase()} to lossless_path`);
                     this.database.updateTrackLosslessPath(existing.id, existing.file_path);
-                    this.database.updateTrackPath(existing.id, normalizedPath, albumId);
+                    this.database.updateTrackPath(existing.id, mp3Path, albumId);
                 } else {
                     // Just update the path if it's different and not a swap
-                    this.database.updateTrackPath(existing.id, normalizedPath, albumId);
+                    this.database.updateTrackPath(existing.id, mp3Path, albumId);
                 }
             } else {
-                // Update path if it was null (e.g. from external to local, though unlikely)
-                this.database.updateTrackPath(existing.id, normalizedPath, albumId);
+                // Update path if it was null
+                this.database.updateTrackPath(existing.id, mp3Path, albumId);
             }
 
             // Ensure linked to album

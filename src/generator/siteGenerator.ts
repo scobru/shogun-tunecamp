@@ -255,10 +255,31 @@ export class SiteGenerator {
       release: {
         ...release,
         coverUrl: release.coverPath ? path.basename(release.coverPath) : null,
-        tracks: release.tracks.map((track: any) => ({
-          ...track,
-          url: track.file ? path.basename(track.file) : track.url,
-        })),
+        tracks: await Promise.all(
+          release.tracks.map(async (track: any) => {
+            let url = track.file ? path.basename(track.file) : track.url;
+
+            // Prefer sibling MP3 for player if it exists
+            if (track.file) {
+              const ext = path.extname(track.file).toLowerCase();
+              if (ext === ".wav" || ext === ".flac") {
+                const mp3File = track.file.replace(
+                  new RegExp(`\\${ext}$`, "i"),
+                  ".mp3"
+                );
+                if (await fs.pathExists(mp3File)) {
+                  url = path.basename(mp3File);
+                }
+              }
+            }
+
+            return {
+              ...track,
+              url,
+              downloadUrl: track.file ? path.basename(track.file) : track.url,
+            };
+          })
+        ),
         slug: release.slug,
       },
       backUrl: "../../index.html",
@@ -389,6 +410,22 @@ export class SiteGenerator {
             path.basename(track.file)
           );
           mediaTasks.push({ src: trackSrc, dest: trackDest });
+
+          // Also check for sibling MP3 if this is a lossless file
+          const ext = path.extname(trackSrc).toLowerCase();
+          if (ext === ".wav" || ext === ".flac") {
+            const mp3Src = trackSrc.replace(
+              new RegExp(`\\${ext}$`, "i"),
+              ".mp3"
+            );
+            if (await fs.pathExists(mp3Src)) {
+              const mp3Dest = path.join(
+                releaseOutputDir,
+                path.basename(mp3Src)
+              );
+              mediaTasks.push({ src: mp3Src, dest: mp3Dest });
+            }
+          }
         }
       }
     }

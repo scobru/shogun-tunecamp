@@ -408,7 +408,7 @@
             </button>
             {{#if ../release.config.download}}
             {{#if (eq ../release.config.download "free")}}
-            <a href="{{releasePath url}}" download class="track-download-btn">
+            <a href="{{releasePath (or downloadUrl url)}}" download class="track-download-btn">
               <i class="fas fa-download"></i>
             </a>
             {{/if}}

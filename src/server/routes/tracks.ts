@@ -194,13 +194,27 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 }
                 return res.status(400).json({ error: "External tracks cannot be streamed directly from this endpoint. Use the external URL." });
             }
-            const trackPath = path.join(musicDir, track.file_path);
+            let trackPath = path.join(musicDir, track.file_path);
+            let usingLosslessFallback = false;
+
             if (!await fs.pathExists(trackPath)) {
-                console.warn(`❌ [Stream] Could not resolve file path: ${track.file_path}`);
-                return res.status(404).json({ error: "Audio file not found on disk. Try re-scanning your library." });
+                if (track.lossless_path) {
+                    const losslessPath = path.join(musicDir, track.lossless_path);
+                    if (await fs.pathExists(losslessPath)) {
+                        console.log(`ℹ️ [Stream] MP3 missing, using lossless file for transcoding: ${track.lossless_path}`);
+                        trackPath = losslessPath;
+                        usingLosslessFallback = true;
+                    } else {
+                        console.warn(`❌ [Stream] Both primary and lossless files missing for track ID ${id}`);
+                        return res.status(404).json({ error: "Audio file not found on disk. Try re-scanning your library." });
+                    }
+                } else {
+                    console.warn(`❌ [Stream] Could not resolve file path: ${track.file_path}`);
+                    return res.status(404).json({ error: "Audio file not found on disk. Try re-scanning your library." });
+                }
             }
 
-            console.log(`🎵 [Stream] Serving: ${trackPath}`);
+            console.log(`🎵 [Stream] Serving: ${trackPath}${usingLosslessFallback ? ' (transcoding lossless fallback)' : ''}`);
 
             const stat = await fs.promises.stat(trackPath);
             const fileSize = stat.size;
@@ -222,14 +236,13 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             // Transcoding support
             let targetFormat = req.query.format as string; // e.g. 'mp3', 'aac'
 
-            // Force transcode for WAV files (too large for streaming)
-            // We allow FLAC to stream natively as most modern browsers support it and it allows for seeking (Range requests)
-            if (!targetFormat && (ext === '.wav')) {
-                console.log(`⚠️ [Stream] Force transcoding lossless file to MP3: ${path.basename(trackPath)}`);
+            // Force transcode for lossless files (WAV, FLAC) or when using lossless fallback
+            const isLossless = ext === '.wav' || ext === '.flac';
+            if (!targetFormat && (isLossless || usingLosslessFallback)) {
                 targetFormat = 'mp3';
             }
 
-            const shouldTranscode = !!targetFormat && targetFormat !== ext.substring(1);
+            const shouldTranscode = !!targetFormat && (targetFormat !== ext.substring(1) || usingLosslessFallback);
 
             if (shouldTranscode) {
                 const format = targetFormat;
