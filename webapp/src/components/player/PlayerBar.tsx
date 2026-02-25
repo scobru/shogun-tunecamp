@@ -64,8 +64,7 @@ export const PlayerBar = () => {
     currentTrack?.url &&
     (currentTrack?.service === "youtube" ||
       currentTrack?.service === "soundcloud" ||
-      currentTrack?.service === "spotify" ||
-      currentTrack?.service === "external")
+      currentTrack?.service === "spotify")
   );
   useEffect(() => {
     if (isExternal && currentTrack) {
@@ -77,6 +76,18 @@ export const PlayerBar = () => {
       });
     }
   }, [isExternal, currentTrack]);
+
+  // Seed duration from track metadata so seeking works on transcoded streams
+  // (where the browser can't determine duration from the chunked response)
+  useEffect(() => {
+    if (
+      currentTrack?.duration &&
+      Number.isFinite(currentTrack.duration) &&
+      currentTrack.duration > 0
+    ) {
+      setProgress(0, currentTrack.duration);
+    }
+  }, [currentTrack?.id]); // Only when track changes
 
   useEffect(() => {
     if (!currentTrack) return;
@@ -139,11 +150,23 @@ export const PlayerBar = () => {
       const handleDurationChange = () => {
         if (audio.duration && Number.isFinite(audio.duration)) {
           setProgress(audio.currentTime, audio.duration);
+        } else if (
+          currentTrack.duration &&
+          Number.isFinite(currentTrack.duration) &&
+          currentTrack.duration > 0
+        ) {
+          setProgress(audio.currentTime, currentTrack.duration);
         }
       };
       const handleLoadedMetadata = () => {
         if (audio.duration && Number.isFinite(audio.duration)) {
           setProgress(audio.currentTime, audio.duration);
+        } else if (
+          currentTrack.duration &&
+          Number.isFinite(currentTrack.duration) &&
+          currentTrack.duration > 0
+        ) {
+          setProgress(audio.currentTime, currentTrack.duration);
         }
       };
 
