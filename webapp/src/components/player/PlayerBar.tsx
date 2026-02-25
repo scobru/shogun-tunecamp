@@ -64,8 +64,32 @@ export const PlayerBar = () => {
     currentTrack?.url &&
     (currentTrack?.service === "youtube" ||
       currentTrack?.service === "soundcloud" ||
-      currentTrack?.service === "spotify")
+      currentTrack?.service === "spotify" ||
+      currentTrack?.service === "external")
   );
+
+  // Unified Playback Control
+  useEffect(() => {
+    if (!audioRef.current) return;
+
+    if (isExternal) {
+      // Pause local audio when playing external
+      if (!audioRef.current.paused) {
+        audioRef.current.pause();
+      }
+    } else {
+      // Sync local audio state
+      if (isPlaying && audioRef.current.paused) {
+        audioRef.current.play().catch((err) => {
+          console.error("[Player] Local playback failed:", err);
+          setIsPlaying(false);
+        });
+      } else if (!isPlaying && !audioRef.current.paused) {
+        audioRef.current.pause();
+      }
+    }
+  }, [isPlaying, isExternal, currentTrack, setIsPlaying]);
+
   useEffect(() => {
     if (isExternal && currentTrack) {
       console.log("[Player] External track detected:", {
@@ -271,75 +295,59 @@ export const PlayerBar = () => {
           onError={(e) => {
             if (!isExternal) {
               console.error(
-                "Audio Element Error:",
+                "[Player] Audio Element Error:",
                 e.currentTarget.error,
-                e.currentTarget.src,
               );
             }
           }}
         />
 
+        {/* External Player (Invisible but active layer to avoid scroll capturing) */}
+        <div
+          className="fixed pointer-events-none opacity-0 z-[-1]"
+          style={{ width: "0", height: "0", overflow: "hidden" }}
+        >
+          {isExternal && playerUrl && (
+            <Player
+              ref={playerRef}
+              url={playerUrl}
+              playing={isPlaying}
+              volume={volume}
+              onProgress={(state: any) => {
+                const dur = externalDurationRef.current || duration;
+                if (state.playedSeconds > 0 || dur > 0) {
+                  setProgress(state.playedSeconds, dur);
+                }
+              }}
+              onDuration={(d: number) => {
+                externalDurationRef.current = d;
+                setProgress(currentTime, d);
+              }}
+              onEnded={() => next()}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onError={(e: any) => {
+                console.error("[Player] ReactPlayer Error:", e);
+                setIsPlaying(false);
+              }}
+              config={{
+                youtube: {
+                  playerVars: {
+                    autoplay: 1,
+                    controls: 0,
+                    modestbranding: 1,
+                    rel: 0,
+                  },
+                },
+              }}
+            />
+          )}
+        </div>
+
         {/* Track Info */}
         <div className="flex items-center gap-3 lg:gap-4 w-full lg:w-64 shrink-0 px-4 lg:px-0">
-          <div className="relative group">
-            {isExternal && playerUrl ? (
-              <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-lg bg-black shadow-lg overflow-hidden flex items-center justify-center">
-                <Player
-                  ref={playerRef}
-                  url={playerUrl}
-                  width="100%"
-                  height="100%"
-                  playing={isPlaying}
-                  volume={volume}
-                  muted={false}
-                  playsinline
-                  config={{
-                    youtube: {
-                      playerVars: {
-                        autoplay: 1,
-                        controls: 0,
-                        modestbranding: 1,
-                        rel: 0,
-                        origin: window.location.origin,
-                        iv_load_policy: 3,
-                        disablekb: 1,
-                      },
-                      embedOptions: {
-                        host: "https://www.youtube-nocookie.com",
-                      },
-                    },
-                    soundcloud: { options: { visual: true } },
-                  }}
-                  onProgress={(state: any) => {
-                    const dur = externalDurationRef.current || duration;
-                    if (state.playedSeconds > 0 || dur > 0) {
-                      setProgress(state.playedSeconds, dur);
-                    }
-                  }}
-                  onDuration={(d: number) => {
-                    console.log("[Player] External duration loaded:", d);
-                    externalDurationRef.current = d;
-                    setProgress(currentTime, d);
-                  }}
-                  onEnded={() => {
-                    console.log("[Player] External playback ended");
-                    next();
-                  }}
-                  onStart={() => {
-                    console.log("[Player] External playback started (onStart)");
-                    setIsPlaying(true);
-                  }}
-                  onPlay={() => {
-                    console.log("[Player] External playing (onPlay)");
-                    setIsPlaying(true);
-                  }}
-                  onError={(e: any) => {
-                    console.error("[Player] ReactPlayer Error:", e);
-                    setIsPlaying(false);
-                  }}
-                />
-              </div>
-            ) : coverUrl ? (
+          <div className="relative group shrink-0">
+            {coverUrl ? (
               <img
                 src={coverUrl}
                 alt="Cover"
@@ -350,14 +358,6 @@ export const PlayerBar = () => {
                 <span className="text-xs opacity-50">?</span>
               </div>
             )}
-            <button
-              className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity rounded-lg lg:hidden"
-              onClick={() =>
-                document.querySelector(".drawer")?.classList.add("drawer-end")
-              } // Placeholder for full player expansion if needed
-            >
-              <span className="text-white text-xs">View</span>
-            </button>
           </div>
 
           <div className="min-w-0 flex-1">
@@ -435,35 +435,40 @@ export const PlayerBar = () => {
           </div>
 
           {/* Progress Bar + Decorative Waveform */}
-          <div className="w-full flex items-center gap-3 text-xs font-mono h-6 lg:h-8 relative group">
-            {/* Decorative waveform background */}
-            {(localWaveform || currentTrack.waveform) && (
-              <div className="absolute inset-0 opacity-20 group-hover:opacity-40 transition-opacity pointer-events-none">
-                <Waveform
-                  data={localWaveform || currentTrack.waveform}
-                  progress={progress / 100}
-                  height={40}
-                  colorPlayed="oklch(var(--color-primary))"
-                  colorRemaining="rgba(255, 255, 255, 0.1)"
-                />
-              </div>
-            )}
-
-            <span className="min-w-[40px] text-right opacity-50 z-10 tabular-nums">
+          <div className="w-full flex items-center gap-3 text-xs font-mono h-8 relative group px-1">
+            <span className="w-10 text-right opacity-50 z-10 tabular-nums">
               {Number.isFinite(currentTime)
                 ? new Date(currentTime * 1000).toISOString().substr(14, 5)
                 : "0:00"}
             </span>
-            <input
-              aria-label="Seek track"
-              type="range"
-              className="range range-xs range-primary flex-1 z-10"
-              min="0"
-              max="100"
-              value={progress || 0}
-              onChange={(e) => handleSeek(parseFloat(e.target.value) / 100)}
-            />
-            <span className="min-w-[40px] opacity-50 z-10 tabular-nums">
+
+            <div className="flex-1 relative h-full flex items-center">
+              {/* Decorative waveform background */}
+              {(localWaveform || currentTrack.waveform) && (
+                <div className="absolute inset-0 opacity-20 pointer-events-none flex items-center">
+                  <Waveform
+                    data={localWaveform || currentTrack.waveform}
+                    progress={progress / 100}
+                    height={32}
+                    colorPlayed="oklch(var(--color-primary))"
+                    colorRemaining="rgba(255, 255, 255, 0.1)"
+                  />
+                </div>
+              )}
+
+              <input
+                aria-label="Seek track"
+                type="range"
+                className="range range-sm range-primary w-full relative z-20 cursor-pointer"
+                min="0"
+                max="100"
+                step="0.1"
+                value={progress || 0}
+                onChange={(e) => handleSeek(parseFloat(e.target.value) / 100)}
+              />
+            </div>
+
+            <span className="w-10 opacity-50 z-10 tabular-nums">
               {Number.isFinite(duration) && duration > 0
                 ? new Date(duration * 1000).toISOString().substr(14, 5)
                 : "0:00"}
