@@ -98,7 +98,9 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             const mappedTracks = tracks.map(t => ({
                 ...t,
                 albumId: album.id,
+                artistId: t.artist_id,
                 coverImage: album.cover_path ? `/api/albums/${album.id}/cover` : undefined,
+                externalArtwork: t.external_artwork,
                 losslessPath: t.lossless_path, // Map snake_case for frontend
             }));
 

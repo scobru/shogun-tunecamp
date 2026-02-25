@@ -66,12 +66,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // Initialize Waveform Service
     const waveformService = new WaveformService(path.dirname(config.dbPath));
 
-    // Scan music directory on startup
-    console.log(`🎵 Music directory: ${config.musicDir}`);
-    await fs.ensureDir(config.musicDir);
-    await scanner.scanDirectory(config.musicDir);
-    scanner.startWatching(config.musicDir);
-
     // Initialize GunDB service (with HTTP server for WebSockets)
     const gundbService = createGunDBService(database, server, config.gunPeers);
     await gundbService.init();
@@ -371,7 +365,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // Graceful shutdown
     process.on("SIGINT", () => {
         console.log("\n🛑 Shutting down...");
-        scanner.stopWatching();
         database.db.close();
         process.exit(0);
     });

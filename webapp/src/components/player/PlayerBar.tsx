@@ -257,19 +257,19 @@ export const PlayerBar = () => {
           }}
         />
 
-        {/* External Player (offscreen but full-sized so YouTube iframe produces audio) */}
+        {/* External Player (visible but invisible, to avoid browser throttling of offscreen iframes) */}
         <div
-          className="fixed overflow-hidden"
+          className="fixed pointer-events-none opacity-0 z-[-1]"
           style={{
-            width: "300px",
-            height: "200px",
-            left: "-9999px",
+            width: "1px",
+            height: "1px",
+            left: "0",
             bottom: "0",
+            overflow: "hidden",
           }}
         >
           {isExternal && playerUrl && (
             <Player
-              key={currentTrack.id}
               ref={playerRef}
               url={playerUrl}
               width="300px"
@@ -281,11 +281,16 @@ export const PlayerBar = () => {
               config={{
                 youtube: {
                   playerVars: {
-                    autoplay: 0, // Let ReactPlayer handle playback via 'playing' prop
+                    autoplay: 1, // Start playing immediately when url changes if playing prop is true
                     controls: 0,
                     modestbranding: 1,
                     rel: 0,
                     origin: window.location.origin,
+                    iv_load_policy: 3, // Disable annotations
+                    disablekb: 1, // Disable keyboard controls
+                  },
+                  embedOptions: {
+                    host: "https://www.youtube-nocookie.com", // Enhanced privacy and sometimes bypasses some embedding restrictions
                   },
                 },
                 soundcloud: { options: { visual: true } },
@@ -305,9 +310,15 @@ export const PlayerBar = () => {
                 console.log("[Player] External playback ended");
                 next();
               }}
-              onReady={() => console.log("[Player] External player ready")}
+              onReady={() =>
+                console.log("[Player] External player ready", {
+                  url: playerUrl,
+                })
+              }
               onStart={() => {
-                console.log("[Player] External playback started (onStart)");
+                console.log("[Player] External playback started (onStart)", {
+                  url: playerUrl,
+                });
                 setIsPlaying(true);
               }}
               onPlay={() => {
@@ -322,7 +333,9 @@ export const PlayerBar = () => {
                 console.log("[Player] External paused (manual or event)");
               }}
               onError={(e: any) => {
-                console.error("ReactPlayer Error:", e);
+                console.error("[Player] ReactPlayer Error:", e, {
+                  url: playerUrl,
+                });
                 setIsPlaying(false);
               }}
             />

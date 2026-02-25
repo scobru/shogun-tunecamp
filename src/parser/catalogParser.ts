@@ -166,11 +166,12 @@ export class CatalogParser {
       const configTracks = releaseConfig.metadata.tracks as any[];
       for (const ct of configTracks) {
         if (ct.url) {
-          const service = (ct.service as any) || (ct.url.includes('youtube') ? 'youtube' : ct.url.includes('spotify') ? 'spotify' : ct.url.includes('soundcloud') ? 'soundcloud' : 'local');
+          const trimmedUrl = String(ct.url).trim();
+          const service = (ct.service as any) || (trimmedUrl.includes('youtube') ? 'youtube' : trimmedUrl.includes('spotify') ? 'spotify' : trimmedUrl.includes('soundcloud') ? 'soundcloud' : 'local');
           
           let externalArtwork = ct.artwork;
           if (!externalArtwork && service === 'youtube') {
-            const ytMatch = ct.url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+            const ytMatch = trimmedUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
             const ytId = ytMatch ? ytMatch[1] : null;
             if (ytId) {
               externalArtwork = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
@@ -179,8 +180,8 @@ export class CatalogParser {
 
           tracks.push({
             id: createSlug(ct.title || 'external-track'),
-            url: ct.url,
-            filename: ct.url,
+            url: trimmedUrl,
+            filename: trimmedUrl,
             title: ct.title || 'External Track',
             service: service,
             externalArtwork: externalArtwork,

@@ -207,7 +207,6 @@ export const API = {
     },
 
     // --- Admin: System ---
-    rescan: () => handleResponse(api.post('/admin/scan')),
     cleanupNetwork: () => handleResponse(api.post('/admin/network/cleanup')),
     getAdminStats: () => handleResponse(api.get<AdminStats>('/admin/stats')),
     getBrowser: (path = '') => handleResponse(api.get<any>(`/browser?path=${encodeURIComponent(path)}`)),

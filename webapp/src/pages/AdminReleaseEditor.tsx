@@ -185,8 +185,9 @@ export default function AdminReleaseEditor() {
   };
 
   const handleAddExternalLink = async () => {
-    const url = window.prompt("Enter URL (YouTube, SoundCloud, Spotify):");
+    let url = window.prompt("Enter URL (YouTube, SoundCloud, Spotify):");
     if (!url) return;
+    url = url.trim();
 
     setSaving(true);
     try {

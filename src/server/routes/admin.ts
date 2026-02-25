@@ -75,27 +75,7 @@ export function createAdminRoutes(
         }
     });
 
-    /**
-     * POST /api/admin/scan
-     * Force library rescan
-     */
-    router.post("/scan", async (req: any, res) => {
-        try {
-            // Only root admin can trigger manual scans
-            if (!authService.isRootAdmin(req.username || "")) {
-                return res.status(403).json({ error: "Only root admin can trigger manual scans" });
-            }
-            await scanner.scanDirectory(musicDir);
-            const stats = database.getStats();
-            res.json({
-                message: "Scan complete",
-                stats,
-            });
-        } catch (error) {
-            console.error("Error scanning:", error);
-            res.status(500).json({ error: "Scan failed" });
-        }
-    });
+
 
     /**
      * GET /api/admin/stats

@@ -77,10 +77,25 @@ class AudioPlayer {
     this.currentTrack = index;
     const track = this.tracks[index];
     
-    this.audio.src = track.url;
+    const isExternal = track.url && (
+      track.url.includes('youtube.com') || 
+      track.url.includes('youtu.be') || 
+      track.url.includes('soundcloud.com') || 
+      track.url.includes('spotify.com')
+    );
+
+    if (isExternal) {
+      this.audio.src = '';
+      this.isExternal = true;
+      this.externalUrl = track.url;
+    } else {
+      this.audio.src = track.url;
+      this.isExternal = false;
+      this.externalUrl = null;
+    }
     
     if (this.playerTitle) {
-      this.playerTitle.textContent = track.title;
+      this.playerTitle.textContent = track.title + (isExternal ? ' (External)' : '');
     }
     
     if (this.playerArtist && track.artist) {
@@ -106,7 +121,16 @@ class AudioPlayer {
   }
   
   play() {
-    this.audio.play();
+    if (this.isExternal && this.externalUrl) {
+      window.open(this.externalUrl, '_blank');
+      this.isPlaying = false;
+      return;
+    }
+
+    this.audio.play().catch(err => {
+      console.warn('Playback failed:', err);
+      this.isPlaying = false;
+    });
     this.isPlaying = true;
     
     if (this.playBtn) {

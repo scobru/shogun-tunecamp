@@ -79,19 +79,16 @@ export const Admin = () => {
     }
   };
 
-  const handleSystemAction = async (action: "scan" | "cleanup") => {
+  const handleSystemAction = async (action: "cleanup") => {
     if (
       !confirm(
-        `Are you sure you want to ${action === "cleanup" ? "cleanup the network" : action}? This may take a while.`,
+        `Are you sure you want to cleanup the network? This may take a while.`,
       )
     )
       return;
     try {
-      if (action === "scan") await API.rescan();
       if (action === "cleanup") await API.cleanupNetwork();
-      alert(
-        `${action === "cleanup" ? "Network cleanup" : action} finished successfully.`,
-      );
+      alert(`Network cleanup finished successfully.`);
     } catch (e) {
       console.error(e);
       alert("Failed to start action");
@@ -209,25 +206,6 @@ export const Admin = () => {
           <div className="space-y-6">
             <h3 className="font-bold text-lg">System Maintenance</h3>
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="card bg-base-200 border border-white/5">
-                <div className="card-body">
-                  <h2 className="card-title text-primary">
-                    <RefreshCw /> Scan
-                  </h2>
-                  <p className="opacity-70 text-sm">
-                    Scan the filesystem for new or modified files and update the
-                    database.
-                  </p>
-                  <div className="card-actions justify-end mt-4">
-                    <button
-                      className="btn btn-primary btn-outline"
-                      onClick={() => handleSystemAction("scan")}
-                    >
-                      Scan Now
-                    </button>
-                  </div>
-                </div>
-              </div>
               <div className="card bg-base-200 border border-white/5">
                 <div className="card-body">
                   <h2 className="card-title text-accent">

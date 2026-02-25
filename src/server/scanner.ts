@@ -344,6 +344,7 @@ export class Scanner implements ScannerService {
             if (config.metadata?.tracks) {
                 for (const tc of config.metadata.tracks) {
                     if (tc.url) {
+                        const trimmedUrl = String(tc.url).trim();
                         const trackTitle = tc.title || "External Track";
                         const existingTrack = this.database.getTrackByMetadata(trackTitle, artistId, albumId);
 
@@ -360,9 +361,9 @@ export class Scanner implements ScannerService {
                                 sample_rate: null,
                                 lossless_path: null,
                                 waveform: null,
-                                url: tc.url,
-                                service: tc.service || detectService(tc.url),
-                                external_artwork: tc.artwork || getExternalArtworkUrl(tc.url) || null
+                                url: trimmedUrl,
+                                service: tc.service || detectService(trimmedUrl),
+                                external_artwork: tc.artwork || getExternalArtworkUrl(trimmedUrl) || null
                             });
                             console.log(`  Added external track to DB: ${trackTitle}`);
                         }

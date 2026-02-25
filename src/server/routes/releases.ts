@@ -224,7 +224,7 @@ export function createReleaseRoutes(
                 }
             }
 
-            await scanner.scanDirectory(musicDir);
+
 
             // SYNC WITH FEDERATION
             // If visibility changed OR ANY metadata changed (since it updates the Note content/attachments), we need to update network
@@ -293,7 +293,7 @@ export function createReleaseRoutes(
                 res.json({ message: "Release deleted" });
             }
 
-            await scanner.scanDirectory(musicDir);
+
         } catch (error) {
             console.error("Error deleting release:", error);
             res.status(500).json({ error: "Failed to delete release" });
