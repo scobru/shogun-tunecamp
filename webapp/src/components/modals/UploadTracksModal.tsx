@@ -100,7 +100,8 @@ export const UploadTracksModal = ({
     setError("");
     try {
       // Basic detection
-      let service = "local";
+      let service: "youtube" | "spotify" | "soundcloud" | "local" | "external" =
+        "external";
       let externalArtwork = undefined;
 
       if (url.includes("youtube.com") || url.includes("youtu.be")) {

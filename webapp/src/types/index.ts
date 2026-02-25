@@ -21,7 +21,7 @@ export interface Track {
     streamUrl?: string; // For remote/network tracks
     coverUrl?: string; // For remote/network tracks
     url?: string; // External URL (YouTube, etc.)
-    service?: 'youtube' | 'spotify' | 'soundcloud' | 'local';
+    service?: 'youtube' | 'spotify' | 'soundcloud' | 'local' | 'external';
     externalArtwork?: string;
 }
 

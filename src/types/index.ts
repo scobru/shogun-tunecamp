@@ -117,7 +117,7 @@ export interface Track {
   sampleRate?: number;
   description?: string;
   genre?: string[];
-  service?: 'youtube' | 'spotify' | 'soundcloud' | 'local';
+  service?: 'youtube' | 'spotify' | 'soundcloud' | 'local' | 'external';
   externalArtwork?: string;
   streamUrl?: string;
   waveform?: string | number[];
