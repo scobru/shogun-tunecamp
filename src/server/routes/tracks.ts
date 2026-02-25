@@ -26,7 +26,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
             // Helper to map DB fields to frontend expected fields
-            const mapTrack = (t: any) => ({ ...t, losslessPath: t.lossless_path });
+            const mapTrack = (t: any) => ({ ...t, losslessPath: t.lossless_path, externalArtwork: t.external_artwork, albumName: t.album_title, artistName: t.artist_name });
 
             // If admin, return everything
             if (req.isAdmin) {

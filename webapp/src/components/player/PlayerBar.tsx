@@ -55,6 +55,7 @@ export const PlayerBar = () => {
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const playerRef = useRef<any>(null); // Use any for now to avoid complex type issues with react-player
+  const externalDurationRef = useRef<number>(0); // Track duration from onDuration to avoid race condition
   const [localWaveform, setLocalWaveform] = useState<string | number[] | null>(
     null,
   );
@@ -256,17 +257,16 @@ export const PlayerBar = () => {
           }}
         />
 
-        {/* External Player (always in DOM to avoid mount-blocks, but hidden) */}
+        {/* External Player (minimally visible so YouTube iframe can initialize) */}
         <div
           className="fixed p-0 m-0 overflow-hidden"
           style={{
-            width: "200px",
-            height: "200px",
+            width: "1px",
+            height: "1px",
             left: "0",
             bottom: "0",
-            opacity: 0.05, // Visible enough for browser but almost invisible to user
-            zIndex: -1, // Behind main content
-            pointerEvents: "none",
+            opacity: 0.01,
+            zIndex: -1,
           }}
         >
           {isExternal && playerUrl && (
@@ -291,12 +291,14 @@ export const PlayerBar = () => {
                 soundcloud: { options: { visual: true } },
               }}
               onProgress={(state: any) => {
-                if (state.playedSeconds > 0 || duration > 0) {
-                  setProgress(state.playedSeconds, duration || 0);
+                const dur = externalDurationRef.current || duration;
+                if (state.playedSeconds > 0 || dur > 0) {
+                  setProgress(state.playedSeconds, dur);
                 }
               }}
               onDuration={(d: number) => {
                 console.log("[Player] External duration loaded:", d);
+                externalDurationRef.current = d;
                 setProgress(currentTime, d);
               }}
               onEnded={() => {
