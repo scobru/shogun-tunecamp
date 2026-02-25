@@ -64,10 +64,8 @@ export const PlayerBar = () => {
     currentTrack?.url &&
     (currentTrack?.service === "youtube" ||
       currentTrack?.service === "soundcloud" ||
-      currentTrack?.service === "spotify" ||
-      (!(currentTrack as any).file_path && !currentTrack.path))
+      currentTrack?.service === "spotify")
   );
-
   useEffect(() => {
     if (isExternal && currentTrack) {
       console.log("[Player] External track detected:", {
