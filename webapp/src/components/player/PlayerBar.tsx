@@ -64,7 +64,8 @@ export const PlayerBar = () => {
     currentTrack?.url &&
     (currentTrack?.service === "youtube" ||
       currentTrack?.service === "soundcloud" ||
-      currentTrack?.service === "spotify")
+      currentTrack?.service === "spotify" ||
+      currentTrack?.service === "external")
   );
   useEffect(() => {
     if (isExternal && currentTrack) {
@@ -255,95 +256,67 @@ export const PlayerBar = () => {
           }}
         />
 
-        {/* External Player (visible but invisible, to avoid browser throttling of offscreen iframes) */}
-        <div
-          className="fixed pointer-events-none opacity-0 z-[-1]"
-          style={{
-            width: "1px",
-            height: "1px",
-            left: "0",
-            bottom: "0",
-            overflow: "hidden",
-          }}
-        >
-          {isExternal && playerUrl && (
-            <Player
-              ref={playerRef}
-              url={playerUrl}
-              width="300px"
-              height="200px"
-              playing={isPlaying}
-              volume={volume}
-              muted={false}
-              playsinline
-              config={{
-                youtube: {
-                  playerVars: {
-                    autoplay: 1, // Start playing immediately when url changes if playing prop is true
-                    controls: 0,
-                    modestbranding: 1,
-                    rel: 0,
-                    origin: window.location.origin,
-                    iv_load_policy: 3, // Disable annotations
-                    disablekb: 1, // Disable keyboard controls
-                  },
-                  embedOptions: {
-                    host: "https://www.youtube-nocookie.com", // Enhanced privacy and sometimes bypasses some embedding restrictions
-                  },
-                },
-                soundcloud: { options: { visual: true } },
-              }}
-              onProgress={(state: any) => {
-                const dur = externalDurationRef.current || duration;
-                if (state.playedSeconds > 0 || dur > 0) {
-                  setProgress(state.playedSeconds, dur);
-                }
-              }}
-              onDuration={(d: number) => {
-                console.log("[Player] External duration loaded:", d);
-                externalDurationRef.current = d;
-                setProgress(currentTime, d);
-              }}
-              onEnded={() => {
-                console.log("[Player] External playback ended");
-                next();
-              }}
-              onReady={() =>
-                console.log("[Player] External player ready", {
-                  url: playerUrl,
-                })
-              }
-              onStart={() => {
-                console.log("[Player] External playback started (onStart)", {
-                  url: playerUrl,
-                });
-                setIsPlaying(true);
-              }}
-              onPlay={() => {
-                console.log("[Player] External playing (onPlay)");
-                setIsPlaying(true);
-              }}
-              onBuffer={() => console.log("[Player] External buffering...")}
-              onBufferEnd={() =>
-                console.log("[Player] External buffer finished")
-              }
-              onPause={() => {
-                console.log("[Player] External paused (manual or event)");
-              }}
-              onError={(e: any) => {
-                console.error("[Player] ReactPlayer Error:", e, {
-                  url: playerUrl,
-                });
-                setIsPlaying(false);
-              }}
-            />
-          )}
-        </div>
-
         {/* Track Info */}
         <div className="flex items-center gap-3 lg:gap-4 w-full lg:w-64 shrink-0 px-4 lg:px-0">
           <div className="relative group">
-            {coverUrl ? (
+            {isExternal && playerUrl ? (
+              <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-lg bg-black shadow-lg overflow-hidden flex items-center justify-center">
+                <Player
+                  ref={playerRef}
+                  url={playerUrl}
+                  width="100%"
+                  height="100%"
+                  playing={isPlaying}
+                  volume={volume}
+                  muted={false}
+                  playsinline
+                  config={{
+                    youtube: {
+                      playerVars: {
+                        autoplay: 1,
+                        controls: 0,
+                        modestbranding: 1,
+                        rel: 0,
+                        origin: window.location.origin,
+                        iv_load_policy: 3,
+                        disablekb: 1,
+                      },
+                      embedOptions: {
+                        host: "https://www.youtube-nocookie.com",
+                      },
+                    },
+                    soundcloud: { options: { visual: true } },
+                  }}
+                  onProgress={(state: any) => {
+                    const dur = externalDurationRef.current || duration;
+                    if (state.playedSeconds > 0 || dur > 0) {
+                      setProgress(state.playedSeconds, dur);
+                    }
+                  }}
+                  onDuration={(d: number) => {
+                    console.log("[Player] External duration loaded:", d);
+                    externalDurationRef.current = d;
+                    setProgress(currentTime, d);
+                  }}
+                  onEnded={() => {
+                    console.log("[Player] External playback ended");
+                    next();
+                  }}
+                  onStart={() => {
+                    console.log("[Player] External playback started (onStart)");
+                    setIsPlaying(true);
+                  }}
+                  onPlay={() => {
+                    console.log("[Player] External playing (onPlay)");
+                    setIsPlaying(true);
+                  }}
+                  onError={(e: any) => {
+                    console.error("[Player] ReactPlayer Error:", e);
+                    setIsPlaying(false);
+                  }}
+                />
+              </div>
+            ) : coverUrl ? (
               <img
                 src={coverUrl}
                 alt="Cover"
@@ -461,7 +434,7 @@ export const PlayerBar = () => {
             <input
               aria-label="Seek track"
               type="range"
-              className="range range-xs range-primary flex-1 z-10 h-1.5 hover:h-2 transition-all"
+              className="range range-xs range-primary flex-1 z-10"
               min="0"
               max="100"
               value={progress || 0}
