@@ -2,6 +2,7 @@ import { writeMetadata } from "../ffmpeg.js";
 import { Router } from "express";
 import fs from "fs-extra";
 import path from "path";
+import fetch from "node-fetch";
 import { parseFile } from "music-metadata";
 import NodeID3 from "node-id3";
 import ffmpeg from "fluent-ffmpeg";
@@ -170,6 +171,27 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             if (!track.file_path) {
+                if (track.url) {
+                    try {
+                        const response = await fetch(track.url);
+                        if (!response.ok) {
+                            return res.status(502).json({ error: `Upstream error: ${response.statusText}` });
+                        }
+                        if (response.headers.has("content-type")) {
+                            res.setHeader("Content-Type", response.headers.get("content-type")!);
+                        }
+                        if (response.headers.has("content-length")) {
+                            res.setHeader("Content-Length", response.headers.get("content-length")!);
+                        }
+                        // Pipe the stream
+                        // @ts-ignore
+                        response.body.pipe(res);
+                        return;
+                    } catch (error) {
+                        console.error("Proxy error:", error);
+                        return res.status(500).json({ error: "Failed to stream external track" });
+                    }
+                }
                 return res.status(400).json({ error: "External tracks cannot be streamed directly from this endpoint. Use the external URL." });
             }
             const trackPath = path.join(musicDir, track.file_path);
