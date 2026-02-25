@@ -257,16 +257,14 @@ export const PlayerBar = () => {
           }}
         />
 
-        {/* External Player (minimally visible so YouTube iframe can initialize) */}
+        {/* External Player (offscreen but full-sized so YouTube iframe produces audio) */}
         <div
-          className="fixed p-0 m-0 overflow-hidden"
+          className="fixed overflow-hidden"
           style={{
-            width: "1px",
-            height: "1px",
-            left: "0",
+            width: "300px",
+            height: "200px",
+            left: "-9999px",
             bottom: "0",
-            opacity: 0.01,
-            zIndex: -1,
           }}
         >
           {isExternal && playerUrl && (
@@ -274,6 +272,8 @@ export const PlayerBar = () => {
               key={currentTrack.id}
               ref={playerRef}
               url={playerUrl}
+              width="300px"
+              height="200px"
               playing={isPlaying}
               volume={volume}
               muted={false}
