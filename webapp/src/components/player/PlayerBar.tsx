@@ -118,12 +118,20 @@ export const PlayerBar = () => {
 
     if (!isExternal && audioRef.current) {
       const audio = audioRef.current;
-      
-      const isLosslessFormat = currentTrack.format && ["wav", "flac", "lossless"].includes(currentTrack.format.toLowerCase());
-      const isLosslessExt = currentTrack.filename && (currentTrack.filename.toLowerCase().endsWith('.wav') || currentTrack.filename.toLowerCase().endsWith('.flac'));
-      const forceMp3 = !currentTrack.streamUrl && (isLosslessFormat || isLosslessExt);
 
-      let newSrc = currentTrack.streamUrl || API.getStreamUrl(currentTrack.id, forceMp3 ? 'mp3' : undefined);
+      const isLosslessFormat =
+        currentTrack.format &&
+        ["wav", "flac", "lossless"].includes(currentTrack.format.toLowerCase());
+      const isLosslessExt =
+        currentTrack.filename &&
+        (currentTrack.filename.toLowerCase().endsWith(".wav") ||
+          currentTrack.filename.toLowerCase().endsWith(".flac"));
+      const forceMp3 =
+        !currentTrack.streamUrl && (isLosslessFormat || isLosslessExt);
+
+      let newSrc =
+        currentTrack.streamUrl ||
+        API.getStreamUrl(currentTrack.id, forceMp3 ? "mp3" : undefined);
 
       if (
         audio.src !== newSrc &&
@@ -163,7 +171,17 @@ export const PlayerBar = () => {
 
     if (!isExternal && audioRef.current) {
       const audio = audioRef.current;
-      const updateTime = () => setProgress(audio.currentTime, audio.duration);
+      const updateTime = () => {
+        const d =
+          audio.duration && Number.isFinite(audio.duration)
+            ? audio.duration
+            : currentTrack.duration &&
+                Number.isFinite(currentTrack.duration) &&
+                currentTrack.duration > 0
+              ? currentTrack.duration
+              : audio.duration;
+        setProgress(audio.currentTime, d);
+      };
       const handleEnded = () => next();
       const handlePlay = () => setIsPlaying(true);
       const handlePause = () => setIsPlaying(false);
