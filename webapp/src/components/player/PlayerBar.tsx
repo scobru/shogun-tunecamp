@@ -60,12 +60,19 @@ export const PlayerBar = () => {
     null,
   );
 
+  const service = (currentTrack?.service || "").toLowerCase();
+  const url = (currentTrack?.url || "").toLowerCase();
+
   const isExternal = !!(
     currentTrack?.url &&
-    (currentTrack?.service === "youtube" ||
-      currentTrack?.service === "soundcloud" ||
-      currentTrack?.service === "spotify" ||
-      currentTrack?.service === "external")
+    (service === "youtube" ||
+      service === "soundcloud" ||
+      service === "spotify" ||
+      service === "external" ||
+      url.includes("youtube.com") ||
+      url.includes("youtu.be") ||
+      url.includes("soundcloud.com") ||
+      url.includes("spotify.com"))
   );
 
   // Unified Playback Control
