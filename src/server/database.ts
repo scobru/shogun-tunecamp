@@ -591,6 +591,14 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Columns already exist
     }
 
+    // Migration: Add date index to albums
+    try {
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_albums_date ON albums(date DESC)`);
+        console.log("📦 Migrated database: added date index to albums");
+    } catch (e) {
+        // Ignore
+    }
+
     // Migration: Fix NOT NULL constraint on tracks.file_path for external tracks
     try {
         const columns = db.pragma("table_info(tracks)") as any[];
@@ -1459,14 +1467,18 @@ export function createDatabase(dbPath: string): DatabaseService {
             // 1. Total Plays (COUNT(*)) - Fast with index
             const totalPlays = (db.prepare("SELECT COUNT(*) as count FROM play_history").get() as { count: number }).count;
 
-            // 2. Plays Today (Range Scan Index) - Uses idx_play_history_played_at
-            const playsToday = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(todayStart) as { count: number }).count;
+            // Bolt ⚡: Optimized to condense index scans.
+            // 2, 3, 4. Plays Today/Week/Month (Range Scan Index) - Uses idx_play_history_played_at
+            const playsStats = db.prepare(`
+                SELECT
+                    COUNT(CASE WHEN played_at >= ? THEN 1 END) as playsToday,
+                    COUNT(CASE WHEN played_at >= ? THEN 1 END) as playsThisWeek,
+                    COUNT(*) as playsThisMonth
+                FROM play_history
+                WHERE played_at >= ?
+            `).get(todayStart, weekStart, monthStart, monthStart) as { playsToday: number, playsThisWeek: number, playsThisMonth: number };
 
-            // 3. Plays Week (Range Scan Index) - Uses idx_play_history_played_at
-            const playsThisWeek = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(weekStart) as { count: number }).count;
-
-            // 4. Plays Month (Range Scan Index) - Uses idx_play_history_played_at
-            const playsThisMonth = (db.prepare("SELECT COUNT(*) as count FROM play_history WHERE played_at >= ?").get(monthStart) as { count: number }).count;
+            const { playsToday, playsThisWeek, playsThisMonth } = playsStats;
 
             // 5. Unique Tracks (Index Scan) - Uses idx_play_history_track_id
             const uniqueTracks = (db.prepare("SELECT COUNT(DISTINCT track_id) as count FROM play_history").get() as { count: number }).count;
