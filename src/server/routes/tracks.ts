@@ -27,7 +27,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
             // Helper to map DB fields to frontend expected fields
-            const mapTrack = (t: any) => ({ ...t, losslessPath: t.lossless_path, externalArtwork: t.external_artwork, albumName: t.album_title, artistName: t.artist_name });
+            const mapTrack = (t: any) => ({ ...t, losslessPath: t.lossless_path, externalArtwork: t.external_artwork, albumName: t.album_title, artistName: t.artist_name, path: t.file_path, filename: t.file_path ? path.basename(t.file_path) : undefined });
 
             // If admin, return everything
             if (req.isAdmin) {
@@ -77,7 +77,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             });
 
             const newTrack = database.getTrack(trackId);
-            res.status(201).json(newTrack);
+            const mappedTrack = newTrack ? { ...newTrack, losslessPath: newTrack.lossless_path, externalArtwork: newTrack.external_artwork, albumName: newTrack.album_title, artistName: newTrack.artist_name, path: newTrack.file_path, filename: newTrack.file_path ? path.basename(newTrack.file_path) : undefined } : newTrack; res.status(201).json(mappedTrack);
 
             // Sync release if associated
             if (albumId && publishingService) {
@@ -139,7 +139,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 }
             }
 
-            res.json({ ...track, losslessPath: track.lossless_path });
+            res.json({ ...track, losslessPath: track.lossless_path, externalArtwork: track.external_artwork, albumName: track.album_title, artistName: track.artist_name, path: track.file_path, filename: track.file_path ? path.basename(track.file_path) : undefined });
         } catch (error) {
             console.error("Error getting track:", error);
             res.status(500).json({ error: "Failed to get track" });
@@ -473,7 +473,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 console.error("[Tags] Error writing tags:", tagError);
             }
 
-            res.json({ message: "Track updated", track: updatedTrack });
+            const mappedUpdatedTrack = updatedTrack ? { ...updatedTrack, losslessPath: updatedTrack.lossless_path, externalArtwork: updatedTrack.external_artwork, albumName: updatedTrack.album_title, artistName: updatedTrack.artist_name, path: updatedTrack.file_path, filename: updatedTrack.file_path ? path.basename(updatedTrack.file_path) : undefined } : updatedTrack; res.json({ message: "Track updated", track: mappedUpdatedTrack });
 
             // ActivityPub Broadcast: Track updated
             if (updatedTrack && updatedTrack.album_id) {
