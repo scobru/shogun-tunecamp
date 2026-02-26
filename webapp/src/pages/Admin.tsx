@@ -39,7 +39,6 @@ export const Admin = () => {
     | "backup"
   >("overview");
   const [stats, setStats] = useState<any>(null);
-  const [settings, setSettings] = useState<SiteSettings | null>(null);
 
   // const [loading, setLoading] = useState(false);
 
@@ -50,7 +49,6 @@ export const Admin = () => {
       return;
     }
     loadStats();
-    loadSettings();
   }, [isAdminAuthenticated, adminUser, isAdminLoading]);
 
   if (isAdminLoading)
@@ -67,15 +65,6 @@ export const Admin = () => {
       console.error(e);
     } finally {
       // setLoading(false);
-    }
-  };
-
-  const loadSettings = async () => {
-    try {
-      const data = await API.getSiteSettings();
-      setSettings(data);
-    } catch (e) {
-      console.error(e);
     }
   };
 
@@ -233,26 +222,22 @@ export const Admin = () => {
           <div className="space-y-6">
             <h3 className="font-bold text-lg">Quick Actions</h3>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {settings && settings.mode !== "personal" && (
-                <>
-                  <button
-                    className="btn btn-primary gap-2"
-                    onClick={() =>
-                      document.dispatchEvent(
-                        new CustomEvent("open-upload-tracks-modal"),
-                      )
-                    }
-                  >
-                    📤 Upload Tracks
-                  </button>
-                  <button
-                    className="btn btn-secondary gap-2"
-                    onClick={() => navigate("/admin/release/new")}
-                  >
-                    💿 New Release
-                  </button>
-                </>
-              )}
+              <button
+                className="btn btn-primary gap-2"
+                onClick={() =>
+                  document.dispatchEvent(
+                    new CustomEvent("open-upload-tracks-modal"),
+                  )
+                }
+              >
+                📤 Upload Tracks
+              </button>
+              <button
+                className="btn btn-secondary gap-2"
+                onClick={() => navigate("/admin/release/new")}
+              >
+                💿 New Release
+              </button>
               <button
                 className="btn btn-outline gap-2"
                 onClick={() =>
@@ -335,14 +320,12 @@ export const Admin = () => {
                 >
                   Create Post
                 </button>
-                {settings && settings.mode !== "personal" && (
-                  <button
-                    className="btn btn-sm btn-primary"
-                    onClick={() => navigate("/admin/release/new")}
-                  >
-                    Create Release
-                  </button>
-                )}
+                <button
+                  className="btn btn-sm btn-primary"
+                  onClick={() => navigate("/admin/release/new")}
+                >
+                  Create Release
+                </button>
               </div>
             </div>
             <AdminReleasesList />
@@ -435,35 +418,6 @@ const AdminSettingsPanel = () => {
   return (
     <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
       <h3 className="font-bold text-lg">Site Settings</h3>
-
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text">Operation Mode</span>
-          <span className="label-text-alt opacity-50">
-            Choose between Label (Store & Releases) or Personal Library
-          </span>
-        </label>
-        <div className="flex gap-4">
-          <label className="label cursor-pointer justify-start gap-2 border border-base-content/10 p-3 rounded-lg hover:bg-base-200 flex-1">
-            <input
-              type="radio"
-              className="radio radio-primary"
-              checked={settings.mode !== "personal"} // Default to label
-              onChange={() => setSettings({ ...settings, mode: "label" })}
-            />
-            <span className="label-text font-bold">Label Mode</span>
-          </label>
-          <label className="label cursor-pointer justify-start gap-2 border border-base-content/10 p-3 rounded-lg hover:bg-base-200 flex-1">
-            <input
-              type="radio"
-              className="radio radio-secondary"
-              checked={settings.mode === "personal"}
-              onChange={() => setSettings({ ...settings, mode: "personal" })}
-            />
-            <span className="label-text font-bold">Personal Library</span>
-          </label>
-        </div>
-      </div>
 
       <div className="form-control">
         <label className="label">

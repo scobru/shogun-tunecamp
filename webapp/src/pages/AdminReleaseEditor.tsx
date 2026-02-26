@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import API from "../services/api";
 import { useAuthStore } from "../stores/useAuthStore";
-import type { SiteSettings } from "../types";
 import { TrackPickerModal } from "../components/modals/TrackPickerModal";
 import { UnlockCodeManager } from "../components/modals/UnlockCodeManager";
 import {
@@ -87,9 +86,6 @@ export default function AdminReleaseEditor() {
     null,
   );
 
-  // Settings
-  const [settings, setSettings] = useState<SiteSettings | null>(null);
-
   // Track Picker
   const [showTrackPicker, setShowTrackPicker] = useState(false);
 
@@ -101,7 +97,6 @@ export default function AdminReleaseEditor() {
   const [showUnlockManager, setShowUnlockManager] = useState(false);
 
   useEffect(() => {
-    API.getSiteSettings().then(setSettings).catch(console.error);
     loadArtists();
     if (!isNew && id) {
       loadRelease(parseInt(id));
@@ -731,90 +726,85 @@ export default function AdminReleaseEditor() {
                 </select>
               </div>
             </div>
+            {/* Download Options */}
+            <div className="form-control">
+              <label className="label">Download Method</label>
+              <div className="space-y-2">
+                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
+                  <input
+                    type="radio"
+                    name="download_method"
+                    className="radio radio-sm"
+                    checked={metadata.download === "none" || !metadata.download}
+                    onChange={() =>
+                      setMetadata((prev) => ({ ...prev, download: "none" }))
+                    }
+                  />
+                  <div className="flex flex-col">
+                    <span className="font-bold text-xs uppercase opacity-70">
+                      Disabled
+                    </span>
+                  </div>
+                </label>
 
-            {/* Download Options - Label Mode Only */}
-            {settings?.mode !== "personal" && (
-              <div className="form-control">
-                <label className="label">Download Method</label>
-                <div className="space-y-2">
-                  <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
-                    <input
-                      type="radio"
-                      name="download_method"
-                      className="radio radio-sm"
-                      checked={
-                        metadata.download === "none" || !metadata.download
-                      }
-                      onChange={() =>
-                        setMetadata((prev) => ({ ...prev, download: "none" }))
-                      }
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-bold text-xs uppercase opacity-70">
-                        Disabled
-                      </span>
-                    </div>
-                  </label>
+                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
+                  <input
+                    type="radio"
+                    name="download_method"
+                    className="radio radio-sm radio-secondary"
+                    checked={metadata.download === "free"}
+                    onChange={() =>
+                      setMetadata((prev) => ({ ...prev, download: "free" }))
+                    }
+                  />
+                  <div className="flex flex-col">
+                    <span className="font-bold flex items-center gap-2 text-xs uppercase text-secondary">
+                      <Download className="w-3 h-3" /> Free Download
+                    </span>
+                    <span className="text-[10px] opacity-70 uppercase tracking-tighter">
+                      Anyone can download music for free.
+                    </span>
+                  </div>
+                </label>
 
-                  <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
-                    <input
-                      type="radio"
-                      name="download_method"
-                      className="radio radio-sm radio-secondary"
-                      checked={metadata.download === "free"}
-                      onChange={() =>
-                        setMetadata((prev) => ({ ...prev, download: "free" }))
-                      }
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-bold flex items-center gap-2 text-xs uppercase text-secondary">
-                        <Download className="w-3 h-3" /> Free Download
-                      </span>
-                      <span className="text-[10px] opacity-70 uppercase tracking-tighter">
-                        Anyone can download music for free.
-                      </span>
-                    </div>
-                  </label>
+                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
+                  <input
+                    type="radio"
+                    name="download_method"
+                    className="radio radio-sm radio-primary"
+                    checked={metadata.download === "codes"}
+                    onChange={() =>
+                      setMetadata((prev) => ({ ...prev, download: "codes" }))
+                    }
+                  />
+                  <div className="flex flex-col">
+                    <span className="font-bold flex items-center gap-2 text-xs uppercase text-primary">
+                      <Unlock className="w-3 h-3" /> Unlock Codes
+                    </span>
+                    <span className="text-[10px] opacity-70 uppercase tracking-tighter">
+                      Requires a code to access downloads.
+                    </span>
+                  </div>
+                </label>
 
-                  <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
-                    <input
-                      type="radio"
-                      name="download_method"
-                      className="radio radio-sm radio-primary"
-                      checked={metadata.download === "codes"}
-                      onChange={() =>
-                        setMetadata((prev) => ({ ...prev, download: "codes" }))
-                      }
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-bold flex items-center gap-2 text-xs uppercase text-primary">
-                        <Unlock className="w-3 h-3" /> Unlock Codes
-                      </span>
-                      <span className="text-[10px] opacity-70 uppercase tracking-tighter">
-                        Requires a code to access downloads.
-                      </span>
-                    </div>
-                  </label>
-
-                  {metadata.download === "codes" && !isNew && (
-                    <button
-                      className="btn btn-sm btn-primary btn-outline w-full gap-2 mt-2"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setShowUnlockManager(true);
-                      }}
-                    >
-                      <Key size={14} /> Manage Unlock Codes
-                    </button>
-                  )}
-                  {metadata.download === "codes" && isNew && (
-                    <div className="alert alert-info text-[10px] py-1 px-3 mt-2">
-                      Save the release first to manage codes.
-                    </div>
-                  )}
-                </div>
+                {metadata.download === "codes" && !isNew && (
+                  <button
+                    className="btn btn-sm btn-primary btn-outline w-full gap-2 mt-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowUnlockManager(true);
+                    }}
+                  >
+                    <Key size={14} /> Manage Unlock Codes
+                  </button>
+                )}
+                {metadata.download === "codes" && isNew && (
+                  <div className="alert alert-info text-[10px] py-1 px-3 mt-2">
+                    Save the release first to manage codes.
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Visibility */}
             <div className="form-control">
@@ -827,15 +817,41 @@ export default function AdminReleaseEditor() {
                     className="radio radio-sm radio-primary"
                     checked={metadata.visibility === "public"}
                     onChange={() =>
-                      setMetadata((prev) => ({ ...prev, visibility: "public" }))
+                      setMetadata((prev) => ({
+                        ...prev,
+                        visibility: "public",
+                      }))
+                    }
+                  />
+                  <div className="flex flex-col">
+                    <span className="font-bold flex items-center gap-2 text-primary">
+                      <Globe className="w-3 h-3" /> Public
+                    </span>
+                    <span className="text-xs opacity-70">
+                      Visible to everyone.
+                    </span>
+                  </div>
+                </label>
+
+                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
+                  <input
+                    type="radio"
+                    name="visibility"
+                    className="radio radio-sm"
+                    checked={metadata.visibility === "unlisted"}
+                    onChange={() =>
+                      setMetadata((prev) => ({
+                        ...prev,
+                        visibility: "unlisted",
+                      }))
                     }
                   />
                   <div className="flex flex-col">
                     <span className="font-bold flex items-center gap-2">
-                      <Globe className="w-3 h-3" /> Public
+                      <LinkIcon className="w-3 h-3" /> Unlisted
                     </span>
                     <span className="text-xs opacity-70">
-                      Visible to everyone. Federates to ActivityPub.
+                      Anyone with the link can view.
                     </span>
                   </div>
                 </label>

@@ -80,10 +80,15 @@ export const PlayerBar = () => {
     } else {
       // Sync local audio state
       if (isPlaying && audioRef.current.paused) {
-        audioRef.current.play().catch((err) => {
-          console.error("[Player] Local playback failed:", err);
-          setIsPlaying(false);
-        });
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            if (err.name !== "AbortError") {
+              console.error("[Player] Local playback failed:", err);
+              setIsPlaying(false);
+            }
+          });
+        }
       } else if (!isPlaying && !audioRef.current.paused) {
         audioRef.current.pause();
       }
@@ -144,8 +149,10 @@ export const PlayerBar = () => {
           const playPromise = audio.play();
           if (playPromise !== undefined) {
             playPromise.catch((error) => {
-              console.error("Playback failed:", error);
-              setIsPlaying(false);
+              if (error.name !== "AbortError") {
+                console.error("Playback failed:", error);
+                setIsPlaying(false);
+              }
             });
           }
         }
@@ -226,16 +233,7 @@ export const PlayerBar = () => {
     }
   }, [currentTrack, setIsPlaying, setProgress, next, isExternal]);
 
-  // Sync play/pause state
-  useEffect(() => {
-    if (isExternal) return;
-    if (!audioRef.current) return;
-    if (isPlaying && audioRef.current.paused) {
-      audioRef.current.play().catch(() => setIsPlaying(false));
-    } else if (!isPlaying && !audioRef.current.paused) {
-      audioRef.current.pause();
-    }
-  }, [isPlaying, setIsPlaying, isExternal]);
+  // Play/pause state is already synced in Unified Playback Control effect
 
   // Sync volume
   useEffect(() => {
@@ -319,7 +317,13 @@ export const PlayerBar = () => {
         {/* External Player (Invisible but active layer to avoid scroll capturing) */}
         <div
           className="fixed pointer-events-none opacity-0 z-[-1]"
-          style={{ width: "0", height: "0", overflow: "hidden" }}
+          style={{
+            width: "10px",
+            height: "10px",
+            left: "-9999px",
+            top: "-9999px",
+            overflow: "hidden",
+          }}
         >
           {isExternal && playerUrl && (
             <Player
