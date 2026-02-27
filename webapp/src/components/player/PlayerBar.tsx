@@ -100,8 +100,24 @@ export const PlayerBar = () => {
   );
 
   // ─── Ensure YT IFrame API is loaded once ──────────────────────────────
+  // The player div is created imperatively in document.body (outside React's
+  // virtual DOM) because the YT IFrame API replaces the div with an <iframe>,
+  // which would cause React removeChild errors during reconciliation.
   useEffect(() => {
-    if (!window._ytReady) {
+    // Create host div in document.body if it doesn't exist
+    let container = document.getElementById("tc-yt-host");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "tc-yt-host";
+      container.style.cssText =
+        "position:fixed;width:1px;height:1px;bottom:0;right:0;overflow:hidden;z-index:-1;";
+      const playerDiv = document.createElement("div");
+      playerDiv.id = "tc-yt-player-div";
+      container.appendChild(playerDiv);
+      document.body.appendChild(container);
+    }
+
+    if (!window._ytReady && !window._ytPlayer) {
       ensureYTApi();
       window.onYouTubeIframeAPIReady = () => {
         window._ytPlayer = new window.YT.Player("tc-yt-player-div", {
@@ -392,31 +408,11 @@ export const PlayerBar = () => {
     [duration, isYoutube],
   );
 
-  // Always-mounted YT player div (must exist when onYouTubeIframeAPIReady fires)
-  const ytDiv = (
-    <div
-      style={{
-        position: "fixed",
-        width: "1px",
-        height: "1px",
-        bottom: 0,
-        right: 0,
-        overflow: "hidden",
-        zIndex: -1,
-      }}
-    >
-      <div id="tc-yt-player-div" />
-    </div>
-  );
-
   if (!currentTrack)
     return (
-      <>
-        {ytDiv}
-        <div className="fixed bottom-0 w-full h-24 bg-base-200 border-t border-white/5 flex items-center justify-center text-sm opacity-50 z-50">
-          Select a track to play
-        </div>
-      </>
+      <div className="fixed bottom-0 w-full h-24 bg-base-200 border-t border-white/5 flex items-center justify-center text-sm opacity-50 z-50">
+        Select a track to play
+      </div>
     );
 
   // Resolve cover URL (currentTrack is guaranteed non-null here)
@@ -448,21 +444,6 @@ export const PlayerBar = () => {
             }
           }}
         />
-
-        {/* YouTube IFrame API player container (1x1px, always mounted) */}
-        <div
-          style={{
-            position: "fixed",
-            width: "1px",
-            height: "1px",
-            bottom: 0,
-            right: 0,
-            overflow: "hidden",
-            zIndex: -1,
-          }}
-        >
-          <div id="tc-yt-player-div" />
-        </div>
 
         {/* Track Info */}
         <div className="flex items-center gap-3 lg:gap-4 w-full lg:w-64 shrink-0 px-4 lg:px-0">
