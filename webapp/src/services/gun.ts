@@ -274,21 +274,33 @@ export const GunPlaylists = {
                 });
             };
 
+            let resolved = false;
+
             // 1) Try fetching from the global public edge index first
             gun.get('tunecamp-public-playlists').get(id).once((data: any) => {
+                if (resolved) return;
                 if (data && data.id) {
+                    resolved = true;
                     return processData(data);
                 }
 
                 // 2) Fallback: if not found publicly but user is logged in, try fetching from personal graph
-                if (user.is) {
+                if (!resolved && user.is) {
                     user.get(PLAYLISTS_NODE).get(id).once((personalData: any) => {
+                        if (resolved) return;
+                        resolved = true;
                         processData(personalData);
                     });
-                } else {
-                    resolve(null);
                 }
             });
+
+            // Fallback timeout to prevent hanging UI
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    resolve(null);
+                }
+            }, 3000);
         });
     },
 
