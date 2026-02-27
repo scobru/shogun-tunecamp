@@ -182,18 +182,23 @@ export const GunPlaylists = {
             };
 
             let resolved = false;
-            user.get(PLAYLISTS_NODE).get(id).put(playlist, (ack: any) => {
+            const playlistNode = user.get(PLAYLISTS_NODE).get(id);
+            playlistNode.put(playlist, (ack: any) => {
                 if (resolved) return;
                 if (ack.err) {
                     console.warn("GunDB createPlaylist ack error (ignoring):", ack.err);
                 } else {
                     resolved = true;
+                    // Add edge to public index so unauthenticated users can resolve it
+                    gun.get('tunecamp-public-playlists').get(id).put(playlistNode);
                     resolve({ ...playlist, tracks: [], trackCount: 0 });
                 }
             });
             setTimeout(() => {
                 if (!resolved) {
                     resolved = true;
+                    // Fallback edge creation
+                    gun.get('tunecamp-public-playlists').get(id).put(playlistNode);
                     resolve({ ...playlist, tracks: [], trackCount: 0 });
                 }
             }, 3000);
@@ -247,11 +252,8 @@ export const GunPlaylists = {
      */
     getPlaylist: (id: string): Promise<UserPlaylist | null> => {
         return new Promise((resolve) => {
-            if (!user.is) return resolve(null);
-
-            user.get(PLAYLISTS_NODE).get(id).once((data: any) => {
+            const processData = (data: any) => {
                 if (!data || !data.id) return resolve(null);
-
                 let tracks: UserPlaylistTrack[] = [];
                 try {
                     if (data.tracksJson && typeof data.tracksJson === 'string') {
@@ -270,6 +272,22 @@ export const GunPlaylists = {
                     tracks,
                     trackCount: tracks.length
                 });
+            };
+
+            // 1) Try fetching from the global public edge index first
+            gun.get('tunecamp-public-playlists').get(id).once((data: any) => {
+                if (data && data.id) {
+                    return processData(data);
+                }
+
+                // 2) Fallback: if not found publicly but user is logged in, try fetching from personal graph
+                if (user.is) {
+                    user.get(PLAYLISTS_NODE).get(id).once((personalData: any) => {
+                        processData(personalData);
+                    });
+                } else {
+                    resolve(null);
+                }
             });
         });
     },

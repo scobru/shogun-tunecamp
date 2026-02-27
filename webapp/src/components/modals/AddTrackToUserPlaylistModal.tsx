@@ -125,6 +125,15 @@ export const AddTrackToUserPlaylistModal = ({
       return;
     }
 
+    // Helper to extract YouTube video ID
+    const match = ytUrl.match(
+      /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]*)/,
+    );
+    const videoId = match ? match[1] : null;
+    const coverUrl = videoId
+      ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+      : undefined;
+
     setYtLoading(true);
     try {
       const track: UserPlaylistTrack = {
@@ -136,6 +145,7 @@ export const AddTrackToUserPlaylistModal = ({
         albumName: ytAlbum || undefined,
         source: "youtube",
         url: ytUrl,
+        coverUrl, // Set the high-quality YouTube thumbnail
         addedAt: Date.now(),
       };
 

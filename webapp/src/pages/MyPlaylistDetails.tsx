@@ -61,15 +61,12 @@ export const MyPlaylistDetails = () => {
   const navigate = useNavigate();
   const [playlist, setPlaylist] = useState<UserPlaylist | null>(null);
   const [loading, setLoading] = useState(true);
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const { playTrack } = usePlayerStore();
 
   useEffect(() => {
-    if (id && isAuthenticated) loadPlaylist(id);
-    else if (!isAuthenticated) {
-      setLoading(false);
-    }
-  }, [id, isAuthenticated]);
+    if (id) loadPlaylist(id);
+  }, [id]);
 
   const loadPlaylist = async (playlistId: string) => {
     setLoading(true);
@@ -129,22 +126,7 @@ export const MyPlaylistDetails = () => {
     playTrack(allPlayable[0], allPlayable);
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 animate-fade-in p-6">
-        <Heart size={48} className="text-pink-400 mb-4" />
-        <p className="opacity-60">Please login to view your playlists.</p>
-        <button
-          className="btn btn-primary btn-sm mt-4"
-          onClick={() =>
-            document.dispatchEvent(new CustomEvent("open-auth-modal"))
-          }
-        >
-          Login
-        </button>
-      </div>
-    );
-  }
+  const isOwner = isAuthenticated && user?.pub === playlist?.ownerPub;
 
   if (loading)
     return (
@@ -191,22 +173,35 @@ export const MyPlaylistDetails = () => {
             </div>
           </div>
 
-          <div className="mt-6 flex gap-2">
+          <div className="mt-6 flex flex-wrap gap-2">
+            {isOwner && (
+              <>
+                <button
+                  className="btn btn-sm btn-primary gap-2"
+                  onClick={() =>
+                    document.dispatchEvent(
+                      new CustomEvent("open-add-track-to-user-playlist-modal"),
+                    )
+                  }
+                >
+                  <Plus size={16} /> Add Tracks
+                </button>
+                <button
+                  className="btn btn-error btn-sm btn-outline gap-2"
+                  onClick={handleDelete}
+                >
+                  <Trash2 size={16} /> Delete Playlist
+                </button>
+              </>
+            )}
             <button
-              className="btn btn-sm btn-primary gap-2"
-              onClick={() =>
-                document.dispatchEvent(
-                  new CustomEvent("open-add-track-to-user-playlist-modal"),
-                )
-              }
+              className="btn btn-sm btn-outline gap-2"
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                // Optional: show a quick toast/alert
+              }}
             >
-              <Plus size={16} /> Add Tracks
-            </button>
-            <button
-              className="btn btn-error btn-sm btn-outline gap-2"
-              onClick={handleDelete}
-            >
-              <Trash2 size={16} /> Delete Playlist
+              Copy Link
             </button>
           </div>
         </div>
@@ -306,28 +301,30 @@ export const MyPlaylistDetails = () => {
                           .substr(14, 5)
                       : "-"}
                   </td>
-                  <td>
-                    <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100">
-                      <label
-                        tabIndex={0}
-                        className="btn btn-ghost btn-xs btn-circle"
-                      >
-                        <MoreHorizontal size={16} />
-                      </label>
-                      <ul
-                        tabIndex={0}
-                        className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
-                      >
-                        <li>
-                          <button
-                            className="text-error"
-                            onClick={() => handleRemoveTrack(track.id)}
-                          >
-                            <Trash2 size={16} /> Remove
-                          </button>
-                        </li>
-                      </ul>
-                    </div>
+                  <td className="w-12 text-right">
+                    {isOwner && (
+                      <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100">
+                        <label
+                          tabIndex={0}
+                          className="btn btn-ghost btn-xs btn-circle"
+                        >
+                          <MoreHorizontal size={16} />
+                        </label>
+                        <ul
+                          tabIndex={0}
+                          className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
+                        >
+                          <li>
+                            <button
+                              className="text-error"
+                              onClick={() => handleRemoveTrack(track.id)}
+                            >
+                              <Trash2 size={16} /> Remove
+                            </button>
+                          </li>
+                        </ul>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
