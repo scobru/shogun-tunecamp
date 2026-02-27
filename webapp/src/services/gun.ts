@@ -211,7 +211,7 @@ export const GunPlaylists = {
             const seen = new Set<string>();
 
             user.get(PLAYLISTS_NODE).map().once((data: any, key: string) => {
-                if (!data || !data.id || data._ || seen.has(key)) return;
+                if (!data || !data.id || seen.has(key)) return;
                 seen.add(key);
 
                 let tracks: UserPlaylistTrack[] = [];
