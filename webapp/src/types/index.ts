@@ -160,3 +160,31 @@ export interface GunProfile {
     alias: string;
     epub: string;
 }
+
+export interface UserPlaylistTrack {
+    id: string;
+    title: string;
+    artistName: string;
+    source: 'youtube' | 'tunecamp';
+    url?: string;         // YouTube URL
+    streamUrl?: string;   // TuneCamp stream URL
+    coverUrl?: string;
+    albumName?: string;
+    albumId?: string;
+    duration?: number;
+    addedAt: number;
+    // Original TuneCamp track ID (for reference)
+    tunecampTrackId?: string;
+}
+
+export interface UserPlaylist {
+    id: string;
+    name: string;
+    description?: string;
+    ownerPub: string;
+    ownerAlias: string;
+    createdAt: number;
+    updatedAt: number;
+    tracks: UserPlaylistTrack[];
+    trackCount: number;
+}

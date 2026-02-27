@@ -93,30 +93,27 @@ export const UploadTracksModal = ({
   };
 
   const handleAddExternalLink = async () => {
-    const url = window.prompt("Enter URL (YouTube, SoundCloud, Spotify):");
+    const url = window.prompt("Enter YouTube URL:");
     if (!url) return;
+
+    // Only YouTube is supported for now
+    if (!url.includes("youtube.com") && !url.includes("youtu.be")) {
+      setError("Only YouTube links are supported at the moment.");
+      return;
+    }
 
     setUploading(true);
     setError("");
     try {
-      // Basic detection
-      let service: "youtube" | "spotify" | "soundcloud" | "local" | "external" =
-        "external";
+      const service: "youtube" | "local" = "youtube";
       let externalArtwork = undefined;
 
-      if (url.includes("youtube.com") || url.includes("youtu.be")) {
-        service = "youtube";
-        const regExp =
-          /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-        const match = url.match(regExp);
-        const id = match && match[2].length === 11 ? match[2] : null;
-        if (id)
-          externalArtwork = `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
-      } else if (url.includes("spotify.com")) {
-        service = "spotify";
-      } else if (url.includes("soundcloud.com")) {
-        service = "soundcloud";
-      }
+      const regExp =
+        /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = url.match(regExp);
+      const id = match && match[2].length === 11 ? match[2] : null;
+      if (id)
+        externalArtwork = `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 
       // Get album ID if numeric slug
       let albumId: number | undefined = undefined;

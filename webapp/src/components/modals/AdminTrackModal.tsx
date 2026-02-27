@@ -197,9 +197,6 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
               >
                 <option value="local">Local</option>
                 <option value="youtube">YouTube</option>
-                <option value="soundcloud">SoundCloud</option>
-                <option value="spotify">Spotify</option>
-                <option value="external">Generic External</option>
               </select>
             </div>
           </div>

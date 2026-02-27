@@ -13,6 +13,8 @@ import {
   Support,
   Playlists,
   PlaylistDetails,
+  MyPlaylists,
+  MyPlaylistDetails,
   Post,
   AuthCallback,
 } from "./pages";
@@ -56,6 +58,8 @@ function App() {
           <Route path="/search" element={<Search />} />
           <Route path="/playlists" element={<Playlists />} />
           <Route path="/playlists/:id" element={<PlaylistDetails />} />
+          <Route path="/my-playlists" element={<MyPlaylists />} />
+          <Route path="/my-playlists/:id" element={<MyPlaylistDetails />} />
           <Route path="/post/:slug" element={<Post />} />
           <Route path="/network" element={<Network />} />
           <Route path="/stats" element={<Stats />} />

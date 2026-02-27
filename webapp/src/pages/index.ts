@@ -12,5 +12,7 @@ export { Network } from './Network';
 export { Support } from './Support';
 export { Playlists } from './Playlists';
 export { PlaylistDetails } from './PlaylistDetails';
+export { MyPlaylists } from './MyPlaylists';
+export { MyPlaylistDetails } from './MyPlaylistDetails';
 export { PostPage as Post } from './Post';
 export { AuthCallback } from './AuthCallback';
