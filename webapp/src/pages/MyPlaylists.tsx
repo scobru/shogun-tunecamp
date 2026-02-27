@@ -33,8 +33,6 @@ export const MyPlaylists = () => {
       if (prev.some((p) => p.id === newPlaylist.id)) return prev;
       return [newPlaylist, ...prev].sort((a, b) => b.updatedAt - a.updatedAt);
     });
-    // Reload in the background to ensure parity
-    setTimeout(loadPlaylists, 2000);
   };
 
   if (!isAuthenticated) {
