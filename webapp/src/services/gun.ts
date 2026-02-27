@@ -279,7 +279,7 @@ export const GunPlaylists = {
             // 1) Try fetching from the global public edge index first
             // Note: We use .on() instead of .once() because data from remote peers might take a few seconds
             // to arrive, and .once() could instantly resolve with undefined before the network fires.
-            gun.get('tunecamp-public-playlists').get(id).on((data: any, key: any, msg: any, ev: any) => {
+            gun.get('tunecamp-public-playlists').get(id).on((data: any, _key: any, _msg: any, ev: any) => {
                 if (data && data.id && !resolved) {
                     resolved = true;
                     ev.off(); // Prevent memory leaks once we have the data
@@ -289,7 +289,7 @@ export const GunPlaylists = {
 
             // 2) Fallback: if not found publicly but user is logged in, try fetching from personal graph concurrently
             if (user.is) {
-                user.get(PLAYLISTS_NODE).get(id).on((personalData: any, key: any, msg: any, ev: any) => {
+                user.get(PLAYLISTS_NODE).get(id).on((personalData: any, _key: any, _msg: any, ev: any) => {
                     if (personalData && personalData.id && !resolved) {
                         resolved = true;
                         ev.off();
