@@ -2,14 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { GunPlaylists } from "../../services/gun";
 import API from "../../services/api";
-import {
-  Plus,
-  Search,
-  Youtube,
-  Music,
-  ExternalLink,
-  Check,
-} from "lucide-react";
+import { Plus, Search, Youtube, Music, Check } from "lucide-react";
 import type { Track, UserPlaylistTrack } from "../../types";
 
 function isValidYouTubeUrl(url: string): boolean {
@@ -52,12 +45,12 @@ export const AddTrackToUserPlaylistModal = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [allTracks, setAllTracks] = useState<Track[]>([]);
-  const [tcLoading, setTcLoading] = useState(false);
+
   const [tcAddingId, setTcAddingId] = useState<string | null>(null);
   const [tcSuccess, setTcSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleOpen = (e: CustomEvent) => {
+    const handleOpen = () => {
       if (isAuthenticated) {
         resetState();
         dialogRef.current?.showModal();
