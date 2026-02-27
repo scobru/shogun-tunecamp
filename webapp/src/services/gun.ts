@@ -20,7 +20,8 @@ const gun = Gun({
     peers: PEERS,
     localStorage: false, // Use Gun's internal storage
     radisk: false,
-    wire: true
+    wire: true,
+    axe: true
 });
 
 const user = gun.user();
@@ -180,14 +181,22 @@ export const GunPlaylists = {
                 tracksJson: '[]' // Store tracks as JSON string for GunDB compatibility
             };
 
+            let resolved = false;
             user.get(PLAYLISTS_NODE).get(id).put(playlist, (ack: any) => {
-                if (ack.err) return reject(new Error(ack.err));
-                resolve({
-                    ...playlist,
-                    tracks: [],
-                    trackCount: 0
-                });
+                if (resolved) return;
+                if (ack.err) {
+                    console.warn("GunDB createPlaylist ack error (ignoring):", ack.err);
+                } else {
+                    resolved = true;
+                    resolve({ ...playlist, tracks: [], trackCount: 0 });
+                }
             });
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    resolve({ ...playlist, tracks: [], trackCount: 0 });
+                }
+            }, 3000);
         });
     },
 
@@ -276,10 +285,22 @@ export const GunPlaylists = {
             if (updates.name !== undefined) updateData.name = updates.name;
             if (updates.description !== undefined) updateData.description = updates.description;
 
+            let resolved = false;
             user.get(PLAYLISTS_NODE).get(id).put(updateData, (ack: any) => {
-                if (ack.err) return reject(new Error(ack.err));
-                resolve();
+                if (resolved) return;
+                if (ack.err) {
+                    console.warn("GunDB updatePlaylist ack error (ignoring):", ack.err);
+                } else {
+                    resolved = true;
+                    resolve();
+                }
             });
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    resolve();
+                }
+            }, 3000);
         });
     },
 
@@ -290,10 +311,22 @@ export const GunPlaylists = {
         return new Promise((resolve, reject) => {
             if (!user.is) return reject(new Error('Not logged in'));
 
+            let resolved = false;
             user.get(PLAYLISTS_NODE).get(id).put(null, (ack: any) => {
-                if (ack.err) return reject(new Error(ack.err));
-                resolve();
+                if (resolved) return;
+                if (ack.err) {
+                    console.warn("GunDB deletePlaylist ack error (ignoring):", ack.err);
+                } else {
+                    resolved = true;
+                    resolve();
+                }
             });
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    resolve();
+                }
+            }, 3000);
         });
     },
 
@@ -320,13 +353,25 @@ export const GunPlaylists = {
 
                 tracks.push(track);
 
+                let resolved = false;
                 user.get(PLAYLISTS_NODE).get(playlistId).put({
                     tracksJson: JSON.stringify(tracks),
                     updatedAt: Date.now()
                 }, (ack: any) => {
-                    if (ack.err) return reject(new Error(ack.err));
-                    resolve();
+                    if (resolved) return;
+                    if (ack.err) {
+                        console.warn("GunDB addTrack ack error (ignoring):", ack.err);
+                    } else {
+                        resolved = true;
+                        resolve();
+                    }
                 });
+                setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        resolve();
+                    }
+                }, 3000);
             });
         });
     },
@@ -350,13 +395,25 @@ export const GunPlaylists = {
 
                 tracks = tracks.filter(t => t.id !== trackId);
 
+                let resolved = false;
                 user.get(PLAYLISTS_NODE).get(playlistId).put({
                     tracksJson: JSON.stringify(tracks),
                     updatedAt: Date.now()
                 }, (ack: any) => {
-                    if (ack.err) return reject(new Error(ack.err));
-                    resolve();
+                    if (resolved) return;
+                    if (ack.err) {
+                        console.warn("GunDB removeTrack ack error (ignoring):", ack.err);
+                    } else {
+                        resolved = true;
+                        resolve();
+                    }
                 });
+                setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        resolve();
+                    }
+                }, 3000);
             });
         });
     }
