@@ -236,7 +236,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
      * POST /api/admin/backup/restore
      * Upload and restore backup (Legacy/Single File)
      */
-    router.post("/restore", upload.single("backup"), (req: any, res) => {
+    router.post("/restore", upload.single("backup") as any, (req: any, res) => {
         if (req.artistId) {
             return res.status(403).send("Unauthorized: Restore restricted to Root Admin");
         }
@@ -257,7 +257,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
      * POST /api/admin/backup/chunk
      * Receive a file chunk
      */
-    router.post("/chunk", upload.single("chunk"), async (req: any, res) => {
+    router.post("/chunk", upload.single("chunk") as any, async (req: any, res) => {
         try {
             if (req.artistId) return res.status(403).send("Unauthorized");
 

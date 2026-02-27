@@ -147,7 +147,7 @@ export function createUploadRoutes(
      * POST /api/admin/upload/tracks
      * Upload one or more audio files
      */
-    router.post("/tracks", upload.array("files", 50), async (req, res) => {
+    router.post("/tracks", upload.array("files", 50) as any, async (req: any, res: any) => {
         try {
             const files = req.files as Express.Multer.File[];
             const { releaseSlug } = req.body;
@@ -173,7 +173,7 @@ export function createUploadRoutes(
                 console.warn(`⛔ Access Denied: User ${(req as any).username} (Artist ${(req as any).artistId}) tried to upload to release ${release.slug} (Artist ${release.artist_id})`);
                 // Cleanup temp files
                 for (const file of files) {
-                    await fs.remove(file.path).catch(() => {});
+                    await fs.remove(file.path).catch(() => { });
                 }
                 return res.status(403).json({ error: "Access denied: Cannot upload tracks to another artist's release" });
             }
@@ -244,10 +244,10 @@ export function createUploadRoutes(
      * POST /api/admin/upload/cover
      * Upload a cover image for a release
      */
-    router.post("/cover", (req, res, next) => {
+    router.post("/cover", (req: any, res: any, next: any) => {
         console.log("🔍 [Debug] Upload Request Headers:", req.headers['content-type']);
         next();
-    }, imageUpload.single("file"), async (req, res) => {
+    }, imageUpload.single("file") as any, async (req: any, res: any) => {
         try {
             console.log("🔍 [Debug] Inside /cover handler");
             console.log("🔍 [Debug] req.file:", req.file ? `${req.file.originalname} (${req.file.size} bytes)` : "undefined");
@@ -356,7 +356,7 @@ export function createUploadRoutes(
      * POST /api/admin/upload/avatar
      * Upload avatar for an artist
      */
-    router.post("/avatar", imageUpload.single("file"), async (req, res) => {
+    router.post("/avatar", imageUpload.single("file") as any, async (req: any, res: any) => {
         try {
             const file = req.file;
             const artistIdRaw = req.body.artistId;
@@ -421,7 +421,7 @@ export function createUploadRoutes(
      * POST /api/admin/upload/background
      * Upload site background image (saved to server, URL stored in settings)
      */
-    router.post("/background", imageUpload.single("file"), async (req: any, res) => {
+    router.post("/background", imageUpload.single("file") as any, async (req: any, res: any) => {
         await handleSiteSettingImageUpload(req, res, {
             type: "background",
             settingKey: "backgroundImage",
@@ -434,7 +434,7 @@ export function createUploadRoutes(
      * POST /api/admin/upload/site-cover
      * Upload site cover image (for network list)
      */
-    router.post("/site-cover", imageUpload.single("file"), async (req: any, res) => {
+    router.post("/site-cover", imageUpload.single("file") as any, async (req: any, res: any) => {
         await handleSiteSettingImageUpload(req, res, {
             type: "site-cover",
             settingKey: "coverImage",
