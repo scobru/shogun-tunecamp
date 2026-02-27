@@ -18,7 +18,7 @@ const PEERS = import.meta.env.VITE_GUN_PEERS?.split(',') || [
 // Initialize Gun
 const gun = Gun({
     peers: PEERS,
-    localStorage: false, // Use Gun's internal storage
+    localStorage: true, // Enable local persistence to survive peer drops
     radisk: false,
     wire: true,
     axe: true
