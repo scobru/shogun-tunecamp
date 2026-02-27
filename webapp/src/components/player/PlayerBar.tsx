@@ -392,14 +392,34 @@ export const PlayerBar = () => {
     [duration, isYoutube],
   );
 
+  // Always-mounted YT player div (must exist when onYouTubeIframeAPIReady fires)
+  const ytDiv = (
+    <div
+      style={{
+        position: "fixed",
+        width: "1px",
+        height: "1px",
+        bottom: 0,
+        right: 0,
+        overflow: "hidden",
+        zIndex: -1,
+      }}
+    >
+      <div id="tc-yt-player-div" />
+    </div>
+  );
+
   if (!currentTrack)
     return (
-      <div className="fixed bottom-0 w-full h-24 bg-base-200 border-t border-white/5 flex items-center justify-center text-sm opacity-50 z-50">
-        Select a track to play
-      </div>
+      <>
+        {ytDiv}
+        <div className="fixed bottom-0 w-full h-24 bg-base-200 border-t border-white/5 flex items-center justify-center text-sm opacity-50 z-50">
+          Select a track to play
+        </div>
+      </>
     );
 
-  // Resolve cover URL
+  // Resolve cover URL (currentTrack is guaranteed non-null here)
   let coverUrl =
     currentTrack.externalArtwork ||
     currentTrack.coverUrl ||
@@ -411,13 +431,6 @@ export const PlayerBar = () => {
   if (!coverUrl && currentTrack.service === "youtube" && currentTrack.url) {
     const ytId = getYoutubeId(currentTrack.url);
     if (ytId) coverUrl = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
-  }
-
-  // Normalize external URL
-  let playerUrl = currentTrack.url;
-  const ytId = getYoutubeId(playerUrl || "");
-  if (ytId) {
-    playerUrl = `https://www.youtube.com/watch?v=${ytId}`;
   }
 
   return (
