@@ -54,7 +54,7 @@
     "fluent-ffmpeg": "^2.1.3",
     "fs-extra": "^11.2.0",
     "glob": "^10.3.10",
-    "gun": "^0.2020.1241",
+    "gun": "git+https://github.com/scobru/gun.git",
     "handlebars": "^4.7.8",
     "inquirer": "^13.2.0",
     "jsonwebtoken": "^9.0.3",
