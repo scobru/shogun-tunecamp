@@ -28,6 +28,15 @@ export const MyPlaylists = () => {
     }
   };
 
+  const handleCreated = (newPlaylist: UserPlaylist) => {
+    setPlaylists((prev) => {
+      if (prev.some((p) => p.id === newPlaylist.id)) return prev;
+      return [newPlaylist, ...prev].sort((a, b) => b.updatedAt - a.updatedAt);
+    });
+    // Reload in the background to ensure parity
+    setTimeout(loadPlaylists, 2000);
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="flex flex-col items-center justify-center py-24 animate-fade-in p-6">
@@ -140,7 +149,7 @@ export const MyPlaylists = () => {
         </div>
       )}
 
-      <CreateUserPlaylistModal onCreated={loadPlaylists} />
+      <CreateUserPlaylistModal onCreated={handleCreated} />
     </div>
   );
 };
