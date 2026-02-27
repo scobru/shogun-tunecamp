@@ -217,6 +217,20 @@ export const PlayerBar = () => {
         audioRef.current.pause();
       }
     } else {
+      // Stop YouTube player when switching to a local track
+      if (window._ytReady && window._ytPlayer) {
+        try {
+          window._ytPlayer.stopVideo();
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      // Clear YT progress polling
+      if (ytTimerRef.current) {
+        clearInterval(ytTimerRef.current);
+        ytTimerRef.current = null;
+      }
+
       // Sync local audio state
       if (isPlaying && audioRef.current.paused) {
         const playPromise = audioRef.current.play();
