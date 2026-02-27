@@ -277,30 +277,34 @@ export const GunPlaylists = {
             let resolved = false;
 
             // 1) Try fetching from the global public edge index first
-            gun.get('tunecamp-public-playlists').get(id).once((data: any) => {
-                if (resolved) return;
-                if (data && data.id) {
+            // Note: We use .on() instead of .once() because data from remote peers might take a few seconds
+            // to arrive, and .once() could instantly resolve with undefined before the network fires.
+            gun.get('tunecamp-public-playlists').get(id).on((data: any, key: any, msg: any, ev: any) => {
+                if (data && data.id && !resolved) {
                     resolved = true;
+                    ev.off(); // Prevent memory leaks once we have the data
                     return processData(data);
-                }
-
-                // 2) Fallback: if not found publicly but user is logged in, try fetching from personal graph
-                if (!resolved && user.is) {
-                    user.get(PLAYLISTS_NODE).get(id).once((personalData: any) => {
-                        if (resolved) return;
-                        resolved = true;
-                        processData(personalData);
-                    });
                 }
             });
 
-            // Fallback timeout to prevent hanging UI
+            // 2) Fallback: if not found publicly but user is logged in, try fetching from personal graph concurrently
+            if (user.is) {
+                user.get(PLAYLISTS_NODE).get(id).on((personalData: any, key: any, msg: any, ev: any) => {
+                    if (personalData && personalData.id && !resolved) {
+                        resolved = true;
+                        ev.off();
+                        processData(personalData);
+                    }
+                });
+            }
+
+            // Extended fallback timeout to prevent hanging UI (5 seconds to allow remote peer sync)
             setTimeout(() => {
                 if (!resolved) {
                     resolved = true;
                     resolve(null);
                 }
-            }, 3000);
+            }, 5000);
         });
     },
 
