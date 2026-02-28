@@ -258,14 +258,22 @@ export const GunPlaylists = {
      */
     getPlaylist: (id: string): Promise<UserPlaylist | null> => {
         return new Promise((resolve) => {
+            let timeoutId: any;
+            let bestData: any = null;
+            let resolved = false;
+
             const processData = (data: any) => {
-                if (!data || !data.id) return resolve(null);
+                if (resolved) return;
+
                 let tracks: UserPlaylistTrack[] = [];
                 try {
                     if (data.tracksJson && typeof data.tracksJson === 'string') {
                         tracks = JSON.parse(data.tracksJson);
                     }
                 } catch { /* ignore */ }
+
+                resolved = true;
+                if (timeoutId) clearTimeout(timeoutId);
 
                 resolve({
                     id: data.id,
@@ -282,35 +290,41 @@ export const GunPlaylists = {
                 });
             };
 
-            let resolved = false;
+            const handleData = (data: any, ev: any) => {
+                if (!data || !data.id || resolved) return;
+
+                // Merge data fields since Gun might emit them separately
+                bestData = { ...bestData, ...data };
+
+                // Only resolve if it feels complete enough (has tracks),
+                // or if it was saved without tracks previously? 'tracksJson' should be set on create.
+                if (bestData.name !== undefined && bestData.tracksJson !== undefined) {
+                    if (ev && ev.off) ev.off(); // Prevent memory leaks once we have the data
+                    processData(bestData);
+                }
+            };
 
             // 1) Try fetching from the global public edge index first
-            // Note: We use .on() instead of .once() because data from remote peers might take a few seconds
-            // to arrive, and .once() could instantly resolve with undefined before the network fires.
             gun.get('tunecamp-public-playlists').get(id).on((data: any, _key: any, _msg: any, ev: any) => {
-                if (data && data.id && !resolved) {
-                    resolved = true;
-                    ev.off(); // Prevent memory leaks once we have the data
-                    return processData(data);
-                }
+                handleData(data, ev);
             });
 
-            // 2) Fallback: if not found publicly but user is logged in, try fetching from personal graph concurrently
+            // 2) Fallback: if user is logged in, fetch from personal graph concurrently
             if (user.is) {
                 user.get(PLAYLISTS_NODE).get(id).on((personalData: any, _key: any, _msg: any, ev: any) => {
-                    if (personalData && personalData.id && !resolved) {
-                        resolved = true;
-                        ev.off();
-                        processData(personalData);
-                    }
+                    handleData(personalData, ev);
                 });
             }
 
             // Extended fallback timeout to prevent hanging UI (5 seconds to allow remote peer sync)
-            setTimeout(() => {
+            timeoutId = setTimeout(() => {
                 if (!resolved) {
                     resolved = true;
-                    resolve(null);
+                    if (bestData && bestData.id) {
+                        processData(bestData);
+                    } else {
+                        resolve(null);
+                    }
                 }
             }, 5000);
         });
