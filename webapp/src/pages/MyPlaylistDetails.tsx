@@ -15,6 +15,7 @@ import {
   MoreHorizontal,
   Unlock,
   Lock,
+  Image as ImageIcon,
 } from "lucide-react";
 import type { UserPlaylist, UserPlaylistTrack, Track } from "../types";
 import { AddTrackToUserPlaylistModal } from "../components/modals/AddTrackToUserPlaylistModal";
@@ -128,6 +129,22 @@ export const MyPlaylistDetails = () => {
     }
   };
 
+  const handleEditCover = async () => {
+    if (!playlist) return;
+    const url = window.prompt(
+      "Enter the URL for the playlist cover image:",
+      playlist.coverUrl || "",
+    );
+    if (url === null) return; // cancelled
+    try {
+      await GunPlaylists.updatePlaylist(playlist.id, { coverUrl: url });
+      setPlaylist({ ...playlist, coverUrl: url });
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update playlist cover");
+    }
+  };
+
   const handlePlayTrack = (track: UserPlaylistTrack) => {
     if (!playlist) return;
     const playable = toPlayableTrack(track);
@@ -163,8 +180,27 @@ export const MyPlaylistDetails = () => {
 
       {/* Hero */}
       <div className="flex flex-col md:flex-row gap-8 items-end">
-        <div className="w-52 h-52 bg-gradient-to-br from-pink-500/30 to-purple-500/30 rounded-2xl shadow-2xl flex items-center justify-center shrink-0">
-          <Heart size={64} className="text-pink-300/50" />
+        <div className="w-52 h-52 bg-gradient-to-br from-pink-500/30 to-purple-500/30 rounded-2xl shadow-2xl flex items-center justify-center shrink-0 overflow-hidden relative group">
+          {playlist.coverUrl ? (
+            <img
+              src={playlist.coverUrl}
+              className="w-full h-full object-cover"
+              alt="Playlist Cover"
+            />
+          ) : (
+            <Heart size={64} className="text-pink-300/50" />
+          )}
+          {isOwner && (
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+              <button
+                className="btn btn-sm btn-circle btn-ghost text-white"
+                onClick={handleEditCover}
+                title="Edit Cover"
+              >
+                <ImageIcon size={20} />
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -278,19 +314,6 @@ export const MyPlaylistDetails = () => {
                   </td>
                   <td>
                     <div className="flex items-center gap-3">
-                      <div className="avatar rounded w-8 h-8 opacity-80 bg-base-300 flex items-center justify-center overflow-hidden">
-                        {track.coverUrl ? (
-                          <img
-                            src={track.coverUrl}
-                            loading="lazy"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : track.source === "youtube" ? (
-                          <Youtube size={14} className="text-red-400" />
-                        ) : (
-                          <Music size={14} className="opacity-40" />
-                        )}
-                      </div>
                       <div>
                         <div className="font-bold flex items-center gap-2">
                           {track.title}

@@ -68,6 +68,7 @@ export interface Playlist {
     description?: string;
     userId: string;
     isPublic: boolean;
+    coverPath?: string;
     tracks?: Track[];
     trackCount: number;
     createdAt: string;
@@ -181,6 +182,7 @@ export interface UserPlaylist {
     id: string;
     name: string;
     description?: string;
+    coverUrl?: string;
     ownerPub: string;
     ownerAlias: string;
     isPublic?: boolean;

@@ -89,6 +89,7 @@ export interface Playlist {
     name: string;
     description: string | null;
     isPublic: boolean;
+    coverPath: string | null;
     created_at: string;
 }
 
@@ -202,6 +203,7 @@ export interface DatabaseService {
     getPlaylist(id: number): Playlist | undefined;
     createPlaylist(name: string, description?: string, isPublic?: boolean): number;
     updatePlaylistVisibility(id: number, isPublic: boolean): void;
+    updatePlaylistCover(id: number, coverPath: string | null): void;
     deletePlaylist(id: number): void;
     getPlaylistTracks(playlistId: number): Track[];
     addTrackToPlaylist(playlistId: number, trackId: number): void;
@@ -352,6 +354,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       name TEXT NOT NULL,
       description TEXT,
       is_public INTEGER DEFAULT 0,
+      cover_path TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -498,6 +501,14 @@ export function createDatabase(dbPath: string): DatabaseService {
     try {
         db.exec(`ALTER TABLE playlists ADD COLUMN is_public INTEGER DEFAULT 0`);
         console.log("📦 Migrated database: added is_public column to playlists");
+    } catch (e) {
+        // Column already exists, ignore
+    }
+
+    // Migration: Add cover_path column to playlists if it doesn't exist
+    try {
+        db.exec(`ALTER TABLE playlists ADD COLUMN cover_path TEXT`);
+        console.log("📦 Migrated database: added cover_path column to playlists");
     } catch (e) {
         // Column already exists, ignore
     }
@@ -1153,13 +1164,13 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         getPlaylists(publicOnly = false): Playlist[] {
             const sql = publicOnly
-                ? "SELECT id, name, description, is_public as isPublic, created_at FROM playlists WHERE is_public = 1 ORDER BY name"
-                : "SELECT id, name, description, is_public as isPublic, created_at FROM playlists ORDER BY name";
+                ? "SELECT id, name, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists WHERE is_public = 1 ORDER BY name"
+                : "SELECT id, name, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists ORDER BY name";
             return db.prepare(sql).all() as Playlist[];
         },
 
         getPlaylist(id: number): Playlist | undefined {
-            return db.prepare("SELECT id, name, description, is_public as isPublic, created_at FROM playlists WHERE id = ?").get(id) as Playlist | undefined;
+            return db.prepare("SELECT id, name, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists WHERE id = ?").get(id) as Playlist | undefined;
         },
 
         createPlaylist(name: string, description?: string, isPublic = false): number {
@@ -1171,6 +1182,10 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updatePlaylistVisibility(id: number, isPublic: boolean): void {
             db.prepare("UPDATE playlists SET is_public = ? WHERE id = ?").run(isPublic ? 1 : 0, id);
+        },
+
+        updatePlaylistCover(id: number, coverPath: string | null): void {
+            db.prepare("UPDATE playlists SET cover_path = ? WHERE id = ?").run(coverPath, id);
         },
 
         deletePlaylist(id: number): void {

@@ -118,8 +118,16 @@ export const MyPlaylists = () => {
             >
               <div className="card-body">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center">
-                    <Music size={20} className="text-pink-300" />
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center overflow-hidden">
+                    {p.coverUrl ? (
+                      <img
+                        src={p.coverUrl}
+                        className="w-full h-full object-cover"
+                        alt=""
+                      />
+                    ) : (
+                      <Music size={20} className="text-pink-300" />
+                    )}
                   </div>
                   <h2 className="card-title text-lg group-hover:text-primary transition-colors flex-1 truncate">
                     {p.name}

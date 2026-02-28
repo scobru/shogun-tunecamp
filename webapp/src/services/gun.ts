@@ -164,7 +164,7 @@ export const GunPlaylists = {
     /**
      * Create a new playlist
      */
-    createPlaylist: (name: string, description?: string, isPublic: boolean = false): Promise<UserPlaylist> => {
+    createPlaylist: (name: string, description?: string, isPublic: boolean = false, coverUrl?: string): Promise<UserPlaylist> => {
         return new Promise((resolve, reject) => {
             if (!user.is) return reject(new Error('Not logged in'));
 
@@ -174,6 +174,7 @@ export const GunPlaylists = {
                 id,
                 name,
                 description: description || '',
+                coverUrl: coverUrl || '',
                 ownerPub: user.is.pub as string,
                 ownerAlias: user.is.alias as string,
                 isPublic,
@@ -233,6 +234,7 @@ export const GunPlaylists = {
                     id: data.id,
                     name: data.name || 'Untitled',
                     description: data.description || '',
+                    coverUrl: data.coverUrl || '',
                     ownerPub: data.ownerPub || '',
                     ownerAlias: data.ownerAlias || '',
                     isPublic: data.isPublic || false,
@@ -269,6 +271,7 @@ export const GunPlaylists = {
                     id: data.id,
                     name: data.name || 'Untitled',
                     description: data.description || '',
+                    coverUrl: data.coverUrl || '',
                     ownerPub: data.ownerPub || '',
                     ownerAlias: data.ownerAlias || '',
                     isPublic: data.isPublic || false,
@@ -316,7 +319,7 @@ export const GunPlaylists = {
     /**
      * Update playlist metadata
      */
-    updatePlaylist: (id: string, updates: { name?: string; description?: string; isPublic?: boolean }): Promise<void> => {
+    updatePlaylist: (id: string, updates: { name?: string; description?: string; isPublic?: boolean; coverUrl?: string }): Promise<void> => {
         return new Promise((resolve, reject) => {
             if (!user.is) return reject(new Error('Not logged in'));
 
@@ -324,6 +327,7 @@ export const GunPlaylists = {
             if (updates.name !== undefined) updateData.name = updates.name;
             if (updates.description !== undefined) updateData.description = updates.description;
             if (updates.isPublic !== undefined) updateData.isPublic = updates.isPublic;
+            if (updates.coverUrl !== undefined) updateData.coverUrl = updates.coverUrl;
 
             let resolved = false;
             const playlistNode = user.get(PLAYLISTS_NODE).get(id);

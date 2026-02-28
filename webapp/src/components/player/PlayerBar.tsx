@@ -391,7 +391,15 @@ export const PlayerBar = () => {
   // Sync volume
   useEffect(() => {
     if (!isExternal && audioRef.current) audioRef.current.volume = volume;
-  }, [volume, isExternal]);
+    if (
+      isYoutube &&
+      window._ytReady &&
+      window._ytPlayer &&
+      window._ytPlayer.setVolume
+    ) {
+      window._ytPlayer.setVolume(volume * 100);
+    }
+  }, [volume, isExternal, isYoutube]);
 
   // Handle manual seek from waveform/progress bar
   const handleSeek = useCallback(

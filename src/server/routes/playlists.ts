@@ -43,17 +43,19 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
 
     /**
      * PUT /api/playlists/:id
-     * Update playlist (rename, visibility)
+     * Update playlist (rename, visibility, cover)
      */
     router.put("/:id", (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
         try {
             const id = parseInt(req.params.id as string, 10);
-            const { isPublic } = req.body;
+            const { isPublic, coverPath } = req.body;
 
-            // For now only supports toggling visibility
             if (isPublic !== undefined) {
                 database.updatePlaylistVisibility(id, isPublic);
+            }
+            if (coverPath !== undefined) {
+                database.updatePlaylistCover(id, coverPath || null);
             }
 
             res.json({ message: "Playlist updated" });
