@@ -164,7 +164,7 @@ export const GunPlaylists = {
     /**
      * Create a new playlist
      */
-    createPlaylist: (name: string, description?: string): Promise<UserPlaylist> => {
+    createPlaylist: (name: string, description?: string, isPublic: boolean = false): Promise<UserPlaylist> => {
         return new Promise((resolve, reject) => {
             if (!user.is) return reject(new Error('Not logged in'));
 
@@ -176,6 +176,7 @@ export const GunPlaylists = {
                 description: description || '',
                 ownerPub: user.is.pub as string,
                 ownerAlias: user.is.alias as string,
+                isPublic,
                 createdAt: now,
                 updatedAt: now,
                 tracksJson: '[]' // Store tracks as JSON string for GunDB compatibility
@@ -189,16 +190,18 @@ export const GunPlaylists = {
                     console.warn("GunDB createPlaylist ack error (ignoring):", ack.err);
                 } else {
                     resolved = true;
-                    // Add edge to public index so unauthenticated users can resolve it
-                    gun.get('tunecamp-public-playlists').get(id).put(playlistNode);
+                    if (isPublic) {
+                        gun.get('tunecamp-public-playlists').get(id).put(playlistNode);
+                    }
                     resolve({ ...playlist, tracks: [], trackCount: 0 });
                 }
             });
             setTimeout(() => {
                 if (!resolved) {
                     resolved = true;
-                    // Fallback edge creation
-                    gun.get('tunecamp-public-playlists').get(id).put(playlistNode);
+                    if (isPublic) {
+                        gun.get('tunecamp-public-playlists').get(id).put(playlistNode);
+                    }
                     resolve({ ...playlist, tracks: [], trackCount: 0 });
                 }
             }, 3000);
@@ -232,6 +235,7 @@ export const GunPlaylists = {
                     description: data.description || '',
                     ownerPub: data.ownerPub || '',
                     ownerAlias: data.ownerAlias || '',
+                    isPublic: data.isPublic || false,
                     createdAt: data.createdAt || 0,
                     updatedAt: data.updatedAt || 0,
                     tracks,
@@ -267,6 +271,7 @@ export const GunPlaylists = {
                     description: data.description || '',
                     ownerPub: data.ownerPub || '',
                     ownerAlias: data.ownerAlias || '',
+                    isPublic: data.isPublic || false,
                     createdAt: data.createdAt || 0,
                     updatedAt: data.updatedAt || 0,
                     tracks,
@@ -311,27 +316,44 @@ export const GunPlaylists = {
     /**
      * Update playlist metadata
      */
-    updatePlaylist: (id: string, updates: { name?: string; description?: string }): Promise<void> => {
+    updatePlaylist: (id: string, updates: { name?: string; description?: string; isPublic?: boolean }): Promise<void> => {
         return new Promise((resolve, reject) => {
             if (!user.is) return reject(new Error('Not logged in'));
 
             const updateData: any = { updatedAt: Date.now() };
             if (updates.name !== undefined) updateData.name = updates.name;
             if (updates.description !== undefined) updateData.description = updates.description;
+            if (updates.isPublic !== undefined) updateData.isPublic = updates.isPublic;
 
             let resolved = false;
-            user.get(PLAYLISTS_NODE).get(id).put(updateData, (ack: any) => {
+            const playlistNode = user.get(PLAYLISTS_NODE).get(id);
+            playlistNode.put(updateData, (ack: any) => {
                 if (resolved) return;
                 if (ack.err) {
                     console.warn("GunDB updatePlaylist ack error (ignoring):", ack.err);
                 } else {
                     resolved = true;
+                    if (updates.isPublic !== undefined) {
+                        if (updates.isPublic) {
+                            gun.get('tunecamp-public-playlists').get(id).put(playlistNode);
+                        } else {
+                            // To remove an edge in Gun, you set it to null
+                            gun.get('tunecamp-public-playlists').get(id).put(null as any);
+                        }
+                    }
                     resolve();
                 }
             });
             setTimeout(() => {
                 if (!resolved) {
                     resolved = true;
+                    if (updates.isPublic !== undefined) {
+                        if (updates.isPublic) {
+                            gun.get('tunecamp-public-playlists').get(id).put(playlistNode);
+                        } else {
+                            gun.get('tunecamp-public-playlists').get(id).put(null as any);
+                        }
+                    }
                     resolve();
                 }
             }, 3000);

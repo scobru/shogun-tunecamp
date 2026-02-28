@@ -13,6 +13,8 @@ import {
   Youtube,
   ArrowLeft,
   MoreHorizontal,
+  Unlock,
+  Lock,
 } from "lucide-react";
 import type { UserPlaylist, UserPlaylistTrack, Track } from "../types";
 import { AddTrackToUserPlaylistModal } from "../components/modals/AddTrackToUserPlaylistModal";
@@ -113,6 +115,19 @@ export const MyPlaylistDetails = () => {
     }
   };
 
+  const handleToggleVisibility = async () => {
+    if (!playlist) return;
+    try {
+      await GunPlaylists.updatePlaylist(playlist.id, {
+        isPublic: !playlist.isPublic,
+      });
+      setPlaylist({ ...playlist, isPublic: !playlist.isPublic });
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update playlist visibility");
+    }
+  };
+
   const handlePlayTrack = (track: UserPlaylistTrack) => {
     if (!playlist) return;
     const playable = toPlayableTrack(track);
@@ -191,6 +206,22 @@ export const MyPlaylistDetails = () => {
                   onClick={handleDelete}
                 >
                   <Trash2 size={16} /> Delete Playlist
+                </button>
+                <button
+                  className={`btn btn-sm btn-outline gap-2 ${playlist.isPublic ? "btn-success" : "text-opacity-70"}`}
+                  onClick={handleToggleVisibility}
+                  title={
+                    playlist.isPublic
+                      ? "Visible to everyone"
+                      : "Only visible to you"
+                  }
+                >
+                  {playlist.isPublic ? (
+                    <Unlock size={16} />
+                  ) : (
+                    <Lock size={16} />
+                  )}
+                  {playlist.isPublic ? "Public" : "Private"}
                 </button>
               </>
             )}

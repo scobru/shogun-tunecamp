@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../stores/useAuthStore";
 import { Link } from "react-router-dom";
-import { ListMusic, Plus, Heart, Music } from "lucide-react";
+import { ListMusic, Plus, Heart, Music, Lock, Unlock } from "lucide-react";
 import type { UserPlaylist } from "../types";
 import { GunPlaylists } from "../services/gun";
 import { CreateUserPlaylistModal } from "../components/modals/CreateUserPlaylistModal";
@@ -132,9 +132,16 @@ export const MyPlaylists = () => {
                 )}
 
                 <div className="card-actions justify-between mt-4 items-center">
-                  <span className="text-xs opacity-50">
-                    {p.trackCount} tracks
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs opacity-50">
+                      {p.trackCount} tracks
+                    </span>
+                    <span className="opacity-30">•</span>
+                    <span className="text-xs opacity-50 flex items-center gap-1">
+                      {p.isPublic ? <Unlock size={12} /> : <Lock size={12} />}
+                      {p.isPublic ? "Public" : "Private"}
+                    </span>
+                  </div>
                   <span className="text-xs opacity-40">
                     {p.updatedAt
                       ? new Date(p.updatedAt).toLocaleDateString()

@@ -13,6 +13,7 @@ export const CreateUserPlaylistModal = ({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   const [loading, setLoading] = useState(false);
   const { isAuthenticated } = useAuthStore();
   const [error, setError] = useState("");
@@ -38,11 +39,16 @@ export const CreateUserPlaylistModal = ({
     setError("");
 
     try {
-      const newPlaylist = await GunPlaylists.createPlaylist(name, description);
+      const newPlaylist = await GunPlaylists.createPlaylist(
+        name,
+        description,
+        isPublic,
+      );
       onCreated?.(newPlaylist);
       dialogRef.current?.close();
       setName("");
       setDescription("");
+      setIsPublic(false);
     } catch (e: any) {
       setError(e.message || "Failed to create playlist");
     } finally {
@@ -91,6 +97,20 @@ export const CreateUserPlaylistModal = ({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description..."
             />
+          </div>
+
+          <div className="form-control">
+            <label className="label cursor-pointer justify-start gap-4">
+              <input
+                type="checkbox"
+                className="checkbox checkbox-primary"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+              />
+              <span className="label-text">
+                Make playlist public (visible to everyone)
+              </span>
+            </label>
           </div>
 
           {error && <div className="text-error text-sm">{error}</div>}

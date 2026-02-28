@@ -183,6 +183,7 @@ export interface UserPlaylist {
     description?: string;
     ownerPub: string;
     ownerAlias: string;
+    isPublic?: boolean;
     createdAt: number;
     updatedAt: number;
     tracks: UserPlaylistTrack[];
