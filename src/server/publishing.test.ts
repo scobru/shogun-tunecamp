@@ -109,7 +109,10 @@ describe('PublishingService - Visibility Toggle', () => {
             bitrate: 320,
             sample_rate: 44100,
             lossless_path: null,
-            waveform: null
+            waveform: null,
+            url: null,
+            service: null,
+            external_artwork: null
         });
 
         // 2. Sync (should register)
