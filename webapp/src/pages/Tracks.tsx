@@ -134,11 +134,7 @@ export const Tracks = () => {
                   <td className="font-bold">
                     <div className="flex items-center gap-2">
                       {track.title}
-                      {track.service && track.service !== "local" && (
-                        <span className="badge badge-primary badge-outline badge-xs opacity-70 font-mono scale-90 uppercase">
-                          {track.service}
-                        </span>
-                      )}
+
                       {track.losslessPath ? (
                         <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90">
                           {track.losslessPath.toLowerCase().endsWith(".wav")
