@@ -123,7 +123,6 @@ export const PlayerBar = () => {
       ensureYTApi();
       window.onYouTubeIframeAPIReady = () => {
         window._ytPlayer = new window.YT.Player("tc-yt-player-div", {
-          host: "https://www.youtube-nocookie.com",
           height: "200",
           width: "300",
           playerVars: {

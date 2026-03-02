@@ -5,15 +5,18 @@ import API from './api';
 import type { UserPlaylist, UserPlaylistTrack } from '../types';
 
 
-// Define Gun peers (should be configurable)
-// Define Gun peers (should be configurable)
-const PEERS = import.meta.env.VITE_GUN_PEERS?.split(',') || [
+const defaultPeers = [
     "https://shogun-relay.scobrudot.dev/gun",
     "https://gun.defucc.me/gun",
     "https://gun.o8.is/gun",
-    "https://relay.peer.ooo/gun",
-    "http://localhost:1970/gun"
+    "https://relay.peer.ooo/gun"
 ];
+
+if (import.meta.env.DEV || window.location.hostname === 'localhost') {
+    defaultPeers.push("http://localhost:1970/gun");
+}
+
+const PEERS = import.meta.env.VITE_GUN_PEERS?.split(',') || defaultPeers;
 
 // Initialize Gun
 const gun = Gun({
