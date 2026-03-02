@@ -17,37 +17,6 @@ import { LyricsPanel } from "./LyricsPanel";
 import { QueuePanel } from "./QueuePanel";
 import { ScrollingText } from "../ui/ScrollingText";
 
-// ─── YouTube IFrame API (same technique as shogun-space) ───────────────────
-declare global {
-  interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: () => void;
-    _ytApiLoading: boolean;
-    _ytPlayer: any;
-    _ytReady: boolean;
-  }
-}
-
-function ensureYTApi() {
-  if (window._ytApiLoading || (window.YT && window.YT.Player)) return;
-  window._ytApiLoading = true;
-  const tag = document.createElement("script");
-  tag.src = "https://www.youtube.com/iframe_api";
-  document.head.appendChild(tag);
-}
-
-const YT_RE =
-  /(?:https?:\/\/)?(?:(?:www|music)\.)?(?:youtube\.com\/(?:watch\?(?:[^&]*&)*v=|embed\/|shorts\/|v\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-
-const getYoutubeId = (url: string) => {
-  if (!url) return null;
-  const match = url.match(YT_RE);
-  if (match) return match[1];
-  // Fallback for 11-char IDs
-  if (url.length === 11 && /^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
-  return null;
-};
-
 export const PlayerBar = () => {
   const {
     currentTrack,
@@ -71,196 +40,28 @@ export const PlayerBar = () => {
   } = usePlayerStore();
 
   const audioRef = useRef<HTMLAudioElement>(null);
-  const externalDurationRef = useRef<number>(0);
-  const ytTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [localWaveform, setLocalWaveform] = useState<string | number[] | null>(
     null,
   );
-
-  const service = (currentTrack?.service || "").toLowerCase();
-  const url = (currentTrack?.url || "").toLowerCase();
-
-  const isYoutube = !!(
-    currentTrack?.url &&
-    (service === "youtube" ||
-      url.includes("youtube.com") ||
-      url.includes("youtu.be"))
-  );
-
-  const isExternal = !!(
-    currentTrack?.url &&
-    (service === "youtube" ||
-      service === "soundcloud" ||
-      service === "spotify" ||
-      service === "external" ||
-      url.includes("youtube.com") ||
-      url.includes("youtu.be") ||
-      url.includes("soundcloud.com") ||
-      url.includes("spotify.com"))
-  );
-
-  // ─── Ensure YT IFrame API is loaded once ──────────────────────────────
-  // The player div is created imperatively in document.body (outside React's
-  // virtual DOM) because the YT IFrame API replaces the div with an <iframe>,
-  // which would cause React removeChild errors during reconciliation.
-  useEffect(() => {
-    // Create host div in document.body if it doesn't exist
-    let container = document.getElementById("tc-yt-host");
-    if (!container) {
-      container = document.createElement("div");
-      container.id = "tc-yt-host";
-      // Position in viewport but hidden under UI (bottom: 0 instead of top: -9999px)
-      // to bypass strict incognito visibility checks
-      container.style.cssText =
-        "position:fixed;width:300px;height:200px;bottom:0;left:0;overflow:hidden;z-index:-100;opacity:0.01;pointer-events:none;";
-      const playerDiv = document.createElement("div");
-      playerDiv.id = "tc-yt-player-div";
-      container.appendChild(playerDiv);
-      document.body.appendChild(container);
-    }
-
-    if (!window._ytReady && !window._ytPlayer) {
-      ensureYTApi();
-      window.onYouTubeIframeAPIReady = () => {
-        window._ytPlayer = new window.YT.Player("tc-yt-player-div", {
-          height: "200",
-          width: "300",
-          playerVars: {
-            autoplay: 0,
-            controls: 0,
-            rel: 0,
-            fs: 0,
-            modestbranding: 1,
-            origin: window.location.origin, // Helps with some CORS/embed policies
-          },
-          events: {
-            onReady: () => {
-              window._ytReady = true;
-            },
-            onStateChange: (e: any) => {
-              if (e.data === 0) {
-                // ENDED
-                usePlayerStore.getState().next();
-              }
-            },
-          },
-        });
-      };
-      // If API was already loaded (e.g. hot reload), fire manually
-      if (window.YT && window.YT.Player && !window._ytPlayer) {
-        window.onYouTubeIframeAPIReady();
-      }
-    }
-  }, []);
-
-  // ─── YouTube playback control (IFrame API) ────────────────────────────
-  useEffect(() => {
-    if (!isYoutube || !currentTrack?.url) return;
-
-    const ytId = getYoutubeId(currentTrack.url);
-    if (!ytId) return;
-
-    // Stop local audio
-    if (audioRef.current && !audioRef.current.paused) {
-      audioRef.current.pause();
-    }
-
-    const tryLoad = () => {
-      if (!window._ytReady || !window._ytPlayer) {
-        setTimeout(tryLoad, 300);
-        return;
-      }
-      const currentId = window._ytPlayer.getVideoData?.()?.video_id;
-      if (currentId === ytId) {
-        // Same video: just play/pause
-        if (isPlaying) window._ytPlayer.playVideo();
-        else window._ytPlayer.pauseVideo();
-      } else {
-        // New video: load and play
-        window._ytPlayer.loadVideoById(ytId);
-        setIsPlaying(true);
-      }
-    };
-    tryLoad();
-
-    // Progress polling
-    if (ytTimerRef.current) clearInterval(ytTimerRef.current);
-    ytTimerRef.current = setInterval(() => {
-      if (!window._ytPlayer || !window._ytReady) return;
-      try {
-        const ct = window._ytPlayer.getCurrentTime?.() || 0;
-        const dur =
-          window._ytPlayer.getDuration?.() || externalDurationRef.current || 0;
-        if (dur > 0) externalDurationRef.current = dur;
-        setProgress(ct, dur);
-      } catch (_) {
-        /* ignore */
-      }
-    }, 500);
-
-    return () => {
-      if (ytTimerRef.current) clearInterval(ytTimerRef.current);
-    };
-  }, [currentTrack?.url, isYoutube]);
-
-  // ─── Play/pause toggle for YouTube ────────────────────────────────────
-  useEffect(() => {
-    if (!isYoutube || !window._ytReady || !window._ytPlayer) return;
-    if (isPlaying) window._ytPlayer.playVideo();
-    else window._ytPlayer.pauseVideo();
-  }, [isPlaying, isYoutube]);
 
   // ─── Unified Playback Control (local audio) ────────────────────────────
   useEffect(() => {
     if (!audioRef.current) return;
 
-    if (isExternal) {
-      // Pause local audio when playing external
-      if (!audioRef.current.paused) {
-        audioRef.current.pause();
+    if (isPlaying && audioRef.current.paused) {
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          if (err.name !== "AbortError") {
+            console.error("[Player] Local playback failed:", err);
+            setIsPlaying(false);
+          }
+        });
       }
-    } else {
-      // Stop YouTube player when switching to a local track
-      if (window._ytReady && window._ytPlayer) {
-        try {
-          window._ytPlayer.stopVideo();
-        } catch (_) {
-          /* ignore */
-        }
-      }
-      // Clear YT progress polling
-      if (ytTimerRef.current) {
-        clearInterval(ytTimerRef.current);
-        ytTimerRef.current = null;
-      }
-
-      // Sync local audio state
-      if (isPlaying && audioRef.current.paused) {
-        const playPromise = audioRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((err) => {
-            if (err.name !== "AbortError") {
-              console.error("[Player] Local playback failed:", err);
-              setIsPlaying(false);
-            }
-          });
-        }
-      } else if (!isPlaying && !audioRef.current.paused) {
-        audioRef.current.pause();
-      }
+    } else if (!isPlaying && !audioRef.current.paused) {
+      audioRef.current.pause();
     }
-  }, [isPlaying, isExternal, currentTrack, setIsPlaying]);
-
-  useEffect(() => {
-    if (isExternal && currentTrack) {
-      console.log("[Player] External track detected:", {
-        id: currentTrack.id,
-        title: currentTrack.title,
-        url: currentTrack.url,
-        service: currentTrack.service,
-      });
-    }
-  }, [isExternal, currentTrack]);
+  }, [isPlaying, currentTrack, setIsPlaying]);
 
   // Seed duration from track metadata so seeking works on transcoded streams
   // (where the browser can't determine duration from the chunked response)
@@ -277,7 +78,7 @@ export const PlayerBar = () => {
   useEffect(() => {
     if (!currentTrack) return;
 
-    if (!isExternal && audioRef.current) {
+    if (audioRef.current) {
       const audio = audioRef.current;
 
       const isLosslessFormat =
@@ -316,7 +117,7 @@ export const PlayerBar = () => {
     }
 
     // Fetch Waveform SVG asynchronously if not already present
-    if (!currentTrack.waveform && currentTrack.id && !isExternal) {
+    if (!currentTrack.waveform && currentTrack.id) {
       fetch(`/api/waveform/${currentTrack.id}`)
         .then((res) => {
           if (res.ok) return res.text();
@@ -332,7 +133,7 @@ export const PlayerBar = () => {
       setLocalWaveform(currentTrack.waveform || null);
     }
 
-    if (!isExternal && audioRef.current) {
+    if (audioRef.current) {
       const audio = audioRef.current;
       const updateTime = () => {
         const d =
@@ -387,34 +188,16 @@ export const PlayerBar = () => {
         audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
       };
     }
-  }, [currentTrack, setIsPlaying, setProgress, next, isExternal]);
-
-  // Play/pause state is already synced in Unified Playback Control effect
+  }, [currentTrack, setIsPlaying, setProgress, next]);
 
   // Sync volume
   useEffect(() => {
-    if (!isExternal && audioRef.current) audioRef.current.volume = volume;
-    if (
-      isYoutube &&
-      window._ytReady &&
-      window._ytPlayer &&
-      window._ytPlayer.setVolume
-    ) {
-      window._ytPlayer.setVolume(volume * 100);
-    }
-  }, [volume, isExternal, isYoutube]);
+    if (audioRef.current) audioRef.current.volume = volume;
+  }, [volume]);
 
   // Handle manual seek from waveform/progress bar
   const handleSeek = useCallback(
     (percent: number) => {
-      if (isYoutube && window._ytReady && window._ytPlayer) {
-        const dur = externalDurationRef.current || duration;
-        if (dur > 0) {
-          window._ytPlayer.seekTo(percent * dur, true);
-        }
-        return;
-      }
-
       if (audioRef.current) {
         const d =
           Number.isFinite(duration) && duration > 0
@@ -430,7 +213,7 @@ export const PlayerBar = () => {
         }
       }
     },
-    [duration, isYoutube],
+    [duration],
   );
 
   if (!currentTrack)
@@ -440,19 +223,12 @@ export const PlayerBar = () => {
       </div>
     );
 
-  // Resolve cover URL (currentTrack is guaranteed non-null here)
+  // Resolve cover URL
   let coverUrl =
-    currentTrack.externalArtwork ||
-    currentTrack.coverUrl ||
     currentTrack.coverImage ||
+    currentTrack.coverUrl ||
     (currentTrack.albumId ? API.getAlbumCoverUrl(currentTrack.albumId) : "") ||
     (currentTrack.artistId ? API.getArtistCoverUrl(currentTrack.artistId) : "");
-
-  // Auto-generate YouTube thumbnail if missing
-  if (!coverUrl && currentTrack.service === "youtube" && currentTrack.url) {
-    const ytId = getYoutubeId(currentTrack.url);
-    if (ytId) coverUrl = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
-  }
 
   return (
     <>
@@ -461,12 +237,10 @@ export const PlayerBar = () => {
           ref={audioRef}
           className="hidden"
           onError={(e) => {
-            if (!isExternal) {
-              console.error(
-                "[Player] Audio Element Error:",
-                e.currentTarget.error,
-              );
-            }
+            console.error(
+              "[Player] Audio Element Error:",
+              e.currentTarget.error,
+            );
           }}
         />
 

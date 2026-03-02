@@ -12,8 +12,6 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
   const [artistId, setArtistId] = useState("");
   const [albumId, setAlbumId] = useState("");
   const [trackId, setTrackId] = useState<string | null>(null);
-  const [url, setUrl] = useState("");
-  const [service, setService] = useState("");
   const [trackNum, setTrackNum] = useState<string>("");
 
   // Dropdown data
@@ -31,8 +29,6 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         setArtistId(e.detail.artist_id ? String(e.detail.artist_id) : "");
         setAlbumId(e.detail.album_id ? String(e.detail.album_id) : "");
         setTrackNum(e.detail.track_num ? String(e.detail.track_num) : "");
-        setUrl(e.detail.url || "");
-        setService(e.detail.service || "local");
 
         loadData();
         dialogRef.current?.showModal();
@@ -98,8 +94,6 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         artistId: artistId ? artistId : null, // explicit null if empty
         albumId: albumId ? albumId : null,
         trackNumber: trackNum ? parseInt(trackNum) : undefined,
-        url: url || null,
-        service: service || "local",
       } as any);
 
       onTrackUpdated();
@@ -174,7 +168,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="form-control">
               <label className="label">
                 <span className="label-text">Track Number</span>
@@ -186,32 +180,6 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
                 onChange={(e) => setTrackNum(e.target.value)}
               />
             </div>
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text">Service</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={service}
-                onChange={(e) => setService(e.target.value)}
-              >
-                <option value="local">Local</option>
-                <option value="youtube">YouTube</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text">External URL</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered w-full"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://..."
-            />
           </div>
 
           {error && (

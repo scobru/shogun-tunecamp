@@ -20,9 +20,6 @@ export interface Track {
     lyrics?: string;
     streamUrl?: string; // For remote/network tracks
     coverUrl?: string; // For remote/network tracks
-    url?: string; // External URL (YouTube, etc.)
-    service?: 'youtube' | 'spotify' | 'soundcloud' | 'local' | 'external';
-    externalArtwork?: string;
 }
 
 export interface Artist {
@@ -166,8 +163,7 @@ export interface UserPlaylistTrack {
     id: string;
     title: string;
     artistName: string;
-    source: 'youtube' | 'tunecamp';
-    url?: string;         // YouTube URL
+    source: 'tunecamp';
     streamUrl?: string;   // TuneCamp stream URL
     coverUrl?: string;
     albumName?: string;

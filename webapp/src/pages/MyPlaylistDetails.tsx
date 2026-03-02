@@ -10,7 +10,6 @@ import {
   Clock,
   Plus,
   Heart,
-  Youtube,
   ArrowLeft,
   MoreHorizontal,
   Unlock,
@@ -24,23 +23,6 @@ import { AddTrackToUserPlaylistModal } from "../components/modals/AddTrackToUser
  * Convert a UserPlaylistTrack to a playable Track object for the player store
  */
 function toPlayableTrack(upt: UserPlaylistTrack): Track {
-  if (upt.source === "youtube") {
-    return {
-      id: upt.id,
-      title: upt.title,
-      artistId: "",
-      artistName: upt.artistName,
-      albumId: "",
-      albumName: upt.albumName,
-      duration: upt.duration || 0,
-      path: "",
-      filename: "",
-      playCount: 0,
-      url: upt.url,
-      service: "youtube",
-      externalArtwork: upt.coverUrl,
-    };
-  }
   // TuneCamp track
   return {
     id: upt.tunecampTrackId || upt.id,
@@ -317,18 +299,6 @@ export const MyPlaylistDetails = () => {
                       <div>
                         <div className="font-bold flex items-center gap-2">
                           {track.title}
-                          {track.source === "youtube" && track.url && (
-                            <a
-                              href={track.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="opacity-40 hover:opacity-100 hover:text-red-400 transition-opacity"
-                              onClick={(e) => e.stopPropagation()}
-                              title="Open on YouTube"
-                            >
-                              <Youtube size={12} />
-                            </a>
-                          )}
                         </div>
                         <div className="text-xs opacity-50">
                           {track.artistName}
@@ -337,15 +307,9 @@ export const MyPlaylistDetails = () => {
                     </div>
                   </td>
                   <td>
-                    <div
-                      className={`badge badge-sm gap-1 ${track.source === "youtube" ? "badge-error badge-outline" : "badge-primary badge-outline"}`}
-                    >
-                      {track.source === "youtube" ? (
-                        <Youtube size={10} />
-                      ) : (
-                        <Music size={10} />
-                      )}
-                      {track.source === "youtube" ? "YouTube" : "TuneCamp"}
+                    <div className="badge badge-sm gap-1 badge-primary badge-outline">
+                      <Music size={10} />
+                      TuneCamp
                     </div>
                   </td>
                   <td className="text-right opacity-50 font-mono text-xs">

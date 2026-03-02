@@ -161,34 +161,6 @@ export class CatalogParser {
       }
     }
 
-    // Process tracks defined in releaseConfig if any (e.g. external URLs)
-    if (releaseConfig && releaseConfig.metadata?.tracks) {
-      const configTracks = releaseConfig.metadata.tracks as any[];
-      for (const ct of configTracks) {
-        if (ct.url) {
-          const trimmedUrl = String(ct.url).trim();
-          const service = (ct.service as any) || (trimmedUrl.includes('youtube') ? 'youtube' : trimmedUrl.includes('spotify') ? 'spotify' : trimmedUrl.includes('soundcloud') ? 'soundcloud' : 'local');
-          
-          let externalArtwork = ct.artwork;
-          if (!externalArtwork && service === 'youtube') {
-            const ytMatch = trimmedUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
-            const ytId = ytMatch ? ytMatch[1] : null;
-            if (ytId) {
-              externalArtwork = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-            }
-          }
-
-          tracks.push({
-            id: createSlug(ct.title || 'external-track'),
-            url: trimmedUrl,
-            filename: trimmedUrl,
-            title: ct.title || 'External Track',
-            service: service,
-            externalArtwork: externalArtwork,
-          } as any);
-        }
-      }
-    }
 
     // Sort by track number or filename
     tracks.sort((a, b) => {
