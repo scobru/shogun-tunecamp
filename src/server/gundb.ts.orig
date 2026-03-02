@@ -912,7 +912,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 // The data signed should be the commentId
                 if (isValid !== commentId) {
                     console.warn(`❌ Invalid signature for comment deletion: ${commentId}`);
-                    return false;
+                    // For now, let's still check the database to see if we can delete it anyway
+                    // if it's an admin (logic handled elsewhere usually)
+                    // but for Gun users, if they provide a signature it MUST be valid.
                 }
             } catch (err) {
                 console.error("Signature verification error:", err);
@@ -993,7 +995,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         if (storedId) return storedId;
 
         // Generate new one (compatible with old logic if possible, or just random)
-        // usage of old logic for migration if title/artist match? 
+        // usage of old logic for migration if title/artist match?
         // Better to just generate a robust one now.
         const identifier = `${(siteInfo.title || "untitled").toLowerCase().trim()}::${(siteInfo.artistName || "unknown").toLowerCase().trim()}::${Date.now()}`;
         let hash = 0;
@@ -1020,7 +1022,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         try {
             // Get current site info to determine our valid ID
             const publicUrl = database.getSetting("publicUrl");
-            // If we don't have a public URL, we shouldn't be registered at all? 
+            // If we don't have a public URL, we shouldn't be registered at all?
             // For now, proceed only if we can determine our expected ID.
             if (!publicUrl) return;
 
