@@ -6,7 +6,7 @@ import { parse } from "yaml";
 
 import type { DatabaseService, Artist, Album, Track } from "./database.js";
 import { WaveformService } from "./waveform.js";
-import { slugify, getStandardCoverFilename, detectService, getExternalArtworkUrl } from "../utils/audioUtils.js";
+import { slugify, getStandardCoverFilename } from "../utils/audioUtils.js";
 import { convertWavToMp3, getDurationFromFfmpeg } from "./ffmpeg.js";
 
 /**
@@ -362,8 +362,8 @@ export class Scanner implements ScannerService {
                                 lossless_path: null,
                                 waveform: null,
                                 url: trimmedUrl,
-                                service: tc.service || detectService(trimmedUrl),
-                                external_artwork: tc.artwork || getExternalArtworkUrl(trimmedUrl) || null
+                                service: tc.service || 'local',
+                                external_artwork: tc.artwork || null
                             });
                             console.log(`  Added external track to DB: ${trackTitle}`);
                         }
