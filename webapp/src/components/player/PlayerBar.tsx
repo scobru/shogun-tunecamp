@@ -109,9 +109,10 @@ export const PlayerBar = () => {
     if (!container) {
       container = document.createElement("div");
       container.id = "tc-yt-host";
-      // Position far off-screen but with size so it doesn't look like an audio-only tracker
+      // Position in viewport but hidden under UI (bottom: 0 instead of top: -9999px)
+      // to bypass strict incognito visibility checks
       container.style.cssText =
-        "position:fixed;width:300px;height:200px;top:-9999px;left:-9999px;overflow:hidden;z-index:-1;opacity:0.01;pointer-events:none;";
+        "position:fixed;width:300px;height:200px;bottom:0;left:0;overflow:hidden;z-index:-100;opacity:0.01;pointer-events:none;";
       const playerDiv = document.createElement("div");
       playerDiv.id = "tc-yt-player-div";
       container.appendChild(playerDiv);
@@ -122,6 +123,7 @@ export const PlayerBar = () => {
       ensureYTApi();
       window.onYouTubeIframeAPIReady = () => {
         window._ytPlayer = new window.YT.Player("tc-yt-player-div", {
+          host: "https://www.youtube-nocookie.com",
           height: "200",
           width: "300",
           playerVars: {
