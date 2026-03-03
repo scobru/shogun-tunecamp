@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { GunProfile } from './gun';
+
 
 // Base Mainnet RPC configuration
 const BASE_RPC_URL = import.meta.env.VITE_TUNECAMP_RPC_URL || 'https://mainnet.base.org';
