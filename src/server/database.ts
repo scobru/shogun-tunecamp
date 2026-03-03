@@ -53,6 +53,7 @@ export interface Album {
     type: 'album' | 'single' | 'ep' | null; // Added
     year: number | null; // Added
     download: string | null; // 'free' | 'paid' | null
+    price: number | null; // Added
     external_links: string | null; // JSON string of ExternalLink[]
     is_public: boolean;
     visibility: 'public' | 'private' | 'unlisted'; // Added
@@ -76,6 +77,7 @@ export interface Track {
     format: string | null;
     bitrate: number | null;
     sample_rate: number | null;
+    price: number | null; // Added
     lossless_path: string | null;
     waveform: string | null; // JSON string of number[]
     url: string | null;
@@ -175,6 +177,7 @@ export interface DatabaseService {
     updateAlbumTitle(id: number, title: string): void;
     updateAlbumCover(id: number, coverPath: string): void;
     updateAlbumDownload(id: number, download: string | null): void;
+    updateAlbumPrice(id: number, price: number | null): void;
     updateAlbumLinks(id: number, links: string | null): void;
     promoteToRelease(id: number): void; // Mark library album as release
     deleteAlbum(id: number, keepTracks?: boolean): void;
@@ -190,6 +193,7 @@ export interface DatabaseService {
     getTrackByMetadata(title: string, artistId: number | null, albumId: number | null): Track | undefined;
     updateTrackTitle(id: number, title: string): void;
     updateTrackPath(id: number, filePath: string, albumId: number | null): void;
+    updateTrackPrice(id: number, price: number | null): void;
     updateTrackDuration(id: number, duration: number): void;
     updateTrackWaveform(id: number, waveform: string): void;
     updateTrackLosslessPath(id: number, losslessPath: string | null): void;
@@ -321,6 +325,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       genre TEXT,
       description TEXT,
       download TEXT,
+      price REAL DEFAULT 0,
       external_links TEXT,
       is_public INTEGER DEFAULT 0,
       visibility TEXT DEFAULT 'private',
@@ -342,6 +347,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       format TEXT,
       bitrate INTEGER,
       sample_rate INTEGER,
+      price REAL DEFAULT 0,
       waveform TEXT,
       url TEXT,
       service TEXT,
@@ -464,6 +470,19 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.log("📦 Migrated database: added download column");
     } catch (e) {
         // Column already exists, ignore
+    }
+
+    // Migration: Add price columns 
+    try {
+        db.exec(`ALTER TABLE albums ADD COLUMN price REAL DEFAULT 0`);
+        console.log("📦 Migrated database: added price column to albums");
+    } catch (e) {
+    }
+
+    try {
+        db.exec(`ALTER TABLE tracks ADD COLUMN price REAL DEFAULT 0`);
+        console.log("📦 Migrated database: added price column to tracks");
+    } catch (e) {
     }
 
     // Migration: Add external_links column if it doesn't exist
@@ -630,6 +649,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                         format TEXT,
                         bitrate INTEGER,
                         sample_rate INTEGER,
+                        price REAL DEFAULT 0,
                         waveform TEXT,
                         url TEXT,
                         service TEXT,
@@ -643,12 +663,12 @@ export function createDatabase(dbPath: string): DatabaseService {
                 db.exec(`
                     INSERT INTO tracks_new (
                         id, title, album_id, artist_id, track_num, duration, 
-                        file_path, format, bitrate, sample_rate, waveform, 
+                        file_path, format, bitrate, sample_rate, price, waveform, 
                         url, service, external_artwork, lossless_path, created_at
                     )
                     SELECT 
                         id, title, album_id, artist_id, track_num, duration, 
-                        file_path, format, bitrate, sample_rate, waveform, 
+                        file_path, format, bitrate, sample_rate, price, waveform, 
                         url, service, external_artwork, lossless_path, created_at 
                     FROM tracks;
                 `);
@@ -904,8 +924,8 @@ export function createDatabase(dbPath: string): DatabaseService {
                 try {
                     const result = db
                         .prepare(
-                            `INSERT INTO albums (title, slug, artist_id, date, cover_path, genre, description, type, year, download, external_links, is_public, visibility, is_release, published_at, published_to_gundb, published_to_ap)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                            `INSERT INTO albums (title, slug, artist_id, date, cover_path, genre, description, type, year, download, price, external_links, is_public, visibility, is_release, published_at, published_to_gundb, published_to_ap)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                         )
                         .run(
                             album.title,
@@ -918,6 +938,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                             album.type || null,
                             album.year || null,
                             album.download,
+                            album.price || 0,
                             album.external_links,
                             album.visibility === 'public' || album.visibility === 'unlisted' ? 1 : 0,
                             album.visibility || 'private',
@@ -985,6 +1006,10 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updateAlbumDownload(id: number, download: string | null): void {
             db.prepare("UPDATE albums SET download = ? WHERE id = ?").run(download, id);
+        },
+
+        updateAlbumPrice(id: number, price: number | null): void {
+            db.prepare("UPDATE albums SET price = ? WHERE id = ?").run(price || 0, id);
         },
 
         updateAlbumLinks(id: number, links: string | null): void {
@@ -1063,8 +1088,8 @@ export function createDatabase(dbPath: string): DatabaseService {
         createTrack(track: Omit<Track, "id" | "created_at" | "album_title" | "artist_name">): number {
             const result = db
                 .prepare(
-                    `INSERT INTO tracks (title, album_id, artist_id, track_num, duration, file_path, format, bitrate, sample_rate, lossless_path, url, service, external_artwork)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                    `INSERT INTO tracks (title, album_id, artist_id, track_num, duration, file_path, format, bitrate, sample_rate, price, lossless_path, url, service, external_artwork)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                 )
                 .run(
                     track.title,
@@ -1076,6 +1101,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                     track.format,
                     track.bitrate,
                     track.sample_rate,
+                    track.price || 0,
                     track.lossless_path || null,
                     track.url || null,
                     track.service || null,
@@ -1112,6 +1138,10 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updateTrackDuration(id: number, duration: number): void {
             db.prepare("UPDATE tracks SET duration = ? WHERE id = ?").run(duration, id);
+        },
+
+        updateTrackPrice(id: number, price: number | null): void {
+            db.prepare("UPDATE tracks SET price = ? WHERE id = ?").run(price || 0, id);
         },
 
         updateTrackWaveform(id: number, waveform: string): void {

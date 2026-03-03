@@ -7,6 +7,7 @@ import {
   MoreHorizontal,
   Clock,
   Search,
+  Wallet,
 } from "lucide-react";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
@@ -181,6 +182,24 @@ export const Tracks = () => {
                         <li>
                           <a onClick={() => handleLike()}>
                             <Heart size={16} /> Like Song
+                          </a>
+                        </li>
+                        <li>
+                          <a
+                            onClick={() => {
+                              if (!isAuthenticated)
+                                return document.dispatchEvent(
+                                  new CustomEvent("open-auth-modal"),
+                                );
+                              document.dispatchEvent(
+                                new CustomEvent("open-checkout-modal", {
+                                  detail: { track },
+                                }),
+                              );
+                            }}
+                          >
+                            <Wallet size={16} className="text-secondary" />{" "}
+                            Purchase Track
                           </a>
                         </li>
                       </ul>

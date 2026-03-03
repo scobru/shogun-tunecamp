@@ -9,6 +9,7 @@ import { PlaylistModal } from "../modals/PlaylistModal";
 import { UnlockModal } from "../modals/UnlockModal";
 import { ArtistKeysModal } from "../modals/ArtistKeysModal";
 import { AdminTrackModal } from "../modals/AdminTrackModal";
+import { CheckoutModal } from "../modals/CheckoutModal";
 
 export const MainLayout = () => {
   const [bgUrl, setBgUrl] = useState("");
@@ -95,6 +96,7 @@ export const MainLayout = () => {
       <PlaylistModal />
       <UnlockModal />
       <ArtistKeysModal />
+      <CheckoutModal />
       <AdminTrackModal
         onTrackUpdated={() =>
           window.dispatchEvent(new CustomEvent("refresh-admin-tracks"))

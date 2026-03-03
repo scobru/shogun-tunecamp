@@ -19,6 +19,7 @@ import {
   Heart,
 } from "lucide-react";
 import clsx from "clsx";
+import { WalletPill } from "../ui/WalletPill";
 
 export const Sidebar = () => {
   const location = useLocation();
@@ -144,6 +145,7 @@ export const Sidebar = () => {
                 <LogOut size={20} />
               </button>
             </div>
+            {isAuthenticated && !isAdminAuthenticated && <WalletPill />}
           </div>
         ) : (
           <div className="w-full flex justify-center">

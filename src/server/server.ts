@@ -26,6 +26,7 @@ import { createLibraryStatsRoutes } from "./routes/library-stats.js";
 import { createBrowserRoutes } from "./routes/browser.js";
 import { createMetadataRoutes } from "./routes/metadata.js";
 import { createUnlockRoutes } from "./routes/unlock.js";
+import { createPaymentsRoutes } from "./routes/payments.js";
 import { createActivityPubService } from "./activitypub.js";
 import { createActivityPubRoutes } from "./routes/activitypub.js";
 import { createPublishingService } from "./publishing.js";
@@ -200,6 +201,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/users", createUsersRoutes(gundbService, database));
     app.use("/api/comments", createCommentsRoutes(gundbService));
     app.use("/api/unlock", createUnlockRoutes(database));
+    app.use("/api/payments", createPaymentsRoutes(database));
     app.use("/api/ap", createActivityPubRoutes(apService, database, authMiddleware));
     // app.use("/.well-known", createWebFingerRoute(apService)); // Legacy, handled by Fedify
 

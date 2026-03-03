@@ -316,7 +316,7 @@ export default function AdminReleaseEditor() {
         const tracksToUpdate = tracks.filter((t) => t.isDirty);
         for (const t of tracksToUpdate) {
           try {
-            const updateData: any = { title: t.title };
+            const updateData: any = { title: t.title, price: t.price };
 
             if (t.file_path) {
               updateData.fileName = t.file_path.split("/").pop() || "";
@@ -556,10 +556,30 @@ export default function AdminReleaseEditor() {
                         {track.format || "MP3"}
                       </span>
                     )}
-                    <div className="text-sm opacity-50 font-mono">
+                    <div className="text-sm opacity-50 font-mono w-16 text-right shrink-0">
                       {track.duration
                         ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, "0")}`
                         : "-"}
+                    </div>
+                    <div className="w-24 shrink-0">
+                      <label className="input input-xs input-bordered flex items-center gap-1 group-focus-within:border-primary">
+                        <span className="opacity-50">Ξ</span>
+                        <input
+                          type="number"
+                          step="0.0001"
+                          min="0"
+                          className="w-full bg-transparent"
+                          placeholder="0.00"
+                          value={track.price || ""}
+                          onChange={(e) => {
+                            const newTracks = [...tracks];
+                            newTracks[idx].price =
+                              parseFloat(e.target.value) || 0;
+                            newTracks[idx].isDirty = true;
+                            setTracks(newTracks);
+                          }}
+                        />
+                      </label>
                     </div>
                     <button
                       className="btn btn-ghost btn-xs text-error opacity-0 group-hover:opacity-100"
@@ -726,6 +746,29 @@ export default function AdminReleaseEditor() {
                 </select>
               </div>
             </div>
+
+            {/* Price */}
+            <div className="form-control">
+              <label className="label">Album Price (ETH)</label>
+              <label className="input input-bordered flex items-center gap-2">
+                <span className="opacity-50">Ξ</span>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  className="w-full bg-transparent"
+                  value={metadata.price || ""}
+                  onChange={(e) =>
+                    setMetadata((prev) => ({
+                      ...prev,
+                      price: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                  placeholder="0.05"
+                />
+              </label>
+            </div>
+
             {/* Download Options */}
             <div className="form-control">
               <label className="label">Download Method</label>

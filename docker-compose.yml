@@ -14,6 +14,12 @@ services:
       # Persistent data (database, uploads)
       - tunecamp_data:/data
     environment:
+      # Base Mainnet RPC
+      - TUNECAMP_RPC_URL=https://mainnet.base.org
+      # Creator Wallet Address (Ethereum)
+      - TUNECAMP_OWNER_ADDRESS=
+      # Base Network Currency Contract (e.g. USDC)
+      - TUNECAMP_CURRENCY_CONTRACT=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
       # Optional: Set public URL for community registration
       - TUNECAMP_PUBLIC_URL=
       # Optional: Site name for community
@@ -22,7 +28,7 @@ services:
       - JWT_SECRET=
     restart: unless-stopped
     # Optional: healthcheck configured in Dockerfile
-    
+
 volumes:
   tunecamp_data:
     driver: local

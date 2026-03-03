@@ -328,7 +328,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 return res.status(403).json({ error: "Access denied: You can only edit your own tracks" });
             }
 
-            const { title, artist, artistId, album, albumId, trackNumber, genre, fileName: newFileName, url, service, externalArtwork } = req.body;
+            const { title, artist, artistId, album, albumId, trackNumber, genre, fileName: newFileName, url, service, externalArtwork, price } = req.body;
 
             // HANDLE FILE RENAMING (Only if local track)
             if (track.file_path && newFileName && typeof newFileName === 'string') {
@@ -430,6 +430,11 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             // Update track number
             if (trackNumber !== undefined) {
                 (database as any).db.prepare("UPDATE tracks SET track_num = ? WHERE id = ?").run(trackNumber, id);
+            }
+
+            // Update price
+            if (price !== undefined) {
+                database.updateTrackPrice(id, parseFloat(price));
             }
 
             // Get updated track
