@@ -293,9 +293,9 @@ export const AlbumDetails = () => {
                                       ...track,
                                       artist:
                                         track.artistName ||
-                                        track.artist_name ||
+                                        (track as any).artist_name ||
                                         album.artistName ||
-                                        album.artist_name ||
+                                        (album as any).artist_name ||
                                         "Unknown Artist",
                                       priceEth: (track as any).price
                                         ? String((track as any).price)
