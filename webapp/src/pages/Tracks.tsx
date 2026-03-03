@@ -188,10 +188,10 @@ export const Tracks = () => {
                           <a
                             onClick={() => {
                               if (!isAuthenticated)
-                                return document.dispatchEvent(
+                                return window.dispatchEvent(
                                   new CustomEvent("open-auth-modal"),
                                 );
-                              document.dispatchEvent(
+                              window.dispatchEvent(
                                 new CustomEvent("open-checkout-modal", {
                                   detail: { track },
                                 }),
