@@ -17,19 +17,21 @@ describe("AuthService", () => {
         if (db) db.close();
     });
 
-    test("init creates default admin", async () => {
+    test("init does not create default admin", async () => {
         const admin = db.prepare("SELECT * FROM admin WHERE username = ?").get("admin");
-        expect(admin).toBeDefined();
-        // @ts-ignore
-        expect(admin.username).toBe("admin");
+        expect(admin).toBeUndefined();
+
+
     });
 
-    test("isDefaultPassword returns true for default admin", async () => {
+    test("isDefaultPassword returns true for default password tunecamp", async () => {
+        await authService.createAdmin("admin", "tunecamp");
         const isDefault = await authService.isDefaultPassword("admin");
         expect(isDefault).toBe(true);
     });
 
     test("isDefaultPassword returns false for changed password", async () => {
+        await authService.createAdmin("admin", "newpassword");
         await authService.changePassword("admin", "newpassword");
         const isDefault = await authService.isDefaultPassword("admin");
         expect(isDefault).toBe(false);
