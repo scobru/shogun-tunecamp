@@ -10,6 +10,7 @@ interface CheckoutTrack {
   title: string;
   artist: string;
   priceEth?: string;
+  price?: number;
 }
 
 export const CheckoutModal = () => {
@@ -104,7 +105,13 @@ export const CheckoutModal = () => {
 
   if (!isOpen || !track) return null;
 
-  const trackPrice = track.priceEth || "0.005"; // Default mock price
+  let trackPrice = "0.005"; // Default mock price
+  if (track.priceEth) {
+    trackPrice = track.priceEth;
+  } else if (track.price !== undefined && track.price !== null) {
+    trackPrice = String(track.price);
+  }
+
   const activeBalance = useExternalWallet ? externalBalanceEth : balanceEth;
   const hasEnoughBalance =
     parseFloat(activeBalance || "0") >= parseFloat(trackPrice);

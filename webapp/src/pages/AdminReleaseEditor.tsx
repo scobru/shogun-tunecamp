@@ -566,7 +566,7 @@ export default function AdminReleaseEditor() {
                         <span className="opacity-50">Ξ</span>
                         <input
                           type="number"
-                          step="0.0001"
+                          step="any"
                           min="0"
                           className="w-full bg-transparent"
                           placeholder="0.00"
@@ -754,7 +754,7 @@ export default function AdminReleaseEditor() {
                 <span className="opacity-50">Ξ</span>
                 <input
                   type="number"
-                  step="0.001"
+                  step="any"
                   min="0"
                   className="w-full bg-transparent"
                   value={metadata.price || ""}

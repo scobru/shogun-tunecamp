@@ -40,6 +40,8 @@ const ERC20_ABI = [
     "function decimals() view returns (uint8)"
 ];
 
+let ethListenersAttached = false;
+
 export const useWalletStore = create<WalletState>((set, get) => ({
     wallet: null,
     address: null,
@@ -163,7 +165,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
             await get().refreshBalances();
 
             // Setup listeners once
-            if (!eth.listeners('accountsChanged')?.length) {
+            if (!ethListenersAttached && eth.on) {
                 eth.on('accountsChanged', (accounts: string[]) => {
                     if (accounts.length === 0) {
                         get().disconnectExternalWallet();
@@ -174,6 +176,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
                 eth.on('chainChanged', () => {
                     window.location.reload();
                 });
+                ethListenersAttached = true;
             }
         } catch (e: any) {
             console.error("Failed to connect external wallet:", e);
