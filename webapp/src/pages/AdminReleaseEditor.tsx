@@ -758,12 +758,21 @@ export default function AdminReleaseEditor() {
                   min="0"
                   className="w-full bg-transparent"
                   value={metadata.price || ""}
-                  onChange={(e) =>
-                    setMetadata((prev) => ({
-                      ...prev,
-                      price: parseFloat(e.target.value) || 0,
-                    }))
-                  }
+                  onChange={(e) => {
+                    const priceVal = parseFloat(e.target.value) || 0;
+                    setMetadata((prev) => {
+                      const newMeta = { ...prev, price: priceVal };
+                      // If price is set, forcefully disable free/codes download methods
+                      if (
+                        priceVal > 0 &&
+                        (newMeta.download === "free" ||
+                          newMeta.download === "codes")
+                      ) {
+                        newMeta.download = "none";
+                      }
+                      return newMeta;
+                    });
+                  }}
                   placeholder="0.05"
                 />
               </label>
@@ -790,14 +799,32 @@ export default function AdminReleaseEditor() {
                   </div>
                 </label>
 
-                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
+                <label
+                  className={`label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg transition-opacity ${
+                    metadata.price && metadata.price > 0
+                      ? "opacity-40 cursor-not-allowed bg-base-200"
+                      : "hover:bg-base-100"
+                  }`}
+                  title={
+                    metadata.price && metadata.price > 0
+                      ? "Free downloads are not available for priced albums."
+                      : ""
+                  }
+                >
                   <input
                     type="radio"
                     name="download_method"
                     className="radio radio-sm radio-secondary"
                     checked={metadata.download === "free"}
+                    disabled={
+                      metadata.price !== undefined && metadata.price > 0
+                    }
                     onChange={() =>
-                      setMetadata((prev) => ({ ...prev, download: "free" }))
+                      setMetadata((prev) => ({
+                        ...prev,
+                        download: "free",
+                        price: 0,
+                      }))
                     }
                   />
                   <div className="flex flex-col">
@@ -810,14 +837,32 @@ export default function AdminReleaseEditor() {
                   </div>
                 </label>
 
-                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
+                <label
+                  className={`label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg transition-opacity ${
+                    metadata.price && metadata.price > 0
+                      ? "opacity-40 cursor-not-allowed bg-base-200"
+                      : "hover:bg-base-100"
+                  }`}
+                  title={
+                    metadata.price && metadata.price > 0
+                      ? "Unlock codes are not available for priced albums."
+                      : ""
+                  }
+                >
                   <input
                     type="radio"
                     name="download_method"
                     className="radio radio-sm radio-primary"
                     checked={metadata.download === "codes"}
+                    disabled={
+                      metadata.price !== undefined && metadata.price > 0
+                    }
                     onChange={() =>
-                      setMetadata((prev) => ({ ...prev, download: "codes" }))
+                      setMetadata((prev) => ({
+                        ...prev,
+                        download: "codes",
+                        price: 0,
+                      }))
                     }
                   />
                   <div className="flex flex-col">

@@ -19,7 +19,15 @@ export const CheckoutModal = () => {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { wallet, balanceEth, isWalletReady } = useWalletStore();
+  const {
+    wallet,
+    balanceEth,
+    isWalletReady,
+    externalWallet,
+    externalBalanceEth,
+    isExternalConnected,
+    useExternalWallet,
+  } = useWalletStore();
 
   useEffect(() => {
     const handleOpen = (e: any) => {
@@ -43,7 +51,15 @@ export const CheckoutModal = () => {
   };
 
   const handlePurchase = async () => {
-    if (!wallet || !track || !track.priceEth) return;
+    if (useExternalWallet && !externalWallet) {
+      setError("MetaMask selected but not connected.");
+      return;
+    }
+    if (!useExternalWallet && !wallet) {
+      setError("Local wallet not ready.");
+      return;
+    }
+    if (!track || !track.priceEth) return;
 
     setIsProcessing(true);
     setError(null);
@@ -53,7 +69,8 @@ export const CheckoutModal = () => {
       if (!ownerAddress) throw new Error("Owner address not configured.");
 
       // 1. Send Transaction on Base Mainnet
-      const tx = await wallet.sendTransaction({
+      const activeSigner = useExternalWallet ? externalWallet! : wallet!;
+      const tx = await activeSigner.sendTransaction({
         to: ownerAddress,
         value: ethers.parseEther(track.priceEth),
       });
@@ -88,8 +105,11 @@ export const CheckoutModal = () => {
   if (!isOpen || !track) return null;
 
   const trackPrice = track.priceEth || "0.005"; // Default mock price
+  const activeBalance = useExternalWallet ? externalBalanceEth : balanceEth;
   const hasEnoughBalance =
-    parseFloat(balanceEth || "0") >= parseFloat(trackPrice);
+    parseFloat(activeBalance || "0") >= parseFloat(trackPrice);
+  const isReady = useExternalWallet ? isExternalConnected : isWalletReady;
+  const activeWalletLabel = useExternalWallet ? "MetaMask" : "Local Wallet";
 
   return (
     <div
@@ -159,9 +179,16 @@ export const CheckoutModal = () => {
                 </div>
               </div>
 
+              <div className="flex justify-between items-center mb-6 text-sm opacity-70">
+                <span>Paying with:</span>
+                <span className="font-semibold text-white">
+                  {activeWalletLabel}
+                </span>
+              </div>
+
               {!hasEnoughBalance && !txHash && (
                 <p className="text-error text-sm mb-4">
-                  Insufficient ETH balance on Base Mainnet.
+                  Insufficient ETH balance in {activeWalletLabel}.
                 </p>
               )}
 
@@ -183,7 +210,7 @@ export const CheckoutModal = () => {
                 <button
                   className="btn btn-primary rounded-xl flex-1 shadow-lg shadow-primary/20"
                   onClick={handlePurchase}
-                  disabled={!isWalletReady || isProcessing || !hasEnoughBalance}
+                  disabled={!isReady || isProcessing || !hasEnoughBalance}
                 >
                   {isProcessing ? (
                     <>

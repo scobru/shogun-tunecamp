@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useWalletStore } from "../../stores/useWalletStore";
 import { Wallet } from "lucide-react";
 import clsx from "clsx";
+import { Link } from "react-router-dom";
 
 export const WalletPill = () => {
   const {
@@ -53,14 +54,15 @@ export const WalletPill = () => {
   const hasFunds = ethNum > 0 || usdcNum > 0;
 
   return (
-    <div
+    <Link
+      to="/wallet"
       className={clsx(
-        "flex mt-2 bg-gradient-to-r from-base-300 to-base-200 rounded-full px-3 py-1 items-center justify-between gap-3 tooltip tooltip-right z-50 transition-all",
+        "flex mt-2 bg-gradient-to-r from-base-300 to-base-200 rounded-full px-3 py-1 items-center justify-between gap-3 tooltip tooltip-right z-50 transition-all hover:scale-105",
         hasFunds
           ? "ring ring-primary/40 shadow-[0_0_10px_rgba(var(--color-primary),0.3)]"
-          : "border border-white/10 opacity-70",
+          : "border border-white/10 opacity-70 cursor-pointer",
       )}
-      data-tip="Your Base Mainnet Wallet (Auto-derived)"
+      data-tip="Your TuneCamp Wallet"
     >
       <div className="flex items-center gap-1.5 text-xs text-white/80 font-medium">
         <Wallet
@@ -73,6 +75,6 @@ export const WalletPill = () => {
           <span>{ethNum.toFixed(4)} ETH</span>
         )}
       </div>
-    </div>
+    </Link>
   );
 };

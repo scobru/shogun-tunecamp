@@ -16,3 +16,4 @@ export { MyPlaylists } from './MyPlaylists';
 export { MyPlaylistDetails } from './MyPlaylistDetails';
 export { PostPage as Post } from './Post';
 export { AuthCallback } from './AuthCallback';
+export { Wallet } from './Wallet';

@@ -12,9 +12,23 @@ interface WalletState {
     isWalletLoading: boolean;
     error: string | null;
 
+    // External Wallet (MetaMask)
+    externalProvider: ethers.BrowserProvider | null;
+    externalWallet: ethers.JsonRpcSigner | null;
+    externalAddress: string | null;
+    externalBalanceEth: string | null;
+    externalBalanceUsdc: string | null;
+    isExternalConnected: boolean;
+    useExternalWallet: boolean;
+
     initWallet: () => Promise<void>;
     refreshBalances: () => Promise<void>;
     clearWallet: () => void;
+
+    // External Wallet actions
+    connectExternalWallet: () => Promise<void>;
+    disconnectExternalWallet: () => void;
+    setUseExternalWallet: (use: boolean) => void;
 }
 
 // USDC Contract on Base Mainnet
@@ -34,6 +48,14 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     isWalletReady: false,
     isWalletLoading: false,
     error: null,
+
+    externalProvider: null,
+    externalWallet: null,
+    externalAddress: null,
+    externalBalanceEth: null,
+    externalBalanceUsdc: null,
+    isExternalConnected: false,
+    useExternalWallet: false,
 
     initWallet: async () => {
         set({ isWalletLoading: true, error: null });
@@ -70,21 +92,36 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     },
 
     refreshBalances: async () => {
-        const { wallet, address } = get();
-        if (!wallet || !address) return;
+        const { wallet, address, externalAddress, externalProvider } = get();
 
         try {
-            // Get ETH Balance
-            const ethBalanceWei = await WalletService.provider.getBalance(address);
-            const balanceEth = ethers.formatEther(ethBalanceWei);
+            // Local Wallet Balances
+            if (wallet && address) {
+                // Get ETH Balance
+                const ethBalanceWei = await WalletService.provider.getBalance(address);
+                const balanceEth = ethers.formatEther(ethBalanceWei);
 
-            // Get USDC Balance
-            const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, WalletService.provider);
-            const usdcBalanceWei = await usdcContract.balanceOf(address);
-            const decimals = await usdcContract.decimals();
-            const balanceUsdc = ethers.formatUnits(usdcBalanceWei, decimals);
+                // Get USDC Balance
+                const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, WalletService.provider);
+                const usdcBalanceWei = await usdcContract.balanceOf(address);
+                const decimals = await usdcContract.decimals();
+                const balanceUsdc = ethers.formatUnits(usdcBalanceWei, decimals);
 
-            set({ balanceEth, balanceUsdc });
+                set({ balanceEth, balanceUsdc });
+            }
+
+            // External Wallet Balances
+            if (externalProvider && externalAddress) {
+                const ethBalanceWei = await externalProvider.getBalance(externalAddress);
+                const externalBalanceEth = ethers.formatEther(ethBalanceWei);
+
+                const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, externalProvider);
+                const usdcBalanceWei = await usdcContract.balanceOf(externalAddress);
+                const decimals = await usdcContract.decimals();
+                const externalBalanceUsdc = ethers.formatUnits(usdcBalanceWei, decimals);
+
+                set({ externalBalanceEth, externalBalanceUsdc });
+            }
         } catch (e: any) {
             console.error("Failed to fetch balances:", e);
         }
@@ -99,5 +136,64 @@ export const useWalletStore = create<WalletState>((set, get) => ({
             isWalletReady: false,
             error: null
         });
+    },
+
+    connectExternalWallet: async () => {
+        const eth = (window as any).ethereum;
+        if (typeof eth === 'undefined') {
+            set({ error: "MetaMask is not installed" });
+            return;
+        }
+
+        try {
+            const provider = new ethers.BrowserProvider(eth);
+            await provider.send("eth_requestAccounts", []);
+            const signer = await provider.getSigner();
+            const address = await signer.getAddress();
+
+            set({
+                externalProvider: provider,
+                externalWallet: signer,
+                externalAddress: address,
+                isExternalConnected: true,
+                useExternalWallet: true,
+                error: null
+            });
+
+            await get().refreshBalances();
+
+            // Setup listeners once
+            if (!eth.listeners('accountsChanged')?.length) {
+                eth.on('accountsChanged', (accounts: string[]) => {
+                    if (accounts.length === 0) {
+                        get().disconnectExternalWallet();
+                    } else {
+                        get().connectExternalWallet();
+                    }
+                });
+                eth.on('chainChanged', () => {
+                    window.location.reload();
+                });
+            }
+        } catch (e: any) {
+            console.error("Failed to connect external wallet:", e);
+            set({ error: e.message });
+        }
+    },
+
+    disconnectExternalWallet: () => {
+        set({
+            externalProvider: null,
+            externalWallet: null,
+            externalAddress: null,
+            externalBalanceEth: null,
+            externalBalanceUsdc: null,
+            isExternalConnected: false,
+            useExternalWallet: false
+        });
+    },
+
+    setUseExternalWallet: (use: boolean) => {
+        set({ useExternalWallet: use });
     }
 }));

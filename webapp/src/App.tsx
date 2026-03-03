@@ -17,6 +17,7 @@ import {
   MyPlaylistDetails,
   Post,
   AuthCallback,
+  Wallet,
 } from "./pages";
 import Admin from "./pages/Admin";
 import AdminReleaseEditor from "./pages/AdminReleaseEditor";
@@ -63,6 +64,7 @@ function App() {
           <Route path="/post/:slug" element={<Post />} />
           <Route path="/network" element={<Network />} />
           <Route path="/stats" element={<Stats />} />
+          <Route path="/wallet" element={<Wallet />} />
 
           {/* Auth Callback */}
           <Route path="/auth/callback" element={<AuthCallback />} />
