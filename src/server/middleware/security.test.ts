@@ -17,5 +17,8 @@ describe("Security Middleware", () => {
         expect(response.headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
         expect(response.headers["x-xss-protection"]).toBe("1; mode=block");
         expect(response.headers["permissions-policy"]).toContain("geolocation=()");
+        expect(response.headers["content-security-policy"]).toBe(
+            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; media-src 'self' data: blob: https:; connect-src 'self' ws: wss: http: https:; frame-src 'self' https:;"
+        );
     });
 });
