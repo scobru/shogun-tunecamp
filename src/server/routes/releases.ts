@@ -83,6 +83,7 @@ export function createReleaseRoutes(
                 cover_path: null,
                 genre: body.genres?.join(", ") || null,
                 download: body.download || null,
+                price: body.price || 0,
                 external_links: body.externalLinks ? JSON.stringify(body.externalLinks) : null,
                 published_at: body.visibility === 'public' || body.visibility === 'unlisted' ? new Date().toISOString() : null,
                 published_to_gundb: body.publishedToGunDB !== undefined ? body.publishedToGunDB : (body.visibility === 'public' || body.visibility === 'unlisted'),

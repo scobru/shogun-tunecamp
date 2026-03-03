@@ -73,6 +73,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 url: url || null,
                 service: service || null,
                 external_artwork: externalArtwork || null,
+                price: 0,
                 waveform: null
             });
 
