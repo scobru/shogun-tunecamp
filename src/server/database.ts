@@ -84,6 +84,22 @@ export interface Track {
     created_at: string;
 }
 
+
+function mapAlbum(row: any): Album | undefined {
+    if (!row) return undefined;
+    return {
+        ...row,
+        is_public: !!row.is_public,
+        is_release: !!row.is_release,
+        published_to_gundb: !!row.published_to_gundb,
+        published_to_ap: !!row.published_to_ap,
+    } as Album;
+}
+
+function mapAlbums(rows: any[]): Album[] {
+    return rows.map(mapAlbum) as Album[];
+}
+
 export interface Playlist {
     id: number;
     name: string;
@@ -854,44 +870,50 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         getLibraryAlbums(): Album[] {
-            return db.prepare(
+            const rows = db.prepare(
                 `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.is_release = 0 ORDER BY a.title`
-            ).all() as Album[];
+            ).all();
+            return mapAlbums(rows);
         },
 
 
         getAlbum(id: number): Album | undefined {
-            return getAlbumStmt.get(id) as Album | undefined;
+            const row = getAlbumStmt.get(id);
+            return mapAlbum(row);
         },
 
         getAlbumBySlug(slug: string): Album | undefined {
-            return db
+            const row = db
                 .prepare(
                     `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.slug = ?`
                 )
-                .get(slug) as Album | undefined;
+                .get(slug);
+            return mapAlbum(row);
         },
 
         getAlbumByTitle(title: string, artistId?: number): Album | undefined {
             if (artistId) {
-                return db
+                const row = db
                     .prepare("SELECT * FROM albums WHERE title = ? AND artist_id = ?")
-                    .get(title, artistId) as Album | undefined;
+                    .get(title, artistId);
+                return mapAlbum(row);
             }
-            return db
+            const row = db
                 .prepare("SELECT * FROM albums WHERE title = ?")
-                .get(title) as Album | undefined;
+                .get(title);
+            return mapAlbum(row);
         },
 
         getAlbumsByArtist(artistId: number, publicOnly = false): Album[] {
             const sql = publicOnly
                 ? "SELECT * FROM albums WHERE artist_id = ? AND visibility = 'public' ORDER BY date DESC"
                 : "SELECT * FROM albums WHERE artist_id = ? ORDER BY date DESC";
-            return db.prepare(sql).all(artistId) as Album[];
+            const rows = db.prepare(sql).all(artistId);
+            return mapAlbums(rows);
         },
 
         createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number {
