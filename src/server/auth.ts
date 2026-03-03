@@ -112,8 +112,7 @@ export function createAuthService(
         async init(): Promise<void> {
             const count = (db.prepare("SELECT COUNT(*) as count FROM admin").get() as any).count;
             if (count === 0) {
-                console.log("🆕 First run detected: Creating default admin 'admin' with password 'tunecamp'");
-                await this.createAdmin('admin', 'tunecamp');
+                console.log("🆕 First run detected: Waiting for setup to create admin account");
             }
         },
 

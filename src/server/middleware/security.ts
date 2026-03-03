@@ -8,11 +8,16 @@ import { Request, Response, NextFunction } from "express";
  * - Referrer-Policy: strict-origin-when-cross-origin (Privacy)
  * - X-XSS-Protection: 1; mode=block (Legacy XSS protection)
  * - Permissions-Policy: geolocation=(), microphone=(), etc. (Disables unused features)
+ * - Content-Security-Policy: restrict origins for scripts, styles, images, etc.
  */
 export function securityHeaders(req: Request, res: Response, next: NextFunction) {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     res.setHeader("X-XSS-Protection", "1; mode=block");
     res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=(), payment=(), usb=()");
+    res.setHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; media-src 'self' data: blob: https:; connect-src 'self' ws: wss: http: https:; frame-src 'self' https:;"
+    );
     next();
 }
