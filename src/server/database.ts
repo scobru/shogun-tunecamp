@@ -707,28 +707,28 @@ export function createDatabase(dbPath: string): DatabaseService {
     const getAlbumStmt = db.prepare(`SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a
            LEFT JOIN artists ar ON a.artist_id = ar.id
            WHERE a.id = ?`);
-    const getTrackStmt = db.prepare(`SELECT t.*, a.title as album_title, ar.name as artist_name
+    const getTrackStmt = db.prepare(`SELECT t.*, a.title as album_title, a.price as album_price, ar.name as artist_name
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
            WHERE t.id = ?`);
-    const getTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, ar.name as artist_name
+    const getTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.price as album_price, ar.name as artist_name
              FROM tracks t
              LEFT JOIN albums a ON t.album_id = a.id
              LEFT JOIN artists ar ON t.artist_id = ar.id
              WHERE t.album_id = ? ORDER BY t.track_num`);
-    const getPublicTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, ar.name as artist_name
+    const getPublicTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.price as album_price, ar.name as artist_name
             FROM tracks t
             JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar ON t.artist_id = ar.id
             WHERE t.album_id = ? AND a.is_public = 1
             ORDER BY t.track_num`);
-    const getAllTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, ar.name as artist_name
+    const getAllTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.price as album_price, ar.name as artist_name
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
            ORDER BY ar.name, a.title, t.track_num`);
-    const getAllPublicTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, ar.name as artist_name
+    const getAllPublicTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.price as album_price, ar.name as artist_name
            FROM tracks t
            JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id

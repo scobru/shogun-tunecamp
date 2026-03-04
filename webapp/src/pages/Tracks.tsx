@@ -193,7 +193,21 @@ export const Tracks = () => {
                                 );
                               window.dispatchEvent(
                                 new CustomEvent("open-checkout-modal", {
-                                  detail: { track },
+                                  detail: {
+                                    track: {
+                                      ...track,
+                                      priceEth:
+                                        (track as any).price !== undefined &&
+                                        (track as any).price !== null &&
+                                        Number((track as any).price) > 0
+                                          ? String((track as any).price)
+                                          : track.albumPrice !== undefined &&
+                                              track.albumPrice !== null &&
+                                              Number(track.albumPrice) > 0
+                                            ? String(track.albumPrice)
+                                            : "0.005",
+                                    },
+                                  },
                                 }),
                               );
                             }}

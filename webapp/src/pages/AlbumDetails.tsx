@@ -299,9 +299,14 @@ export const AlbumDetails = () => {
                                         "Unknown Artist",
                                       priceEth:
                                         (track as any).price !== undefined &&
-                                        (track as any).price !== null
+                                        (track as any).price !== null &&
+                                        Number((track as any).price) > 0
                                           ? String((track as any).price)
-                                          : "0.005",
+                                          : album.price !== undefined &&
+                                              album.price !== null &&
+                                              Number(album.price) > 0
+                                            ? String(album.price)
+                                            : "0.005",
                                     },
                                   },
                                 }),

@@ -5,6 +5,7 @@ export interface Track {
     artistName?: string;
     albumId: string;
     albumName?: string;
+    albumPrice?: number;
     duration: number;
     path: string;
     filename: string;
@@ -57,6 +58,7 @@ export interface Album {
     is_release?: boolean;
     download?: 'free' | 'paid' | 'codes';
     external_links?: string; // JSON string
+    price?: number;
 }
 
 export interface Playlist {
