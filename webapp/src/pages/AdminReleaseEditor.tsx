@@ -25,7 +25,7 @@ interface LocalTrack {
   title: string;
   duration: number;
   position: number;
-  price?: number;
+  price?: number | string;
   file_path: string | null;
   url: string | null;
   service: string | null;
@@ -51,7 +51,7 @@ interface LocalRelease {
   is_public: boolean;
   published_to_gundb?: boolean;
   published_to_ap?: boolean;
-  price?: number;
+  price?: number | string;
   download?: string;
 }
 
@@ -570,11 +570,11 @@ export default function AdminReleaseEditor() {
                           min="0"
                           className="w-full bg-transparent"
                           placeholder="0.00"
-                          value={track.price || ""}
+                          value={track.price ?? ""}
                           onChange={(e) => {
                             const newTracks = [...tracks];
                             newTracks[idx].price =
-                              parseFloat(e.target.value) || 0;
+                              e.target.value === "" ? "" : e.target.value;
                             newTracks[idx].isDirty = true;
                             setTracks(newTracks);
                           }}
@@ -757,14 +757,18 @@ export default function AdminReleaseEditor() {
                   step="any"
                   min="0"
                   className="w-full bg-transparent"
-                  value={metadata.price || ""}
+                  value={metadata.price ?? ""}
                   onChange={(e) => {
-                    const priceVal = parseFloat(e.target.value) || 0;
+                    const rawVal = e.target.value;
+                    const parsedVal = parseFloat(rawVal) || 0;
                     setMetadata((prev) => {
-                      const newMeta = { ...prev, price: priceVal };
+                      const newMeta = {
+                        ...prev,
+                        price: rawVal === "" ? "" : rawVal,
+                      };
                       // If price is set, forcefully disable free/codes download methods
                       if (
-                        priceVal > 0 &&
+                        parsedVal > 0 &&
                         (newMeta.download === "free" ||
                           newMeta.download === "codes")
                       ) {
@@ -801,12 +805,12 @@ export default function AdminReleaseEditor() {
 
                 <label
                   className={`label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg transition-opacity ${
-                    metadata.price && metadata.price > 0
+                    metadata.price && Number(metadata.price) > 0
                       ? "opacity-40 cursor-not-allowed bg-base-200"
                       : "hover:bg-base-100"
                   }`}
                   title={
-                    metadata.price && metadata.price > 0
+                    metadata.price && Number(metadata.price) > 0
                       ? "Free downloads are not available for priced albums."
                       : ""
                   }
@@ -817,7 +821,7 @@ export default function AdminReleaseEditor() {
                     className="radio radio-sm radio-secondary"
                     checked={metadata.download === "free"}
                     disabled={
-                      metadata.price !== undefined && metadata.price > 0
+                      metadata.price !== undefined && Number(metadata.price) > 0
                     }
                     onChange={() =>
                       setMetadata((prev) => ({
@@ -839,12 +843,12 @@ export default function AdminReleaseEditor() {
 
                 <label
                   className={`label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg transition-opacity ${
-                    metadata.price && metadata.price > 0
+                    metadata.price && Number(metadata.price) > 0
                       ? "opacity-40 cursor-not-allowed bg-base-200"
                       : "hover:bg-base-100"
                   }`}
                   title={
-                    metadata.price && metadata.price > 0
+                    metadata.price && Number(metadata.price) > 0
                       ? "Unlock codes are not available for priced albums."
                       : ""
                   }
@@ -855,7 +859,7 @@ export default function AdminReleaseEditor() {
                     className="radio radio-sm radio-primary"
                     checked={metadata.download === "codes"}
                     disabled={
-                      metadata.price !== undefined && metadata.price > 0
+                      metadata.price !== undefined && Number(metadata.price) > 0
                     }
                     onChange={() =>
                       setMetadata((prev) => ({
