@@ -282,20 +282,21 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 
     // 1. Serve built files if they exist (prod)
+    const staticOptions = { index: false };
     if (fs.existsSync(webappDistPath)) {
         console.log(`   ✅ Using webappDistPath for static files`);
-        app.use(express.static(webappDistPath));
+        app.use(express.static(webappDistPath, staticOptions));
     }
 
     // 2. Serve public assets (manifest, sw, etc) at root
     if (fs.existsSync(webappPublicPath)) {
         console.log(`   ✅ Using webappPublicPath for static files`);
-        app.use(express.static(webappPublicPath));
+        app.use(express.static(webappPublicPath, staticOptions));
     }
 
     // 3. Fallback to webapp root (dev/legacy)
     console.log(`   ✅ Using webappPath for static files (fallback)`);
-    app.use(express.static(webappPath));
+    app.use(express.static(webappPath, staticOptions));
 
     // SPA fallback - serve index.html for all non-API routes
     const indexHtmlPath = fs.existsSync(path.join(webappPath, "index.html"))
@@ -310,7 +311,20 @@ export async function startServer(config: ServerConfig): Promise<void> {
         if (req.path.startsWith("/api/")) {
             return res.status(404).json({ error: "Not found" });
         }
-        res.sendFile(indexHtmlPath);
+        try {
+            let html = fs.readFileSync(indexHtmlPath, 'utf8');
+            const configInject = `<script>window.TUNECAMP_CONFIG = {
+                ownerAddress: "${process.env.TUNECAMP_OWNER_ADDRESS || process.env.VITE_TUNECAMP_OWNER_ADDRESS || ''}",
+                rpcUrl: "${process.env.TUNECAMP_RPC_URL || process.env.VITE_TUNECAMP_RPC_URL || ''}",
+                currencyContract: "${process.env.TUNECAMP_CURRENCY_CONTRACT || process.env.VITE_TUNECAMP_CURRENCY_CONTRACT || ''}",
+                gunPeers: "${process.env.TUNECAMP_GUN_PEERS || process.env.VITE_GUN_PEERS || ''}"
+            };</script>`;
+            html = html.replace('<head>', '<head>' + configInject);
+            res.send(html);
+        } catch (e) {
+            console.error("Error serving index.html:", e);
+            res.status(500).send("Error loading app context");
+        }
     });
 
     // Global error handler

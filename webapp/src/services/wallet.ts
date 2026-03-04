@@ -2,7 +2,7 @@ import { ethers } from 'ethers';
 
 
 // Base Mainnet RPC configuration
-const BASE_RPC_URL = import.meta.env.VITE_TUNECAMP_RPC_URL || 'https://mainnet.base.org';
+const BASE_RPC_URL = (window as any).TUNECAMP_CONFIG?.rpcUrl || import.meta.env.VITE_TUNECAMP_RPC_URL || 'https://mainnet.base.org';
 
 const provider = new ethers.JsonRpcProvider(BASE_RPC_URL);
 

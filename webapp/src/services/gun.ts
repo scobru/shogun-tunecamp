@@ -16,7 +16,8 @@ if (import.meta.env.DEV || window.location.hostname === 'localhost') {
     defaultPeers.push("http://localhost:1970/gun");
 }
 
-const PEERS = import.meta.env.VITE_GUN_PEERS?.split(',') || defaultPeers;
+const envPeers = (window as any).TUNECAMP_CONFIG?.gunPeers || import.meta.env.VITE_GUN_PEERS;
+const PEERS = envPeers ? envPeers.split(',') : defaultPeers;
 
 // Initialize Gun
 const gun = Gun({

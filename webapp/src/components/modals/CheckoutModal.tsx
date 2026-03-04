@@ -66,7 +66,9 @@ export const CheckoutModal = () => {
     setError(null);
 
     try {
-      const ownerAddress = import.meta.env.VITE_TUNECAMP_OWNER_ADDRESS;
+      const ownerAddress =
+        (window as any).TUNECAMP_CONFIG?.ownerAddress ||
+        import.meta.env.VITE_TUNECAMP_OWNER_ADDRESS;
       if (!ownerAddress) throw new Error("Owner address not configured.");
 
       // 1. Send Transaction on Base Mainnet

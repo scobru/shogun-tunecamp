@@ -32,7 +32,7 @@ interface WalletState {
 }
 
 // USDC Contract on Base Mainnet
-const USDC_ADDRESS = import.meta.env.VITE_TUNECAMP_CURRENCY_CONTRACT || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const USDC_ADDRESS = (window as any).TUNECAMP_CONFIG?.currencyContract || import.meta.env.VITE_TUNECAMP_CURRENCY_CONTRACT || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
 // Minimal ERC20 ABI for balance checking
 const ERC20_ABI = [
