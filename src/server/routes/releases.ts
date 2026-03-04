@@ -224,6 +224,13 @@ export function createReleaseRoutes(
                     console.error("Failed to update album download in DB:", e);
                 }
             }
+            if (body.price !== undefined) {
+                try {
+                    database.updateAlbumPrice(id, body.price);
+                } catch (e) {
+                    console.error("Failed to update album price in DB:", e);
+                }
+            }
 
 
 
