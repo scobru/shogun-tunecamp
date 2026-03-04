@@ -1,33 +1,35 @@
-# Media Library Architecture
+# Media Library Organization
 
-TuneCamp includes a sophisticated media management system that acts as the core of the application. It handles file ingestion, metadata parsing, audio conversion, and file organization.
+TuneCamp automatically scans the directory you provide to the server to build its library.
 
-## 1. ingestion Engine (`src/server/scanner.ts`)
+## Directory Structure
 
-The Scanner is responsible for discovering audio files and populating the database. It operates in two modes: **Initial Scan** and **Watch Mode**.
+We recommend the following structure for optimal parsing:
 
-### Key Features
-- **File Discovery**: Recursively scans the data directory for supported audio files (`.mp3`, `.flac`, `.wav`, `.ogg`, `.m4a`, etc.) and YAML configuration files.
-- **Metadata Parsing**: Uses `music-metadata` to extract ID3 tags (Artist, Title, Album, Track Number, Cover Art).
-- **Auto-Conversion**: Automatically detects `.wav` files and converts them to `.mp3` (320kbps) in the background using `ffmpeg`. This ensures updated browser compatibility for streaming while keeping the original lossless file.
-- **Waveform Generation**: Generates JSON waveform data for each track using `ffmpeg` to enable the visual audio player on the frontend.
-- **Configuration-based Import**: Reads `artist.yaml` and `release.yaml` files to automatically create Artists and Releases with rich metadata that might not be in the ID3 tags.
+```
+music/
+├── Artist Name/
+│   ├── Album Title/
+│   │   ├── cover.jpg
+│   │   ├── 01 - Track Name.mp3
+│   │   ├── 02 - Another Track.mp3
+│   │   └── release.yaml (optional)
+└── Another Artist/
+    └── Single Title/
+        ├── cover.png
+        └── track.flac
+```
 
-## 2. Data Flow
+## Supported Formats
 
-1.  **User acts**: Uploads a file or manually adds a file to the folder.
-2.  **Watcher detects**: `chokidar` detects the new file.
-3.  **Scanner processes**:
-    *   Parses metadata.
-    *   Creates/Updates Database records (Artist, Album, Track).
-    *   Triggers Waveform generation.
-    *   Triggers Transcoding (if WAV).
-4.  **API serves**: usage via `GET /api/tracks/:id/stream` or `GET /api/albums/:id`.
+- MP3 (`.mp3`)
+- FLAC (`.flac`)
+- OGG (`.ogg`)
+- WAV (`.wav`) - *Automatically queued for MP3 conversion*
+- M4A (`.m4a`)
+- AAC (`.aac`)
+- OPUS (`.opus`)
 
-## 3. API Endpoints
+## Metadata and Covers
 
-The library is exposed via several REST endpoints:
-*   `GET /api/tracks`: List all tracks (supports pagination and filtering).
-*   `GET /api/albums`: List all albums.
-*   `GET /api/artists`: List all artists.
-*   `GET /api/stats`: Returns library statistics (counts of tracks, albums, artists, storage usage).
+TuneCamp reads ID3 tags (artist, title, track number) and automatically assigns tracks to albums based on directory grouping and metadata. For album covers, it looks for `cover.jpg`, `folder.jpg`, `cover.png`, or `folder.png` within the album directory.

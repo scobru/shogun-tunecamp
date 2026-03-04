@@ -1,13 +1,11 @@
 # Project Features: TuneCamp
 
-TuneCamp is a versatile music platform designed for independent artists, supporting both static site generation and dynamic server streaming.
+TuneCamp is a versatile music platform designed for independent artists, providing a dynamic server streaming experience.
 
 ## 🚀 Core Architecture
 
-- **Dual Mode Operation**:
-  - **Static Site Generator (SSG)**: Compiles music catalogs into high-performance, SEO-friendly HTML/CSS websites.
-  - **Server Mode**: A full-featured Node.js/Express server for self-hosted music streaming and library management.
-- **CLI Interface**: Robust command-line tool for initialization, building, and serving catalogs.
+- **Server Mode**: A full-featured Node.js/Express server for self-hosted music streaming and library management.
+- **CLI Interface**: Robust command-line tool for starting the server and managing database backups.
 
 ## 🎵 Music Management
 
@@ -20,7 +18,6 @@ TuneCamp is a versatile music platform designed for independent artists, support
 
 - **ActivityPub Integration**: Federated social features powered by `fedify`, allowing connection with the Fediverse (Mastodon, etc.).
 - **Subsonic API Support**: Compatible with a wide range of third-party music streaming clients (DSub, Symfonium, etc.).
-- **RSS/Podcast Feeds**: Generates Atom, RSS, and iTunes-compatible podcast feeds for all releases.
 
 ## 🔐 Security & User Management
 

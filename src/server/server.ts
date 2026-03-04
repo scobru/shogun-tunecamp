@@ -113,31 +113,8 @@ export async function startServer(config: ServerConfig): Promise<void> {
             path.join(__dirname, "..", "..", "webapp", "dist", filename)
         ];
         const found = candidates.find(p => fs.existsSync(p));
-        if (!found) {
-            console.warn(`❌ [Express] Static file NOT FOUND: ${filename}. Checked: ${candidates.slice(0, 3).join(", ")} ...`);
-        }
         return found;
     };
-
-    // Diagnostic listing function
-    const listDirRecursive = (dir: string, depth = 0) => {
-        if (depth > 2 || !fs.existsSync(dir)) return;
-        try {
-            const items = fs.readdirSync(dir);
-            console.log(`📂 [Diagnostics] Contents of ${dir}: ${items.join(", ")}`);
-            for (const item of items) {
-                const fullPath = path.join(dir, item);
-                if (fs.statSync(fullPath).isDirectory()) {
-                    listDirRecursive(fullPath, depth + 1);
-                }
-            }
-        } catch (e) { }
-    };
-
-    console.log(`🔍 [Diagnostics] Current WD: ${process.cwd()}`);
-    console.log(`🔍 [Diagnostics] __dirname: ${__dirname}`);
-    listDirRecursive(webappDistPath);
-    listDirRecursive(path.join(process.cwd(), "webapp"));
 
     // Explicitly serve sw.js and manifest.json at the root VERY EARLY to avoid being caught by other routes
     app.get("/sw.js", (req, res) => {
@@ -284,18 +261,15 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // 1. Serve built files if they exist (prod)
     const staticOptions = { index: false };
     if (fs.existsSync(webappDistPath)) {
-        console.log(`   ✅ Using webappDistPath for static files`);
         app.use(express.static(webappDistPath, staticOptions));
     }
 
     // 2. Serve public assets (manifest, sw, etc) at root
     if (fs.existsSync(webappPublicPath)) {
-        console.log(`   ✅ Using webappPublicPath for static files`);
         app.use(express.static(webappPublicPath, staticOptions));
     }
 
     // 3. Fallback to webapp root (dev/legacy)
-    console.log(`   ✅ Using webappPath for static files (fallback)`);
     app.use(express.static(webappPath, staticOptions));
 
     // SPA fallback - serve index.html for all non-API routes
@@ -304,8 +278,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
         : fs.existsSync(path.join(webappDistPath, "index.html"))
             ? path.join(webappDistPath, "index.html")
             : path.join(webappPath, "index.html");
-
-    console.log(`📄 SPA fallback index.html: ${indexHtmlPath}`);
 
     app.use((req, res, next) => {
         if (req.path.startsWith("/api/")) {

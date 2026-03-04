@@ -1,133 +1,59 @@
-# TuneCamp Server Mode
+# TuneCamp Server Guide
 
-TuneCamp can run as a self-hosted music streaming server, allowing you to stream your personal music collection from anywhere, manage uploads, and interact with other TuneCamp instances via the decentralized community network.
-
-## Features
-
-- 🎵 **Music Streaming**: Stream your local music library (MP3, FLAC, OGG, WAV, etc.) via a modern web interface.
-- 📱 **Subsonic API**: Compatible with Subsonic clients (e.g., DSub, Symfonium, Ultrasonic) for mobile streaming.
-- 🌐 **ActivityPub Federation**: Follow and interact with other TuneCamp instances (Fediverse support).
-- 💬 **Decentralized Social Features**: Comments, likes, and community discovery powered by GunDB.
-- 📊 **Statistics**: Track play counts, popular tracks, and listening history.
-- 🔐 **User Management**: Multi-user support with role-based access control (Admin/User).
-- 📡 **Radio Mode**: Listen to a continuous stream of your library.
+TuneCamp is a full-featured Node.js/Express server for self-hosting your music, streaming via the Subsonic API, and federating with ActivityPub.
 
 ## Installation
 
-### Prerequisites
-
-- Node.js 18+ (for manual installation)
-- Docker (optional, recommended for production)
-
 ### Using Docker (Recommended)
 
-1.  Create a `docker-compose.yml` file:
-
-```yaml
-version: '3'
-services:
-  tunecamp:
-    image: ghcr.io/scobru/tunecamp:latest
-    container_name: tunecamp
-    ports:
-      - "1970:1970"
-    volumes:
-      - /path/to/your/music:/music     # Mount your music directory
-      - ./data:/data                   # Persistent data (database, uploads)
-    environment:
-      - TUNECAMP_JWT_SECRET=your_secure_random_secret
-      - TUNECAMP_SITE_NAME=My TuneCamp
-      - TUNECAMP_PUBLIC_URL=https://music.example.com
-    restart: unless-stopped
-```
-
-2.  Run the container:
-
 ```bash
-docker-compose up -d
+docker run -d \
+  -p 1970:1970 \
+  -v /path/to/music:/music \
+  -v tunecamp_data:/data \
+  ghcr.io/scobru/tunecamp:latest
 ```
 
-3.  Access the server at `http://localhost:1970`.
-
-### Manual Installation
-
-1.  Install TuneCamp globally:
+### Using Node.js
 
 ```bash
 npm install -g tunecamp
+tunecamp server ./my-music --port 1970
 ```
 
-2.  Start the server:
+## Features
 
-```bash
-tunecamp server /path/to/your/music
-```
+- **Subsonic API**: Fully compatible with clients like DSub, Symfonium, etc.
+- **ActivityPub**: Integrates with the Fediverse.
+- **Web UI**: Modern dashboard to manage your tracks, albums, and settings.
+- **Waveform Generation**: Generates and serves waveform SVGs for streaming.
 
-3.  Access the server at `http://localhost:1970`.
+## Configuration (Environment Variables)
 
-## Configuration
-
-### Command Line Arguments
-
-When running manually via `tunecamp server`:
-
-- `[music-dir]`: The directory containing your music files (default: `./music`).
-- `-p, --port <port>`: Port to listen on (default: `1970`).
-- `-d, --db <path>`: Path to the SQLite database file (default: `./tunecamp.db`).
-
-### Environment Variables
-
-You can configure the server using environment variables (useful for Docker):
+The server can be configured using environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `TUNECAMP_PORT` | Port number to listen on | `1970` |
-| `TUNECAMP_MUSIC_DIR` | Directory containing music files | `./music` |
+| `TUNECAMP_PORT` | Port the server listens on | `1970` |
+| `TUNECAMP_MUSIC_DIR` | Directory containing your music files | `./music` |
 | `TUNECAMP_DB_PATH` | Path to the SQLite database | `./tunecamp.db` |
-| `TUNECAMP_JWT_SECRET` | Secret key for session signing | (Randomly generated) |
-| `TUNECAMP_CORS_ORIGINS`| Comma-separated list of allowed CORS origins | `[]` |
-| `TUNECAMP_PUBLIC_URL` | Public URL for federation and sharing | `undefined` |
-| `TUNECAMP_SITE_NAME` | Name of your instance | `TuneCamp Server` |
-| `TUNECAMP_GUN_PEERS` | Comma-separated list of GunDB peers | (Default public peers) |
+| `TUNECAMP_JWT_SECRET` | Secret key for JWT sessions | *(Generated if missing)* |
+| `TUNECAMP_CORS_ORIGINS` | Comma-separated list of allowed CORS origins | `[]` |
+| `TUNECAMP_PUBLIC_URL` | Public URL for federation (e.g., `https://mysite.com`) | `null` |
+| `TUNECAMP_SITE_NAME` | Name of your site for community discovery | `null` |
+| `TUNECAMP_GUN_PEERS` | Comma-separated list of GunDB relay peers | *(Default relay list)* |
 
-## Administration
+## Management
 
-### First Run
+Use the Tunecamp CLI to manage your server:
 
-On the first run, a default admin account is created:
-- **Username:** `admin`
-- **Password:** `tunecamp`
+```bash
+# Start the server
+tunecamp server ./music
 
-**⚠️ Important:** You must change this password immediately after logging in.
+# Backup the database
+tunecamp backup ./backups
 
-### Web Interface
-
-The web interface provides a dashboard for:
-- Browsing your library by Artist, Album, and Track.
-- Managing users and permissions.
-- Viewing system status and logs.
-- Managing uploads and imports.
-
-### Subsonic API
-
-TuneCamp implements the Subsonic API, allowing you to use compatible mobile apps.
-
-- **Server URL:** `http://your-server-ip:1970` (or your domain)
-- **Username:** Your TuneCamp username
-- **Password:** Your TuneCamp password
-
-*Note: Some clients may require "Legacy Authentication" (MD5), which TuneCamp supports.*
-
-## ActivityPub & Federation
-
-TuneCamp is a Fediverse-enabled application. This means:
-- You can follow other TuneCamp instances.
-- Users on Mastodon, Pleroma, or other ActivityPub platforms can follow your artist profiles.
-- Releases and posts are federated to followers.
-
-To enable full federation features, ensure `TUNECAMP_PUBLIC_URL` is set correctly to your public HTTPS endpoint.
-
-## Troubleshooting
-
-- **Database Locks**: If you encounter database errors, ensure no other process (like a backup script) is holding a lock on `tunecamp.db`.
-- **Permission Errors**: Ensure the user running TuneCamp has read/write access to the `data` and `music` directories.
+# Restore from a backup
+tunecamp restore ./backups/tunecamp_2024.db
+```

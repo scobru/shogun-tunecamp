@@ -9,12 +9,6 @@ git clone https://github.com/scobru/tunecamp.git
 cd tunecamp
 npm install
 npm run build
-
-# Build the webapp (frontend)
-cd webapp
-npm install
-npm run build
-cd ..
 ```
 
 ## Running the Server

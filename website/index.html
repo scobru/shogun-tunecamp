@@ -4,241 +4,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tunecamp - Static Site Generator & Streaming Server for Musicians</title>
+    <title>Tunecamp — Decentralized Music Streaming for Artists</title>
     <link rel="icon" type="image/svg+xml" href="tunecamp.svg">
     <meta name="description"
-        content="Create beautiful static music websites and personal streaming servers. No databases required, just pure HTML files or a Node.js server.">
-    <meta name="generator" content="Tunecamp">
+        content="Personal streaming server for independent musicians. Self-host your music, connect to the Fediverse, and share with your fans.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
-    <div class="container">
-        <!-- Header -->
-        <header>
-            <img src="tunecamp.svg" alt="Tunecamp" class="logo">
-            <h1>Tunecamp</h1>
-            <p class="subtitle">Static site generator & streaming server for musicians</p>
-
-            <div class="download-buttons">
-                <a href="https://www.npmjs.com/package/tunecamp" class="btn">📦 Install from NPM</a>
-                <a href="https://github.com/scobru/tunecamp" class="btn btn-secondary">GitHub</a>
-                <a href="https://buymeacoffee.com/scobru" class="btn btn-secondary" target="_blank">☕ Support</a>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <img src="tunecamp.svg" alt="Tunecamp Logo" class="logo-main">
+            <h1>Own Your <span>Music</span></h1>
+            <p class="subtitle">The open-source, decentralized streaming server built for independent artists. Self-host your library, federate with the world.</p>
+            
+            <div class="cta-group">
+                <a href="https://github.com/scobru/tunecamp" class="btn btn-primary">
+                    Get Started on GitHub
+                </a>
+                <a href="#how-it-works" class="btn btn-secondary">
+                    How it works
+                </a>
             </div>
 
-            <p style="color: var(--text-muted); font-size: 0.9rem;">
-                <code
-                    style="background: var(--bg-surface-alt); padding: 4px 8px; border-radius: 4px;">npx tunecamp init my-catalog</code>
-                to get started
-            </p>
-        </header>
-
-        <!-- Core Principles -->
-        <div class="principles">
-            <h3>Built for independence</h3>
-            <ul class="principles-list">
-                <li>🎵 Audio-first</li>
-                <li>🚀 Static & fast</li>
-                <li>🌐 Host anywhere</li>
-                <li>💾 No database (static mode)</li>
-                <li>🔒 Privacy-friendly</li>
-                <li>📱 Fully responsive</li>
-                <li>🖥️ Server mode available</li>
-                <li>🔐 Type-safe (Gleam)</li>
-            </ul>
+            <div class="cli-preview">
+                <div class="cli-line"><span class="cli-prompt">$</span> npm install -g tunecamp</div>
+                <div class="cli-line"><span class="cli-prompt">$</span> tunecamp server ./music --port 1970</div>
+                <div class="cli-line" style="color: #666;">🎶 Tunecamp Server running at http://localhost:1970</div>
+            </div>
         </div>
+    </section>
 
-        <!-- Features Grid -->
-        <section class="features">
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <span class="icon">🎵</span>
-                    <h3>Streaming</h3>
-                    <p>Built-in audio player with playlist support. Visitors can listen directly on your site.</p>
-                </div>
-
-                <div class="feature-card">
-                    <span class="icon">📥</span>
-                    <h3>Downloads</h3>
-                    <p>Free, pay-what-you-want, or unlock codes. You control how your music is distributed.</p>
-                </div>
-
-                <div class="feature-card">
-                    <span class="icon">📡</span>
-                    <h3>RSS & Atom</h3>
-                    <p>Auto-generated feeds let fans subscribe to your releases.</p>
-                </div>
-
-                <div class="feature-card">
-                    <span class="icon">📋</span>
-                    <h3>Playlists</h3>
-                    <p>M3U playlists for desktop players and streaming apps.</p>
-                </div>
-
-                <div class="feature-card">
-                    <span class="icon">📊</span>
-                    <h3>Analytics</h3>
-                    <p>Optional decentralized download stats via GunDB. No tracking cookies.</p>
-                </div>
-
-                <div class="feature-card">
-                    <span class="icon">🎨</span>
-                    <h3>Themeable</h3>
-                    <p>Customize colors and images. Works in dark and light modes.</p>
-                </div>
-
-                <div class="feature-card">
-                    <span class="icon">🖥️</span>
-                    <h3>Server Mode</h3>
-                    <p>Personal streaming server with REST API, web interface, and advanced library management.</p>
-                </div>
-
-                <div class="feature-card">
-                    <span class="icon">💬</span>
-                    <h3>Comments</h3>
-                    <p>Decentralized comments system on tracks using GunDB. No central server required.</p>
-                </div>
-
-                <div class="feature-card">
-                    <span class="icon">📊</span>
-                    <h3>Statistics</h3>
-                    <p>Track listening habits, play history, and top tracks/artists in Server Mode.</p>
-                </div>
-
-                <div class="feature-card">
-                    <span class="icon">🌊</span>
-                    <h3>Waveforms</h3>
-                    <p>Visual waveform generation for audio files in Server Mode.</p>
-                </div>
-
-                <div class="feature-card">
-                    <span class="icon">🎤</span>
-                    <h3>Lyrics</h3>
-                    <p>Display and manage lyrics for tracks in Server Mode.</p>
-                </div>
-
-                <div class="feature-card">
-                    <span class="icon">🔍</span>
-                    <h3>Search</h3>
-                    <p>Full-text search across tracks, albums, and artists in Server Mode.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Download Modes -->
-        <section class="feature-section">
-            <h2><span class="icon">📥</span> Distribution Options</h2>
-            <ul class="feature-list">
-                <li><strong>Free</strong> — Immediate download without restrictions</li>
-                <li><strong>Pay-what-you-want</strong> — Suggest a price with honor system</li>
-                <li><strong>Unlock codes</strong> — Protect downloads with unique codes</li>
-                <li><strong>Streaming only</strong> — No downloads, just playback</li>
-            </ul>
-        </section>
-
-        <!-- Server Mode -->
-        <section class="feature-section">
-            <h2><span class="icon">🖥️</span> Server Mode</h2>
-            <p>Tunecamp includes a powerful personal streaming server for managing and streaming your music library.</p>
-            <ul class="feature-list">
-                <li><strong>Web Interface</strong> — Browse and stream your library via modern web UI</li>
-                <li><strong>Advanced Player</strong> — Full-featured player with scrubbing, queue, lyrics, and volume
-                    control</li>
-                <li><strong>REST API</strong> — Complete API for tracks, albums, artists, playlists, comments, and more
-                </li>
-                <li><strong>Library Management</strong> — Dual modes (Release & Library), smart scanning, file browser
-                </li>
-                <li><strong>Uploads</strong> — Web-based upload for tracks, covers, and avatars</li>
-                <li><strong>Multi-User Admin</strong> — Invite other admins to manage your instance</li>
-                <li><strong>Site Customization</strong> — Personalize site name and background image</li>
-                <li><strong>Privacy Controls</strong> — Toggle visibility for releases (Public/Private)</li>
-                <li><strong>Statistics</strong> — Track listening habits, play history, top tracks/artists</li>
-                <li><strong>Comments</strong> — Decentralized comments on tracks via GunDB</li>
-                <li><strong>Network Discovery</strong> — Browse and play tracks from other TuneCamp instances</li>
-                <li><strong>Waveform Generation</strong> — Visual waveform data for audio files</li>
-                <li><strong>User Authentication</strong> — Decentralized user accounts for comments and profiles</li>
-            </ul>
-            <p style="margin-top: var(--space-lg);">
-                <code
-                    style="background: var(--bg-surface-alt); padding: 4px 8px; border-radius: 4px;">tunecamp server ./music --port 1970</code>
-            </p>
-        </section>
-
-        <!-- Community -->
-        <section class="feature-section">
-            <h2><span class="icon">🌐</span> Community Directory</h2>
-            <p>Tunecamp sites can auto-register to a public directory. Discover other artists and share your music with
-                the community.</p>
-            <ul class="feature-list">
-                <li><strong>Decentralized</strong> — Powered by GunDB peer-to-peer network</li>
-                <li><strong>Real-time</strong> — New sites appear instantly</li>
-                <li><strong>Privacy-first</strong> — Only public info shared (URL, title, artist name)</li>
-                <li><strong>Network Discovery</strong> — In Server Mode, browse and play tracks from other instances
-                </li>
-            </ul>
-            <p style="margin-top: var(--space-lg);">
-                <a href="player.html" class="btn">🎵 Listen to Community Music</a>
-                <a href="community.html" class="btn btn-secondary">Browse Sites</a>
-            </p>
-        </section>
-
-        <!-- Quick Start -->
-        <section class="feature-section">
-            <h2><span class="icon">⚡</span> Quick Start</h2>
-
-            <div class="code-block">
-                <h4>Install globally</h4>
-                <pre>npm install -g tunecamp</pre>
+    <!-- Features -->
+    <section class="section-padding" id="features">
+        <div class="container">
+            <div class="section-header">
+                <h2>Everything you need to broadcast</h2>
+                <p>Tunecamp combines personal streaming with social federation, giving you full control over your catalog and your community.</p>
             </div>
 
-            <div class="code-block">
-                <h4>Create your site</h4>
-                <pre>tunecamp init my-catalog</pre>
+            <div class="grid">
+                <div class="card">
+                    <div class="icon">📡</div>
+                    <h3>ActivityPub Federation</h3>
+                    <p>Connect with Mastodon and the Fediverse. Your fans can follow your artist profile directly from their favorite social app.</p>
+                </div>
+                <div class="card">
+                    <div class="icon">🔊</div>
+                    <h3>Subsonic API</h3>
+                    <p>Stream your music on the go. Compatible with DSub, Symfonium, Amuse, and dozens of other mobile clients.</p>
+                </div>
+                <div class="card">
+                    <div class="icon">🔐</div>
+                    <h3>Decentralized Social</h3>
+                    <p>Powered by GunDB. Comments, statistics, and unlock codes are decentralized and resilient.</p>
+                </div>
+                <div class="card">
+                    <div class="icon">🌊</div>
+                    <h3>Waveform Visuals</h3>
+                    <p>Beautiful, automatically generated waveforms for every track, providing a professional streaming experience.</p>
+                </div>
+                <div class="card">
+                    <div class="icon">📥</div>
+                    <h3>Distribution Control</h3>
+                    <p>Offer free downloads, pay-what-you-want options, or protect your releases with unique unlock codes.</p>
+                </div>
+                <div class="card">
+                    <div class="icon">🎨</div>
+                    <h3>Modern Web UI</h3>
+                    <p>A sleek, responsive dashboard for you to manage your library and for your fans to enjoy your music.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How it Works -->
+    <section class="section-padding" id="how-it-works" style="background: var(--bg-surface);">
+        <div class="container">
+            <div class="section-header">
+                <h2>Simple to host, easy to manage</h2>
+                <p>Tunecamp works with your existing file structure. No complex databases required to start.</p>
             </div>
 
-            <div class="code-block">
-                <h4>Or build from existing catalog</h4>
-                <pre>tunecamp build ./my-catalog -o ./public</pre>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-num">01</span>
+                    <h3>Organize</h3>
+                    <p>Drop your audio files into folders by Artist and Album.</p>
+                </div>
+                <div class="step">
+                    <span class="step-num">02</span>
+                    <h3>Launch</h3>
+                    <p>Run the Tunecamp server and point it to your music directory.</p>
+                </div>
+                <div class="step">
+                    <span class="step-num">03</span>
+                    <h3>Share</h3>
+                    <p>Your site is live with streaming, downloads, and Fediverse connectivity.</p>
+                </div>
             </div>
+        </div>
+    </section>
 
-            <div class="code-block">
-                <h4>Start Server Mode</h4>
-                <pre>tunecamp server ./music --port 1970</pre>
+    <!-- Community -->
+    <section class="section-padding">
+        <div class="container" style="text-align: center;">
+            <h2>Join the Community</h2>
+            <p style="margin-bottom: var(--space-xl);">Discover other artists using Tunecamp and register your own instance.</p>
+            <div class="cta-group">
+                <a href="player.html" class="btn btn-secondary">🎵 Community Player</a>
+                <a href="community.html" class="btn btn-secondary">🌐 Browse Directory</a>
             </div>
+        </div>
+    </section>
 
-            <p>See the <a href="https://github.com/scobru/tunecamp#readme">README</a> for full documentation.</p>
-        </section>
-
-        <!-- Example Sites -->
-        <section class="example-sites">
-            <h3>Sites using Tunecamp</h3>
-            <div class="site-links">
-                <a href="https://homologomusic.vercel.app" class="site-link"
-                    target="_blank">homologomusic.vercel.app</a>
-            </div>
-            <p style="text-align: center; margin-top: var(--space-lg); color: var(--text-muted); font-size: 0.875rem;">
-                Want to add your site? <a href="https://github.com/scobru/tunecamp">Open a PR on GitHub</a>
-            </p>
-        </section>
-
-        <!-- Footer -->
-        <footer>
-            <div class="footer-links">
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <nav class="footer-nav">
                 <a href="https://github.com/scobru/tunecamp">GitHub</a>
                 <a href="https://www.npmjs.com/package/tunecamp">NPM</a>
-                <a href="player.html">🎵 Player</a>
-                <a href="community.html">🌐 Community</a>
-                <a href="https://buymeacoffee.com/scobru" target="_blank">☕ Support</a>
-            </div>
-            <div class="footer-note">
-                Tunecamp is free and open source (MIT). Made with ❤️ by <a href="https://github.com/scobru"
-                    target="_blank">scobru</a>
-            </div>
-        </footer>
-    </div>
+                <a href="https://buymeacoffee.com/scobru">Support</a>
+            </nav>
+            <p class="copyright">Tunecamp is MIT Licensed. Made with ❤️ for independent music.</p>
+        </div>
+    </footer>
 </body>
 
 </html>
