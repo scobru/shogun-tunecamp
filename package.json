@@ -1,8 +1,8 @@
 {
   "name": "tunecamp",
   "version": "2.0.0",
-  "description": "A modern static site generator for musicians and music labels, inspired by Faircamp",
-  "main": "dist/index.js",
+  "description": "A decentralized music platform for artists and labels, with streaming, federation, and Subsonic API support",
+  "main": "dist/server/server.js",
   "type": "module",
   "bin": {
     "tunecamp": "./dist/cli.js"
@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch & npm run watch:css",
-    "start": "node dist/cli.js",
+    "start": "node dist/cli.js server",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "tunecamp": "node dist/cli.js",
     "build:css": "tailwindcss -i webapp/css/input.css -o webapp/css/style.css",
@@ -18,10 +18,11 @@
   },
   "keywords": [
     "music",
-    "static-site-generator",
-    "bandcamp",
-    "artist",
-    "album",
+    "streaming",
+    "subsonic",
+    "activitypub",
+    "federation",
+    "gundb",
     "audio"
   ],
   "author": "",
@@ -56,7 +57,6 @@
     "fs-extra": "^11.2.0",
     "glob": "^10.3.10",
     "gun": "git+https://github.com/scobru/gun.git",
-    "handlebars": "^4.7.8",
     "inquirer": "^13.2.0",
     "jsonwebtoken": "^9.0.3",
     "md5": "^2.3.0",

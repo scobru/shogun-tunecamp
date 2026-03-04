@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { ethers } from "ethers";
+import fs from "fs-extra";
+import path from "path";
 import type { DatabaseService } from "../database.js";
 
 // Setup Base RPC
 const provider = new ethers.JsonRpcProvider(process.env.TUNECAMP_RPC_URL || "https://mainnet.base.org");
 
-export function createPaymentsRoutes(database: DatabaseService): Router {
+export function createPaymentsRoutes(database: DatabaseService, musicDir: string): Router {
     const router = Router();
 
     /**
@@ -58,12 +60,65 @@ export function createPaymentsRoutes(database: DatabaseService): Router {
             return res.json({
                 success: true,
                 code,
+                trackId: track.id,
+                albumId: track.album_id,
                 message: "Transaction verified successfully"
             });
 
         } catch (error) {
             console.error("Payment verification error:", error);
             res.status(500).json({ error: "Internal server error during verification" });
+        }
+    });
+
+    /**
+     * GET /api/payments/download/:trackId
+     * Download a purchased track using an unlock code.
+     * Query param: ?code=XXXXXXXXXX
+     */
+    router.get("/download/:trackId", async (req, res) => {
+        try {
+            const trackId = parseInt(req.params.trackId as string, 10);
+            const code = req.query.code as string;
+
+            if (!code) {
+                return res.status(400).json({ error: "Unlock code required" });
+            }
+
+            // Validate unlock code
+            const validation = database.validateUnlockCode(code);
+            if (!validation.valid) {
+                return res.status(403).json({ error: "Invalid or expired unlock code" });
+            }
+
+            // Get track
+            const track = database.getTrack(trackId);
+            if (!track) {
+                return res.status(404).json({ error: "Track not found" });
+            }
+
+            // Verify code is for the correct album
+            if (validation.releaseId && track.album_id && validation.releaseId !== track.album_id) {
+                return res.status(403).json({ error: "Unlock code is for a different release" });
+            }
+
+            if (!track.file_path) {
+                return res.status(400).json({ error: "Track has no downloadable file" });
+            }
+
+            const trackPath = path.join(musicDir, track.file_path);
+            if (!await fs.pathExists(trackPath)) {
+                return res.status(404).json({ error: "Track file not found on disk" });
+            }
+
+            const filename = path.basename(trackPath);
+            res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+            res.setHeader("Content-Type", "application/octet-stream");
+            return fs.createReadStream(trackPath).pipe(res);
+
+        } catch (error) {
+            console.error("Payment download error:", error);
+            res.status(500).json({ error: "Failed to download track" });
         }
     });
 

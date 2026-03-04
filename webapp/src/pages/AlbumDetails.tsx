@@ -11,9 +11,11 @@ import {
   Shield,
   Music,
   Wallet,
+  CheckCircle2,
 } from "lucide-react";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
+import { usePurchases } from "../hooks/usePurchases";
 
 import type { Album } from "../types";
 import { Comments } from "../components/Comments";
@@ -25,6 +27,7 @@ export const AlbumDetails = () => {
   const { playTrack } = usePlayerStore();
   const [coverVersion] = useState(Date.now()); // Cache buster
   const { isAdminAuthenticated: isAdmin } = useAuthStore();
+  const { isPurchased, getCode } = usePurchases();
 
   useEffect(() => {
     if (idOrSlug) {
@@ -276,46 +279,68 @@ export const AlbumDetails = () => {
                         className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
                       >
                         <li>
-                          <a
-                            onClick={(e) => {
-                              e.preventDefault();
-                              if (
-                                !isAdmin &&
-                                !useAuthStore.getState().isAuthenticated
-                              )
-                                return window.dispatchEvent(
-                                  new CustomEvent("open-auth-modal"),
-                                );
-                              window.dispatchEvent(
-                                new CustomEvent("open-checkout-modal", {
-                                  detail: {
-                                    track: {
-                                      ...track,
-                                      artist:
-                                        track.artistName ||
-                                        (track as any).artist_name ||
-                                        album.artistName ||
-                                        (album as any).artist_name ||
-                                        "Unknown Artist",
-                                      priceEth:
-                                        (track as any).price !== undefined &&
-                                        (track as any).price !== null &&
-                                        Number((track as any).price) > 0
-                                          ? String((track as any).price)
-                                          : album.price !== undefined &&
-                                              album.price !== null &&
-                                              Number(album.price) > 0
-                                            ? String(album.price)
-                                            : "0.005",
+                          {isPurchased(track.id) ? (
+                            <a
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const code = getCode(track.id);
+                                if (code) {
+                                  window.open(
+                                    `/api/payments/download/${track.id}?code=${code}`,
+                                    "_blank",
+                                  );
+                                }
+                              }}
+                            >
+                              <CheckCircle2
+                                size={16}
+                                className="text-success"
+                              />{" "}
+                              Download (Purchased)
+                            </a>
+                          ) : (
+                            <a
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if (
+                                  !isAdmin &&
+                                  !useAuthStore.getState().isAuthenticated
+                                )
+                                  return window.dispatchEvent(
+                                    new CustomEvent("open-auth-modal"),
+                                  );
+                                window.dispatchEvent(
+                                  new CustomEvent("open-checkout-modal", {
+                                    detail: {
+                                      track: {
+                                        ...track,
+                                        albumId: album.id,
+                                        artist:
+                                          track.artistName ||
+                                          (track as any).artist_name ||
+                                          album.artistName ||
+                                          (album as any).artist_name ||
+                                          "Unknown Artist",
+                                        priceEth:
+                                          (track as any).price !== undefined &&
+                                          (track as any).price !== null &&
+                                          Number((track as any).price) > 0
+                                            ? String((track as any).price)
+                                            : album.price !== undefined &&
+                                                album.price !== null &&
+                                                Number(album.price) > 0
+                                              ? String(album.price)
+                                              : "0.005",
+                                      },
                                     },
-                                  },
-                                }),
-                              );
-                            }}
-                          >
-                            <Wallet size={16} className="text-secondary" />{" "}
-                            Purchase Track
-                          </a>
+                                  }),
+                                );
+                              }}
+                            >
+                              <Wallet size={16} className="text-secondary" />{" "}
+                              Purchase Track
+                            </a>
+                          )}
                         </li>
                         {isAdmin && (
                           <li>

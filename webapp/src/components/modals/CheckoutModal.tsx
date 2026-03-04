@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useWalletStore } from "../../stores/useWalletStore";
 import { GunAuth } from "../../services/gun";
-import { Wallet, Loader2, CheckCircle2 } from "lucide-react";
+import { Wallet, Loader2, CheckCircle2, Download } from "lucide-react";
 import { ethers } from "ethers";
 
 // Track type matching minimum required for checkout
@@ -11,6 +11,8 @@ interface CheckoutTrack {
   artist: string;
   priceEth?: string;
   price?: number;
+  albumId?: number | string;
+  album_id?: number | string;
 }
 
 export const CheckoutModal = () => {
@@ -18,6 +20,7 @@ export const CheckoutModal = () => {
   const [track, setTrack] = useState<CheckoutTrack | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [unlockCode, setUnlockCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const {
@@ -35,6 +38,7 @@ export const CheckoutModal = () => {
       setTrack(e.detail.track);
       setIsOpen(true);
       setTxHash(null);
+      setUnlockCode(null);
       setError(null);
       setIsProcessing(false);
     };
@@ -47,8 +51,19 @@ export const CheckoutModal = () => {
     setTrack(null);
     setTimeout(() => {
       setTxHash(null);
+      setUnlockCode(null);
       setError(null);
     }, 300);
+  };
+
+  const handleDownload = () => {
+    if (!track || !unlockCode) return;
+    // Use dedicated payment download endpoint
+    window.open(
+      `/api/payments/download/${track.id}?code=${unlockCode}`,
+      "_blank",
+    );
+    handleClose();
   };
 
   const handlePurchase = async () => {
@@ -85,15 +100,42 @@ export const CheckoutModal = () => {
         throw new Error("Transaction failed on-chain.");
       }
 
-      // 3. Persist purchase locally in GunDB
+      // 3. Verify payment on server to get unlock code
+      let code: string | undefined;
+      try {
+        const verifyRes = await fetch("/api/payments/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            txHash: receipt.hash,
+            trackId: track.id,
+          }),
+        });
+        const verifyData = await verifyRes.json();
+        if (verifyData.success && verifyData.code) {
+          code = verifyData.code;
+          setUnlockCode(code ?? null);
+        }
+      } catch (verifyErr) {
+        console.warn(
+          "Payment verification failed, purchase still recorded:",
+          verifyErr,
+        );
+      }
+
+      // 4. Persist purchase locally in GunDB (including unlock code)
       const user = GunAuth.user;
       if (user.is) {
         // @ts-ignore
-        user.get("purchases").get(track.id).put({
-          txid: receipt.hash,
-          date: Date.now(),
-          price: track.priceEth,
-        });
+        user
+          .get("purchases")
+          .get(track.id)
+          .put({
+            txid: receipt.hash,
+            date: Date.now(),
+            price: track.priceEth,
+            code: code || "",
+          });
       }
 
       setTxHash(receipt.hash);
@@ -156,12 +198,22 @@ export const CheckoutModal = () => {
                   {txHash}
                 </a>
               </div>
-              <button
-                className="btn btn-primary btn-lg w-full rounded-2xl"
-                onClick={handleClose}
-              >
-                Start Listening
-              </button>
+              {unlockCode ? (
+                <button
+                  className="btn btn-primary btn-lg w-full rounded-2xl gap-2"
+                  onClick={handleDownload}
+                >
+                  <Download size={20} />
+                  Download Track
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary btn-lg w-full rounded-2xl"
+                  onClick={handleClose}
+                >
+                  Start Listening
+                </button>
+              )}
             </>
           ) : (
             <>

@@ -2,53 +2,27 @@
 
 # Tunecamp
 
-A modern, dual-mode music platform for independent artists and labels.
+A decentralized music platform for independent artists and labels.
 
-**Tunecamp operates in two modes:**
-1.  **Static Site Generator**: Create beautiful, fast static websites for your music catalog without a database.
-2.  **Music Server**: Run a self-hosted streaming server with Subsonic API support, federation, and user management.
+Tunecamp is a self-hosted music streaming server with federation, user management, and Subsonic API support. It allows artists to host their own music while connecting with the broader Fediverse.
 
 Inspired by [Faircamp](https://simonrepp.com/faircamp/).
 
 ## Features
 
-- 🎵 **Audio-first**: Automatically reads metadata from your audio files.
-- 📦 **Static Mode**: Generate pure HTML/CSS sites deployable anywhere (Netlify, GitHub Pages).
-- 🖥️ **Server Mode**: Run a personal streaming server with API and web interface.
-- 🎨 **Customizable**: Theme support and easy styling via CSS variables.
-- 📱 **Responsive**: Mobile-friendly out of the box.
-- 🔐 **Decentralized**: Optional GunDB integration for comments, stats, and unlock codes.
-- 📡 **Federation**: ActivityPub support (Server Mode) to connect with the Fediverse.
-- 🔊 **Subsonic API**: Compatible with mobile apps like DSub and Symfonium (Server Mode).
+- 🎵 **Audio-first**: Automatically reads metadata and generates waveforms from your audio files.
+- 🖥️ **Streaming Server**: Personal streaming server with a modern web interface.
+- 🎨 **Customizable**: Responsive UI with theme support.
+- 🔐 **Decentralized**: GunDB integration for comments, stats, and unlock codes.
+- 📡 **Federation**: ActivityPub support to connect with the Fediverse (Mastodon, etc.).
+- 🔊 **Subsonic API**: Compatible with mobile apps like DSub, Symfonium, and Amuse.
+- 📦 **Docker Ready**: Easy deployment with Docker and Docker Compose.
 
-## Quick Start: Static Site Generator
+## Quick Start
 
-Generate a static website for your music catalog. ideal for Bandcamp-style pages.
+The easiest way to run Tunecamp is using Docker.
 
-1.  **Install Tunecamp:**
-    ```bash
-    npm install -g tunecamp
-    ```
-
-2.  **Initialize a catalog:**
-    ```bash
-    tunecamp init my-music
-    cd my-music
-    ```
-
-3.  **Build and Serve:**
-    ```bash
-    tunecamp build . -o public
-    tunecamp serve public
-    ```
-
-👉 **[Read the Full Static Site Guide](./docs/STATIC_GENERATION.md)** for configuration, themes, and deployment instructions.
-
-## Quick Start: Server Instance
-
-Run your own music streaming server.
-
-1.  **Run with Docker (Recommended):**
+1.  **Run with Docker:**
     ```bash
     docker run -d \
       -p 1970:1970 \
@@ -64,23 +38,43 @@ Run your own music streaming server.
 
 ## CLI Commands
 
-- `tunecamp init <dir>`: Initialize a new static catalog.
-- `tunecamp build <input> -o <output>`: Build a static site.
-- `tunecamp serve <dir>`: Serve a static site locally.
+If running via Node.js:
+
 - `tunecamp server [music-dir]`: Start the music server instance.
+- `tunecamp backup [target-dir]`: Backup the database.
+- `tunecamp restore <backup-file>`: Restore the database from a backup.
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
+
+# Start in development mode
+npm run dev
+```
+
+### Frontend Development
+
+The frontend is located in the `webapp/` directory.
+
+```bash
+cd webapp
+npm install
+npm run dev
+```
 
 ## Documentation
 
-- [Static Site Generation](./docs/STATIC_GENERATION.md)
-  - Configuration (`catalog.yaml`, `artist.yaml`)
-  - Themes & Customization
-  - Deployment Guide
 - [Server Instance](./docs/SERVER.md)
   - Installation (Docker/Node)
   - Configuration (Environment Variables)
   - Features (Subsonic, ActivityPub)
-- [Unlock Codes](./docs/STATIC_GENERATION.md#unlock-codes-download-protection)
-- [Examples](./examples)
+- [Media Library](./docs/MEDIA_LIBRARY.md)
+- [Network & Federation](./docs/NETWORK.md)
 
 ## Contributing
 
@@ -89,7 +83,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 MIT License - see LICENSE file for details.
-
-## Credits
-
-Inspired by [Faircamp](https://simonrepp.com/faircamp/) by Simon Repp.

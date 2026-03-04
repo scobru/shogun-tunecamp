@@ -8,9 +8,11 @@ import {
   Clock,
   Search,
   Wallet,
+  CheckCircle2,
 } from "lucide-react";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
+import { usePurchases } from "../hooks/usePurchases";
 import type { Track } from "../types";
 
 export const Tracks = () => {
@@ -19,6 +21,7 @@ export const Tracks = () => {
   const [filter, setFilter] = useState("");
   const { playTrack } = usePlayerStore();
   const { isAuthenticated, isAdminAuthenticated } = useAuthStore();
+  const { isPurchased, getCode } = usePurchases();
 
   useEffect(() => {
     // if (!isAuthenticated && !isAdminAuthenticated) return;
@@ -185,36 +188,59 @@ export const Tracks = () => {
                           </a>
                         </li>
                         <li>
-                          <a
-                            onClick={() => {
-                              if (!isAuthenticated)
-                                return window.dispatchEvent(
-                                  new CustomEvent("open-auth-modal"),
-                                );
-                              window.dispatchEvent(
-                                new CustomEvent("open-checkout-modal", {
-                                  detail: {
-                                    track: {
-                                      ...track,
-                                      priceEth:
-                                        (track as any).price !== undefined &&
-                                        (track as any).price !== null &&
-                                        Number((track as any).price) > 0
-                                          ? String((track as any).price)
-                                          : track.albumPrice !== undefined &&
-                                              track.albumPrice !== null &&
-                                              Number(track.albumPrice) > 0
-                                            ? String(track.albumPrice)
-                                            : "0.005",
+                          {isPurchased(track.id) ? (
+                            <a
+                              onClick={() => {
+                                const code = getCode(track.id);
+                                if (code) {
+                                  window.open(
+                                    `/api/payments/download/${track.id}?code=${code}`,
+                                    "_blank",
+                                  );
+                                }
+                              }}
+                            >
+                              <CheckCircle2
+                                size={16}
+                                className="text-success"
+                              />{" "}
+                              Download (Purchased)
+                            </a>
+                          ) : (
+                            <a
+                              onClick={() => {
+                                if (!isAuthenticated)
+                                  return window.dispatchEvent(
+                                    new CustomEvent("open-auth-modal"),
+                                  );
+                                window.dispatchEvent(
+                                  new CustomEvent("open-checkout-modal", {
+                                    detail: {
+                                      track: {
+                                        ...track,
+                                        albumId:
+                                          (track as any).albumId ||
+                                          (track as any).album_id,
+                                        priceEth:
+                                          (track as any).price !== undefined &&
+                                          (track as any).price !== null &&
+                                          Number((track as any).price) > 0
+                                            ? String((track as any).price)
+                                            : track.albumPrice !== undefined &&
+                                                track.albumPrice !== null &&
+                                                Number(track.albumPrice) > 0
+                                              ? String(track.albumPrice)
+                                              : "0.005",
+                                      },
                                     },
-                                  },
-                                }),
-                              );
-                            }}
-                          >
-                            <Wallet size={16} className="text-secondary" />{" "}
-                            Purchase Track
-                          </a>
+                                  }),
+                                );
+                              }}
+                            >
+                              <Wallet size={16} className="text-secondary" />{" "}
+                              Purchase Track
+                            </a>
+                          )}
                         </li>
                       </ul>
                     </div>
