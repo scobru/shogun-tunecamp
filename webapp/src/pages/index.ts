@@ -9,6 +9,7 @@ export { Search } from './Search';
 export { Network } from './Network';
 // export { Admin } from './Admin';
 // export { Files } from './Files';
+export * from "./Purchases";
 export { Support } from './Support';
 export { Playlists } from './Playlists';
 export { PlaylistDetails } from './PlaylistDetails';

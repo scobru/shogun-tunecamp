@@ -27,7 +27,7 @@ export const AlbumDetails = () => {
   const { playTrack } = usePlayerStore();
   const [coverVersion] = useState(Date.now()); // Cache buster
   const { isAdminAuthenticated: isAdmin } = useAuthStore();
-  const { isPurchased, getCode } = usePurchases();
+  const { isPurchased, verifyAndGetCode } = usePurchases();
 
   useEffect(() => {
     if (idOrSlug) {
@@ -281,13 +281,18 @@ export const AlbumDetails = () => {
                         <li>
                           {isPurchased(track.id) ? (
                             <a
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.preventDefault();
-                                const code = getCode(track.id);
+                                // Create logic indicator if helpful, or just wait.
+                                const code = await verifyAndGetCode(track.id);
                                 if (code) {
                                   window.open(
                                     `/api/payments/download/${track.id}?code=${code}`,
                                     "_blank",
+                                  );
+                                } else {
+                                  alert(
+                                    "Download code not found or could not be verified. Please try again or contact support.",
                                   );
                                 }
                               }}

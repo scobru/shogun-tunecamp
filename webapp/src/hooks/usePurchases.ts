@@ -85,5 +85,47 @@ export function usePurchases() {
         [purchases]
     );
 
-    return { purchases, loading, isPurchased, getCode, getPurchase };
+    const verifyAndGetCode = useCallback(async (trackId: string | number): Promise<string | undefined> => {
+        const id = String(trackId);
+        const purchase = purchases.get(id);
+        
+        if (!purchase) return undefined;
+        
+        // If we already have the code locally, just return it
+        if (purchase.code) return purchase.code;
+        
+        // If we have txid but no code, re-verify with backend to regenerate it
+        if (purchase.txid) {
+            try {
+                const res = await fetch("/api/payments/verify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        txHash: purchase.txid,
+                        trackId: id
+                    })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.code) {
+                        // Optionally update local gun node so next time it's there
+                        const user = GunAuth.user;
+                        if (user.is) {
+                            // @ts-ignore
+                            user.get("purchases").get(id).put({ ...purchase, code: data.code });
+                        }
+                        
+                        return data.code;
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to re-verify purchase:", err);
+            }
+        }
+        
+        return undefined;
+    }, [purchases]);
+
+    return { purchases, loading, isPurchased, getCode, getPurchase, verifyAndGetCode };
 }

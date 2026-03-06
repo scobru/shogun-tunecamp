@@ -21,7 +21,7 @@ export const Tracks = () => {
   const [filter, setFilter] = useState("");
   const { playTrack } = usePlayerStore();
   const { isAuthenticated, isAdminAuthenticated } = useAuthStore();
-  const { isPurchased, getCode } = usePurchases();
+  const { isPurchased, verifyAndGetCode } = usePurchases();
 
   useEffect(() => {
     // if (!isAuthenticated && !isAdminAuthenticated) return;
@@ -190,12 +190,16 @@ export const Tracks = () => {
                         <li>
                           {isPurchased(track.id) ? (
                             <a
-                              onClick={() => {
-                                const code = getCode(track.id);
+                              onClick={async () => {
+                                const code = await verifyAndGetCode(track.id);
                                 if (code) {
                                   window.open(
                                     `/api/payments/download/${track.id}?code=${code}`,
                                     "_blank",
+                                  );
+                                } else {
+                                  alert(
+                                    "Download code not found or could not be verified. Please try again or contact support.",
                                   );
                                 }
                               }}
