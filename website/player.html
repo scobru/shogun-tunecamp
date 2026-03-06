@@ -154,6 +154,7 @@
             width: 70px;
             height: 4px;
             -webkit-appearance: none;
+            appearance: none;
             background: rgba(255, 255, 255, 0.2);
             border-radius: 2px;
             cursor: pointer;
@@ -161,6 +162,7 @@
 
         .volume-slider::-webkit-slider-thumb {
             -webkit-appearance: none;
+            appearance: none;
             width: 12px;
             height: 12px;
             background: white;
@@ -387,6 +389,34 @@
                 width: 100%;
             }
         }
+
+        .stat-row {
+            display: flex;
+            gap: var(--space-lg);
+            justify-content: center;
+            margin-top: var(--space-xl);
+        }
+
+        .stat-item {
+            background: var(--bg-surface-alt);
+            border: 1px solid var(--border);
+            padding: var(--space-md) var(--space-xl);
+            border-radius: 8px;
+            text-align: center;
+            min-width: 120px;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
     </style>
 </head>
 
@@ -475,16 +505,16 @@
         </div>
 
         <footer>
-            <div class="footer-links">
+            <nav class="footer-nav">
                 <a href="https://github.com/scobru/tunecamp">GitHub</a>
                 <a href="https://www.npmjs.com/package/tunecamp">NPM</a>
                 <a href="community.html">🌐 Community</a>
                 <a href="index.html">Home</a>
                 <a href="https://buymeacoffee.com/scobru" target="_blank">☕ Support</a>
-            </div>
-            <div class="footer-note">
+            </nav>
+            <p class="copyright">
                 Powered by GunDB. Made with ❤️ by <a href="https://github.com/scobru" target="_blank">scobru</a>
-            </div>
+            </p>
         </footer>
     </div>
 
