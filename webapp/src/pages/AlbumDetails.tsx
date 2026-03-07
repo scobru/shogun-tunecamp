@@ -303,6 +303,14 @@ export const AlbumDetails = () => {
                               />{" "}
                               Download (Purchased)
                             </a>
+                          ) : album.download === "free" ? (
+                            <a
+                              href={`/api/albums/${album.slug || album.id}/download?format=${downloadFormat}`}
+                              target="_blank"
+                            >
+                              <Download size={16} className="text-primary" />{" "}
+                              Download Track (Free)
+                            </a>
                           ) : (
                             <a
                               onClick={(e) => {
