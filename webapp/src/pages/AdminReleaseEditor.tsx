@@ -798,7 +798,9 @@ export default function AdminReleaseEditor() {
                   />
                   <div className="flex flex-col">
                     <span className="font-bold text-xs uppercase opacity-70">
-                      Disabled
+                      {metadata.price && Number(metadata.price) > 0
+                        ? "Streaming Only"
+                        : "Disabled"}
                     </span>
                   </div>
                 </label>
