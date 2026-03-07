@@ -121,6 +121,24 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
     });
 
     /**
+     * GET /api/tracks/search-metadata
+     * Search for track metadata on MusicBrainz
+     */
+    router.get("/search-metadata", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+        const query = req.query.q as string;
+        if (!query) return res.status(400).json({ error: "Query 'q' is required" });
+
+        try {
+            const results = await metadataService.searchRecording(query);
+            res.json(results);
+        } catch (error) {
+            console.error("Metadata search error:", error);
+            res.status(500).json({ error: "Failed to search metadata" });
+        }
+    });
+
+    /**
      * GET /api/tracks/:id
      * Get track details
      */
@@ -145,24 +163,6 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         } catch (error) {
             console.error("Error getting track:", error);
             res.status(500).json({ error: "Failed to get track" });
-        }
-    });
-
-    /**
-     * GET /api/tracks/search-metadata
-     * Search for track metadata on MusicBrainz
-     */
-    router.get("/search-metadata", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
-        const query = req.query.q as string;
-        if (!query) return res.status(400).json({ error: "Query 'q' is required" });
-
-        try {
-            const results = await metadataService.searchRecording(query);
-            res.json(results);
-        } catch (error) {
-            console.error("Metadata search error:", error);
-            res.status(500).json({ error: "Failed to search metadata" });
         }
     });
 
