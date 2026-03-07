@@ -239,7 +239,7 @@ export interface DatabaseService {
     getStats(): Promise<{ artists: number; albums: number; tracks: number; publicAlbums: number; totalUsers: number; storageUsed: number; networkSites: number; totalTracks: number }>;
     getPublicTracksCount(): number;
     // Play History
-    recordPlay(trackId: number): void;
+    recordPlay(trackId: number, playedAt?: string): void;
     getRecentPlays(limit?: number): PlayHistoryEntry[];
     getTopTracks(limit?: number, days?: number): TrackWithPlayCount[];
     getTopArtists(limit?: number, days?: number): ArtistWithPlayCount[];
@@ -1448,8 +1448,12 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         // Play History
-        recordPlay(trackId: number): void {
-            db.prepare("INSERT INTO play_history (track_id) VALUES (?)").run(trackId);
+        recordPlay(trackId: number, playedAt?: string): void {
+            if (playedAt) {
+                db.prepare("INSERT INTO play_history (track_id, played_at) VALUES (?, ?)").run(trackId, playedAt);
+            } else {
+                db.prepare("INSERT INTO play_history (track_id) VALUES (?)").run(trackId);
+            }
         },
 
         getRecentPlays(limit = 50): PlayHistoryEntry[] {

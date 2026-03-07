@@ -65,6 +65,36 @@ export function createStatsRoutes(gundbService: GunDBService): Router {
     });
 
     /**
+     * GET /api/stats/track/:releaseSlug/:trackId/plays
+     * Get play count for a specific track from GunDB
+     */
+    router.get("/track/:releaseSlug/:trackId/plays", async (req, res) => {
+        try {
+            const { releaseSlug, trackId } = req.params;
+            const count = await gundbService.getTrackPlayCount(releaseSlug, trackId);
+            res.json({ releaseSlug, trackId, plays: count });
+        } catch (error) {
+            console.error("Error getting track play count:", error);
+            res.status(500).json({ error: "Failed to get track play count" });
+        }
+    });
+
+    /**
+     * POST /api/stats/track/:releaseSlug/:trackId/play
+     * Increment play count for a specific track in GunDB
+     */
+    router.post("/track/:releaseSlug/:trackId/play", async (req, res) => {
+        try {
+            const { releaseSlug, trackId } = req.params;
+            const count = await gundbService.incrementTrackPlayCount(releaseSlug, trackId);
+            res.json({ releaseSlug, trackId, plays: count });
+        } catch (error) {
+            console.error("Error incrementing track play count:", error);
+            res.status(500).json({ error: "Failed to increment track play count" });
+        }
+    });
+
+    /**
      * GET /api/stats/network/sites
      * Get all TuneCamp sites registered in the community
      */
