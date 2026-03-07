@@ -1,6 +1,6 @@
 
 import { describe, expect, test } from '@jest/globals';
-import { getPlaceholderSVG } from './audioUtils.js';
+import { getPlaceholderSVG, formatDuration } from './audioUtils.js';
 
 describe('Audio Utils Security', () => {
     test('getPlaceholderSVG should escape HTML special characters to prevent XSS', () => {
@@ -31,5 +31,34 @@ describe('Audio Utils Security', () => {
         // Default is 'No Cover'
         const svg = getPlaceholderSVG(undefined);
         expect(svg).toContain('No Cover');
+    });
+});
+
+describe('formatDuration', () => {
+    test('should return 0:00 for undefined or null', () => {
+        expect(formatDuration(undefined)).toBe('0:00');
+        expect(formatDuration(null as any)).toBe('0:00');
+    });
+
+    test('should return 0:00 for 0', () => {
+        expect(formatDuration(0)).toBe('0:00');
+    });
+
+    test('should format seconds correctly', () => {
+        expect(formatDuration(59)).toBe('0:59');
+    });
+
+    test('should format minutes correctly', () => {
+        expect(formatDuration(60)).toBe('1:00');
+        expect(formatDuration(65)).toBe('1:05');
+    });
+
+    test('should format hours correctly (as minutes)', () => {
+        expect(formatDuration(3600)).toBe('60:00');
+        expect(formatDuration(3661)).toBe('61:01');
+    });
+
+    test('should truncate floating point numbers', () => {
+        expect(formatDuration(65.7)).toBe('1:05');
     });
 });

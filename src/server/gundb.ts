@@ -56,6 +56,8 @@ export interface GunDBService {
     incrementDownloadCount(releaseSlug: string): Promise<number>;
     getTrackDownloadCount(releaseSlug: string, trackId: string): Promise<number>;
     incrementTrackDownloadCount(releaseSlug: string, trackId: string): Promise<number>;
+    getTrackPlayCount(releaseSlug: string, trackId: string): Promise<number>;
+    incrementTrackPlayCount(releaseSlug: string, trackId: string): Promise<number>;
     // Community exploration
     getCommunitySites(): Promise<any[]>;
     getCommunityTracks(): Promise<any[]>;
@@ -440,6 +442,56 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 .put(newCount, (ack: any) => {
                     if (ack.err) {
                         console.error("Error incrementing download count:", ack.err);
+                        resolve(currentCount);
+                    } else {
+                        resolve(newCount);
+                    }
+                });
+
+            // Timeout fallback
+            setTimeout(() => resolve(newCount), 2000);
+        });
+    }
+
+    async function getTrackPlayCount(releaseSlug: string, trackId: string): Promise<number> {
+        if (!initialized || !gun) return 0;
+
+        return new Promise((resolve) => {
+            gun
+                .get(REGISTRY_ROOT)
+                .get(STATS_NAMESPACE)
+                .get("releases")
+                .get(releaseSlug)
+                .get("tracks")
+                .get(trackId)
+                .get("plays")
+                .once((data: any) => {
+                    resolve(data ? parseInt(data, 10) || 0 : 0);
+                });
+
+            // Timeout fallback
+            setTimeout(() => resolve(0), 3000);
+        });
+    }
+
+    async function incrementTrackPlayCount(releaseSlug: string, trackId: string): Promise<number> {
+        if (!initialized || !gun) return 0;
+
+        const currentCount = await getTrackPlayCount(releaseSlug, trackId);
+        const newCount = currentCount + 1;
+
+        return new Promise((resolve) => {
+            gun
+                .get(REGISTRY_ROOT)
+                .get(STATS_NAMESPACE)
+                .get("releases")
+                .get(releaseSlug)
+                .get("tracks")
+                .get(trackId)
+                .get("plays")
+                .put(newCount, (ack: any) => {
+                    if (ack.err) {
+                        console.error("Error incrementing track play count:", ack.err);
                         resolve(currentCount);
                     } else {
                         resolve(newCount);
@@ -966,6 +1018,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         incrementDownloadCount,
         getTrackDownloadCount,
         incrementTrackDownloadCount,
+        getTrackPlayCount,
+        incrementTrackPlayCount,
         getCommunitySites,
         getCommunityTracks,
         // User profiles
