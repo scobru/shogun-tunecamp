@@ -1,4 +1,4 @@
-<img src="./logo.svg" alt="Tunecamp" width="200" height="200" style="display: block; margin-bottom: 20px; margin-top: 20px; align-items: center; justify-content: center; margin-left: auto; margin-right: auto;"> 
+<img src="./logo.svg" alt="Tunecamp" width="200" height="200" style="display: block; margin-bottom: 20px; margin-top: 20px; align-items: center; justify-content: center; margin-left: auto; margin-right: auto;">
 
 # Tunecamp
 
@@ -22,7 +22,16 @@ Inspired by [Faircamp](https://simonrepp.com/faircamp/).
 
 The easiest way to run Tunecamp is using Docker.
 
-1.  **Run with Docker:**
+1.  **Run with Docker Compose (Recommended):**
+
+    ```bash
+    docker-compose up -d
+    ```
+
+    _Make sure to edit `docker-compose.yml` to set your music and data volumes._
+
+2.  **Run with Docker CLI:**
+
     ```bash
     docker run -d \
       -p 1970:1970 \
@@ -31,7 +40,7 @@ The easiest way to run Tunecamp is using Docker.
       ghcr.io/scobru/tunecamp:latest
     ```
 
-2.  **Access the Dashboard:**
+3.  **Access the Dashboard:**
     Open `http://localhost:1970` in your browser.
 
 👉 **[Read the Full Server Guide](./docs/SERVER.md)** for installation details, environment variables, and administration.

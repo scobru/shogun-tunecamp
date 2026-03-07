@@ -56,17 +56,22 @@ genres:
 ## Features to Explore
 
 ### 🌐 Web Interface
+
 Browse your library, play tracks with a modern player, and manage your profile.
 
 ### 📡 Federation (ActivityPub)
+
 Connect your instance to the Fediverse. Other users on Mastodon or Pleroma can follow your artists and get updates on new releases.
 
 ### 🔊 Subsonic API
+
 Use your favorite mobile apps (DSub, Symfonium, etc.) to stream your music on the go.
+
 - **Server URL**: `http://your-ip:1970/rest`
 - **Username/Password**: Use your Tunecamp credentials.
 
 ### 🔐 Decentralized Comments
+
 Engage with your listeners using GunDB-powered decentralized comments.
 
 ## Docker Setup (Recommended for Production)
@@ -75,7 +80,15 @@ Engage with your listeners using GunDB-powered decentralized comments.
 docker-compose up -d
 ```
 
-Make sure to edit `docker-compose.yml` to mount your music and data volumes.
+### Configuration
+
+1.  **Edit `docker-compose.yml`**: Map your music and data volumes.
+    ```yaml
+    volumes:
+      - /your/music/folder:/music:ro
+      - tunecamp_data:/data
+    ```
+2.  **Environment Variables**: Set your `TUNECAMP_OWNER_ADDRESS` and other optional settings in the `environment` section.
 
 ## Next Steps
 
