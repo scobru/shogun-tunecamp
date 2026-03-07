@@ -138,6 +138,54 @@ export class Scanner implements ScannerService {
     constructor(private database: DatabaseService) { }
 
     /**
+     * Get or create an implicit 'Library' album for a directory that doesn't have a release.yaml
+     */
+    private async getOrCreateLibraryAlbum(dir: string, musicDir: string): Promise<number | null> {
+        // Normalize dir relative to musicDir
+        const relativeDir = this.normalizePath(dir, musicDir);
+        if (relativeDir === "." || relativeDir === "") return null;
+
+        // Check if we already mapped this in this session
+        if (this.folderToAlbumMap.has(dir)) return this.folderToAlbumMap.get(dir)!;
+
+        // Check if an album already exists with this slug (folder name)
+        const folderName = path.basename(dir);
+        const slug = slugify("lib-" + folderName); // Prefix to avoid collisions with real releases
+        let album = this.database.getAlbumBySlug(slug);
+
+        if (album) {
+            this.folderToAlbumMap.set(dir, album.id);
+            return album.id;
+        }
+
+        // Create new library album
+        const albumId = this.database.createAlbum({
+            title: folderName,
+            slug: slug,
+            artist_id: null, // Will be fixed by fixOrphanAlbums later
+            date: null,
+            cover_path: null,
+            genre: "Library",
+            description: `Auto-generated album for folder ${folderName}`,
+            type: 'album',
+            year: null,
+            download: null,
+            price: 0,
+            external_links: null,
+            is_public: false,
+            visibility: 'private',
+            is_release: false, // Explicitly NOT a release
+            published_at: null,
+            published_to_gundb: false,
+            published_to_ap: false,
+        });
+
+        console.log(`  [Scanner] Created implicit library album: ${folderName} (ID ${albumId})`);
+        this.folderToAlbumMap.set(dir, albumId);
+        return albumId;
+    }
+
+    /**
      * Normalize path to be relative to musicDir and use forward slashes (POSIX style)
      */
     private normalizePath(filePath: string, musicDir: string): string {
@@ -676,8 +724,18 @@ export class Scanner implements ScannerService {
 
         // 3. Process Release configs
         const releaseConfigs = yamlFiles.filter(f => f.endsWith("release.yaml"));
+        const releaseDirs = new Set(releaseConfigs.map(f => path.dirname(f)));
+
         for (const configPath of releaseConfigs) {
             await this.processReleaseConfig(configPath, dir);
+        }
+
+        // 3b. Create implicit albums for directories with audio but NO release.yaml
+        const audioDirs = new Set(audioFiles.map(f => path.dirname(f)));
+        for (const audioDir of audioDirs) {
+            if (!releaseDirs.has(audioDir)) {
+                await this.getOrCreateLibraryAlbum(audioDir, dir);
+            }
         }
 
         const successful: Array<{ originalPath: string; message: string; convertedPath?: string }> = [];

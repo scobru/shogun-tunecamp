@@ -10,12 +10,21 @@ interface MusicBrainzRelease {
     score?: number;
 }
 
+interface MusicBrainzRecording {
+    id: string;
+    title: string;
+    "artist-credit"?: { name: string }[];
+    length?: number;
+    releases?: { id: string, title: string, "artist-credit"?: { name: string }[] }[];
+}
+
 export interface MetadataMatch {
     id: string; // MBID
     title: string;
     artist: string;
     date: string;
     coverUrl?: string;
+    albumTitle?: string;
 }
 
 export class MetadataService {
@@ -46,6 +55,39 @@ export class MetadataService {
             }));
         } catch (error) {
             console.error("Error searching MusicBrainz:", error);
+            return [];
+        }
+    }
+
+    async searchRecording(query: string): Promise<MetadataMatch[]> {
+        const url = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json`;
+
+        try {
+            const response = await fetch(url, {
+                headers: { "User-Agent": USER_AGENT }
+            });
+
+            if (!response.ok) {
+                console.error(`MusicBrainz API error: ${response.status}`);
+                return [];
+            }
+
+            const data = await response.json() as any;
+            const recordings = (data.recordings || []) as MusicBrainzRecording[];
+
+            return recordings.map(r => {
+                const release = r.releases?.[0];
+                return {
+                    id: r.id,
+                    title: r.title,
+                    artist: r["artist-credit"]?.[0]?.name || "Unknown",
+                    date: "", // Recording doesn't have a single date usually
+                    coverUrl: release ? `https://coverartarchive.org/release/${release.id}/front-250` : undefined,
+                    albumTitle: release?.title
+                };
+            });
+        } catch (error) {
+            console.error("Error searching MusicBrainz recordings:", error);
             return [];
         }
     }

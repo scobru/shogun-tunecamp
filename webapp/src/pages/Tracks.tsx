@@ -15,6 +15,7 @@ import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
 import { usePurchases } from "../hooks/usePurchases";
 import type { Track } from "../types";
+import { MetadataMatchModal } from "../components/MetadataMatchModal";
 
 export const Tracks = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -23,6 +24,7 @@ export const Tracks = () => {
   const { playTrack } = usePlayerStore();
   const { isAuthenticated, isAdminAuthenticated } = useAuthStore();
   const { isPurchased, verifyAndGetCode } = usePurchases();
+  const [matchingTrack, setMatchingTrack] = useState<Track | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -235,6 +237,13 @@ export const Tracks = () => {
                             </a>
                           )}
                         </li>
+                        {isAdminAuthenticated && (
+                          <li className="border-t border-white/5 mt-1 pt-1 opacity-70 hover:opacity-100">
+                            <a onClick={() => setMatchingTrack(track)}>
+                              <Search size={16} /> Match Metadata
+                            </a>
+                          </li>
+                        )}
                       </ul>
                     </div>
                   </td>
@@ -249,6 +258,29 @@ export const Tracks = () => {
           </div>
         )}
       </div>
+
+      {matchingTrack && (
+        <MetadataMatchModal
+          track={matchingTrack}
+          onClose={() => setMatchingTrack(null)}
+          onMatched={(updated) => {
+            setTracks((prev) =>
+              prev.map((t) =>
+                t.id === updated.id
+                  ? {
+                      ...t,
+                      ...updated,
+                      albumName:
+                        (updated as any).album_title || updated.albumName,
+                      artistName:
+                        (updated as any).artist_name || updated.artistName,
+                    }
+                  : t,
+              ),
+            );
+          }}
+        />
+      )}
     </div>
   );
 };

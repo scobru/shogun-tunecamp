@@ -16,6 +16,7 @@ if (ffmpegPath) {
 }
 
 import type { PublishingService } from "../publishing.js";
+import { metadataService } from "../metadata.js";
 
 export function createTracksRoutes(database: DatabaseService, publishingService: PublishingService, musicDir: string): Router {
     const router = Router();
@@ -144,6 +145,94 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         } catch (error) {
             console.error("Error getting track:", error);
             res.status(500).json({ error: "Failed to get track" });
+        }
+    });
+
+    /**
+     * GET /api/tracks/search-metadata
+     * Search for track metadata on MusicBrainz
+     */
+    router.get("/search-metadata", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+        const query = req.query.q as string;
+        if (!query) return res.status(400).json({ error: "Query 'q' is required" });
+
+        try {
+            const results = await metadataService.searchRecording(query);
+            res.json(results);
+        } catch (error) {
+            console.error("Metadata search error:", error);
+            res.status(500).json({ error: "Failed to search metadata" });
+        }
+    });
+
+    /**
+     * POST /api/tracks/:id/match-metadata
+     * Apply MusicBrainz metadata to a track
+     */
+    router.post("/:id/match-metadata", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+        const id = parseInt(req.params.id, 10);
+        const { title, artist, albumTitle, coverUrl } = req.body;
+
+        try {
+            const track = database.getTrack(id);
+            if (!track) return res.status(404).json({ error: "Track not found" });
+
+            // 1. Update Artist
+            let artistId = track.artist_id;
+            if (artist) {
+                const existingArtist = database.getArtistByName(artist);
+                artistId = existingArtist ? existingArtist.id : database.createArtist(artist);
+                database.updateTrackArtist(id, artistId);
+            }
+
+            // 2. Update Album (if albumTitle provided, find or create library album)
+            if (albumTitle) {
+                const slug = "lib-" + albumTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                let album = database.getAlbumBySlug(slug);
+                if (!album) {
+                    const albumId = database.createAlbum({
+                        title: albumTitle,
+                        slug: slug,
+                        artist_id: artistId,
+                        date: null,
+                        cover_path: null,
+                        genre: "Matched",
+                        description: `Metadata matched`,
+                        type: 'album',
+                        year: null,
+                        download: null,
+                        price: 0,
+                        external_links: null,
+                        is_public: false,
+                        visibility: 'private',
+                        is_release: false,
+                        published_at: null,
+                        published_to_gundb: false,
+                        published_to_ap: false,
+                    });
+                    album = database.getAlbum(albumId);
+                }
+                if (album) {
+                    database.updateTrackAlbum(id, album.id);
+                }
+            }
+
+            // 3. Update Title
+            if (title) {
+                database.updateTrackTitle(id, title);
+            }
+
+            // 4. Update External Artwork if provided
+            if (coverUrl) {
+                (database as any).db.prepare("UPDATE tracks SET external_artwork = ? WHERE id = ?").run(coverUrl, id);
+            }
+
+            res.json({ message: "Metadata matched successfully", track: database.getTrack(id) });
+        } catch (error) {
+            console.error("Metadata match error:", error);
+            res.status(500).json({ error: "Failed to apply metadata" });
         }
     });
 

@@ -158,9 +158,12 @@ export const API = {
     // --- Admin: Tracks ---
     createTrack: (data: { title: string, albumId?: number, artistId?: number, trackNum?: number, url?: string, service?: string, externalArtwork?: string, duration?: number }) =>
         handleResponse(api.post<Track>('/tracks', data)),
-    updateTrack: (id: string, data: Partial<Track>) => handleResponse(api.put<Track>(`/tracks/${id}`, data)),
-    deleteTrack: (id: string, deleteFile = false) =>
+    updateTrack: (id: string | number, data: Partial<Track>) => handleResponse(api.put<Track>(`/tracks/${id}`, data)),
+    deleteTrack: (id: string | number, deleteFile = false) =>
         handleResponse(api.delete(`/tracks/${id}${deleteFile ? '?deleteFile=true' : ''}`)),
+    searchTrackMetadata: (query: string) => handleResponse(api.get<any[]>(`/tracks/search-metadata?q=${encodeURIComponent(query)}`)),
+    matchTrackMetadata: (id: string | number, metadata: { title: string, artist: string, albumTitle?: string, coverUrl?: string }) =>
+        handleResponse(api.post<{ message: string, track: Track }>(`/tracks/${id}/match-metadata`, metadata)),
 
     // --- Admin: Uploads ---
     uploadTracks: (files: File[], options: { releaseSlug?: string, onProgress?: (percent: number) => void } = {}) => {
