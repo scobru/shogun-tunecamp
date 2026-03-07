@@ -1048,6 +1048,12 @@ export function createDatabase(dbPath: string): DatabaseService {
             // Delete from release_tracks join table
             db.prepare("DELETE FROM release_tracks WHERE release_id = ?").run(id);
 
+            // Delete associated unlock codes - VERY IMPORTANT to avoid FK constraint errors
+            db.prepare("DELETE FROM unlock_codes WHERE release_id = ?").run(id);
+
+            // Mark AP notes as deleted if they reference this album
+            db.prepare("UPDATE ap_notes SET deleted_at = CURRENT_TIMESTAMP WHERE content_id = ? AND note_type = 'release'").run(id);
+
             if (keepTracks) {
                 // Determine if we should unlink tracks or just nullify album_id
                 // For now, nullify album_id (move to loose tracks)
