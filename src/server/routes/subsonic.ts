@@ -6,12 +6,14 @@ import path from 'path';
 import fs from 'fs-extra';
 import type { DatabaseService } from '../database';
 import type { AuthService } from '../auth';
+import type { GunDBService } from '../gundb';
 
 // Types for Subsonic
 interface SubsonicContext {
     db: DatabaseService;
     auth: AuthService;
     musicDir: string;
+    gundbService?: GunDBService;
 }
 
 export const createSubsonicRouter = (context: SubsonicContext): Router => {
@@ -352,15 +354,58 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         return sendError(res, 70, 'File not found');
     };
 
-    const scrobble = (req: any, res: any) => {
-        // TODO: Implement actual scrobbling logic (update play count)
-        const { id, submission } = req.query as any;
-        if (id && submission === 'true') {
-            if (id.startsWith('tr_')) {
-                const trackId = parseInt(id.substring(3));
-                db.recordPlay(trackId);
+    const scrobble = async (req: any, res: any) => {
+        const { id, submission, timestamp } = req.query as any;
+        const ids = Array.isArray(id) ? id : [id];
+        const timestamps = Array.isArray(timestamp) ? timestamp : [timestamp];
+
+        // Subsonic spec: submission defaults to true if not provided
+        const isSubmission = submission !== 'false';
+
+        for (let i = 0; i < ids.length; i++) {
+            const currentId = ids[i];
+            if (!currentId || !currentId.startsWith('tr_')) continue;
+
+            const trackId = parseInt(currentId.substring(3));
+            if (isNaN(trackId)) continue;
+
+            if (isSubmission) {
+                // Actual Scrobble
+                // Subsonic spec defines timestamp as epoch seconds
+                const ts = parseInt(timestamps[i]);
+                const timestampMs = !isNaN(ts) ? ts * 1000 : Date.now();
+
+                let playedAt;
+                try {
+                    playedAt = new Date(timestampMs).toISOString();
+                } catch (e) {
+                    playedAt = new Date().toISOString();
+                }
+
+                console.log(`[Subsonic] Scrobbling track ${trackId} at ${playedAt}`);
+                db.recordPlay(trackId, playedAt);
+
+                // Increment GunDB play count if it's a public release
+                try {
+                    const track = db.getTrack(trackId);
+                    if (track && track.album_id) {
+                        const album = db.getAlbum(track.album_id);
+                        if (album && (album.visibility === 'public' || album.visibility === 'unlisted')) {
+                            // GunDB uses slug-based tracking for releases
+                            if (context.gundbService) {
+                                context.gundbService.incrementTrackPlayCount(album.slug, String(track.id));
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('[Subsonic] Failed to increment GunDB play count:', e);
+                }
+            } else {
+                // Now Playing notification
+                console.log(`[Subsonic] Now playing track ${trackId}`);
             }
         }
+
         sendXML(res, {});
     };
 
