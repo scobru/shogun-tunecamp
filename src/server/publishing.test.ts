@@ -116,8 +116,6 @@ describe('PublishingService - Visibility Toggle', () => {
         });
 
         // 2. Sync (should register)
-        // Manually fix published_to_gundb because createAlbum might be buggy
-        db.updateAlbumFederationSettings(albumId, true, true);
 
         await publishingService.syncRelease(albumId);
         expect(gundbMock.registerTracks).toHaveBeenCalled();
@@ -129,7 +127,7 @@ describe('PublishingService - Visibility Toggle', () => {
         // Verify state
         const album = db.getAlbum(albumId);
         expect(album?.visibility).toBe('private');
-        expect(album?.is_public).toBe(0);
+        expect(album?.is_public).toBe(false);
 
         // 4. Sync (should unregister)
         // Reset mocks to be sure
@@ -169,8 +167,6 @@ describe('PublishingService - Visibility Toggle', () => {
             year: 2023
         });
 
-        // Manually fix published_to_gundb because createAlbum might be buggy
-        db.updateAlbumFederationSettings(albumId, true, true);
 
         await publishingService.syncRelease(albumId);
         expect(gundbMock.registerTracks).toHaveBeenCalled();
