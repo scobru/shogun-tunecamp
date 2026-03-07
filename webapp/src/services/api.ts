@@ -93,10 +93,17 @@ export const API = {
         handleResponse(api.delete(`/playlists/${playlistId}/tracks/${trackId}`)),
 
     // --- Streaming & Interactions ---
-    getStreamUrl: (id: string, format?: string) => {
+    getStreamUrl: (id: string | number, format?: string) => {
         let url = `${API_URL}/tracks/${id}/stream`;
-        if (format) url += `?format=${format}`;
-        return url;
+        const params = new URLSearchParams();
+        if (format) params.append('format', format);
+
+        // Add token for private library streaming (HTML5 audio tags don't send headers)
+        const token = API.getToken();
+        if (token) params.append('token', token);
+
+        const queryString = params.toString();
+        return queryString ? `${url}?${queryString}` : url;
     },
     getLyrics: (trackId: string) => handleResponse(api.get<{ lyrics: string | { text: string }[] }>(`/tracks/${trackId}/lyrics`)),
     recordPlay: (trackId: string | number) => {
