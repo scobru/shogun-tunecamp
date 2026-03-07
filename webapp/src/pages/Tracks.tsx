@@ -9,6 +9,7 @@ import {
   Search,
   Wallet,
   CheckCircle2,
+  Download,
 } from "lucide-react";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
