@@ -30,60 +30,76 @@ The easiest way to run Tunecamp is using Docker.
 
     _Make sure to edit `docker-compose.yml` to set your music and data volumes._
 
-2.  **Run with Docker CLI:**
-
-    ```bash
-    docker run -d \
-      -p 1970:1970 \
-      -v /path/to/music:/music \
-      -v tunecamp_data:/data \
-      ghcr.io/scobru/tunecamp:latest
-    ```
-
-3.  **Access the Dashboard:**
+2.  **Access the Dashboard:**
     Open `http://localhost:1970` in your browser.
 
-👉 **[Read the Full Server Guide](./docs/SERVER.md)** for installation details, environment variables, and administration.
+## Server Configuration
+
+Tunecamp can be configured using environment variables. When using Docker, these can be set in the `environment` section of your `docker-compose.yml`.
+
+### Core Settings
+
+| Variable              | Description                                                        | Default              |
+| :-------------------- | :----------------------------------------------------------------- | :------------------- |
+| `PORT`                | The port the server will listen on.                                | `1970`               |
+| `TUNECAMP_SITE_NAME`  | The name of your Tunecamp instance.                                | `My TuneCamp Server` |
+| `TUNECAMP_PUBLIC_URL` | The public-facing URL of your server (required for ActivityPub).   | -                    |
+| `JWT_SECRET`          | Secret key for signing JSON Web Tokens. Auto-generated if not set. | -                    |
+
+### DeFi & Payments (Base Network)
+
+Tunecamp integrates with the Base network for artist payments and currency management.
+
+| Variable                     | Description                                               | Default                                      |
+| :--------------------------- | :-------------------------------------------------------- | :------------------------------------------- |
+| `TUNECAMP_OWNER_ADDRESS`     | Ethereum address of the server owner/artist.              | -                                            |
+| `TUNECAMP_RPC_URL`           | RPC URL for the Base network.                             | `https://mainnet.base.org`                   |
+| `TUNECAMP_CURRENCY_CONTRACT` | Contract address for the preferred currency (e.g., USDC). | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+
+### GunDB & Federation
+
+| Variable             | Description                                |
+| :------------------- | :----------------------------------------- |
+| `TUNECAMP_GUN_PEERS` | Comma-separated list of GunDB relay peers. |
+| `VITE_GUN_PEERS`     | (Frontend) Same as `TUNECAMP_GUN_PEERS`.   |
 
 ## CLI Commands
 
-If running via Node.js:
+If running via Node.js, you can use the `tunecamp` CLI:
 
 - `tunecamp server [music-dir]`: Start the music server instance.
 - `tunecamp backup [target-dir]`: Backup the database.
 - `tunecamp restore <backup-file>`: Restore the database from a backup.
 
-## Development
+## Development Setup
 
-```bash
-# Install dependencies
-npm install
+If you want to run Tunecamp from source:
 
-# Build the project
-npm run build
+1.  **Backend:**
 
-# Start in development mode
-npm run dev
+    ```bash
+    npm install
+    npm run build
+    npm run dev  # Starts with auto-reload
+    ```
+
+2.  **Frontend:**
+    ```bash
+    cd webapp
+    npm install
+    npm run dev
+    ```
+
+### Environment File (.env)
+
+For local development, you can create a `.env` file in the root directory:
+
+```env
+PORT=1970
+TUNECAMP_SITE_NAME=My Dev Server
+TUNECAMP_GUN_PEERS=https://shogun-relay.scobrudot.dev/gun
+VITE_GUN_PEERS=https://shogun-relay.scobrudot.dev/gun
 ```
-
-### Frontend Development
-
-The frontend is located in the `webapp/` directory.
-
-```bash
-cd webapp
-npm install
-npm run dev
-```
-
-## Documentation
-
-- [Server Instance](./docs/SERVER.md)
-  - Installation (Docker/Node)
-  - Configuration (Environment Variables)
-  - Features (Subsonic, ActivityPub)
-- [Media Library](./docs/MEDIA_LIBRARY.md)
-- [Network & Federation](./docs/NETWORK.md)
 
 ## Contributing
 
