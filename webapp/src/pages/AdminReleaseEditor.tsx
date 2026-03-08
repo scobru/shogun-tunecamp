@@ -36,6 +36,7 @@ interface LocalTrack {
   format?: string;
   isDirty?: boolean; // Track if metadata changed
   lyrics?: string;
+  showLyrics?: boolean; // Toggle visibility of lyrics editor
 }
 
 interface LocalRelease {
@@ -311,32 +312,32 @@ export default function AdminReleaseEditor() {
         }
       }
 
+      // Save Track Metadata changes (Title, Filename, Lyrics)
+      const tracksToUpdate = tracks.filter((t) => t.isDirty);
+      for (const t of tracksToUpdate) {
+        try {
+          const updateData: any = {
+            title: t.title,
+            price: t.price,
+            lyrics: t.lyrics,
+          };
+
+          if (t.file_path) {
+            updateData.fileName = t.file_path.split("/").pop() || "";
+          } else if (t.url) {
+            updateData.url = t.url;
+            updateData.service = t.service;
+          }
+
+          await API.updateTrack(String(t.id), updateData);
+        } catch (e) {
+          console.error(`Failed to update track ${t.id}`, e);
+        }
+      }
+
       if (exit) {
         navigate("/admin");
       } else {
-        // Save Track Metadata changes (Title, Filename)
-        const tracksToUpdate = tracks.filter((t) => t.isDirty);
-        for (const t of tracksToUpdate) {
-          try {
-            const updateData: any = {
-              title: t.title,
-              price: t.price,
-              lyrics: t.lyrics,
-            };
-
-            if (t.file_path) {
-              updateData.fileName = t.file_path.split("/").pop() || "";
-            } else if (t.url) {
-              updateData.url = t.url;
-              updateData.service = t.service;
-            }
-
-            await API.updateTrack(String(t.id), updateData);
-          } catch (e) {
-            console.error(`Failed to update track ${t.id}`, e);
-          }
-        }
-
         // Reload
         setFilesToUpload([]);
         // Reload release to get updated state (including new tracks if any were uploaded)
@@ -376,9 +377,9 @@ export default function AdminReleaseEditor() {
   if (loading) return <div className="p-8 text-center">Loading...</div>;
 
   return (
-    <div className="flex flex-col h-full bg-base-300">
+    <div className="flex flex-col h-full bg-transparent">
       {/* Header / Toolbar */}
-      <div className="navbar bg-base-100 border-b border-base-content/10 px-6 min-h-[4rem]">
+      <div className="navbar bg-base-100/40 backdrop-blur-md border-b border-base-content/10 px-6 min-h-[4rem]">
         <div className="flex-1 gap-4">
           <button
             onClick={() => navigate("/admin")}
@@ -588,31 +589,78 @@ export default function AdminReleaseEditor() {
                       </label>
                     </div>
                     <button
-                      className={`btn btn-xs ${track.lyrics ? "btn-primary" : "btn-ghost"} opacity-0 group-hover:opacity-100`}
+                      className={`btn btn-xs ${track.lyrics ? "btn-primary" : "btn-ghost"}`}
                       onClick={() => {
-                        const newLyrics = prompt(
-                          "Edit Lyrics",
-                          track.lyrics || "",
-                        );
-                        if (newLyrics !== null) {
-                          const newTracks = [...tracks];
-                          newTracks[idx].lyrics = newLyrics;
-                          newTracks[idx].isDirty = true;
-                          setTracks(newTracks);
-                        }
+                        const newTracks = [...tracks];
+                        newTracks[idx].showLyrics = !newTracks[idx].showLyrics;
+                        setTracks(newTracks);
                       }}
-                      title="Edit Lyrics"
+                      title="Toggle Lyrics Editor"
                     >
                       <AlignLeft className="w-4 h-4" />
+                      {track.lyrics && !track.showLyrics && (
+                        <span className="badge badge-primary badge-xs ml-1 p-0 h-1.5 w-1.5 rounded-full" title="Has lyrics"></span>
+                      )}
                     </button>
                     <button
-                      className="btn btn-ghost btn-xs text-error opacity-0 group-hover:opacity-100"
+                      className="btn btn-ghost btn-xs text-error"
                       onClick={() => handleRemoveTrack(idx)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
+
+                {/* Inline Lyrics Editor */}
+                {track.showLyrics && (
+                  <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="bg-base-300/30 p-4 rounded-lg space-y-3 border border-primary/20">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold uppercase tracking-wider opacity-60 flex items-center gap-2">
+                          <AlignLeft className="w-3 h-3" />
+                          Lyrics for "{track.title}"
+                        </label>
+                        <button 
+                           className="btn btn-xs btn-ghost text-xs"
+                           onClick={async () => {
+                             try {
+                               const response = await fetch(`/api/tracks/${track.id}/lyrics`);
+                               const data = await response.json();
+                               if (data.lyrics) {
+                                 const newTracks = [...tracks];
+                                 newTracks[idx].lyrics = data.lyrics;
+                                 newTracks[idx].isDirty = true;
+                                 setTracks(newTracks);
+                               } else {
+                                 alert("No lyrics found in file metadata.");
+                               }
+                             } catch (e) {
+                               console.error(e);
+                               alert("Failed to fetch lyrics from metadata.");
+                             }
+                           }}
+                        >
+                          Fill from Metadata
+                        </button>
+                      </div>
+                      <textarea
+                        className="textarea textarea-bordered textarea-md w-full h-48 bg-base-200/50 font-mono text-sm leading-relaxed"
+                        placeholder="Paste lyrics here..."
+                        value={track.lyrics || ""}
+                        onChange={(e) => {
+                          const newTracks = [...tracks];
+                          newTracks[idx].lyrics = e.target.value;
+                          newTracks[idx].isDirty = true;
+                          setTracks(newTracks);
+                        }}
+                      />
+                      <div className="text-[10px] opacity-40 text-right">
+                        Autosaved to your local session. Remember to click Save/Publish.
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               ))}
 
               {/* Pending Uploads */}
