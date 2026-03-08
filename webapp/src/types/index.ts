@@ -167,14 +167,16 @@ export interface UserPlaylistTrack {
     id: string;
     title: string;
     artistName: string;
-    source: 'tunecamp';
-    streamUrl?: string;   // TuneCamp stream URL
+    source: 'tunecamp' | 'network';
+    siteUrl?: string;      // For network tracks
+    siteName?: string;     // For network tracks
+    streamUrl?: string;    // Direct stream URL
     coverUrl?: string;
     albumName?: string;
     albumId?: string;
     duration?: number;
     addedAt: number;
-    // Original TuneCamp track ID (for reference)
+    // Original TuneCamp track ID (for reference, if from tunecamp)
     tunecampTrackId?: string;
 }
 

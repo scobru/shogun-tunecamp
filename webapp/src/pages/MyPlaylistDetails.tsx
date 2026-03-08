@@ -15,6 +15,7 @@ import {
   Unlock,
   Lock,
   Image as ImageIcon,
+  Globe,
 } from "lucide-react";
 import type { UserPlaylist, UserPlaylistTrack, Track } from "../types";
 import { AddTrackToUserPlaylistModal } from "../components/modals/AddTrackToUserPlaylistModal";
@@ -23,7 +24,7 @@ import { AddTrackToUserPlaylistModal } from "../components/modals/AddTrackToUser
  * Convert a UserPlaylistTrack to a playable Track object for the player store
  */
 function toPlayableTrack(upt: UserPlaylistTrack): Track {
-  // TuneCamp track
+  // TuneCamp or Network track
   return {
     id: upt.tunecampTrackId || upt.id,
     title: upt.title,
@@ -307,9 +308,17 @@ export const MyPlaylistDetails = () => {
                     </div>
                   </td>
                   <td>
-                    <div className="badge badge-sm gap-1 badge-primary badge-outline">
-                      <Music size={10} />
-                      TuneCamp
+                    <div
+                      className={`badge badge-sm gap-1 ${track.source === "network" ? "badge-secondary" : "badge-primary"} badge-outline`}
+                    >
+                      {track.source === "network" ? (
+                        <Globe size={10} />
+                      ) : (
+                        <Music size={10} />
+                      )}
+                      {track.source === "network"
+                        ? track.siteName || "Network"
+                        : "TuneCamp"}
                     </div>
                   </td>
                   <td className="text-right opacity-50 font-mono text-xs">
