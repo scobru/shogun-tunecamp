@@ -195,6 +195,7 @@ export interface DatabaseService {
     updateAlbumArtist(id: number, artistId: number): void;
     updateAlbumTitle(id: number, title: string): void;
     updateAlbumCover(id: number, coverPath: string): void;
+    updateAlbumGenre(id: number, genre: string | null): void;
     updateAlbumDownload(id: number, download: string | null): void;
     updateAlbumPrice(id: number, price: number | null): void;
     updateAlbumLinks(id: number, links: string | null): void;
@@ -1040,6 +1041,10 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare("UPDATE albums SET cover_path = ? WHERE id = ?").run(coverPath, id);
         },
 
+        updateAlbumGenre(id: number, genre: string | null): void {
+            db.prepare("UPDATE albums SET genre = ? WHERE id = ?").run(genre, id);
+        },
+
         updateAlbumDownload(id: number, download: string | null): void {
             db.prepare("UPDATE albums SET download = ? WHERE id = ?").run(download, id);
         },
@@ -1397,6 +1402,17 @@ export function createDatabase(dbPath: string): DatabaseService {
             const storageStats = db.prepare("SELECT SUM(duration) as total_duration FROM tracks").get() as { total_duration: number };
             const estimatedSize = (storageStats.total_duration || 0) * 40 * 1024; // Very rough estimate
 
+            // Count unique genres/tags
+            const allGenres = db.prepare("SELECT genre FROM albums WHERE genre IS NOT NULL AND genre != ''").all() as { genre: string }[];
+            const genreSet = new Set<string>();
+            allGenres.forEach(row => {
+                row.genre.split(',').forEach(g => {
+                    const trimmed = g.trim();
+                    if (trimmed) genreSet.add(trimmed.toLowerCase());
+                });
+            });
+            const genresCount = genreSet.size;
+
             return {
                 artists,
                 albums,
@@ -1405,7 +1421,8 @@ export function createDatabase(dbPath: string): DatabaseService {
                 publicAlbums,
                 totalUsers,
                 storageUsed: estimatedSize,
-                networkSites: 0 // Placeholder, actual count should come from GunDB service if possible or DB if we sync it
+                networkSites: 0, // Placeholder, actual count should come from GunDB service if possible or DB if we sync it
+                genresCount
             };
         },
 

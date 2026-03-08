@@ -156,7 +156,7 @@ export const Home = () => {
           </div>
           <div className="stat-title">Genres</div>
           <div className="stat-value text-accent font-mono">
-            {stats.genres || 0}
+            {stats.genresCount || 0}
           </div>
           <div className="stat-desc">Styles & Vibes</div>
         </div>

@@ -141,6 +141,7 @@ export default function AdminReleaseEditor() {
           data.published_to_ap !== undefined ? !!data.published_to_ap : true,
         price: data.price,
         download: data.download || "none",
+        tags: data.genre || "",
       });
 
       if (data.slug || releaseId) {
@@ -270,6 +271,9 @@ export default function AdminReleaseEditor() {
         // Map frontend state to API expected keys
         publishedToGunDB: metadata.published_to_gundb,
         publishedToAP: metadata.published_to_ap,
+        genres: metadata.tags
+          ? metadata.tags.split(",").map((s: string) => s.trim())
+          : [],
         track_ids, // Send full list of IDs to sync associations
       } as any;
 

@@ -231,6 +231,14 @@ export function createReleaseRoutes(
                     console.error("Failed to update album price in DB:", e);
                 }
             }
+            if (body.genres !== undefined) {
+                try {
+                    const genreStr = Array.isArray(body.genres) ? body.genres.join(", ") : body.genres;
+                    database.updateAlbumGenre(id, genreStr);
+                } catch (e) {
+                    console.error("Failed to update album genre in DB:", e);
+                }
+            }
 
 
 
