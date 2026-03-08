@@ -599,7 +599,10 @@ export default function AdminReleaseEditor() {
                     >
                       <AlignLeft className="w-4 h-4" />
                       {track.lyrics && !track.showLyrics && (
-                        <span className="badge badge-primary badge-xs ml-1 p-0 h-1.5 w-1.5 rounded-full" title="Has lyrics"></span>
+                        <span
+                          className="badge badge-primary badge-xs ml-1 p-0 h-1.5 w-1.5 rounded-full"
+                          title="Has lyrics"
+                        ></span>
                       )}
                     </button>
                     <button
@@ -609,58 +612,60 @@ export default function AdminReleaseEditor() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
 
-                {/* Inline Lyrics Editor */}
-                {track.showLyrics && (
-                  <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="bg-base-300/30 p-4 rounded-lg space-y-3 border border-primary/20">
-                      <div className="flex justify-between items-center">
-                        <label className="text-xs font-bold uppercase tracking-wider opacity-60 flex items-center gap-2">
-                          <AlignLeft className="w-3 h-3" />
-                          Lyrics for "{track.title}"
-                        </label>
-                        <button 
-                           className="btn btn-xs btn-ghost text-xs"
-                           onClick={async () => {
-                             try {
-                               const response = await fetch(`/api/tracks/${track.id}/lyrics`);
-                               const data = await response.json();
-                               if (data.lyrics) {
-                                 const newTracks = [...tracks];
-                                 newTracks[idx].lyrics = data.lyrics;
-                                 newTracks[idx].isDirty = true;
-                                 setTracks(newTracks);
-                               } else {
-                                 alert("No lyrics found in file metadata.");
-                               }
-                             } catch (e) {
-                               console.error(e);
-                               alert("Failed to fetch lyrics from metadata.");
-                             }
-                           }}
-                        >
-                          Fill from Metadata
-                        </button>
-                      </div>
-                      <textarea
-                        className="textarea textarea-bordered textarea-md w-full h-48 bg-base-200/50 font-mono text-sm leading-relaxed"
-                        placeholder="Paste lyrics here..."
-                        value={track.lyrics || ""}
-                        onChange={(e) => {
-                          const newTracks = [...tracks];
-                          newTracks[idx].lyrics = e.target.value;
-                          newTracks[idx].isDirty = true;
-                          setTracks(newTracks);
-                        }}
-                      />
-                      <div className="text-[10px] opacity-40 text-right">
-                        Autosaved to your local session. Remember to click Save/Publish.
+                  {/* Inline Lyrics Editor */}
+                  {track.showLyrics && (
+                    <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="bg-base-300/30 p-4 rounded-lg space-y-3 border border-primary/20">
+                        <div className="flex justify-between items-center">
+                          <label className="text-xs font-bold uppercase tracking-wider opacity-60 flex items-center gap-2">
+                            <AlignLeft className="w-3 h-3" />
+                            Lyrics for "{track.title}"
+                          </label>
+                          <button
+                            className="btn btn-xs btn-ghost text-xs"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(
+                                  `/api/tracks/${track.id}/lyrics`,
+                                );
+                                const data = await response.json();
+                                if (data.lyrics) {
+                                  const newTracks = [...tracks];
+                                  newTracks[idx].lyrics = data.lyrics;
+                                  newTracks[idx].isDirty = true;
+                                  setTracks(newTracks);
+                                } else {
+                                  alert("No lyrics found in file metadata.");
+                                }
+                              } catch (e) {
+                                console.error(e);
+                                alert("Failed to fetch lyrics from metadata.");
+                              }
+                            }}
+                          >
+                            Fill from Metadata
+                          </button>
+                        </div>
+                        <textarea
+                          className="textarea textarea-bordered textarea-md w-full h-48 bg-base-200/50 font-mono text-sm leading-relaxed"
+                          placeholder="Paste lyrics here..."
+                          value={track.lyrics || ""}
+                          onChange={(e) => {
+                            const newTracks = [...tracks];
+                            newTracks[idx].lyrics = e.target.value;
+                            newTracks[idx].isDirty = true;
+                            setTracks(newTracks);
+                          }}
+                        />
+                        <div className="text-[10px] opacity-40 text-right">
+                          Autosaved to your local session. Remember to click
+                          Save/Publish.
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
               ))}
 
               {/* Pending Uploads */}
