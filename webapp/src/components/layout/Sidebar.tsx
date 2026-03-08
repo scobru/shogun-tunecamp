@@ -70,7 +70,7 @@ export const Sidebar = () => {
   );
 
   return (
-    <div className="menu p-2 w-20 min-h-full bg-base-100 text-base-content border-r border-white/5 flex flex-col gap-2 pb-28 items-center">
+    <div className="menu p-2 w-20 min-h-full bg-base-100/20 backdrop-blur-md text-base-content border-r border-white/5 flex flex-col gap-2 pb-28 items-center">
       {/* Brand */}
       <div
         className="flex items-center justify-center p-2 mb-2 tooltip tooltip-right z-50"

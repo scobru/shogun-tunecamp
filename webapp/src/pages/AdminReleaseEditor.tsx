@@ -18,6 +18,7 @@ import {
   Download,
   Unlock,
   Link as LinkIcon,
+  AlignLeft,
 } from "lucide-react";
 
 interface LocalTrack {
@@ -34,6 +35,7 @@ interface LocalTrack {
   artistName?: string;
   format?: string;
   isDirty?: boolean; // Track if metadata changed
+  lyrics?: string;
 }
 
 interface LocalRelease {
@@ -316,7 +318,11 @@ export default function AdminReleaseEditor() {
         const tracksToUpdate = tracks.filter((t) => t.isDirty);
         for (const t of tracksToUpdate) {
           try {
-            const updateData: any = { title: t.title, price: t.price };
+            const updateData: any = {
+              title: t.title,
+              price: t.price,
+              lyrics: t.lyrics,
+            };
 
             if (t.file_path) {
               updateData.fileName = t.file_path.split("/").pop() || "";
@@ -581,6 +587,24 @@ export default function AdminReleaseEditor() {
                         />
                       </label>
                     </div>
+                    <button
+                      className={`btn btn-xs ${track.lyrics ? "btn-primary" : "btn-ghost"} opacity-0 group-hover:opacity-100`}
+                      onClick={() => {
+                        const newLyrics = prompt(
+                          "Edit Lyrics",
+                          track.lyrics || "",
+                        );
+                        if (newLyrics !== null) {
+                          const newTracks = [...tracks];
+                          newTracks[idx].lyrics = newLyrics;
+                          newTracks[idx].isDirty = true;
+                          setTracks(newTracks);
+                        }
+                      }}
+                      title="Edit Lyrics"
+                    >
+                      <AlignLeft className="w-4 h-4" />
+                    </button>
                     <button
                       className="btn btn-ghost btn-xs text-error opacity-0 group-hover:opacity-100"
                       onClick={() => handleRemoveTrack(idx)}

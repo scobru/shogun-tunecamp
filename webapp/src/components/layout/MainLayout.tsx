@@ -35,14 +35,14 @@ export const MainLayout = () => {
       {/* Global Background */}
       {bgUrl && (
         <div
-          className="absolute inset-0 z-0 opacity-20 bg-cover bg-center pointer-events-none"
+          className="absolute inset-0 z-0 opacity-40 bg-cover bg-center pointer-events-none"
           style={{ backgroundImage: `url(${bgUrl})` }}
         />
       )}
 
       <div className="drawer-content relative z-10 flex flex-col h-full overflow-hidden">
         {/* Mobile Header */}
-        <div className="navbar lg:hidden bg-base-100/90 backdrop-blur-md border-b border-white/5 min-h-16">
+        <div className="navbar lg:hidden bg-base-100/60 backdrop-blur-md border-b border-white/5 min-h-16">
           <div className="flex-none">
             <label
               htmlFor="main-drawer"
@@ -72,7 +72,7 @@ export const MainLayout = () => {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 bg-base-100/90 relative flex flex-col h-full lg:rounded-tl-2xl border-t border-l border-white/5 lg:mr-2 lg:mt-2 lg:mb-24 shadow-2xl overflow-hidden backdrop-blur-3xl focus:outline-none"
+          className="flex-1 bg-base-100/40 relative flex flex-col h-full lg:rounded-tl-2xl border-t border-l border-white/5 lg:mr-2 lg:mt-2 lg:mb-24 shadow-2xl overflow-hidden backdrop-blur-3xl focus:outline-none"
         >
           <div className="flex-1 overflow-y-auto pb-32 scroll-smooth p-6">
             <Outlet />

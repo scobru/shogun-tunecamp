@@ -85,6 +85,7 @@ export interface Track {
     url: string | null;
     service: string | null;
     external_artwork: string | null;
+    lyrics: string | null;
     created_at: string;
 }
 
@@ -215,6 +216,7 @@ export interface DatabaseService {
     updateTrackDuration(id: number, duration: number): void;
     updateTrackWaveform(id: number, waveform: string): void;
     updateTrackLosslessPath(id: number, losslessPath: string | null): void;
+    updateTrackLyrics(id: number, lyrics: string | null): void;
     deleteTrack(id: number): void;
     addTrackToRelease(releaseId: number, trackId: number): void;
     removeTrackFromRelease(releaseId: number, trackId: number): void;
@@ -370,6 +372,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       url TEXT,
       service TEXT,
       external_artwork TEXT,
+      lyrics TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -639,6 +642,14 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Columns already exist
     }
 
+    // Migration: Add lyrics column to tracks
+    try {
+        db.exec(`ALTER TABLE tracks ADD COLUMN lyrics TEXT`);
+        console.log("📦 Migrated database: added lyrics column to tracks");
+    } catch (e) {
+        // Column already exists
+    }
+
     // Migration: Add date index to albums
     try {
         db.exec(`CREATE INDEX IF NOT EXISTS idx_albums_date ON albums(date DESC)`);
@@ -673,6 +684,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                         service TEXT,
                         external_artwork TEXT,
                         lossless_path TEXT,
+                        lyrics TEXT,
                         created_at TEXT DEFAULT CURRENT_TIMESTAMP
                     );
                 `);
@@ -682,12 +694,12 @@ export function createDatabase(dbPath: string): DatabaseService {
                     INSERT INTO tracks_new (
                         id, title, album_id, artist_id, track_num, duration, 
                         file_path, format, bitrate, sample_rate, price, waveform, 
-                        url, service, external_artwork, lossless_path, created_at
+                        url, service, external_artwork, lossless_path, lyrics, created_at
                     )
                     SELECT 
                         id, title, album_id, artist_id, track_num, duration, 
                         file_path, format, bitrate, sample_rate, price, waveform, 
-                        url, service, external_artwork, lossless_path, created_at 
+                        url, service, external_artwork, lossless_path, lyrics, created_at 
                     FROM tracks;
                 `);
 
@@ -1179,6 +1191,9 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
         updateTrackLosslessPath(id: number, losslessPath: string | null): void {
             db.prepare("UPDATE tracks SET lossless_path = ? WHERE id = ?").run(losslessPath, id);
+        },
+        updateTrackLyrics(id: number, lyrics: string | null): void {
+            db.prepare("UPDATE tracks SET lyrics = ? WHERE id = ?").run(lyrics, id);
         },
 
         deleteTrack(id: number): void {
