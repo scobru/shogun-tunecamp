@@ -85,7 +85,7 @@ export interface Track {
     url: string | null;
     service: string | null;
     external_artwork: string | null;
-    lyrics: string | null;
+    lyrics?: string | null;
     created_at: string;
 }
 
@@ -1130,8 +1130,8 @@ export function createDatabase(dbPath: string): DatabaseService {
         createTrack(track: Omit<Track, "id" | "created_at" | "album_title" | "artist_name">): number {
             const result = db
                 .prepare(
-                    `INSERT INTO tracks (title, album_id, artist_id, track_num, duration, file_path, format, bitrate, sample_rate, price, lossless_path, url, service, external_artwork)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                    `INSERT INTO tracks (title, album_id, artist_id, track_num, duration, file_path, format, bitrate, sample_rate, price, lossless_path, url, service, external_artwork, lyrics)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                 )
                 .run(
                     track.title,
@@ -1147,7 +1147,8 @@ export function createDatabase(dbPath: string): DatabaseService {
                     track.lossless_path || null,
                     track.url || null,
                     track.service || null,
-                    track.external_artwork || null
+                    track.external_artwork || null,
+                    track.lyrics || null
                 );
             return result.lastInsertRowid as number;
         },
