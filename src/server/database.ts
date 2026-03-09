@@ -270,7 +270,7 @@ export interface DatabaseService {
     markApNoteDeleted(noteId: string): void;
     deleteApNote(noteId: string): void;
     // Gun Users
-    syncGunUser(pub: string, epub: string, alias: string): void;
+    syncGunUser(pub: string, epub: string, alias: string, avatar?: string): void;
     getGunUser(pub: string): { pub: string; epub: string; alias: string } | undefined;
 
     // OAuth
