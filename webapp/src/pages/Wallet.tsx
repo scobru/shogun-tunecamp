@@ -15,6 +15,7 @@ import clsx from "clsx";
 
 export const Wallet = () => {
   const {
+    wallet,
     address,
     balanceEth,
     balanceUsdc,
@@ -326,16 +327,13 @@ export const Wallet = () => {
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-mono text-xs break-all opacity-80 select-all">
-                    {(GunAuth.user as any)._?.sea?.priv
-                      ? `0x${(GunAuth.user as any)._?.sea.priv}`
-                      : "Loading..."}
+                    {wallet?.privateKey || "Loading..."}
                   </span>
                   <button
                     className="btn btn-sm btn-ghost btn-circle shrink-0"
                     onClick={() => {
-                      const priv = (GunAuth.user as any)._?.sea?.priv;
-                      if (!priv) return;
-                      navigator.clipboard.writeText(`0x${priv}`);
+                      if (!wallet?.privateKey) return;
+                      navigator.clipboard.writeText(wallet.privateKey);
                       setCopiedPriv(true);
                       setTimeout(() => setCopiedPriv(false), 2000);
                     }}
