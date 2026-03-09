@@ -61,6 +61,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 isAuthenticated: !!gunProfile,
                 isInitializing: false
             });
+
+            if (gunProfile) {
+                // Subscribe to profile changes (avatar, bio)
+                GunAuth.subscribeProfile((profileData) => {
+                    set((state) => ({
+                        user: state.user ? { ...state.user, profile: profileData } : null
+                    }));
+
+                    // Keep backend in sync with profile updates
+                    if (profileData && (profileData.avatar || profileData.bio)) {
+                        const currentUser = get().user;
+                        if (currentUser) {
+                            API.syncGunUser(currentUser.pub, currentUser.epub, currentUser.alias, profileData.avatar).catch(console.error);
+                        }
+                    }
+                });
+            }
         }).catch(e => {
             console.error('GunAuth Init Error', e);
             set({ user: null, isAuthenticated: false, isInitializing: false });
@@ -77,6 +94,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             const profile = await GunAuth.login(username, password);
             set({ user: profile, isAuthenticated: true });
+            
+            // Subscribe to profile changes
+            GunAuth.subscribeProfile((profileData) => {
+                set((state) => ({
+                    user: state.user ? { ...state.user, profile: profileData } : null
+                }));
+
+                // Keep backend in sync
+                if (profileData && profileData.avatar) {
+                    const currentUser = get().user;
+                    if (currentUser) {
+                        API.syncGunUser(currentUser.pub, currentUser.epub, currentUser.alias, profileData.avatar).catch(console.error);
+                    }
+                }
+            });
         } catch (e: any) {
             set({ error: e.message });
             throw e;
@@ -89,6 +121,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             await GunAuth.register(username, password);
             const profile = GunAuth.getProfile();
             set({ user: profile, isAuthenticated: true });
+
+            // Subscribe to profile changes
+            GunAuth.subscribeProfile((profileData) => {
+                set((state) => ({
+                    user: state.user ? { ...state.user, profile: profileData } : null
+                }));
+
+                // Keep backend in sync
+                if (profileData && profileData.avatar) {
+                    const currentUser = get().user;
+                    if (currentUser) {
+                        API.syncGunUser(currentUser.pub, currentUser.epub, currentUser.alias, profileData.avatar).catch(console.error);
+                    }
+                }
+            });
         } catch (e: any) {
             set({ error: e.message });
             throw e;
@@ -100,6 +147,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             const profile = await GunAuth.loginWithPair(pair);
             set({ user: profile, isAuthenticated: true });
+
+            // Subscribe to profile changes
+            GunAuth.subscribeProfile((profileData) => {
+                set((state) => ({
+                    user: state.user ? { ...state.user, profile: profileData } : null
+                }));
+
+                // Keep backend in sync
+                if (profileData && profileData.avatar) {
+                    const currentUser = get().user;
+                    if (currentUser) {
+                        API.syncGunUser(currentUser.pub, currentUser.epub, currentUser.alias, profileData.avatar).catch(console.error);
+                    }
+                }
+            });
         } catch (e: any) {
             set({ error: e.message });
             throw e;

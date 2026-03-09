@@ -13,11 +13,13 @@ import { CheckoutModal } from "../modals/CheckoutModal";
 
 export const MainLayout = () => {
   const [bgUrl, setBgUrl] = useState("");
+  const [siteName, setSiteName] = useState("TuneCamp");
 
   useEffect(() => {
     API.getSiteSettings()
       .then((s: SiteSettings) => {
         if (s.backgroundImage) setBgUrl(s.backgroundImage);
+        if (s.siteName) setSiteName(s.siteName);
       })
       .catch(console.error);
   }, []);
@@ -65,7 +67,7 @@ export const MainLayout = () => {
             </label>
           </div>
           <div className="flex-1">
-            <a className="btn btn-ghost text-xl font-bold">TuneCamp</a>
+            <a className="btn btn-ghost text-xl font-bold">{siteName}</a>
           </div>
         </div>
 

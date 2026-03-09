@@ -7,15 +7,20 @@ import { Play } from "lucide-react";
 export const Home = () => {
   const [recentAlbums, setRecentAlbums] = useState<Album[]>([]);
   const [stats, setStats] = useState<any>({});
+  const [siteSettings, setSiteSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const {} = usePlayerStore();
 
   useEffect(() => {
     const load = async () => {
       try {
-        const catalog = await API.getCatalog();
+        const [catalog, settings] = await Promise.all([
+          API.getCatalog(),
+          API.getSiteSettings(),
+        ]);
         setRecentAlbums(catalog.recentAlbums || []);
         setStats(catalog.stats || {});
+        setSiteSettings(settings);
       } catch (e) {
         console.error(e);
       } finally {
@@ -58,16 +63,34 @@ export const Home = () => {
     );
   }
 
+  const welcomeTitle = siteSettings?.siteName
+    ? `Welcome to ${siteSettings.siteName}`
+    : "Welcome to TuneCamp";
+  const heroStyle = siteSettings?.coverImage
+    ? {
+        backgroundImage: `url(${siteSettings.coverImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }
+    : {};
+
   return (
     <section className="p-4 lg:p-8">
-      <div className="hero min-h-[40vh] rounded-3xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10 mb-12 relative border border-white/5">
+      <div
+        className={`hero min-h-[40vh] rounded-3xl overflow-hidden mb-12 relative border border-white/5 ${!siteSettings?.coverImage ? "bg-gradient-to-br from-primary/10 to-secondary/10" : ""}`}
+        style={heroStyle}
+      >
+        {siteSettings?.coverImage && (
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+        )}
         <div className="hero-content text-center text-neutral-content z-10 w-full">
           <div className="max-w-md">
             <h1 className="mb-5 text-5xl font-bold text-white">
-              Welcome to TuneCamp
+              {welcomeTitle}
             </h1>
             <p className="mb-5 text-lg opacity-80">
-              Your decentralized, self-hosted music streaming server.
+              {siteSettings?.siteDescription ||
+                "Your decentralized, self-hosted music streaming server."}
             </p>
             <div className="flex gap-2 justify-center">
               <button
@@ -86,9 +109,13 @@ export const Home = () => {
             </div>
           </div>
         </div>
-        {/* Decorative blobs */}
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-secondary/20 rounded-full blur-3xl pointer-events-none"></div>
+        {/* Decorative blobs - only show if no cover image to keep it clean */}
+        {!siteSettings?.coverImage && (
+          <>
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-secondary/20 rounded-full blur-3xl pointer-events-none"></div>
+          </>
+        )}
       </div>
 
       <div className="stats stats-vertical lg:stats-horizontal shadow-lg bg-base-200/50 backdrop-blur border border-white/5 w-full mb-12">

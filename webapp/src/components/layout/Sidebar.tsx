@@ -124,9 +124,7 @@ export const Sidebar = () => {
               }
             >
               <div className="bg-neutral text-neutral-content rounded-full w-10 ring ring-primary ring-offset-base-100 ring-offset-2 cursor-pointer hover:scale-105 transition-transform overflow-hidden">
-                {/* @ts-ignore */}
                 {user?.profile?.avatar ? (
-                  /* @ts-ignore */
                   <img
                     src={user.profile.avatar}
                     alt={user.alias || ""}

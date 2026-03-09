@@ -88,17 +88,17 @@ export function createUsersRoutes(gundbService: GunDBService, database: Database
 
     /**
      * POST /api/users/sync
-     * Sync GunDB user data (pub, epub, alias) to local SQLite
+     * Sync GunDB user data (pub, epub, alias, avatar) to local SQLite
      */
     router.post("/sync", async (req, res) => {
         try {
-            const { pub, epub, alias } = req.body;
+            const { pub, epub, alias, avatar } = req.body;
 
             if (!pub || !epub || !alias) {
                 return res.status(400).json({ error: "pub, epub, and alias are required" });
             }
 
-            database.syncGunUser(pub, epub, alias);
+            database.syncGunUser(pub, epub, alias, avatar);
             res.json({ success: true });
         } catch (error) {
             console.error("User sync error:", error);

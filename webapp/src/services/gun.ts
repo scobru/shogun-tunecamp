@@ -57,7 +57,7 @@ export const GunAuth = {
                         epub: (user.is as any).epub as string
                     };
                     // Sync with backend (fire and forget/non-blocking)
-                    API.syncGunUser(profile.pub, profile.epub, profile.alias).catch(console.error);
+                    API.syncGunUser(profile.pub, profile.epub, profile.alias, (profile as any).profile?.avatar).catch(console.error);
                     resolve(profile);
                 } else {
                     resolve(null);
@@ -170,14 +170,37 @@ export const GunAuth = {
     },
 
     /**
+     * Subscribe to profile changes
+     */
+    subscribeProfile: (cb: (profile: any) => void): (() => void) => {
+        if (!user.is) return () => {};
+        const ref = user.get('profile').on((data: any) => {
+            cb(data);
+        });
+        return () => {
+            if (ref && (ref as any).off) (ref as any).off();
+        };
+    },
+
+    /**
      * Update extra profile data (avatar, bio)
      */
     updateProfile: async (data: { avatar?: string; bio?: string }): Promise<void> => {
         return new Promise((resolve, reject) => {
             if (!user.is) return reject(new Error('Not logged in'));
+            
+            // Validate data size for GunDB (avatars can be large)
+            if (data.avatar && data.avatar.length > 1024 * 1024) {
+                return reject(new Error('Avatar image is too large (max 1MB)'));
+            }
+
             user.get('profile').put(data, (ack: any) => {
-                if (ack.err) reject(new Error(ack.err));
-                else resolve();
+                if (ack.err) {
+                    console.error("GunDB profile update error:", ack.err);
+                    reject(new Error(ack.err));
+                } else {
+                    resolve();
+                }
             });
         });
     }

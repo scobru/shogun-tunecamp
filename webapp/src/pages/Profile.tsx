@@ -37,7 +37,6 @@ export const Profile = () => {
   useEffect(() => {
     if (user) {
       setAlias(user.alias);
-      // @ts-ignore
       setAvatar(user.profile?.avatar || null);
     }
   }, [user]);

@@ -458,6 +458,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       pub TEXT PRIMARY KEY,
       epub TEXT,
       alias TEXT,
+      avatar TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -1679,14 +1680,14 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         // Gun Users
-        syncGunUser(pub: string, epub: string, alias: string): void {
+        syncGunUser(pub: string, epub: string, alias: string, avatar?: string): void {
             db.prepare(
-                "INSERT OR REPLACE INTO gun_users (pub, epub, alias) VALUES (?, ?, ?)"
-            ).run(pub, epub, alias);
+                "INSERT OR REPLACE INTO gun_users (pub, epub, alias, avatar) VALUES (?, ?, ?, ?)"
+            ).run(pub, epub, alias, avatar || null);
         },
 
-        getGunUser(pub: string): { pub: string; epub: string; alias: string } | undefined {
-            return db.prepare("SELECT pub, epub, alias FROM gun_users WHERE pub = ?").get(pub) as any;
+        getGunUser(pub: string): { pub: string; epub: string; alias: string, avatar?: string } | undefined {
+            return db.prepare("SELECT pub, epub, alias, avatar FROM gun_users WHERE pub = ?").get(pub) as any;
         }
     };
 }
