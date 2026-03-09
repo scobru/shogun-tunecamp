@@ -161,6 +161,10 @@ export interface GunProfile {
     pub: string;
     alias: string;
     epub: string;
+    profile?: {
+        avatar?: string;
+        bio?: string;
+    };
 }
 
 export interface UserPlaylistTrack {
