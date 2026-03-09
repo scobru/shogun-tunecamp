@@ -14,8 +14,10 @@ import {
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
 import { usePurchases } from "../hooks/usePurchases";
+import { GunSocial } from "../services/gun";
 import type { Track } from "../types";
 import { MetadataMatchModal } from "../components/MetadataMatchModal";
+import clsx from "clsx";
 
 export const Tracks = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -25,6 +27,7 @@ export const Tracks = () => {
   const { isAuthenticated, isAdminAuthenticated } = useAuthStore();
   const { isPurchased, verifyAndGetCode } = usePurchases();
   const [matchingTrack, setMatchingTrack] = useState<Track | null>(null);
+  const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setLoading(true);
@@ -37,6 +40,14 @@ export const Tracks = () => {
         console.error(error);
         setLoading(false);
       });
+
+    if (isAuthenticated) {
+      GunSocial.getLikedTracks().then((liked) => {
+        setLikedTrackIds(new Set(liked.map((t: any) => t.id)));
+      });
+    } else {
+      setLikedTrackIds(new Set());
+    }
   }, [isAuthenticated, isAdminAuthenticated]);
 
   const filteredTracks = useMemo(() => {
@@ -51,12 +62,22 @@ export const Tracks = () => {
     });
   }, [filter, tracks]);
 
-  const handleLike = () => {
+  const handleLike = async (track: Track) => {
     if (!isAuthenticated) {
       document.dispatchEvent(new CustomEvent("open-auth-modal"));
       return;
     }
-    // Logic for like would go here (not implemented in original snippet but good to have safeguard)
+    try {
+      const isNowLiked = await GunSocial.toggleLikeTrack(track);
+      setLikedTrackIds((prev) => {
+        const next = new Set(prev);
+        if (isNowLiked) next.add(track.id);
+        else next.delete(track.id);
+        return next;
+      });
+    } catch (err) {
+      console.error("Failed to toggle like:", err);
+    }
   };
 
   if (loading)
@@ -133,7 +154,7 @@ export const Tracks = () => {
                           {track.format || "MP3"}
                         </span>
                       )}
-                      {track.liked && (
+                      {(track.liked || likedTrackIds.has(track.id)) && (
                         <Heart
                           size={12}
                           className="text-primary"
@@ -166,8 +187,22 @@ export const Tracks = () => {
                         className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
                       >
                         <li>
-                          <a onClick={() => handleLike()}>
-                            <Heart size={16} /> Like Song
+                          <a onClick={() => handleLike(track)}>
+                            <Heart
+                              size={16}
+                              className={clsx(
+                                (track.liked || likedTrackIds.has(track.id)) &&
+                                  "text-primary",
+                              )}
+                              fill={
+                                track.liked || likedTrackIds.has(track.id)
+                                  ? "currentColor"
+                                  : "none"
+                              }
+                            />
+                            {track.liked || likedTrackIds.has(track.id)
+                              ? "Unlike Song"
+                              : "Like Song"}
                           </a>
                         </li>
                         <li>

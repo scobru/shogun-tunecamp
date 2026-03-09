@@ -116,20 +116,31 @@ export const Sidebar = () => {
       <div className="flex flex-col items-center gap-3 p-2 border-t border-white/5 w-full">
         {isAuthenticated || isAdminAuthenticated ? (
           <div className="flex flex-col items-center gap-3 w-full">
-            <div
+            <Link
+              to="/profile"
               className="avatar placeholder tooltip tooltip-right z-50"
               data-tip={
                 user?.alias || (isAdminAuthenticated ? "Admin" : "User")
               }
             >
-              <div className="bg-neutral text-neutral-content rounded-full w-10 ring ring-primary ring-offset-base-100 ring-offset-2 cursor-pointer hover:scale-105 transition-transform">
-                <span>
-                  {(user?.alias || (isAdminAuthenticated ? "A" : "?"))
-                    ?.charAt(0)
-                    .toUpperCase()}
-                </span>
+              <div className="bg-neutral text-neutral-content rounded-full w-10 ring ring-primary ring-offset-base-100 ring-offset-2 cursor-pointer hover:scale-105 transition-transform overflow-hidden">
+                {/* @ts-ignore */}
+                {user?.profile?.avatar ? (
+                  /* @ts-ignore */
+                  <img
+                    src={user.profile.avatar}
+                    alt={user.alias || ""}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span>
+                    {(user?.alias || (isAdminAuthenticated ? "A" : "?"))
+                      ?.charAt(0)
+                      .toUpperCase()}
+                  </span>
+                )}
               </div>
-            </div>
+            </Link>
 
             <div className="flex flex-col gap-2 items-center">
               {isAdminAuthenticated && (

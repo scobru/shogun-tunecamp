@@ -2,7 +2,7 @@ import Gun from 'gun';
 import 'gun/sea';
 import "gun/lib/yson.js"
 import API from './api';
-import type { UserPlaylist, UserPlaylistTrack } from '../types';
+import type { UserPlaylist, UserPlaylistTrack, Track } from '../types';
 
 
 const defaultPeers = [
@@ -35,6 +35,10 @@ export interface GunProfile {
     pub: string;
     alias: string;
     epub: string;
+    profile?: {
+        avatar?: string;
+        bio?: string;
+    };
 }
 
 export const GunAuth = {
@@ -150,6 +154,104 @@ export const GunAuth = {
 
     verify: async (data: any, pub: string) => {
         return await Gun.SEA.verify(data, pub);
+    },
+
+    /**
+     * Update the user's alias/username
+     */
+    updateAlias: async (newAlias: string): Promise<void> => {
+        return new Promise((resolve, reject) => {
+            if (!user.is) return reject(new Error('Not logged in'));
+            user.get('alias').put(newAlias, (ack: any) => {
+                if (ack.err) reject(new Error(ack.err));
+                else resolve();
+            });
+        });
+    },
+
+    /**
+     * Update extra profile data (avatar, bio)
+     */
+    updateProfile: async (data: { avatar?: string; bio?: string }): Promise<void> => {
+        return new Promise((resolve, reject) => {
+            if (!user.is) return reject(new Error('Not logged in'));
+            user.get('profile').put(data, (ack: any) => {
+                if (ack.err) reject(new Error(ack.err));
+                else resolve();
+            });
+        });
+    }
+};
+
+// ============================================================
+// GunDB Social — Likes/Favorites
+// ============================================================
+
+export const GunSocial = {
+    /**
+     * Toggle like status for a track
+     */
+    toggleLikeTrack: async (track: Track): Promise<boolean> => {
+        return new Promise((resolve, reject) => {
+            if (!user.is) return reject(new Error('Not logged in'));
+
+            const likeNode = user.get('likes').get(track.id);
+            likeNode.once((data: any) => {
+                if (data) {
+                    // Already liked, so remove it
+                    likeNode.put(null as any, (ack: any) => {
+                        if (ack.err) reject(new Error(ack.err));
+                        else resolve(false);
+                    });
+                } else {
+                    // Not liked, add it
+                    const likedTrackData = {
+                        id: track.id,
+                        title: track.title,
+                        artistName: track.artistName || '',
+                        albumName: track.albumName || '',
+                        albumId: track.albumId || '',
+                        duration: track.duration || 0,
+                        likedAt: Date.now()
+                    };
+                    likeNode.put(likedTrackData, (ack: any) => {
+                        if (ack.err) reject(new Error(ack.err));
+                        else resolve(true);
+                    });
+                }
+            });
+        });
+    },
+
+    /**
+     * Check if a track is liked
+     */
+    isLiked: (trackId: string): Promise<boolean> => {
+        return new Promise((resolve) => {
+            if (!user.is) return resolve(false);
+            user.get('likes').get(trackId).once((data: any) => {
+                resolve(!!data);
+            });
+        });
+    },
+
+    /**
+     * Get all tracks liked by the user
+     */
+    getLikedTracks: (): Promise<any[]> => {
+        return new Promise((resolve) => {
+            if (!user.is) return resolve([]);
+            const liked: any[] = [];
+            user.get('likes').map().once((data: any, id: string) => {
+                if (data && id) {
+                    liked.push(data);
+                }
+            });
+            setTimeout(() => {
+                liked.sort((a, b) => b.likedAt - a.likedAt);
+                resolve(liked);
+            }, 1000);
+        });
     }
 };
 

@@ -19,6 +19,7 @@ import {
   AuthCallback,
   Wallet,
   Purchases,
+  Profile,
 } from "./pages";
 import Admin from "./pages/Admin";
 import AdminReleaseEditor from "./pages/AdminReleaseEditor";
@@ -67,6 +68,7 @@ function App() {
           <Route path="/network" element={<Network />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/wallet" element={<Wallet />} />
+          <Route path="/profile" element={<Profile />} />
 
           {/* Auth Callback */}
           <Route path="/auth/callback" element={<AuthCallback />} />
