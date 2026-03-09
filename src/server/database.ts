@@ -231,6 +231,7 @@ export interface DatabaseService {
     updatePlaylistCover(id: number, coverPath: string | null): void;
     deletePlaylist(id: number): void;
     getPlaylistTracks(playlistId: number): Track[];
+    isTrackInPublicPlaylist(trackId: number): boolean;
     addTrackToPlaylist(playlistId: number, trackId: number): void;
     removeTrackFromPlaylist(playlistId: number, trackId: number): void;
     // Posts
@@ -1285,6 +1286,16 @@ export function createDatabase(dbPath: string): DatabaseService {
            ORDER BY pt.position`
                 )
                 .all(playlistId) as Track[];
+        },
+
+        isTrackInPublicPlaylist(trackId: number): boolean {
+            const row = db.prepare(`
+                SELECT count(*) as count 
+                FROM playlist_tracks pt
+                JOIN playlists p ON pt.playlist_id = p.id
+                WHERE pt.track_id = ? AND p.is_public = 1
+            `).get(trackId) as { count: number };
+            return row.count > 0;
         },
 
         addTrackToPlaylist(playlistId: number, trackId: number): void {

@@ -277,9 +277,12 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             if (!req.isAdmin && track.album_id) {
                 const album = database.getAlbum(track.album_id);
                 if (album && album.visibility === 'private') {
-                    // Check if album has an unlock code or if we should allow unlisted
-                    // For now, strict: if private, only admin.
-                    return res.status(403).json({ error: "Access denied" });
+                    // Check if track is in a public playlist
+                    const isInPublicPlaylist = database.isTrackInPublicPlaylist(id);
+                    if (!isInPublicPlaylist) {
+                        return res.status(403).json({ error: "Access denied" });
+                    }
+                    console.log(`🔓 [Stream] Allowing private track ${id} because it is in a public playlist`);
                 }
             }
 
