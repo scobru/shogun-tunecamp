@@ -6,7 +6,11 @@ import {
   Copy,
   Check,
   LogOut,
+  Shield,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+import { GunAuth } from "../services/gun";
 import clsx from "clsx";
 
 export const Wallet = () => {
@@ -31,6 +35,9 @@ export const Wallet = () => {
 
   const [copiedLocal, setCopiedLocal] = useState(false);
   const [copiedExternal, setCopiedExternal] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
+  const [copiedPriv, setCopiedPriv] = useState(false);
+  const [copiedSEA, setCopiedSEA] = useState(false);
 
   useEffect(() => {
     if (!isWalletReady && !isWalletLoading) {
@@ -272,15 +279,113 @@ export const Wallet = () => {
         </div>
       </div>
 
-      <div className="bg-base-200/50 rounded-2xl p-6 border border-white/5">
-        <h3 className="text-xl font-bold mb-2">How it works</h3>
-        <p className="opacity-70 text-sm leading-relaxed max-w-2xl">
-          TuneCamp automatically creates a highly secure local wallet for you
-          using your account credentials, ensuring that your keys never leave
-          your device. You can choose to fund this local wallet for seamless
-          one-click purchases, or connect an external Web3 wallet like MetaMask
-          to retain manual control over each transaction signature.
-        </p>
+      <div className="bg-base-200/50 rounded-2xl p-6 border border-white/5 space-y-6">
+        <div>
+          <h3 className="text-xl font-bold mb-2">How it works</h3>
+          <p className="opacity-70 text-sm leading-relaxed max-w-2xl">
+            TuneCamp automatically creates a highly secure local wallet for you
+            using your account credentials, ensuring that your keys never leave
+            your device. You can choose to fund this local wallet for seamless
+            one-click purchases, or connect an external Web3 wallet like
+            MetaMask to retain manual control over each transaction signature.
+          </p>
+        </div>
+
+        <div className="border-t border-white/5 pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Shield size={20} className="text-primary" />
+              <h3 className="text-xl font-bold">Security & Backup</h3>
+            </div>
+            <button
+              className="btn btn-sm btn-ghost gap-2"
+              onClick={() => setShowKeys(!showKeys)}
+            >
+              {showKeys ? <EyeOff size={16} /> : <Eye size={16} />}
+              {showKeys ? "Hide Sensitive Keys" : "Reveal Sensitive Keys"}
+            </button>
+          </div>
+
+          {showKeys ? (
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="alert alert-warning text-xs py-2 bg-warning/10 border-warning/20 text-warning mb-4">
+                <Shield size={14} />
+                <span>
+                  <strong>NEVER SHARE THESE KEYS.</strong> Anyone with your
+                  private key or SEA pair can access your funds and account.
+                </span>
+              </div>
+
+              {/* Ethereum Private Key */}
+              <div className="bg-black/30 p-4 rounded-xl border border-white/5">
+                <div className="text-xs uppercase tracking-wider opacity-50 mb-2 flex justify-between items-center">
+                  <span>Integrated Wallet Private Key</span>
+                  <span className="text-[10px] opacity-40">
+                    Derived from Gun SEA
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="font-mono text-xs break-all opacity-80 select-all">
+                    {/* @ts-ignore */}
+                    {GunAuth.user._.sea?.priv
+                      ? `0x${GunAuth.user._.sea.priv}`
+                      : "Loading..."}
+                  </span>
+                  <button
+                    className="btn btn-sm btn-ghost btn-circle shrink-0"
+                    onClick={() => {
+                      // @ts-ignore
+                      const priv = GunAuth.user._.sea?.priv;
+                      if (!priv) return;
+                      navigator.clipboard.writeText(`0x${priv}`);
+                      setCopiedPriv(true);
+                      setTimeout(() => setCopiedPriv(false), 2000);
+                    }}
+                  >
+                    {copiedPriv ? (
+                      <Check size={16} className="text-success" />
+                    ) : (
+                      <Copy size={16} />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* GunDB SEA Pair */}
+              <div className="bg-black/30 p-4 rounded-xl border border-white/5">
+                <div className="text-xs uppercase tracking-wider opacity-50 mb-2 flex justify-between items-center">
+                  <span>GunDB SEA Pair (Account Export)</span>
+                  <span className="text-[10px] opacity-40">JSON Format</span>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <pre className="font-mono text-[10px] break-all opacity-80 whitespace-pre-wrap flex-1 max-h-32 overflow-y-auto select-all">
+                    {JSON.stringify((GunAuth.user as any)._?.sea, null, 2)}
+                  </pre>
+                  <button
+                    className="btn btn-sm btn-ghost btn-circle shrink-0"
+                    onClick={() => {
+                      const sea = (GunAuth.user as any)._?.sea;
+                      if (!sea) return;
+                      navigator.clipboard.writeText(JSON.stringify(sea));
+                      setCopiedSEA(true);
+                      setTimeout(() => setCopiedSEA(false), 2000);
+                    }}
+                  >
+                    {copiedSEA ? (
+                      <Check size={16} className="text-success" />
+                    ) : (
+                      <Copy size={16} />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm opacity-50 italic">
+              Keys are hidden for your security. Click reveal to view or backup.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
