@@ -326,16 +326,14 @@ export const Wallet = () => {
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-mono text-xs break-all opacity-80 select-all">
-                    {/* @ts-ignore */}
-                    {GunAuth.user._.sea?.priv
-                      ? `0x${GunAuth.user._.sea.priv}`
+                    {(GunAuth.user as any)._?.sea?.priv
+                      ? `0x${(GunAuth.user as any)._?.sea.priv}`
                       : "Loading..."}
                   </span>
                   <button
                     className="btn btn-sm btn-ghost btn-circle shrink-0"
                     onClick={() => {
-                      // @ts-ignore
-                      const priv = GunAuth.user._.sea?.priv;
+                      const priv = (GunAuth.user as any)._?.sea?.priv;
                       if (!priv) return;
                       navigator.clipboard.writeText(`0x${priv}`);
                       setCopiedPriv(true);
