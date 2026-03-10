@@ -468,6 +468,221 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.get('/getAlbum.view', getAlbum);
     router.post('/getAlbum.view', getAlbum);
 
+    const getArtists = (req: any, res: any) => {
+        const artists = db.getArtists();
+        const indexes: Record<string, any[]> = {};
+
+        artists.forEach(artist => {
+            let char = artist.name.charAt(0).toUpperCase();
+            if (!/[A-Z]/.test(char)) char = '#';
+            if (!indexes[char]) indexes[char] = [];
+
+            indexes[char].push({
+                '@id': `ar_${artist.id}`,
+                '@name': artist.name,
+                '@coverArt': `ar_${artist.id}`,
+                '@artistImageUrl': `/api/artists/${artist.id}/cover`,
+                '@albumCount': db.getAlbumsByArtist(artist.id).length
+            });
+        });
+
+        const sortedKeys = Object.keys(indexes).sort();
+        const indexNodes = sortedKeys.map(key => ({
+            '@name': key,
+            artist: indexes[key]
+        }));
+
+        sendResponse(res, req, {
+            artists: {
+                '@ignoredArticles': 'The El La Los Las Le Les',
+                index: indexNodes
+            }
+        });
+    };
+
+    router.get('/getArtists.view', getArtists);
+    router.post('/getArtists.view', getArtists);
+
+    const getAlbumList = (req: any, res: any) => {
+        const { type, size, offset } = req.query as any;
+        const limit = parseInt(size) || 10;
+        const skip = parseInt(offset) || 0;
+
+        let albums = db.getAlbums(true); // Public only for now
+
+        if (type === 'random') {
+            albums = albums.sort(() => Math.random() - 0.5);
+        } else if (type === 'newest') {
+            albums = albums.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        } else if (type === 'alphabeticalByArtist') {
+            albums = albums.sort((a, b) => (a.artist_name || '').localeCompare(b.artist_name || ''));
+        } else if (type === 'alphabeticalByName') {
+            albums = albums.sort((a, b) => a.title.localeCompare(b.title));
+        }
+
+        const paginated = albums.slice(skip, skip + limit);
+
+        sendResponse(res, req, {
+            albumList: {
+                album: paginated.map(album => ({
+                    '@id': `al_${album.id}`,
+                    '@name': album.title,
+                    '@title': album.title,
+                    '@album': album.title,
+                    '@artist': album.artist_name,
+                    '@artistId': `ar_${album.artist_id}`,
+                    '@coverArt': `al_${album.id}`,
+                    '@created': album.created_at,
+                    '@year': album.date ? new Date(album.date).getFullYear() : undefined,
+                    '@genre': album.genre
+                }))
+            }
+        });
+    };
+
+    router.get('/getAlbumList.view', getAlbumList);
+    router.get('/getAlbumList2.view', getAlbumList);
+    router.post('/getAlbumList.view', getAlbumList);
+    router.post('/getAlbumList2.view', getAlbumList);
+
+    const getRandomSongs = (req: any, res: any) => {
+        const { size } = req.query as any;
+        const limit = parseInt(size) || 10;
+
+        const allTracks = db.getTracks(undefined, true);
+        const randomTracks = allTracks.sort(() => Math.random() - 0.5).slice(0, limit);
+
+        sendResponse(res, req, {
+            randomSongs: {
+                song: randomTracks.map(track => ({
+                    '@id': `tr_${track.id}`,
+                    '@title': track.title,
+                    '@album': track.album_title,
+                    '@artist': track.artist_name,
+                    '@track': track.track_num,
+                    '@coverArt': `al_${track.album_id}`,
+                    '@duration': Math.floor(track.duration || 0),
+                    '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
+                    '@suffix': track.format || 'mp3',
+                    '@contentType': 'audio/mpeg',
+                    '@path': track.file_path,
+                    '@albumId': `al_${track.album_id}`,
+                    '@artistId': `ar_${track.artist_id}`
+                }))
+            }
+        });
+    };
+
+    router.get('/getRandomSongs.view', getRandomSongs);
+    router.post('/getRandomSongs.view', getRandomSongs);
+
+    const search = (req: any, res: any) => {
+        const { query, artistCount, albumCount, songCount } = req.query as any;
+        if (!query) return sendError(res, req, 10, 'Missing query parameter');
+
+        const results = db.search(query, true);
+
+        const aLimit = parseInt(artistCount) || 20;
+        const alLimit = parseInt(albumCount) || 20;
+        const sLimit = parseInt(songCount) || 50;
+
+        const responseData: any = {
+            searchResult2: {
+                artist: results.artists.slice(0, aLimit).map(a => ({
+                    '@id': `ar_${a.id}`,
+                    '@name': a.name,
+                    '@coverArt': `ar_${a.id}`
+                })),
+                album: results.albums.slice(0, alLimit).map(a => ({
+                    '@id': `al_${a.id}`,
+                    '@name': a.title,
+                    '@artist': a.artist_name,
+                    '@artistId': `ar_${a.artist_id}`,
+                    '@coverArt': `al_${a.id}`
+                })),
+                song: results.tracks.slice(0, sLimit).map(t => ({
+                    '@id': `tr_${t.id}`,
+                    '@title': t.title,
+                    '@album': t.album_title,
+                    '@artist': t.artist_name,
+                    '@duration': Math.floor(t.duration || 0),
+                    '@coverArt': `al_${t.album_id}`,
+                    '@albumId': `al_${t.album_id}`,
+                    '@artistId': `ar_${t.artist_id}`
+                }))
+            }
+        };
+
+        // For search3, just change the root element name if needed
+        if (req.path.includes('search3')) {
+            responseData.searchResult3 = responseData.searchResult2;
+            delete responseData.searchResult2;
+        }
+
+        sendResponse(res, req, responseData);
+    };
+
+    router.get('/search.view', search);
+    router.get('/search2.view', search);
+    router.get('/search3.view', search);
+    router.post('/search.view', search);
+    router.post('/search2.view', search);
+    router.post('/search3.view', search);
+
+    const getPlaylists = (req: any, res: any) => {
+        const playlists = db.getPlaylists(true);
+        sendResponse(res, req, {
+            playlists: {
+                playlist: playlists.map(p => ({
+                    '@id': `pl_${p.id}`,
+                    '@name': p.name,
+                    '@owner': 'admin',
+                    '@public': p.isPublic ? 'true' : 'false',
+                    '@created': p.created_at,
+                    '@songCount': db.getPlaylistTracks(p.id).length
+                }))
+            }
+        });
+    };
+
+    router.get('/getPlaylists.view', getPlaylists);
+    router.post('/getPlaylists.view', getPlaylists);
+
+    const getPlaylist = (req: any, res: any) => {
+        const { id } = req.query as any;
+        if (!id) return sendError(res, req, 10, 'Missing id parameter');
+
+        const playlistId = parseInt(id.startsWith('pl_') ? id.substring(3) : id);
+        const playlist = db.getPlaylist(playlistId);
+        if (!playlist) return sendError(res, req, 70, 'Playlist not found');
+
+        const tracks = db.getPlaylistTracks(playlistId);
+
+        sendResponse(res, req, {
+            playlist: {
+                '@id': `pl_${playlist.id}`,
+                '@name': playlist.name,
+                '@owner': 'admin',
+                '@public': playlist.isPublic ? 'true' : 'false',
+                '@created': playlist.created_at,
+                '@songCount': tracks.length,
+                entry: tracks.map(t => ({
+                    '@id': `tr_${t.id}`,
+                    '@title': t.title,
+                    '@album': t.album_title,
+                    '@artist': t.artist_name,
+                    '@duration': Math.floor(t.duration || 0),
+                    '@coverArt': `al_${t.album_id}`,
+                    '@albumId': `al_${t.album_id}`,
+                    '@artistId': `ar_${t.artist_id}`
+                }))
+            }
+        });
+    };
+
+    router.get('/getPlaylist.view', getPlaylist);
+    router.post('/getPlaylist.view', getPlaylist);
+
     // Catch-all for unmatched .view requests
     router.use((req, res) => {
         sendError(res, req, 0, `Unknown Subsonic request: ${req.path}`);

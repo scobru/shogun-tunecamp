@@ -233,11 +233,14 @@ export class ActivityPubService {
                 {
                     "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
                     "Artist": "https://funkwhale.audio/ns#Artist",
-                    "MusicArtist": "https://schema.org/MusicArtist"
+                    "MusicArtist": "https://schema.org/MusicArtist",
+                    "MusicAlbum": "https://schema.org/MusicAlbum",
+                    "MusicRecording": "https://schema.org/MusicRecording",
+                    "library": "https://funkwhale.audio/ns#library"
                 }
             ],
             id: userUrl,
-            type: ["Person", "Artist"],
+            type: ["Person", "Artist", "MusicArtist"],
             preferredUsername: artist.slug,
             name: artist.name,
             summary: artist.bio || `Artist on ${this.getDomain()}`,
@@ -286,11 +289,13 @@ export class ActivityPubService {
             });
         }
 
-        if (tracks.length > 0) {
-            const track = tracks[0];
+        // 2. Track Audio Objects (Funkwhale compatible)
+        const trackObjects = tracks.map(track => {
+            if (!track.file_path && !track.url) return null;
+            
+            let mediaType = "audio/mpeg";
             if (track.file_path) {
                 const ext = track.file_path.split('.').pop()?.toLowerCase();
-
                 const contentTypes: Record<string, string> = {
                     "mp3": "audio/mpeg",
                     "flac": "audio/flac",
@@ -300,27 +305,23 @@ export class ActivityPubService {
                     "aac": "audio/aac",
                     "opus": "audio/opus",
                 };
-                const mediaType = contentTypes[ext || ""] || "audio/mpeg";
-
-                attachments.push({
-                    type: "Audio",
-                    mediaType: mediaType,
-                    url: `${baseUrl}/api/tracks/${track.id}/stream`,
-                    name: track.title,
-                    duration: track.duration ? new Date(track.duration * 1000).toISOString().substr(11, 8) : undefined,
-                    "https://funkwhale.audio/ns#bitrate": track.bitrate,
-                    "https://funkwhale.audio/ns#duration": track.duration
-                });
-            } else if (track.url) {
-                // For external tracks, we can't easily provide a direct audio mediaType
-                // but we can link to the external URL in the content or as a link attachment
-                attachments.push({
-                    type: "Link",
-                    mediaType: "text/html",
-                    url: track.url,
-                    name: `${track.title} (${track.service || 'External'})`
-                });
+                mediaType = contentTypes[ext || ""] || "audio/mpeg";
             }
+
+            return {
+                type: "Audio",
+                mediaType: mediaType,
+                url: track.file_path ? `${baseUrl}/api/tracks/${track.id}/stream` : track.url,
+                name: track.title,
+                duration: track.duration ? new Date(track.duration * 1000).toISOString().substr(11, 8) : undefined,
+                "https://funkwhale.audio/ns#bitrate": track.bitrate,
+                "https://funkwhale.audio/ns#duration": track.duration
+            };
+        }).filter(t => t !== null);
+
+        // Add the first track as the main attachment for backward compatibility (Mastodon)
+        if (trackObjects.length > 0) {
+            attachments.push(trackObjects[0]);
         }
 
         // Note: We use the canonical API URL for the ID, so it can be resolved by servers
@@ -329,7 +330,14 @@ export class ActivityPubService {
         const noteId = `${baseUrl}/api/ap/note/release/${album.slug}/${sentTime}`;
 
         return {
-            type: "Note",
+            "@context": [
+                "https://www.w3.org/ns/activitystreams",
+                {
+                    "MusicAlbum": "https://schema.org/MusicAlbum",
+                    "MusicRecording": "https://schema.org/MusicRecording"
+                }
+            ],
+            type: ["Note", "MusicAlbum"],
             id: noteId,
             attributedTo: userUrl,
             content: `<p>New release available: <a href="${albumUrl}">${album.title}</a></p>`,
@@ -340,6 +348,7 @@ export class ActivityPubService {
             tag: []
         };
     }
+
 
     public generatePostNote(post: Post, artist: Artist): any {
         const baseUrl = this.getBaseUrl();
