@@ -563,6 +563,20 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Column already exists, ignore
     }
 
+    // Migration: Add epub, alias, avatar to gun_users
+    try {
+        db.exec(`ALTER TABLE gun_users ADD COLUMN epub TEXT`);
+        console.log("📦 Migrated database: added epub to gun_users");
+    } catch (e) {}
+    try {
+        db.exec(`ALTER TABLE gun_users ADD COLUMN alias TEXT`);
+        console.log("📦 Migrated database: added alias to gun_users");
+    } catch (e) {}
+    try {
+        db.exec(`ALTER TABLE gun_users ADD COLUMN avatar TEXT`);
+        console.log("📦 Migrated database: added avatar to gun_users");
+    } catch (e) {}
+
     // Migration: Add download column if it doesn't exist
     try {
         db.exec(`ALTER TABLE albums ADD COLUMN download TEXT`);
