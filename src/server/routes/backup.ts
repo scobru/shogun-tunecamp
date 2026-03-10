@@ -11,6 +11,28 @@ fs.ensureDirSync("uploads");
 
 const upload = multer({ dest: "uploads/" });
 
+/**
+ * Clean up old temporary files in the uploads directory
+ * This prevents disk space exhaustion from abandoned chunked uploads
+ */
+async function cleanupOldChunks(uploadDir: string, maxAgeMs: number = 24 * 60 * 60 * 1000) {
+    try {
+        if (!(await fs.pathExists(uploadDir))) return;
+        const files = await fs.readdir(uploadDir);
+        for (const file of files) {
+            if (file.startsWith("temp_") || file.startsWith("backup_")) {
+                const filePath = path.join(uploadDir, file);
+                const stats = await fs.stat(filePath);
+                if (Date.now() - stats.mtime.getTime() > maxAgeMs) {
+                    await fs.unlink(filePath).catch(() => { });
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("⚠️ [Backup] Cleanup failed:", e);
+    }
+}
+
 async function performRestore(zipPath: string, config: ServerConfig, database: DatabaseService, restartFn: () => void) {
     // Unique temp directory for extraction
     const extractPath = path.join(path.dirname(zipPath), "restore_temp_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5));
@@ -64,9 +86,11 @@ async function performRestore(zipPath: string, config: ServerConfig, database: D
             throw new Error("Invalid backup format: Could not find 'tunecamp.db' or 'music' folder.");
         }
 
-        // 3. Restore Music
+        // 3. Restore Music (Additive)
         if (musicSource) {
             console.log(`🎵 [Restore] Restoring music files from ${musicSource}...`);
+            // Note: fs.copy with overwrite: true will update existing files and add new ones,
+            // but it DOES NOT delete files already in config.musicDir that aren't in the backup.
             await fs.copy(musicSource, config.musicDir, { overwrite: true });
         }
 
@@ -163,7 +187,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
             // 2. Music Directory
             archive.directory(config.musicDir, "music");
 
-            // 3. Config file
+            // 3. Config file (For reference only - restore logic primarily uses DB)
             archive.append(JSON.stringify(config, null, 2), { name: "config_dump.json" });
 
             // 4. Keys (Artists and System)
@@ -315,6 +339,9 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
             const finalZipPath = path.join("uploads", `backup_${uploadId}.zip`);
             const uploadDir = "uploads";
 
+            // Periodic cleanup of old chunks
+            await cleanupOldChunks(uploadDir);
+
             // Find all parts
             const files = await fs.readdir(uploadDir);
             const partFiles = files.filter(f => f.startsWith(`temp_${uploadId}_part_`));
@@ -356,6 +383,11 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
                     await performRestore(finalZipPath, config, database, restartFn);
                 } catch (e) {
                     console.error("❌ [Restore] Assembly failed:", e);
+                    // Ensure cleanup on failure
+                    if (await fs.pathExists(finalZipPath)) await fs.unlink(finalZipPath).catch(() => { });
+                    for (const part of partFiles) {
+                        await fs.unlink(path.join(uploadDir, part)).catch(() => { });
+                    }
                 }
             })();
 

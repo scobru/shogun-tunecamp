@@ -165,7 +165,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     app.use("/rest", createSubsonicRouter({ db: database, auth: authService, musicDir: config.musicDir, gundbService }));
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService));
-    app.use("/api/admin", authMiddleware.requireAdmin, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService, publishingService));
+    app.use("/api/admin", authMiddleware.requireAdmin, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService, publishingService, apService));
     // Backup routes moved earlier
     app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(database));
     app.use("/api/artists", authMiddleware.optionalAuth, createArtistsRoutes(database, config.musicDir));
@@ -174,7 +174,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database));
 
     app.use("/api/admin/releases", authMiddleware.requireAdmin, createReleaseRoutes(database, scanner, config.musicDir, publishingService));
-    app.use("/api/stats", createStatsRoutes(gundbService));
+    app.use("/api/stats", createStatsRoutes(gundbService, database));
     app.use("/api/stats/library", createLibraryStatsRoutes(database));
     app.use("/api/browser", authMiddleware.requireAdmin, createBrowserRoutes(config.musicDir));
     app.use("/api/metadata", authMiddleware.requireAdmin, createMetadataRoutes(database, config.musicDir));
@@ -345,6 +345,13 @@ export async function startServer(config: ServerConfig): Promise<void> {
             const registered = await gundbService.registerSite(siteInfo);
             if (registered) {
                 console.log(`🌐 Registered on GunDB community: ${publicUrl}`);
+            }
+
+            // ActivityPub Relay Support
+            const relayUrl = database.getSetting("relayUrl") || config.relayUrl;
+            if (relayUrl) {
+                console.log(`📡 Connecting to ActivityPub Relay: ${relayUrl}`);
+                await apService.subscribeToRelay(relayUrl);
             }
         } else {
             console.log("💡 Set TUNECAMP_PUBLIC_URL or configure Network Settings in Admin Panel to register on community");

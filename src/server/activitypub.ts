@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import fetch from "node-fetch";
 import type { ActorKeyPair, Federation } from "@fedify/fedify";
-import { createFederation, Note, Create, PUBLIC_COLLECTION, Person, Mention } from "@fedify/fedify";
+import { createFederation, Note, Create, PUBLIC_COLLECTION, Person, Mention, Follow, Announce } from "@fedify/fedify";
 import { Temporal } from "@js-temporal/polyfill";
 import type { DatabaseService, Artist, Album, Track, Post } from "./database.js";
 import type { ServerConfig } from "./config.js";
@@ -57,6 +57,94 @@ export class ActivityPubService {
         for (const artist of artists) {
             await this.ensureArtistKeys(artist.id);
         }
+
+        // Generate keys for the Site Actor if they don't exist
+        if (!this.db.getSetting("site_public_key")) {
+            console.log(`📡 Generating keys for Site Actor...`);
+            const { publicKey, privateKey } = await this.generateKeyPair();
+            this.db.setSetting("site_public_key", publicKey);
+            this.db.setSetting("site_private_key", privateKey);
+        }
+    }
+
+    /**
+     * Follow a remote ActivityPub Actor (Site or Person)
+     */
+    public async followRemoteActor(actorUri: string, followerHandle: string = "site") {
+        try {
+            console.log(`📡 Attempting to follow remote actor: ${actorUri} as ${followerHandle}`);
+            const publicUrl = this.db.getSetting("publicUrl") || this.config.publicUrl;
+            if (!publicUrl) {
+                console.warn("⚠️ No public URL configured, cannot follow remote actors");
+                return;
+            }
+
+            const baseUrl = new URL(publicUrl);
+            const followerId = new URL(`/users/${followerHandle}`, baseUrl);
+            const targetUri = new URL(actorUri);
+
+            // Send Follow activity
+            await this.federation.sendActivity(
+                { identifier: followerHandle },
+                targetUri,
+                new Follow({
+                    actor: followerId,
+                    object: targetUri,
+                })
+            );
+            console.log(`📤 Sent Follow request to: ${actorUri}`);
+        } catch (e) {
+            console.error(`❌ Failed to follow actor ${actorUri}:`, e);
+            throw e;
+        }
+    }
+
+    /**
+     * Subscribe the instance (Site Actor) to an ActivityPub Relay
+     */
+    public async subscribeToRelay(relayUrl: string) {
+        return this.followRemoteActor(relayUrl, "site");
+    }
+
+    /**
+     * Announce an activity to the configured relay
+     */
+    public async announceToRelay(object: any) {
+        const relayUrl = this.db.getSetting("relayUrl") || (this.config as any).relayUrl;
+        if (!relayUrl) return;
+
+        try {
+            const publicUrl = this.db.getSetting("publicUrl") || this.config.publicUrl;
+            const baseUrl = new URL(publicUrl);
+            const siteActorId = new URL(`/users/site`, baseUrl);
+
+            await this.federation.sendActivity(
+                { identifier: "site" },
+                new URL(relayUrl),
+                new Announce({
+                    actor: siteActorId,
+                    object: object,
+                })
+            );
+            console.log(`📡 Announced activity to relay: ${relayUrl}`);
+        } catch (e) {
+            console.error(`❌ Failed to announce to relay:`, e);
+        }
+    }
+
+    private async generateKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
+        const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
+            modulusLength: 4096,
+            publicKeyEncoding: {
+                type: "spki",
+                format: "pem"
+            },
+            privateKeyEncoding: {
+                type: "pkcs8",
+                format: "pem"
+            }
+        });
+        return { publicKey, privateKey };
     }
 
     // JSON-LD Generators

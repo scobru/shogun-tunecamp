@@ -77,6 +77,16 @@ export class PublishingService {
         console.log(`📢 Broadcasting release "${album.title}" via ActivityPub...`);
         try {
             await this.ap.broadcastRelease(album);
+
+            // Also announce to relay for global discovery (mirroring GunDB registry)
+            if (album.artist_id) {
+                const artist = this.db.getArtist(album.artist_id);
+                if (artist) {
+                    const tracks = this.db.getTracksByReleaseId(album.id);
+                    const note = this.ap.generateNote(album, artist, tracks);
+                    await this.ap.announceToRelay(note);
+                }
+            }
         } catch (e) {
             console.error("❌ Failed to broadcast release via ActivityPub:", e);
         }

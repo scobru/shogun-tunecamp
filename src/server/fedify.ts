@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { createFederation, Person, Endpoints, CryptographicKey, Follow, Accept, Undo, type Federation } from "@fedify/fedify";
+import { createFederation, Person, Endpoints, CryptographicKey, Follow, Accept, Undo, Announce, type Federation, Service, Note } from "@fedify/fedify";
 import { BetterSqliteKvStore } from "./fedify-kv.js";
 import type { DatabaseService } from "./database.js";
 import type { ServerConfig } from "./config.js";
@@ -14,19 +14,35 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
 
     // Validates actor handles: @slug@domain
     federation.setActorDispatcher("/users/{handle}", async (ctx, handle) => {
-        const artist = dbService.getArtistBySlug(handle);
-        if (!artist) return null;
+        let name: string | null = null;
+        let summary: string | null = null;
+        let publicKey: string | null = null;
+        let icon: URL | undefined;
+        let type: 'Person' | 'Service' = 'Person';
+        let slug = handle;
+
+        if (handle === "site") {
+            name = dbService.getSetting("siteName") || config.siteName || "TuneCamp Instance";
+            summary = dbService.getSetting("siteDescription") || "Tunecamp Federation Actor";
+            publicKey = dbService.getSetting("site_public_key") || null;
+            type = 'Service';
+        } else {
+            const artist = dbService.getArtistBySlug(handle);
+            if (!artist) return null;
+            name = artist.name;
+            summary = artist.bio || "";
+            publicKey = artist.public_key || null;
+            slug = artist.slug;
+        }
 
         const publicUrl = dbService.getSetting("publicUrl") || config.publicUrl;
-        // Avoid strict dependency on publicUrl just for object construction if internal, 
-        // but robust federation needs it.
         const baseUrl = publicUrl ? new URL(publicUrl) : ctx.url;
 
         // Check for keys
         let cryptoKey: crypto.webcrypto.CryptoKey | undefined;
-        if (artist.public_key) {
+        if (publicKey) {
             try {
-                const pubKeyObj = crypto.createPublicKey(artist.public_key);
+                const pubKeyObj = crypto.createPublicKey(publicKey);
                 cryptoKey = await crypto.webcrypto.subtle.importKey(
                     "spki",
                     pubKeyObj.export({ format: "der", type: "spki" }),
@@ -35,41 +51,52 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
                     ["verify"]
                 );
             } catch (e) {
-                console.error(`Failed to import public key for ${artist.slug}:`, e);
+                console.error(`Failed to import public key for ${handle}:`, e);
             }
         }
 
-        // Construct Person object
-        // TODO: Use more comprehensive mapping from Artist -> Person
-        return new Person({
-            id: new URL(`/users/${artist.slug}`, baseUrl),
-            preferredUsername: artist.slug,
-            name: artist.name,
-            summary: artist.bio || "",
-            // inbox: new URL(`/users/${artist.slug}/inbox`, baseUrl), // inbox is property of Actor? Person extends Actor.
-            inbox: new URL(`/users/${artist.slug}/inbox`, baseUrl),
-            outbox: new URL(`/api/ap/users/${artist.slug}/outbox`, baseUrl),
-            followers: new URL(`/api/ap/users/${artist.slug}/followers`, baseUrl),
-            following: new URL(`/api/ap/users/${artist.slug}/following`, baseUrl),
-            icon: new URL(`/api/artists/${artist.slug}/cover`, baseUrl),
-            image: new URL(`/api/artists/${artist.slug}/cover`, baseUrl),
-            url: new URL(`/@${artist.slug}`, baseUrl),
+        const actorOptions = {
+            id: new URL(`/users/${slug}`, baseUrl),
+            preferredUsername: slug,
+            name: name,
+            summary: summary,
+            inbox: new URL(`/users/${slug}/inbox`, baseUrl),
+            outbox: new URL(`/api/ap/users/${slug}/outbox`, baseUrl),
+            followers: new URL(`/api/ap/users/${slug}/followers`, baseUrl),
+            following: new URL(`/api/ap/users/${slug}/following`, baseUrl),
+            icon: handle !== "site" ? new URL(`/api/artists/${slug}/cover`, baseUrl) : undefined,
+            image: handle !== "site" ? new URL(`/api/artists/${slug}/cover`, baseUrl) : undefined,
+            url: new URL(handle === "site" ? "/" : `/@${slug}`, baseUrl),
             endpoints: new Endpoints({
                 sharedInbox: new URL("/inbox", baseUrl)
             }),
             publicKey: cryptoKey ? new CryptographicKey({
-                id: new URL(`/users/${artist.slug}#main-key`, baseUrl),
-                owner: new URL(`/users/${artist.slug}`, baseUrl),
+                id: new URL(`/users/${slug}#main-key`, baseUrl),
+                owner: new URL(`/users/${slug}`, baseUrl),
                 publicKey: cryptoKey
             }) : undefined
-        });
+        };
+
+        return type === 'Service' ? new Service(actorOptions) : new Person(actorOptions);
     })
         .setKeyPairsDispatcher(async (ctx, handle) => {
-            const artist = dbService.getArtistBySlug(handle);
-            if (!artist || !artist.private_key || !artist.public_key) return []; // Return empty array if not found
+            let publicKey: string | null = null;
+            let privateKeyStr: string | null = null;
 
-            const privKeyObj = crypto.createPrivateKey(artist.private_key);
-            const pubKeyObj = crypto.createPublicKey(artist.public_key);
+            if (handle === "site") {
+                publicKey = dbService.getSetting("site_public_key") || null;
+                privateKeyStr = dbService.getSetting("site_private_key") || null;
+            } else {
+                const artist = dbService.getArtistBySlug(handle);
+                if (!artist) return [];
+                publicKey = artist.public_key;
+                privateKeyStr = artist.private_key;
+            }
+
+            if (!privateKeyStr || !publicKey) return [];
+
+            const privKeyObj = crypto.createPrivateKey(privateKeyStr);
+            const pubKeyObj = crypto.createPublicKey(publicKey);
 
             const privateKey = await crypto.webcrypto.subtle.importKey(
                 "pkcs8",
@@ -79,7 +106,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
                 ["sign"]
             );
 
-            const publicKey = await crypto.webcrypto.subtle.importKey(
+            const publicKeyObj = await crypto.webcrypto.subtle.importKey(
                 "spki",
                 pubKeyObj.export({ format: "der", type: "spki" }),
                 { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
@@ -87,46 +114,52 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
                 ["verify"]
             );
 
-            return [{ privateKey, publicKey }];
+            return [{ privateKey, publicKey: publicKeyObj }];
         });
 
     // Inbox listeners for handling Follow/Unfollow activities
     federation
         .setInboxListeners("/users/{handle}/inbox", "/inbox")
         .on(Follow, async (ctx, follow) => {
-            // Get the target artist (who is being followed)
-            if (follow.objectId == null) {
-                console.log("📥 Follow received but no objectId");
-                return;
-            }
+            // Get the target (who is being followed)
+            if (follow.objectId == null) return;
 
             const parsed = ctx.parseUri(follow.objectId);
-            if (parsed?.type !== "actor") {
-                console.log("📥 Follow objectId is not an actor:", follow.objectId.toString());
+            if (parsed?.type !== "actor") return;
+
+            const handle = parsed.identifier;
+            
+            // Handle site follow (relay or other instances)
+            if (handle === "site") {
+                const follower = await follow.getActor(ctx);
+                if (!follower) return;
+
+                // For site follow, we just accept it and maybe store it as a peer
+                console.log(`📥 New site follower: ${follower.id?.toString()}`);
+                
+                await ctx.sendActivity(
+                    { identifier: "site" },
+                    follower,
+                    new Accept({
+                        actor: follow.objectId,
+                        object: follow,
+                    }),
+                );
                 return;
             }
 
-            const artist = dbService.getArtistBySlug(parsed.identifier);
-            if (!artist) {
-                console.log("📥 Follow for unknown artist:", parsed.identifier);
-                return;
-            }
+            const artist = dbService.getArtistBySlug(handle);
+            if (!artist) return;
 
             // Get the follower actor
             const follower = await follow.getActor(ctx);
-            if (follower == null) {
-                console.log("📥 Could not resolve follower actor");
-                return;
-            }
+            if (follower == null) return;
 
             const followerUri = follower.id?.toString();
             const followerInbox = follower.inboxId?.toString();
             const sharedInbox = follower.endpoints?.sharedInbox?.toString();
 
-            if (!followerUri || !followerInbox) {
-                console.log("📥 Follower missing required URIs");
-                return;
-            }
+            if (!followerUri || !followerInbox) return;
 
             // Store the follower in the database
             dbService.addFollower(artist.id, followerUri, followerInbox, sharedInbox);
@@ -134,14 +167,84 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
 
             // Send Accept activity back to the follower
             await ctx.sendActivity(
-                { identifier: parsed.identifier },
+                { identifier: handle },
                 follower,
                 new Accept({
                     actor: follow.objectId,
                     object: follow,
                 }),
             );
-            console.log(`📤 Sent Accept to ${followerUri}`);
+        })
+        .on(Accept, async (ctx, accept) => {
+            // Handle Accept from a Relay
+            const actor = await accept.getActor(ctx);
+            if (!actor) return;
+            
+            console.log(`✅ Received Accept from: ${actor.id?.toString()}`);
+            
+            // Save as remote actor
+            dbService.upsertRemoteActor({
+                uri: actor.id?.toString() || "",
+                type: actor instanceof Person ? 'Person' : 'Service',
+                username: actor.preferredUsername?.toString() || null,
+                name: actor.name?.toString() || null,
+                summary: actor.summary?.toString() || null,
+                icon_url: actor.icon?.id?.toString() || null,
+                inbox_url: actor.inboxId?.toString() || null,
+                outbox_url: actor.outboxId?.toString() || null,
+            });
+        })
+        .on(Announce, async (ctx, announce) => {
+            // This is where "Discovery" happens via Relay or Federating Instances
+            try {
+                const object = await announce.getObject(ctx);
+                if (!(object instanceof Note)) return;
+
+                const note = object;
+                const author = await note.getAttributedTo(ctx);
+                if (!author) return;
+
+                // Extract metadata (Tunecamp specific mapping)
+                // We look at attachments for Audio
+                const attachments = await Array.fromAsync(note.getAttachments());
+                const audio = attachments.find(a => a.type?.toString().toLowerCase().includes('audio') || (a as any).mediaType?.startsWith('audio/'));
+                const image = attachments.find(a => a.type?.toString().toLowerCase().includes('image') || (a as any).mediaType?.startsWith('image/'));
+
+                if (!audio) return; // Only care about tracks/releases
+
+                console.log(`📡 Discovered remote content: ${note.id?.toString()} by ${author.name?.toString()}`);
+
+                // Upsert remote actor
+                const authorUri = author.id?.toString() || "";
+                dbService.upsertRemoteActor({
+                    uri: authorUri,
+                    type: author instanceof Person ? 'Person' : 'Service',
+                    username: author.preferredUsername?.toString() || null,
+                    name: author.name?.toString() || null,
+                    summary: author.summary?.toString() || null,
+                    icon_url: author.icon?.id?.toString() || null,
+                    inbox_url: author.inboxId?.toString() || null,
+                    outbox_url: author.outboxId?.toString() || null,
+                });
+
+                // Upsert remote content
+                dbService.upsertRemoteContent({
+                    ap_id: note.id?.toString() || "",
+                    actor_uri: authorUri,
+                    type: 'release', // Default to release if it has audio
+                    title: note.content?.toString().replace(/<[^>]*>/g, '') || "Untitled",
+                    content: note.content?.toString() || null,
+                    url: note.url?.id?.toString() || null,
+                    cover_url: image?.id?.toString() || null,
+                    stream_url: audio.id?.toString() || null,
+                    artist_name: author.name?.toString() || author.preferredUsername?.toString() || "Unknown Artist",
+                    album_name: note.summary?.toString() || null, // Tunecamp uses summary for album name in Notes
+                    duration: (audio as any).duration || null,
+                    published_at: note.published?.toISOString() || null,
+                });
+            } catch (e) {
+                console.error("❌ Error processing Announce:", e);
+            }
         })
         .on(Undo, async (ctx, undo) => {
             // Check if this is an Undo of a Follow (i.e., unfollow)
@@ -156,7 +259,13 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
             const parsed = ctx.parseUri(follow.objectId);
             if (parsed?.type !== "actor") return;
 
-            const artist = dbService.getArtistBySlug(parsed.identifier);
+            const handle = parsed.identifier;
+            if (handle === "site") {
+                console.log(`📥 Site unfollowed by: ${(await undo.getActor(ctx))?.id?.toString()}`);
+                return;
+            }
+
+            const artist = dbService.getArtistBySlug(handle);
             if (!artist) return;
 
             // Get the actor who is unfollowing
@@ -169,6 +278,9 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
             dbService.removeFollower(artist.id, unfollowerUri);
             console.log(`📥 Unfollowed ${artist.name}: ${unfollowerUri}`);
         });
+
+    return federation;
+}
 
     return federation;
 }

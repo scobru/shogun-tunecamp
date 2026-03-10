@@ -6,6 +6,7 @@ import type { ServerConfig } from "../config.js";
 import type { AuthService } from "../auth.js";
 import { validatePassword } from "../validators.js";
 import type { PublishingService } from "../publishing.js";
+import type { ActivityPubService } from "../activitypub.js";
 
 export function createAdminRoutes(
     database: DatabaseService,
@@ -14,7 +15,8 @@ export function createAdminRoutes(
     gundbService: GunDBService,
     config: ServerConfig,
     authService: AuthService,
-    publishingService: PublishingService
+    publishingService: PublishingService,
+    apService: ActivityPubService
 ): Router {
     const router = Router();
 
@@ -180,6 +182,28 @@ export function createAdminRoutes(
         } catch (error) {
             console.error("Error updating settings:", error);
             res.status(500).json({ error: "Failed to update settings" });
+        }
+    });
+
+    /**
+     * POST /api/admin/network/ap/follow
+     * Follow a remote ActivityPub instance/actor (Root Admin only)
+     */
+    router.post("/network/ap/follow", async (req: any, res) => {
+        try {
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can follow remote instances" });
+            }
+            const { url } = req.body;
+            if (!url) {
+                return res.status(400).json({ error: "URL is required" });
+            }
+
+            await apService.followRemoteActor(url, "site");
+            res.json({ message: `Successfully sent follow request to ${url}` });
+        } catch (error: any) {
+            console.error("Error following AP actor:", error);
+            res.status(500).json({ error: error.message || "Failed to follow remote actor" });
         }
     });
 

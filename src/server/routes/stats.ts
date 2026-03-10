@@ -1,7 +1,8 @@
 import { Router } from "express";
 import type { GunDBService } from "../gundb.js";
+import type { DatabaseService } from "../database.js";
 
-export function createStatsRoutes(gundbService: GunDBService): Router {
+export function createStatsRoutes(gundbService: GunDBService, dbService: DatabaseService): Router {
     const router = Router();
 
     /**
@@ -110,12 +111,31 @@ export function createStatsRoutes(gundbService: GunDBService): Router {
 
     /**
      * GET /api/stats/network/tracks
-     * Get all tracks shared by the TuneCamp community
+     * Get all tracks shared by the TuneCamp community (GunDB + ActivityPub)
      */
     router.get("/network/tracks", async (req, res) => {
         try {
-            const tracks = await gundbService.getCommunityTracks();
-            res.json(tracks);
+            // 1. Get tracks from GunDB (P2P Federation)
+            const gundbTracks = await gundbService.getCommunityTracks();
+
+            // 2. Get tracks from ActivityPub (Standard Federation)
+            const remoteApContent = dbService.getRemoteTracks();
+            const apTracks = remoteApContent.map(content => ({
+                slug: content.ap_id,
+                title: content.title || "Untitled",
+                artistName: content.artist_name || "Unknown Artist",
+                releaseTitle: content.album_name || "Unknown Album",
+                coverUrl: content.cover_url || null,
+                audioUrl: content.stream_url || null,
+                duration: content.duration || 0,
+                siteUrl: content.url || null,
+                pubKey: content.actor_uri, // Use actor URI as identifier
+                federation: "activitypub"
+            }));
+
+            // Merge results
+            const allTracks = [...gundbTracks, ...apTracks];
+            res.json(allTracks);
         } catch (error) {
             console.error("Error getting community tracks:", error);
             res.status(500).json({ error: "Failed to get community tracks" });

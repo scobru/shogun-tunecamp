@@ -148,6 +148,36 @@ export interface ApNote {
     deleted_at: string | null;
 }
 
+export interface RemoteActor {
+    id: number;
+    uri: string;
+    type: string;
+    username: string | null;
+    name: string | null;
+    summary: string | null;
+    icon_url: string | null;
+    inbox_url: string | null;
+    outbox_url: string | null;
+    last_seen: string;
+}
+
+export interface RemoteContent {
+    id: number;
+    ap_id: string;
+    actor_uri: string;
+    type: string; // 'release' | 'post'
+    title: string | null;
+    content: string | null;
+    url: string | null;
+    cover_url: string | null;
+    stream_url: string | null;
+    artist_name: string | null;
+    album_name: string | null;
+    duration: number | null;
+    published_at: string | null;
+    received_at: string;
+}
+
 export interface TrackWithPlayCount extends Track {
     play_count: number;
 }
@@ -272,6 +302,16 @@ export interface DatabaseService {
     // Gun Users
     syncGunUser(pub: string, epub: string, alias: string, avatar?: string): void;
     getGunUser(pub: string): { pub: string; epub: string; alias: string } | undefined;
+
+    // Remote Federation (ActivityPub)
+    upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen">): void;
+    getRemoteActor(uri: string): RemoteActor | undefined;
+    getRemoteActors(): RemoteActor[];
+    upsertRemoteContent(content: Omit<RemoteContent, "id" | "received_at">): void;
+    getRemoteContent(apId: string): RemoteContent | undefined;
+    getRemoteTracks(): RemoteContent[];
+    getRemotePosts(): RemoteContent[];
+    deleteRemoteContent(apId: string): void;
 
     // OAuth
     getOAuthClient(instanceUrl: string): OAuthClient | undefined;
@@ -1688,6 +1728,65 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         getGunUser(pub: string): { pub: string; epub: string; alias: string, avatar?: string } | undefined {
             return db.prepare("SELECT pub, epub, alias, avatar FROM gun_users WHERE pub = ?").get(pub) as any;
-        }
-    };
-}
+        },
+
+        // Remote Federation (ActivityPub)
+        upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen">): void {
+            db.prepare(`
+                INSERT INTO remote_actors (uri, type, username, name, summary, icon_url, inbox_url, outbox_url, last_seen)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(uri) DO UPDATE SET
+                    username=excluded.username,
+                    name=excluded.name,
+                    summary=excluded.summary,
+                    icon_url=excluded.icon_url,
+                    inbox_url=excluded.inbox_url,
+                    outbox_url=excluded.outbox_url,
+                    last_seen=CURRENT_TIMESTAMP
+            `).run(actor.uri, actor.type, actor.username, actor.name, actor.summary, actor.icon_url, actor.inbox_url, actor.outbox_url);
+        },
+
+        getRemoteActor(uri: string): RemoteActor | undefined {
+            return db.prepare("SELECT * FROM remote_actors WHERE uri = ?").get(uri) as RemoteActor | undefined;
+        },
+
+        getRemoteActors(): RemoteActor[] {
+            return db.prepare("SELECT * FROM remote_actors ORDER BY last_seen DESC").all() as RemoteActor[];
+        },
+
+        upsertRemoteContent(content: Omit<RemoteContent, "id" | "received_at">): void {
+            db.prepare(`
+                INSERT INTO remote_content (ap_id, actor_uri, type, title, content, url, cover_url, stream_url, artist_name, album_name, duration, published_at, received_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(ap_id) DO UPDATE SET
+                    title=excluded.title,
+                    content=excluded.content,
+                    url=excluded.url,
+                    cover_url=excluded.cover_url,
+                    stream_url=excluded.stream_url,
+                    artist_name=excluded.artist_name,
+                    album_name=excluded.album_name,
+                    duration=excluded.duration,
+                    published_at=excluded.published_at,
+                    received_at=CURRENT_TIMESTAMP
+            `).run(content.ap_id, content.actor_uri, content.type, content.title, content.content, content.url, content.cover_url, content.stream_url, content.artist_name, content.album_name, content.duration, content.published_at);
+        },
+
+        getRemoteContent(apId: string): RemoteContent | undefined {
+            return db.prepare("SELECT * FROM remote_content WHERE ap_id = ?").get(apId) as RemoteContent | undefined;
+        },
+
+        getRemoteTracks(): RemoteContent[] {
+            return db.prepare("SELECT * FROM remote_content WHERE type = 'release' ORDER BY published_at DESC, received_at DESC").all() as RemoteContent[];
+        },
+
+        getRemotePosts(): RemoteContent[] {
+            return db.prepare("SELECT * FROM remote_content WHERE type = 'post' ORDER BY published_at DESC, received_at DESC").all() as RemoteContent[];
+        },
+
+        deleteRemoteContent(apId: string): void {
+            db.prepare("DELETE FROM remote_content WHERE ap_id = ?").run(apId);
+        },
+
+        // OAuth
+
