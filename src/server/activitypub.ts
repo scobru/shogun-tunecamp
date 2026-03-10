@@ -81,7 +81,7 @@ export class ActivityPubService {
 
             const baseUrl = new URL(publicUrl);
             const followerId = new URL(`/users/${followerHandle}`, baseUrl);
-            
+
             const follow = new Follow({
                 actor: followerId,
                 object: new URL(actorUri),
@@ -119,6 +119,10 @@ export class ActivityPubService {
 
         try {
             const publicUrl = this.db.getSetting("publicUrl") || this.config.publicUrl;
+            if (!publicUrl) {
+                console.warn("⚠️ No public URL configured, cannot announce to relay");
+                return;
+            }
             const baseUrl = new URL(publicUrl);
             const siteActorId = new URL(`/users/site`, baseUrl);
 
