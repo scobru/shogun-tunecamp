@@ -46,6 +46,34 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
                     console.log(`➖ Removed follower ${follower} for ${artist.name}`);
                     return res.status(200).send("OK");
                 }
+            } else if (activity.type === "Create") {
+                const obj = activity.object;
+                // Parse Funkwhale/Music objects
+                if (obj && (obj.type === "Note" || obj.type === "Audio" || obj.type === "Track" || obj.type === "Artist" || obj.type === "Album")) {
+                    console.log(`🎵 Parsing remote music object: ${obj.type} (${obj.name || obj.title})`);
+
+                    let type = 'post';
+                    if (obj.type === "Audio" || obj.type === "Track" || obj.type === "Album" || (obj.attachment && obj.attachment.some((a: any) => a.type === "Audio"))) {
+                        type = 'release';
+                    }
+
+                    // Map to RemoteContent
+                    const remoteContent = {
+                        ap_id: obj.id,
+                        actor_uri: typeof activity.actor === 'string' ? activity.actor : activity.actor.id,
+                        type: type,
+                        title: obj.name || obj.title || obj.content?.substring(0, 50),
+                        content: obj.content || obj.summary || "",
+                        url: obj.url || (Array.isArray(obj.url) ? obj.url[0]?.href : obj.url?.href),
+                        cover_url: obj.image?.url || obj.icon?.url || (obj.attachment?.find((a: any) => a.type === "Image")?.url),
+                        stream_url: obj.type === "Audio" ? obj.url : obj.attachment?.find((a: any) => a.type === "Audio")?.url,
+                        artist_name: obj.attributedTo?.name || "Remote Artist",
+                        published_at: obj.published || new Date().toISOString()
+                    };
+
+                    db.upsertRemoteContent(remoteContent as any);
+                    console.log(`✅ Saved remote content: ${remoteContent.title}`);
+                }
             }
         } catch (e) {
             console.error("❌ Error processing inbox activity:", e);

@@ -229,10 +229,15 @@ export class ActivityPubService {
         return {
             "@context": [
                 "https://www.w3.org/ns/activitystreams",
-                "https://w3id.org/security/v1"
+                "https://w3id.org/security/v1",
+                {
+                    "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+                    "Artist": "https://funkwhale.audio/ns#Artist",
+                    "MusicArtist": "https://schema.org/MusicArtist"
+                }
             ],
             id: userUrl,
-            type: "Person",
+            type: ["Person", "Artist"],
             preferredUsername: artist.slug,
             name: artist.name,
             summary: artist.bio || `Artist on ${this.getDomain()}`,
@@ -302,7 +307,9 @@ export class ActivityPubService {
                     mediaType: mediaType,
                     url: `${baseUrl}/api/tracks/${track.id}/stream`,
                     name: track.title,
-                    duration: track.duration ? new Date(track.duration * 1000).toISOString().substr(11, 8) : undefined
+                    duration: track.duration ? new Date(track.duration * 1000).toISOString().substr(11, 8) : undefined,
+                    "https://funkwhale.audio/ns#bitrate": track.bitrate,
+                    "https://funkwhale.audio/ns#duration": track.duration
                 });
             } else if (track.url) {
                 // For external tracks, we can't easily provide a direct audio mediaType
