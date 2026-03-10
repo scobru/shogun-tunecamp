@@ -97,15 +97,60 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
 
     /**
      * GET /api/stats/network/sites
-     * Get all TuneCamp sites registered in the community
+     * Get all TuneCamp sites registered in the community (GunDB + AP Actors)
      */
     router.get("/network/sites", async (req, res) => {
         try {
-            const sites = await gundbService.getCommunitySites();
-            res.json(sites);
+            // 1. Get sites from GunDB
+            const gunSites = await gundbService.getCommunitySites();
+            const formattedGunSites = gunSites.map(s => ({
+                url: s.url,
+                name: s.name || s.title || "Untitled",
+                description: s.description || "",
+                version: s.version || "2.0",
+                lastSeen: s.lastSeen,
+                coverImage: s.coverImage || null,
+                federation: "gundb"
+            }));
+
+            // 2. Get actors from ActivityPub (Local DB of remote actors)
+            const apActors = dbService.getRemoteActors();
+            const formattedApSites = apActors.map(a => ({
+                url: a.uri,
+                name: a.name || a.username || "AP Actor",
+                description: a.summary || "",
+                version: "ActivityPub",
+                lastSeen: a.last_seen || new Date().toISOString(),
+                coverImage: a.icon_url || null,
+                federation: "activitypub"
+            }));
+
+            res.json([...formattedGunSites, ...formattedApSites]);
         } catch (error) {
             console.error("Error getting community sites:", error);
             res.status(500).json({ error: "Failed to get community sites" });
+        }
+    });
+
+    /**
+     * GET /api/stats/network/status
+     * Get federation status (GunDB peers, etc.)
+     */
+    router.get("/network/status", async (req, res) => {
+        try {
+            const peers = gundbService.getPeerCount();
+            res.json({
+                gundb: {
+                    connected: peers > 0,
+                    peers: peers
+                },
+                activitypub: {
+                    enabled: !!dbService.getSetting("publicUrl")
+                }
+            });
+        } catch (error) {
+            console.error("Error getting network status:", error);
+            res.status(500).json({ error: "Failed to get network status" });
         }
     });
 

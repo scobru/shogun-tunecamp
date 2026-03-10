@@ -75,6 +75,7 @@ export interface GunDBService {
     syncNetwork(): Promise<void>;
     cleanupGlobalNetwork(): Promise<void>;
     invalidateCache(): void;
+    getPeerCount(): number;
 }
 
 export function createGunDBService(database: DatabaseService, server?: any, peers?: string[]): GunDBService {
@@ -1035,7 +1036,19 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         setIdentityKeyPair,
         syncNetwork: cleanupNetwork,
         cleanupGlobalNetwork,
-        invalidateCache
+        invalidateCache,
+        getPeerCount: () => {
+            if (!gun) return 0;
+            try {
+                // Gun.chain.back(Infinity) usually gives the root, 
+                // but getting peers is internal. 
+                // We can access via gun._.opt.peers
+                const peers = gun._.opt.peers;
+                return Object.keys(peers || {}).filter(k => peers[k].wire && peers[k].wire.readyState === 1).length;
+            } catch (e) {
+                return 0;
+            }
+        }
     };
 
     /**
