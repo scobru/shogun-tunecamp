@@ -518,6 +518,36 @@ export function createDatabase(dbPath: string): DatabaseService {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (provider, subject)
     );
+
+    CREATE TABLE IF NOT EXISTS remote_actors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      uri TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL,
+      username TEXT,
+      name TEXT,
+      summary TEXT,
+      icon_url TEXT,
+      inbox_url TEXT,
+      outbox_url TEXT,
+      last_seen TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS remote_content (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ap_id TEXT NOT NULL UNIQUE,
+      actor_uri TEXT NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT,
+      content TEXT,
+      url TEXT,
+      cover_url TEXT,
+      stream_url TEXT,
+      artist_name TEXT,
+      album_name TEXT,
+      duration REAL,
+      published_at TEXT,
+      received_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
     // Migration: Add is_release column if it doesn't exist
@@ -759,6 +789,52 @@ export function createDatabase(dbPath: string): DatabaseService {
         }
     } catch (e) {
         console.warn("⚠️  Migration warning (tracks.file_path):", e);
+    }
+
+    // Migration: Add remote_actors table
+    try {
+        db.exec(`
+            CREATE TABLE IF NOT EXISTS remote_actors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                uri TEXT NOT NULL UNIQUE,
+                type TEXT NOT NULL,
+                username TEXT,
+                name TEXT,
+                summary TEXT,
+                icon_url TEXT,
+                inbox_url TEXT,
+                outbox_url TEXT,
+                last_seen TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log("📦 Migrated database: added remote_actors table");
+    } catch (e) {
+        console.warn("⚠️  Migration warning (remote_actors):", e);
+    }
+
+    // Migration: Add remote_content table
+    try {
+        db.exec(`
+            CREATE TABLE IF NOT EXISTS remote_content (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ap_id TEXT NOT NULL UNIQUE,
+                actor_uri TEXT NOT NULL,
+                type TEXT NOT NULL,
+                title TEXT,
+                content TEXT,
+                url TEXT,
+                cover_url TEXT,
+                stream_url TEXT,
+                artist_name TEXT,
+                album_name TEXT,
+                duration REAL,
+                published_at TEXT,
+                received_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log("📦 Migrated database: added remote_content table");
+    } catch (e) {
+        console.warn("⚠️  Migration warning (remote_content):", e);
     }
 
     // Prepared statements for release tracks
