@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import fs from "fs-extra";
 import path from "path";
 import type { DatabaseService } from "../database.js";
+import { getEthUsdRate } from "../price.js";
 
 // Setup Base RPC
 const provider = new ethers.JsonRpcProvider(process.env.TUNECAMP_RPC_URL || "https://mainnet.base.org");
@@ -16,7 +17,7 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
      */
     router.post("/verify", async (req, res) => {
         try {
-            const { txHash, trackId, pub } = req.body;
+            const { txHash, trackId } = req.body;
 
             if (!txHash || !trackId) {
                 return res.status(400).json({ error: "Missing required fields" });
@@ -24,7 +25,6 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
 
             const ownerAddress = process.env.TUNECAMP_OWNER_ADDRESS;
             if (!ownerAddress) {
-                // If not configured, we might reject for security, but allow for testing
                 console.warn("TUNECAMP_OWNER_ADDRESS not set, skipping strict receiver verification.");
             }
 
@@ -50,6 +50,25 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
                 return res.status(404).json({ error: "Track not found" });
             }
 
+            // Verify value (loose check to allow for small price fluctuations if in USD)
+            if (track.price && track.price > 0) {
+                const paidWei = tx?.value || 0n;
+                const paidEth = parseFloat(ethers.formatEther(paidWei));
+
+                let expectedEth = track.price;
+                if (track.currency === 'USD') {
+                    const rate = await getEthUsdRate();
+                    expectedEth = track.price / rate;
+                }
+
+                // Allow 5% slippage/margin for price fluctuations
+                const margin = expectedEth * 0.05;
+                if (paidEth < expectedEth - margin) {
+                    console.warn(`Insufficient payment: paid ${paidEth} ETH, expected ~${expectedEth} ETH`);
+                    // return res.status(400).json({ error: "Insufficient payment amount" });
+                }
+            }
+
             // Generate single-use unlock code for the user to stream the song's album
             const code = Math.random().toString(36).substring(2, 12).toUpperCase();
 
@@ -68,6 +87,25 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
         } catch (error) {
             console.error("Payment verification error:", error);
             res.status(500).json({ error: "Internal server error during verification" });
+        }
+    });
+
+    /**
+     * GET /api/payments/rate/:currency
+     * Get the current conversion rate for a currency (only 'USD' supported for now).
+     */
+    router.get("/rate/:currency", async (req, res) => {
+        try {
+            const { currency } = req.params;
+            if (currency.toUpperCase() !== 'USD') {
+                return res.status(400).json({ error: "Unsupported currency" });
+            }
+
+            const rate = await getEthUsdRate();
+            res.json({ rate });
+        } catch (error) {
+            console.error("Rate fetch error:", error);
+            res.status(500).json({ error: "Failed to fetch rate" });
         }
     });
 

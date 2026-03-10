@@ -291,7 +291,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
             const configInject = `<script>window.TUNECAMP_CONFIG = {
                 ownerAddress: "${process.env.TUNECAMP_OWNER_ADDRESS || process.env.VITE_TUNECAMP_OWNER_ADDRESS || ''}",
                 rpcUrl: "${process.env.TUNECAMP_RPC_URL || process.env.VITE_TUNECAMP_RPC_URL || ''}",
-                currencyContract: "${process.env.TUNECAMP_CURRENCY_CONTRACT || process.env.VITE_TUNECAMP_CURRENCY_CONTRACT || ''}",
                 gunPeers: "${process.env.TUNECAMP_GUN_PEERS || process.env.VITE_GUN_PEERS || ''}"
             };</script>`;
             html = html.replace('<head>', '<head>' + configInject);

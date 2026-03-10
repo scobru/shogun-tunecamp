@@ -11,6 +11,7 @@ interface CheckoutTrack {
   artist: string;
   priceEth?: string;
   price?: number;
+  currency?: "ETH" | "USD";
   albumId?: number | string;
   album_id?: number | string;
 }
@@ -22,6 +23,8 @@ export const CheckoutModal = () => {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [unlockCode, setUnlockCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [usdRate, setUsdRate] = useState<number | null>(null);
+  const [isLoadingRate, setIsLoadingRate] = useState(false);
 
   const {
     wallet,
@@ -34,13 +37,29 @@ export const CheckoutModal = () => {
   } = useWalletStore();
 
   useEffect(() => {
-    const handleOpen = (e: any) => {
-      setTrack(e.detail.track);
+    const handleOpen = async (e: any) => {
+      const t = e.detail.track as CheckoutTrack;
+      setTrack(t);
       setIsOpen(true);
       setTxHash(null);
       setUnlockCode(null);
       setError(null);
       setIsProcessing(false);
+
+      if (t.currency === "USD") {
+        setIsLoadingRate(true);
+        try {
+          const res = await fetch("/api/payments/rate/USD");
+          const data = await res.json();
+          if (data.rate) setUsdRate(data.rate);
+        } catch (e) {
+          console.error("Failed to fetch USD rate", e);
+        } finally {
+          setIsLoadingRate(false);
+        }
+      } else {
+        setUsdRate(null);
+      }
     };
     window.addEventListener("open-checkout-modal", handleOpen);
     return () => window.removeEventListener("open-checkout-modal", handleOpen);
@@ -58,7 +77,6 @@ export const CheckoutModal = () => {
 
   const handleDownload = () => {
     if (!track || !unlockCode) return;
-    // Use dedicated payment download endpoint
     window.open(
       `/api/payments/download/${track.id}?code=${unlockCode}`,
       "_blank",
@@ -75,7 +93,22 @@ export const CheckoutModal = () => {
       setError("Local wallet not ready.");
       return;
     }
-    if (!track || !track.priceEth) return;
+    if (!track) return;
+
+    let finalPriceEth = track.priceEth;
+
+    if (track.currency === "USD" && track.price) {
+      if (!usdRate) {
+        setError("Could not determine ETH price for USD amount.");
+        return;
+      }
+      finalPriceEth = (track.price / usdRate).toFixed(6);
+    }
+
+    if (!finalPriceEth || parseFloat(finalPriceEth) <= 0) {
+      setError("Invalid price.");
+      return;
+    }
 
     setIsProcessing(true);
     setError(null);
@@ -86,21 +119,18 @@ export const CheckoutModal = () => {
         import.meta.env.VITE_TUNECAMP_OWNER_ADDRESS;
       if (!ownerAddress) throw new Error("Owner address not configured.");
 
-      // 1. Send Transaction on Base Mainnet
       const activeSigner = useExternalWallet ? externalWallet! : wallet!;
       const tx = await activeSigner.sendTransaction({
         to: ownerAddress,
-        value: ethers.parseEther(track.priceEth),
+        value: ethers.parseEther(finalPriceEth),
       });
 
-      // 2. Wait for confirmation
       const receipt = await tx.wait();
 
       if (!receipt || receipt.status === 0) {
         throw new Error("Transaction failed on-chain.");
       }
 
-      // 3. Verify payment on server to get unlock code
       let code: string | undefined;
       try {
         const verifyRes = await fetch("/api/payments/verify", {
@@ -123,7 +153,6 @@ export const CheckoutModal = () => {
         );
       }
 
-      // 4. Persist purchase locally in GunDB (including unlock code)
       const user = GunAuth.user;
       if (user.is) {
         // @ts-ignore
@@ -133,7 +162,7 @@ export const CheckoutModal = () => {
           .put({
             txid: receipt.hash,
             date: Date.now(),
-            price: track.priceEth,
+            price: finalPriceEth,
             code: code || "",
           });
       }
@@ -149,16 +178,16 @@ export const CheckoutModal = () => {
 
   if (!isOpen || !track) return null;
 
-  let trackPrice = "0.005"; // Default mock price
-  if (track.priceEth) {
-    trackPrice = track.priceEth;
-  } else if (track.price !== undefined && track.price !== null) {
-    trackPrice = String(track.price);
+  let displayPriceEth = track.priceEth || "0";
+  if (track.currency === "USD" && track.price && usdRate) {
+    displayPriceEth = (track.price / usdRate).toFixed(6);
+  } else if (!track.priceEth && track.price) {
+    displayPriceEth = String(track.price);
   }
 
   const activeBalance = useExternalWallet ? externalBalanceEth : balanceEth;
   const hasEnoughBalance =
-    parseFloat(activeBalance || "0") >= parseFloat(trackPrice);
+    parseFloat(activeBalance || "0") >= parseFloat(displayPriceEth);
   const isReady = useExternalWallet ? isExternalConnected : isWalletReady;
   const activeWalletLabel = useExternalWallet ? "MetaMask" : "Local Wallet";
 
@@ -166,9 +195,7 @@ export const CheckoutModal = () => {
     <div
       className={`modal ${isOpen ? "modal-open" : ""} bg-black/60 backdrop-blur-sm`}
     >
-      {/* Glassmorphism Expressive Box */}
       <div className="modal-box bg-base-100/80 backdrop-blur-2xl border border-white/10 shadow-[0_0_40px_rgba(var(--color-primary),0.15)] rounded-3xl p-8 relative overflow-hidden">
-        {/* Decorative background glow */}
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-secondary to-accent"></div>
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/20 blur-[80px] rounded-full pointer-events-none"></div>
 
@@ -234,13 +261,27 @@ export const CheckoutModal = () => {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-white/60">Price</span>
-                  <span className="text-xl font-bold text-primary">
-                    {trackPrice} ETH
-                  </span>
+                  <div className="flex flex-col text-right">
+                    <span className="text-xl font-bold text-primary">
+                      {track.currency === "USD" && track.price
+                        ? `$${track.price.toFixed(2)}`
+                        : `${displayPriceEth} ETH`}
+                    </span>
+                    {track.currency === "USD" && usdRate && (
+                      <span className="text-xs opacity-50">
+                        ≈ {displayPriceEth} ETH
+                      </span>
+                    )}
+                    {isLoadingRate && (
+                      <span className="text-xs opacity-50 italic">
+                        Calculating ETH...
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-between items-center mb-6 text-sm opacity-70">
+              <div className="flex justify-between items-center mb-6 text-sm opacity-70 w-full px-1">
                 <span>Paying with:</span>
                 <span className="font-semibold text-white">
                   {activeWalletLabel}
@@ -279,7 +320,7 @@ export const CheckoutModal = () => {
                       Processing...
                     </>
                   ) : (
-                    `Pay ${trackPrice} ETH`
+                    `Pay ${displayPriceEth} ETH`
                   )}
                 </button>
               </div>

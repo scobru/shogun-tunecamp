@@ -13,6 +13,7 @@ interface CreateReleaseBody {
     genres?: string[];
     download?: "free" | "paycurtain" | "codes" | "none";
     price?: number;
+    currency?: "ETH" | "USD";
     artistName?: string;
     artistId?: number;
     type?: 'album' | 'single' | 'ep';
@@ -84,6 +85,7 @@ export function createReleaseRoutes(
                 genre: body.genres?.join(", ") || null,
                 download: body.download || null,
                 price: body.price || 0,
+                currency: body.currency || 'ETH',
                 external_links: body.externalLinks ? JSON.stringify(body.externalLinks) : null,
                 published_at: body.visibility === 'public' || body.visibility === 'unlisted' ? new Date().toISOString() : null,
                 published_to_gundb: body.publishedToGunDB !== undefined ? body.publishedToGunDB : (body.visibility === 'public' || body.visibility === 'unlisted'),
@@ -226,7 +228,7 @@ export function createReleaseRoutes(
             }
             if (body.price !== undefined) {
                 try {
-                    database.updateAlbumPrice(id, body.price);
+                    database.updateAlbumPrice(id, body.price, body.currency || 'ETH');
                 } catch (e) {
                     console.error("Failed to update album price in DB:", e);
                 }

@@ -67,7 +67,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         }
 
         try {
-            const { title, albumId, artistId, trackNum, url, service, externalArtwork, duration, lyrics } = req.body;
+            const { title, albumId, artistId, trackNum, url, service, externalArtwork, duration, lyrics, currency } = req.body;
 
             if (!title) {
                 return res.status(400).json({ error: "Title is required" });
@@ -88,6 +88,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 service: service || null,
                 external_artwork: externalArtwork || null,
                 price: 0,
+                currency: currency || 'ETH',
                 waveform: null,
                 lyrics: lyrics || null
             });
@@ -227,6 +228,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                         year: null,
                         download: null,
                         price: 0,
+                        currency: 'ETH',
                         external_links: null,
                         is_public: false,
                         visibility: 'private',
@@ -444,7 +446,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 return res.status(403).json({ error: "Access denied: You can only edit your own tracks" });
             }
 
-            const { title, artist, artistId, album, albumId, trackNumber, genre, fileName: newFileName, url, service, externalArtwork, price, lyrics } = req.body;
+            const { title, artist, artistId, album, albumId, trackNumber, genre, fileName: newFileName, url, service, externalArtwork, price, currency, lyrics } = req.body;
 
             // HANDLE FILE RENAMING (Only if local track)
             if (track.file_path && newFileName && typeof newFileName === 'string') {
@@ -550,7 +552,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
 
             // Update price
             if (price !== undefined) {
-                database.updateTrackPrice(id, parseFloat(price));
+                database.updateTrackPrice(id, parseFloat(price), currency || 'ETH');
             }
 
             // Update lyrics

@@ -7,7 +7,6 @@ interface WalletState {
     wallet: ethers.Wallet | null;
     address: string | null;
     balanceEth: string | null;
-    balanceUsdc: string | null;
     isWalletReady: boolean;
     isWalletLoading: boolean;
     error: string | null;
@@ -17,7 +16,6 @@ interface WalletState {
     externalWallet: ethers.JsonRpcSigner | null;
     externalAddress: string | null;
     externalBalanceEth: string | null;
-    externalBalanceUsdc: string | null;
     isExternalConnected: boolean;
     useExternalWallet: boolean;
 
@@ -31,22 +29,12 @@ interface WalletState {
     setUseExternalWallet: (use: boolean) => void;
 }
 
-// USDC Contract on Base Mainnet
-const USDC_ADDRESS = (window as any).TUNECAMP_CONFIG?.currencyContract || import.meta.env.VITE_TUNECAMP_CURRENCY_CONTRACT || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-
-// Minimal ERC20 ABI for balance checking
-const ERC20_ABI = [
-    "function balanceOf(address owner) view returns (uint256)",
-    "function decimals() view returns (uint8)"
-];
-
 let ethListenersAttached = false;
 
 export const useWalletStore = create<WalletState>((set, get) => ({
     wallet: null,
     address: null,
     balanceEth: null,
-    balanceUsdc: null,
     isWalletReady: false,
     isWalletLoading: false,
     error: null,
@@ -55,7 +43,6 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     externalWallet: null,
     externalAddress: null,
     externalBalanceEth: null,
-    externalBalanceUsdc: null,
     isExternalConnected: false,
     useExternalWallet: false,
 
@@ -103,13 +90,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
                 const ethBalanceWei = await WalletService.provider.getBalance(address);
                 const balanceEth = ethers.formatEther(ethBalanceWei);
 
-                // Get USDC Balance
-                const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, WalletService.provider);
-                const usdcBalanceWei = await usdcContract.balanceOf(address);
-                const decimals = await usdcContract.decimals();
-                const balanceUsdc = ethers.formatUnits(usdcBalanceWei, decimals);
-
-                set({ balanceEth, balanceUsdc });
+                set({ balanceEth });
             }
 
             // External Wallet Balances
@@ -117,12 +98,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
                 const ethBalanceWei = await externalProvider.getBalance(externalAddress);
                 const externalBalanceEth = ethers.formatEther(ethBalanceWei);
 
-                const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, externalProvider);
-                const usdcBalanceWei = await usdcContract.balanceOf(externalAddress);
-                const decimals = await usdcContract.decimals();
-                const externalBalanceUsdc = ethers.formatUnits(usdcBalanceWei, decimals);
-
-                set({ externalBalanceEth, externalBalanceUsdc });
+                set({ externalBalanceEth });
             }
         } catch (e: any) {
             console.error("Failed to fetch balances:", e);
@@ -134,7 +110,6 @@ export const useWalletStore = create<WalletState>((set, get) => ({
             wallet: null,
             address: null,
             balanceEth: null,
-            balanceUsdc: null,
             isWalletReady: false,
             error: null
         });
@@ -190,7 +165,6 @@ export const useWalletStore = create<WalletState>((set, get) => ({
             externalWallet: null,
             externalAddress: null,
             externalBalanceEth: null,
-            externalBalanceUsdc: null,
             isExternalConnected: false,
             useExternalWallet: false
         });

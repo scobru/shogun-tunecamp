@@ -27,6 +27,7 @@ interface LocalTrack {
   duration: number;
   position: number;
   price?: number | string;
+  currency?: "ETH" | "USD";
   file_path: string | null;
   url: string | null;
   service: string | null;
@@ -55,6 +56,7 @@ interface LocalRelease {
   published_to_gundb?: boolean;
   published_to_ap?: boolean;
   price?: number | string;
+  currency?: "ETH" | "USD";
   download?: string;
 }
 
@@ -79,6 +81,7 @@ export default function AdminReleaseEditor() {
     credits: "",
     tags: "",
     price: 0,
+    currency: "ETH",
     download: "none",
   });
 
@@ -140,6 +143,7 @@ export default function AdminReleaseEditor() {
         published_to_ap:
           data.published_to_ap !== undefined ? !!data.published_to_ap : true,
         price: data.price,
+        currency: data.currency || "ETH",
         download: data.download || "none",
         tags: data.genre || "",
       });
@@ -163,12 +167,13 @@ export default function AdminReleaseEditor() {
   };
 
   const handleAddLibraryTracks = (selected: any[]) => {
-    const newTracks = selected.map((t) => ({
+    const newTracks: LocalTrack[] = selected.map((t) => ({
       id: parseInt(t.id),
       title: t.title,
       duration: t.duration,
       position: tracks.length + 1, // Append
       price: 0,
+      currency: "ETH" as "ETH" | "USD",
       file_path: t.file_path || t.path || null,
       url: t.url || null,
       service: t.service || "local",
@@ -323,6 +328,7 @@ export default function AdminReleaseEditor() {
           const updateData: any = {
             title: t.title,
             price: t.price,
+            currency: t.currency || "ETH",
             lyrics: t.lyrics,
           };
 
@@ -572,9 +578,24 @@ export default function AdminReleaseEditor() {
                         ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, "0")}`
                         : "-"}
                     </div>
-                    <div className="w-24 shrink-0">
-                      <label className="input input-xs input-bordered flex items-center gap-1 group-focus-within:border-primary">
-                        <span className="opacity-50">Ξ</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <select
+                        className="select select-ghost select-xs px-1 opacity-50 focus:opacity-100"
+                        value={track.currency || "ETH"}
+                        onChange={(e) => {
+                          const newTracks = [...tracks];
+                          newTracks[idx].currency = e.target.value as any;
+                          newTracks[idx].isDirty = true;
+                          setTracks(newTracks);
+                        }}
+                      >
+                        <option value="ETH">ETH</option>
+                        <option value="USD">USD</option>
+                      </select>
+                      <label className="input input-xs input-bordered flex items-center gap-1 group-focus-within:border-primary w-24">
+                        <span className="opacity-50 text-[10px]">
+                          {track.currency === "USD" ? "$" : "Ξ"}
+                        </span>
                         <input
                           type="number"
                           step="any"
@@ -828,39 +849,55 @@ export default function AdminReleaseEditor() {
               </div>
             </div>
 
-            {/* Price */}
             <div className="form-control">
-              <label className="label">Album Price (ETH)</label>
-              <label className="input input-bordered flex items-center gap-2">
-                <span className="opacity-50">Ξ</span>
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  className="w-full bg-transparent"
-                  value={metadata.price ?? ""}
-                  onChange={(e) => {
-                    const rawVal = e.target.value;
-                    const parsedVal = parseFloat(rawVal) || 0;
-                    setMetadata((prev) => {
-                      const newMeta = {
-                        ...prev,
-                        price: rawVal === "" ? "" : rawVal,
-                      };
-                      // If price is set, forcefully disable free/codes download methods
-                      if (
-                        parsedVal > 0 &&
-                        (newMeta.download === "free" ||
-                          newMeta.download === "codes")
-                      ) {
-                        newMeta.download = "none";
-                      }
-                      return newMeta;
-                    });
-                  }}
-                  placeholder="0.05"
-                />
-              </label>
+              <label className="label">Album Price</label>
+              <div className="flex gap-2">
+                <select
+                  className="select select-bordered"
+                  value={metadata.currency || "ETH"}
+                  onChange={(e) =>
+                    setMetadata((prev) => ({
+                      ...prev,
+                      currency: e.target.value as any,
+                    }))
+                  }
+                >
+                  <option value="ETH">ETH</option>
+                  <option value="USD">USD</option>
+                </select>
+                <label className="input input-bordered flex items-center gap-2 flex-1">
+                  <span className="opacity-50">
+                    {metadata.currency === "USD" ? "$" : "Ξ"}
+                  </span>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    className="w-full bg-transparent"
+                    value={metadata.price ?? ""}
+                    onChange={(e) => {
+                      const rawVal = e.target.value;
+                      const parsedVal = parseFloat(rawVal) || 0;
+                      setMetadata((prev) => {
+                        const newMeta = {
+                          ...prev,
+                          price: rawVal === "" ? "" : rawVal,
+                        };
+                        // If price is set, forcefully disable free/codes download methods
+                        if (
+                          parsedVal > 0 &&
+                          (newMeta.download === "free" ||
+                            newMeta.download === "codes")
+                        ) {
+                          newMeta.download = "none";
+                        }
+                        return newMeta;
+                      });
+                    }}
+                    placeholder="10.00"
+                  />
+                </label>
+              </div>
             </div>
 
             {/* Download Options */}
