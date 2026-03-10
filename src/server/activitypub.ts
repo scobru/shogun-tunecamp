@@ -81,17 +81,21 @@ export class ActivityPubService {
 
             const baseUrl = new URL(publicUrl);
             const followerId = new URL(`/users/${followerHandle}`, baseUrl);
-            const targetUri = new URL(actorUri);
+            
+            const follow = new Follow({
+                actor: followerId,
+                object: new URL(actorUri),
+            });
 
-            // Send Follow activity
-            await this.federation.sendActivity(
-                { identifier: followerHandle },
-                targetUri,
-                new Follow({
-                    actor: followerId,
-                    object: targetUri,
-                })
-            );
+            // Send Follow activity using the shared helper
+            if (followerHandle === "site") {
+                await this.sendActivity({ id: -1, slug: "site" } as any, actorUri, follow);
+            } else {
+                const artist = this.db.getArtistBySlug(followerHandle);
+                if (artist) {
+                    await this.sendActivity(artist, actorUri, follow);
+                }
+            }
             console.log(`📤 Sent Follow request to: ${actorUri}`);
         } catch (e) {
             console.error(`❌ Failed to follow actor ${actorUri}:`, e);
@@ -110,7 +114,7 @@ export class ActivityPubService {
      * Announce an activity to the configured relay
      */
     public async announceToRelay(object: any) {
-        const relayUrl = this.db.getSetting("relayUrl") || (this.config as any).relayUrl;
+        const relayUrl = this.db.getSetting("relayUrl") || this.config.relayUrl;
         if (!relayUrl) return;
 
         try {
@@ -118,14 +122,12 @@ export class ActivityPubService {
             const baseUrl = new URL(publicUrl);
             const siteActorId = new URL(`/users/site`, baseUrl);
 
-            await this.federation.sendActivity(
-                { identifier: "site" },
-                new URL(relayUrl),
-                new Announce({
-                    actor: siteActorId,
-                    object: object,
-                })
-            );
+            const announce = new Announce({
+                actor: siteActorId,
+                object: object,
+            });
+
+            await this.sendActivity({ id: -1, slug: "site" } as any, relayUrl, announce);
             console.log(`📡 Announced activity to relay: ${relayUrl}`);
         } catch (e) {
             console.error(`❌ Failed to announce to relay:`, e);
@@ -654,7 +656,7 @@ export class ActivityPubService {
         return { artists: artistCount, notes: noteCount };
     }
 
-    public async sendActivity(artist: Artist, inboxUri: string, activity: any): Promise<void> {
+    public async sendActivity(actor: Artist | { slug: string, private_key?: string, public_key?: string }, inboxUri: string, activity: any): Promise<void> {
         const body = JSON.stringify(activity);
         const url = new URL(inboxUri);
         const date = new Date().toUTCString();
@@ -668,7 +670,17 @@ export class ActivityPubService {
             "Accept": "application/activity+json"
         };
 
-        const signature = this.signRequest(artist, url, "post", date, digest);
+        // Resolve keys for site actor if needed
+        let signingActor = actor;
+        if (actor.slug === "site") {
+            signingActor = {
+                slug: "site",
+                private_key: this.db.getSetting("site_private_key"),
+                public_key: this.db.getSetting("site_public_key")
+            } as any;
+        }
+
+        const signature = this.signRequest(signingActor as any, url, "post", date, digest);
         headers["Signature"] = signature;
 
         try {
@@ -688,7 +700,7 @@ export class ActivityPubService {
     }
 
     private signRequest(artist: Artist, url: URL, method: string, date: string, digest: string): string {
-        if (!artist.private_key) throw new Error("Artist has no private key");
+        if (!artist.private_key) throw new Error(`Actor ${artist.slug} has no private key`);
 
         const stringToSign = `(request-target): ${method} ${url.pathname}\nhost: ${url.host}\ndate: ${date}\ndigest: ${digest}`;
 

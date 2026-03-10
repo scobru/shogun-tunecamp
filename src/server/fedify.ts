@@ -201,12 +201,16 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
                 if (!(object instanceof Note)) return;
 
                 const note = object;
-                const author = await note.getAttributedTo(ctx);
+                const author = await note.getAttribution(ctx);
                 if (!author) return;
 
                 // Extract metadata (Tunecamp specific mapping)
                 // We look at attachments for Audio
-                const attachments = await Array.fromAsync(note.getAttachments());
+                const attachments: any[] = [];
+                for await (const attachment of note.getAttachments()) {
+                    attachments.push(attachment);
+                }
+                
                 const audio = attachments.find(a => a.type?.toString().toLowerCase().includes('audio') || (a as any).mediaType?.startsWith('audio/'));
                 const image = attachments.find(a => a.type?.toString().toLowerCase().includes('image') || (a as any).mediaType?.startsWith('image/'));
 
@@ -222,7 +226,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
                     username: author.preferredUsername?.toString() || null,
                     name: author.name?.toString() || null,
                     summary: author.summary?.toString() || null,
-                    icon_url: author.icon?.id?.toString() || null,
+                    icon_url: (author as any).icon?.id?.toString() || (author as any).icon?.toString() || null,
                     inbox_url: author.inboxId?.toString() || null,
                     outbox_url: author.outboxId?.toString() || null,
                 });
@@ -234,13 +238,13 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
                     type: 'release', // Default to release if it has audio
                     title: note.content?.toString().replace(/<[^>]*>/g, '') || "Untitled",
                     content: note.content?.toString() || null,
-                    url: note.url?.id?.toString() || null,
-                    cover_url: image?.id?.toString() || null,
-                    stream_url: audio.id?.toString() || null,
+                    url: note.url?.toString() || null,
+                    cover_url: image?.id?.toString() || image?.url?.toString() || null,
+                    stream_url: audio.id?.toString() || audio.url?.toString() || null,
                     artist_name: author.name?.toString() || author.preferredUsername?.toString() || "Unknown Artist",
                     album_name: note.summary?.toString() || null, // Tunecamp uses summary for album name in Notes
                     duration: (audio as any).duration || null,
-                    published_at: note.published?.toISOString() || null,
+                    published_at: note.published?.toString() || null,
                 });
             } catch (e) {
                 console.error("❌ Error processing Announce:", e);
