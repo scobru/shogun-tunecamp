@@ -127,8 +127,10 @@ export class ActivityPubService {
                 object: object,
             });
 
-            await this.sendActivity({ id: -1, slug: "site" } as any, relayUrl, announce);
-            console.log(`📡 Announced activity to relay: ${relayUrl}`);
+            if (relayUrl) {
+                await this.sendActivity({ id: -1, slug: "site" } as any, relayUrl, announce);
+                console.log(`📡 Announced activity to relay: ${relayUrl}`);
+            }
         } catch (e) {
             console.error(`❌ Failed to announce to relay:`, e);
         }

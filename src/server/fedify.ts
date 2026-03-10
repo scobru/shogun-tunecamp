@@ -189,7 +189,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
                 username: actor.preferredUsername?.toString() || null,
                 name: actor.name?.toString() || null,
                 summary: actor.summary?.toString() || null,
-                icon_url: actor.icon?.id?.toString() || null,
+                icon_url: (actor as any).icon?.id?.toString() || (actor as any).icon?.toString() || null,
                 inbox_url: actor.inboxId?.toString() || null,
                 outbox_url: actor.outboxId?.toString() || null,
             });
