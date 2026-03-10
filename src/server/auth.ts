@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import type { Database } from "better-sqlite3";
 import fetch from "node-fetch";
 import crypto from "crypto";
+import md5 from "md5";
 import Gun from "gun";
 import "gun/sea.js";
 import { isSafeUrl } from "../utils/networkUtils.js";
@@ -17,6 +18,7 @@ export interface AuthService {
     verifyToken(token: string): { isAdmin: boolean; username: string; artistId: number | null } | null;
     // Multi-user management
     authenticateUser(username: string, password: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number } | false>;
+    verifySubsonicToken(username: string, token: string, salt: string): Promise<boolean>;
     createAdmin(username: string, password: string, artistId?: number | null): Promise<void>;
     updateAdmin(id: number, artistId: number | null): void;
     listAdmins(): { id: number; username: string; artist_id: number | null; created_at: string }[];
