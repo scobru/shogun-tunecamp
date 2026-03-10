@@ -1,8 +1,9 @@
 import { Router } from "express";
 import type { GunDBService } from "../gundb.js";
 import type { DatabaseService } from "../database.js";
+import type { ServerConfig } from "../config.js";
 
-export function createStatsRoutes(gundbService: GunDBService, dbService: DatabaseService): Router {
+export function createStatsRoutes(gundbService: GunDBService, dbService: DatabaseService, config: ServerConfig): Router {
     const router = Router();
 
     /**
