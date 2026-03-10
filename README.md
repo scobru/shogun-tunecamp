@@ -62,6 +62,16 @@ Tunecamp integrates with the Base network for artist payments and currency manag
 | :------------------- | :----------------------------------------- |
 | `TUNECAMP_GUN_PEERS` | Comma-separated list of GunDB relay peers. |
 | `VITE_GUN_PEERS`     | (Frontend) Same as `TUNECAMP_GUN_PEERS`.   |
+| `TUNECAMP_RELAY_URL` | ActivityPub relay URL for broadcasting.    |
+
+## Federation & Decentralization
+
+Tunecamp is built on a decentralized foundation:
+
+- **ActivityPub**: Connects artists with the Fediverse (Mastodon, etc.). Supports followers, broadcasts for new releases, and standard actor models.
+- **GunDB**: Enables decentralized music discovery, global stats, and social interactions without a central server.
+
+For a deep dive into how Tunecamp handles federation, see [FEDERATION.md](./docs/FEDERATION.md).
 
 ## CLI Commands
 
