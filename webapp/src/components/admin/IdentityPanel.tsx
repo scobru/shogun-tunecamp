@@ -1,6 +1,17 @@
 import { useState, useEffect } from "react";
 import API from "../../services/api";
-import { Shield, Key, AlertTriangle, Save, Copy, Download } from "lucide-react";
+import {
+  Shield,
+  Key,
+  AlertTriangle,
+  Save,
+  Copy,
+  Download,
+  Eye,
+  EyeOff,
+  Music,
+} from "lucide-react";
+import type { Artist } from "../../types";
 
 export const IdentityPanel = () => {
   const [identity, setIdentity] = useState<{
@@ -8,22 +19,56 @@ export const IdentityPanel = () => {
     epub: string;
     alias: string;
   } | null>(null);
+  const [artistIdentities, setArtistIdentities] = useState<any[]>([]);
+  const [showPrivateKeys, setShowPrivateKeys] = useState<{
+    [key: string]: boolean;
+  }>({});
   const [importData, setImportData] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    loadIdentity();
+    loadData();
   }, []);
 
-  const loadIdentity = async () => {
+  const loadData = async () => {
     try {
-      const data = await API.getIdentity();
-      setIdentity(data);
+      const [idData, artists] = await Promise.all([
+        API.getIdentity(),
+        API.getArtists(),
+      ]);
+      setIdentity(idData);
+
+      // Load RSA keys for each artist
+      const apIdentities = await Promise.all(
+        artists.map(async (artist: Artist) => {
+          try {
+            const keys = await API.getArtistIdentity(artist.id.toString());
+            return {
+              artist,
+              ...keys,
+            };
+          } catch (e) {
+            console.error(
+              `Failed to load AP identity for artist ${artist.name}`,
+              e,
+            );
+            return { artist, error: true };
+          }
+        }),
+      );
+      setArtistIdentities(apIdentities);
     } catch (e) {
-      console.error("Failed to load identity", e);
+      console.error("Failed to load identity data", e);
     }
+  };
+
+  const togglePrivateKey = (artistId: string) => {
+    setShowPrivateKeys((prev) => ({
+      ...prev,
+      [artistId]: !prev[artistId],
+    }));
   };
 
   const handleImport = async (e: React.FormEvent) => {
@@ -55,7 +100,7 @@ export const IdentityPanel = () => {
         "Identity imported successfully. The node will restart with the new identity.",
       );
       setImportData("");
-      loadIdentity(); // Reload to show new identity
+      loadData(); // Reload to show new identity
     } catch (e: any) {
       setError(e.message || "Failed to import identity");
     } finally {
@@ -64,18 +109,18 @@ export const IdentityPanel = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in max-w-4xl">
+    <div className="space-y-8 animate-fade-in max-w-5xl">
       <div className="flex items-center gap-3">
         <Shield size={24} className="text-primary" />
         <h2 className="text-xl font-bold">Identity Management</h2>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Current Identity Card */}
+        {/* Current Identity Card (GunDB) */}
         <div className="card bg-base-200 border border-white/5">
           <div className="card-body">
             <h3 className="card-title text-sm uppercase tracking-wider opacity-70 mb-4">
-              Current P2P Node Identity
+              Current P2P Node Identity (GunDB)
             </h3>
 
             {identity ? (
@@ -84,7 +129,7 @@ export const IdentityPanel = () => {
                   <label className="label">
                     <span className="label-text text-xs">Public Key (pub)</span>
                   </label>
-                  <div className="p-3 bg-base-300 rounded font-mono text-xs break-all select-all">
+                  <div className="p-3 bg-base-300 rounded font-mono text-[10px] break-all select-all">
                     {identity.pub}
                   </div>
                 </div>
@@ -94,7 +139,7 @@ export const IdentityPanel = () => {
                       Encryption Key (epub)
                     </span>
                   </label>
-                  <div className="p-3 bg-base-300 rounded font-mono text-xs break-all select-all">
+                  <div className="p-3 bg-base-300 rounded font-mono text-[10px] break-all select-all">
                     {identity.epub}
                   </div>
                 </div>
@@ -148,7 +193,7 @@ export const IdentityPanel = () => {
         <div className="card bg-base-200 border border-warning/20">
           <div className="card-body">
             <h3 className="card-title text-sm uppercase tracking-wider text-warning mb-4 flex items-center gap-2">
-              <Key size={16} /> Import Identity
+              <Key size={16} /> Import Node Identity
             </h3>
 
             <div className="alert alert-warning shadow-lg text-xs mb-4">
@@ -183,6 +228,101 @@ export const IdentityPanel = () => {
               </div>
             </form>
           </div>
+        </div>
+      </div>
+
+      {/* ActivityPub Artist Identities */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <Music size={24} className="text-secondary" />
+          <h2 className="text-xl font-bold">
+            ActivityPub Actor Identities (RSA)
+          </h2>
+        </div>
+
+        <div className="grid gap-6">
+          {artistIdentities.length === 0 ? (
+            <div className="card bg-base-200 border border-white/5 p-8 text-center opacity-50">
+              No artist identities found.
+            </div>
+          ) : (
+            artistIdentities.map(({ artist, publicKey, privateKey, error }) => (
+              <div
+                key={artist.id}
+                className="card bg-base-200 border border-white/5"
+              >
+                <div className="card-body p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="avatar placeholder">
+                        <div className="w-10 rounded-full bg-neutral-focus text-neutral-content">
+                          <span>{artist.name[0]}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="font-bold">{artist.name}</h3>
+                        <p className="text-xs opacity-50 font-mono">
+                          @{artist.slug}@{window.location.hostname}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="badge badge-secondary badge-outline font-mono text-[10px]">
+                      Actor (Artist)
+                    </div>
+                  </div>
+
+                  {error ? (
+                    <div className="alert alert-error text-xs py-2">
+                      Failed to load keys for this actor.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="form-control">
+                        <label className="label py-1">
+                          <span className="label-text text-xs opacity-60">
+                            RSA Public Key
+                          </span>
+                        </label>
+                        <div className="p-3 bg-base-300 rounded font-mono text-[10px] break-all select-all max-h-24 overflow-y-auto border border-white/5">
+                          {publicKey}
+                        </div>
+                      </div>
+
+                      <div className="form-control">
+                        <label className="label py-1">
+                          <span className="label-text text-xs opacity-60">
+                            RSA Private Key
+                          </span>
+                        </label>
+                        <div className="relative group">
+                          <div
+                            className={`p-3 bg-base-300 rounded font-mono text-[10px] break-all border border-white/5 select-all transition-all ${!showPrivateKeys[artist.id] ? "blur-sm select-none grayscale opacity-50" : "max-h-32 overflow-y-auto"}`}
+                          >
+                            {privateKey || "No private key stored"}
+                          </div>
+                          <button
+                            className="absolute top-2 right-2 btn btn-xs btn-circle btn-ghost"
+                            onClick={() => togglePrivateKey(artist.id)}
+                            title={
+                              showPrivateKeys[artist.id]
+                                ? "Hide Private Key"
+                                : "Show Private Key"
+                            }
+                          >
+                            {showPrivateKeys[artist.id] ? (
+                              <EyeOff size={14} />
+                            ) : (
+                              <Eye size={14} />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
