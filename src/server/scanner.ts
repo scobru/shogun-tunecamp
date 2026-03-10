@@ -171,6 +171,7 @@ export class Scanner implements ScannerService {
             year: null,
             download: null,
             price: 0,
+            currency: 'ETH',
             external_links: null,
             is_public: false,
             visibility: 'private',
@@ -374,6 +375,7 @@ export class Scanner implements ScannerService {
                     year: config.year || (config.date ? new Date(config.date).getFullYear() : null),
                     download: config.download || null,
                     price: 0,
+                    currency: 'ETH',
                     external_links: linksJson,
                     is_public: false, // Default to private
                     visibility: 'private',
@@ -413,7 +415,8 @@ export class Scanner implements ScannerService {
                                 url: trimmedUrl,
                                 service: tc.service || 'local',
                                 external_artwork: tc.artwork || null,
-                                price: 0
+                                price: 0,
+                                currency: 'ETH'
                             });
                             console.log(`  Added external track to DB: ${trackTitle}`);
                         }
@@ -575,7 +578,8 @@ export class Scanner implements ScannerService {
                 url: null,
                 service: null,
                 external_artwork: null,
-                price: 0
+                price: 0,
+                currency: 'ETH'
             });
 
             this.processQueue.add(() => WaveformService.generateWaveform(currentFilePath))

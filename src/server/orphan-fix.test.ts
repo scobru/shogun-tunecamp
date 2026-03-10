@@ -42,6 +42,8 @@ describe('Orphan Release Fix Verification', () => {
             genre: null,
             description: null,
             download: null,
+            price: 0,
+            currency: 'ETH',
             external_links: null,
             published_at: null,
             type: 'album',
@@ -59,6 +61,8 @@ describe('Orphan Release Fix Verification', () => {
             format: 'mp3',
             bitrate: 320,
             sample_rate: 44100,
+            price: 0,
+            currency: 'ETH',
             lossless_path: null,
             waveform: null
         });
