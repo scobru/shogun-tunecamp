@@ -226,6 +226,25 @@ export function createAdminRoutes(
     });
 
     /**
+     * GET /api/admin/system/ap-identity
+     * Get site actor ActivityPub identity keypair (ADMIN ONLY)
+     */
+    router.get("/system/ap-identity", async (req: any, res) => {
+        try {
+            // Only root admin can access site identity
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can access site identity" });
+            }
+            const publicKey = database.getSetting("site_public_key");
+            const privateKey = database.getSetting("site_private_key");
+            res.json({ publicKey, privateKey });
+        } catch (error) {
+            console.error("Error getting site AP identity:", error);
+            res.status(500).json({ error: "Failed to get site AP identity" });
+        }
+    });
+
+    /**
      * POST /api/admin/system/identity
      * Import server identity keypair (ADMIN ONLY)
      */
