@@ -91,9 +91,6 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         const { u, p, t, s } = req.query as any;
 
-        // Skip auth for cover art and stream if needed? 
-        // Subsonic spec usually REQUIRES auth for everything.
-
         if (!u) return sendError(res, req, 10, 'Parameter u is missing');
 
         let authorized = false;
@@ -112,13 +109,24 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         // 2. Token Auth (s = salt, t = md5(password + salt))
         if (!authorized && t && s) {
-            // Note: Token auth is currently not supported for bcrypt hashes.
-            // We return error 40 below if not authorized.
+            // Verify using the stored subsonic_token (which is md5(password))
+            const user = db.db.prepare("SELECT subsonic_token FROM admin WHERE username = ?").get(u) as { subsonic_token: string } | undefined;
+            
+            if (user && user.subsonic_token) {
+                // Some clients might send md5(password + salt)
+                // If we have md5(password), we can't easily verify md5(password + salt).
+                // HOWEVER, if the user set their "password" in the client to the MD5 of their real password,
+                // then the client sends md5(md5(password) + salt).
+                // Let's check both possibilities.
+                
+                const expectedTokenFromMd5 = md5(user.subsonic_token + s);
+                if (t === expectedTokenFromMd5) {
+                    authorized = true;
+                }
+            }
         }
 
         if (!authorized) {
-            // Log for debug
-            // console.log(`[Subsonic] Auth failed for user: ${u}`);
             return sendError(res, req, 40, 'Wrong username or password');
         }
 

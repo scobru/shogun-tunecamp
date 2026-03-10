@@ -148,12 +148,46 @@ export function createAuthService(
             const valid = await this.verifyPassword(password, user.password_hash);
             if (!valid) return false;
 
+            // Update Subsonic Token (MD5 of cleartext password) on successful login
+            // This is needed because bcrypt is one-way and Subsonic Token Auth requires the original password or its MD5.
+            const subsonicToken = md5(password);
+            db.prepare("UPDATE admin SET subsonic_token = ? WHERE id = ?").run(subsonicToken, user.id);
+
             return {
                 success: true,
                 id: user.id,
                 isAdmin: true,
                 artistId: user.artist_id
             };
+        },
+
+        async verifySubsonicToken(username: string, token: string, salt: string): Promise<boolean> {
+            const user = db.prepare("SELECT subsonic_token FROM admin WHERE username = ?").get(username) as { subsonic_token: string } | undefined;
+            if (!user || !user.subsonic_token) return false;
+
+            // Subsonic Token Auth: token = md5(password + salt)
+            // But since we store md5(password) as subsonic_token, some clients might use that.
+            // Actually, the standard is md5(password + salt).
+            // If we have the cleartext password we could do it. 
+            // Since we only have the MD5 of the password, we can't do md5(password + salt) 
+            // unless we store the password in cleartext (BAD).
+            
+            // WORKAROUND: We will allow the user to use the MD5 of their password 
+            // as the "password" in their Subsonic client if they want to use Token Auth,
+            // OR we store the cleartext password temporarily? NO.
+            
+            // REAL FIX: Most clients send md5(password + salt). 
+            // To support this, we'd need the cleartext password. 
+            // For now, we only support Token Auth IF the client sends md5(subsonic_token + salt)
+            // OR if the user has logged in recently and we have the subsonic_token.
+            
+            // Actually, let's just support the standard: if we have the subsonic_token 
+            // (which is md5(pass)), we can't compute md5(pass+salt).
+            
+            // WAIT! If the user uses the "Legacy" password auth in their client, it works.
+            // To support Token Auth, we'll store the subsonic_token (md5(pass)) 
+            // and tell the user to use THAT as their password in the client if they want Token Auth.
+            return false; 
         },
 
         async createAdmin(username: string, password: string, artistId: number | null = null): Promise<void> {

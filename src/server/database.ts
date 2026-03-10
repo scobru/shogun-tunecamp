@@ -563,6 +563,14 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Column already exists, ignore
     }
 
+    // Migration: Add subsonic_token to admin
+    try {
+        db.exec(`ALTER TABLE admin ADD COLUMN subsonic_token TEXT`);
+        console.log("📦 Migrated database: added subsonic_token to admin");
+    } catch (e) {
+        // Column already exists
+    }
+
     // Migration: Add epub, alias, avatar to gun_users
     try {
         db.exec(`ALTER TABLE gun_users ADD COLUMN epub TEXT`);
