@@ -282,7 +282,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
             ? path.join(webappDistPath, "index.html")
             : path.join(webappPath, "index.html");
 
-    app.use((req, res, next) => {
+    app.get("*", (req, res, next) => {
         if (req.path.startsWith("/api/")) {
             return res.status(404).json({ error: "Not found" });
         }

@@ -79,8 +79,23 @@ export class ActivityPubService {
                 return;
             }
 
-            const baseUrl = new URL(publicUrl);
+            const baseUrl = this.getBaseUrl();
+
+            // Check for self-follow
+            if (actorUri === baseUrl || actorUri === `${baseUrl}/` || actorUri === `${baseUrl}/users/site`) {
+                console.warn(`🛑 Self-following is disabled: ${actorUri}`);
+                return;
+            }
+
             const followerId = new URL(`/users/${followerHandle}`, baseUrl);
+
+            // Resolve inbox from actor URI
+            console.log(`🔍 Resolving inbox for actor: ${actorUri}`);
+            const inboxUri = await this.getInboxFromActor(actorUri);
+            if (!inboxUri) {
+                console.error(`❌ Could not resolve inbox for actor: ${actorUri}`);
+                return;
+            }
 
             const follow = new Follow({
                 actor: followerId,
@@ -89,14 +104,14 @@ export class ActivityPubService {
 
             // Send Follow activity using the shared helper
             if (followerHandle === "site") {
-                await this.sendActivity({ id: -1, slug: "site" } as any, actorUri, follow);
+                await this.sendActivity({ id: -1, slug: "site" } as any, inboxUri, follow);
             } else {
                 const artist = this.db.getArtistBySlug(followerHandle);
                 if (artist) {
-                    await this.sendActivity(artist, actorUri, follow);
+                    await this.sendActivity(artist, inboxUri, follow);
                 }
             }
-            console.log(`📤 Sent Follow request to: ${actorUri}`);
+            console.log(`📤 Sent Follow request to: ${inboxUri}`);
         } catch (e) {
             console.error(`❌ Failed to follow actor ${actorUri}:`, e);
             throw e;
