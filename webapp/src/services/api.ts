@@ -135,6 +135,7 @@ export const API = {
     // --- Network ---
     getNetworkSites: () => handleResponse(api.get<NetworkSite[]>('/stats/network/sites')),
     getNetworkTracks: () => handleResponse(api.get<NetworkTrack[]>('/stats/network/tracks')),
+    followRemoteActor: (url: string) => handleResponse(api.post('/admin/network/ap/follow', { url })),
 
     // --- Admin: Releases & Content ---
     getAdminReleases: () => handleResponse(api.get<Release[]>('/admin/releases')),

@@ -21,6 +21,8 @@ export const ActivityPubPanel = () => {
     const [notes, setNotes] = useState<ApNote[]>([]);
     const [loading, setLoading] = useState(false);
     const [processingId, setProcessingId] = useState<number | null>(null);
+    const [peerUrl, setPeerUrl] = useState('');
+    const [peerLoading, setPeerLoading] = useState(false);
 
     useEffect(() => {
         loadArtists();
@@ -43,6 +45,23 @@ export const ActivityPubPanel = () => {
             }
         } catch (e) {
             console.error("Failed to load artists", e);
+        }
+    };
+
+    const handleFollowPeer = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!peerUrl) return;
+        
+        setPeerLoading(true);
+        try {
+            await API.followRemoteActor(peerUrl);
+            alert(`Follow request sent to ${peerUrl}. If it's a TuneCamp instance, discovery will start automatically.`);
+            setPeerUrl('');
+        } catch (e: any) {
+            console.error(e);
+            alert(`Failed to follow peer: ${e.message}`);
+        } finally {
+            setPeerLoading(false);
         }
     };
 
@@ -146,6 +165,29 @@ export const ActivityPubPanel = () => {
                     </div>
                 </div>
             )}
+
+            <div className="card bg-base-200 border border-white/5">
+                <div className="card-body p-4">
+                    <h3 className="font-bold mb-2">Federation & Peers</h3>
+                    <p className="text-sm opacity-70 mb-4">Connect to other TuneCamp instances or ActivityPub Relays to discover music in your Community tab.</p>
+                    <form onSubmit={handleFollowPeer} className="flex gap-2">
+                        <input 
+                            type="url" 
+                            className="input input-bordered flex-1" 
+                            placeholder="https://another-instance.com/users/site"
+                            value={peerUrl}
+                            onChange={(e) => setPeerUrl(e.target.value)}
+                        />
+                        <button 
+                            type="submit" 
+                            className="btn btn-primary"
+                            disabled={peerLoading || !peerUrl}
+                        >
+                            {peerLoading ? <span className="loading loading-spinner loading-xs"/> : 'Follow Peer'}
+                        </button>
+                    </form>
+                </div>
+            </div>
 
             {notes.length === 0 && !loading ? (
                 <div className="text-center py-12 opacity-50 border-2 border-dashed border-base-300 rounded-box">

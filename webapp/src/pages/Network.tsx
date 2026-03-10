@@ -18,8 +18,16 @@ export const Network = () => {
     const getHostname = (url: string) => {
         try {
             if (!url) return 'Unknown';
-            const u = new URL(url);
-            return u.hostname;
+            if (url.startsWith('https://')) {
+                const u = new URL(url);
+                return u.hostname;
+            }
+            // Handle AP Actor URIs or IDs
+            if (url.includes('/users/')) {
+                const u = new URL(url);
+                return u.hostname;
+            }
+            return url || 'Unknown';
         } catch {
             return url || 'Unknown';
         }
@@ -33,7 +41,7 @@ export const Network = () => {
                     API.getNetworkTracks()
                 ]);
 
-                // Deduplicate Sites
+                // Deduplicate Sites (GunDB)
                 const uniqueSites = new Map();
                 sitesData.forEach((s: any) => {
                     if (!s.url || !s.url.startsWith('http')) return;
@@ -44,43 +52,34 @@ export const Network = () => {
                 });
                 const sites = Array.from(uniqueSites.values()) as NetworkSite[];
 
-                // Deduplicate Tracks and Content
-                console.log('Raw tracks data:', tracksData);
-                console.log('Raw tracks data:', tracksData);
-                
+                // Process Tracks (GunDB + ActivityPub)
                 // 1. Initial validity filter
                 const validTracks = tracksData.filter((t: any) => {
+                    // AP tracks have different structure (flattened)
+                    if (t.federation === 'activitypub') return !!t.audioUrl;
+                    
                     if (!t.track) return false;
                     
                     // Strict local filter (t.siteUrl cannot be null/empty/slash)
                     const url = t.siteUrl;
                     if (!url || url.trim() === '/' || url.trim() === '') return false;
 
-                    // Parse check
-                    try {
-                        // Just check if it's a valid URL structure, don't filter out own origin
-                        const u = new URL(url);
-                        if (!u.protocol.startsWith('http')) return false;
-                    } catch (e) {
-                         if (url.startsWith('/')) return false;
-                    }
                     return true;
                 });
 
                 // 2. Content Deduplication (Artist + Title)
                 const uniqueContent = new Map<string, NetworkTrack>();
                 
-                validTracks.forEach((t: NetworkTrack) => {
-                    const artist = t.track.artistName || 'unknown';
-                    const key = `${t.track.title.toLowerCase().trim()}::${artist.toLowerCase().trim()}`;
+                validTracks.forEach((t: any) => {
+                    const title = t.federation === 'activitypub' ? t.title : t.track.title;
+                    const artist = t.federation === 'activitypub' ? t.artistName : (t.track.artistName || 'unknown');
+                    const key = `${title.toLowerCase().trim()}::${artist.toLowerCase().trim()}`;
                     if (!uniqueContent.has(key)) {
                         uniqueContent.set(key, t);
                     }
                 });
 
                 const finalTracks = Array.from(uniqueContent.values());
-                console.log('Filtered tracks:', finalTracks);
-
                 setSites(sites);
                 setTracks(finalTracks);
             } catch (e) {
@@ -109,37 +108,49 @@ export const Network = () => {
         localStorage.setItem('tunecamp_blocked_tracks', JSON.stringify(newHidden));
     };
 
-    const handlePlayNetworkTrack = (networkTrack: NetworkTrack) => {
+    const handlePlayNetworkTrack = (networkTrack: any) => {
+        if (networkTrack.federation === 'activitypub') {
+            const track = {
+                id: networkTrack.slug,
+                title: networkTrack.title,
+                artistName: networkTrack.artistName,
+                albumTitle: networkTrack.releaseTitle,
+                streamUrl: networkTrack.audioUrl,
+                coverUrl: networkTrack.coverUrl,
+                coverImage: networkTrack.coverUrl,
+                duration: networkTrack.duration,
+                siteUrl: networkTrack.siteUrl,
+                service: 'activitypub'
+            };
+            playTrack(track as any, [track as any]);
+            return;
+        }
+
         if (!networkTrack.track || !networkTrack.siteUrl) return;
         
-        // Construct a playable track object with remote URLs
-        // Remove trailing slash from siteUrl if present
+        // Construct a playable track object with remote URLs (GunDB)
         const baseUrl = networkTrack.siteUrl.replace(/\/$/, '');
+        const trackData = networkTrack.track;
         
-        // Build the cover URL
-        const coverUrl = networkTrack.track.coverUrl || 
-                        networkTrack.track.coverImage || 
-                        (networkTrack.track.albumId ? `${baseUrl}/api/albums/${networkTrack.track.albumId}/cover` : undefined);
+        const coverUrl = trackData.coverUrl || 
+                        trackData.coverImage || 
+                        (trackData.albumId ? `${baseUrl}/api/albums/${trackData.albumId}/cover` : undefined);
         
         const track = {
-            ...networkTrack.track,
-            // PRIORITIZE EXISTING URLS from GunDB (which are already absolute)
-            // Fallback to construction only if missing (legacy support)
-            streamUrl: networkTrack.track.streamUrl || `${baseUrl}/api/tracks/${networkTrack.track.id}/stream`,
+            ...trackData,
+            streamUrl: trackData.streamUrl || `${baseUrl}/api/tracks/${trackData.id}/stream`,
             coverUrl: coverUrl,
-            coverImage: coverUrl // Also set coverImage for PlayerBar fallback
+            coverImage: coverUrl
         };
 
-        playTrack(track, [track]); // Play as single track context for now
+        playTrack(track, [track]);
     };
 
     if (loading) return <div className="p-12 text-center opacity-50 flex flex-col items-center gap-4"><Globe className="animate-pulse" size={48}/>Scanning the universe...</div>;
 
-    const filteredTracks = tracks.filter(item => {
-        if (!item || !item.track) return false;
-        // We need a unique identifier for the track across network. 
-        // Best approach: Use siteUrl + trackId.
-        const uniqueId = item.siteUrl + '::' + item.track.id;
+    const filteredTracks = tracks.filter((item: any) => {
+        if (!item) return false;
+        const uniqueId = item.federation === 'activitypub' ? item.slug : (item.siteUrl + '::' + item.track?.id);
         
         if (showHidden) return true;
         return !hiddenTracks.includes(uniqueId);
@@ -180,7 +191,7 @@ export const Network = () => {
                 </div>
             </header>
 
-            {/* Recent Remote Tracks (Top Priority like Legacy) */}
+            {/* Recent Remote Tracks */}
             <section>
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
@@ -205,24 +216,24 @@ export const Network = () => {
                 
                 {filteredTracks.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {filteredTracks.map((item, i) => {
-                             if (!item || !item.track) return null;
-                             const track = item.track;
-                             const uniqueId = item.siteUrl + '::' + item.track.id;
+                        {filteredTracks.map((item: any, i) => {
+                             const isAP = item.federation === 'activitypub';
+                             const track = isAP ? item : item.track;
+                             if (!track) return null;
+
+                             const uniqueId = isAP ? item.slug : (item.siteUrl + '::' + track.id);
                              const isHidden = hiddenTracks.includes(uniqueId);
 
                              if (isHidden && !showHidden) return null;
 
-                             // Resolve cover (prefer local proxy or direct remote?)
-                             // Legacy uses a proxy logic or direct url. 
-                             // We constructed basic track objects in handlePlay, let's use similar logic for display.
-                             const baseUrl = item.siteUrl ? item.siteUrl.replace(/\/$/, '') : '';
-                             let coverUrl = track.coverImage || (track.albumId && baseUrl ? `${baseUrl}/api/albums/${track.albumId}/cover` : undefined);
+                             const baseUrl = !isAP && item.siteUrl ? item.siteUrl.replace(/\/$/, '') : '';
+                             let coverUrl = isAP ? item.coverUrl : (track.coverImage || (track.albumId && baseUrl ? `${baseUrl}/api/albums/${track.albumId}/cover` : undefined));
                              
-                             // Validate URL to prevent 404s on garbage data (e.g. "cover")
                              if (coverUrl && !coverUrl.startsWith('http') && !coverUrl.startsWith('/')) {
                                  coverUrl = undefined;
                              }
+
+                             const siteUrl = isAP ? item.siteUrl : item.siteUrl;
 
                              return (
                                 <div 
@@ -245,26 +256,27 @@ export const Network = () => {
                                         <div className="flex-1 min-w-0">
                                             <div className="font-bold text-sm truncate pr-2 flex items-center gap-2">
                                                 {track.title}
+                                                {isAP && <span className="badge badge-accent badge-xs opacity-70" title="Discovered via ActivityPub">AP</span>}
                                                 {isHidden && <span className="badge badge-error badge-xs">Hidden</span>}
                                             </div>
                                             <div className="text-xs opacity-60 truncate flex items-center gap-1">
-                                                <span>{track.artistName}</span>
+                                                <span>{isAP ? track.artistName : track.artistName}</span>
                                                 <span className="opacity-40">•</span>
                                                 <a 
-                                                    href={item.siteUrl} 
+                                                    href={siteUrl} 
                                                     target="_blank" 
                                                     rel="noopener noreferrer" 
                                                     onClick={(e) => e.stopPropagation()}
                                                     className="hover:text-primary hover:underline"
                                                 >
-                                                    {getHostname(item.siteUrl)}
+                                                    {getHostname(siteUrl)}
                                                 </a>
                                             </div>
                                         </div>
 
                                         <div className="flex flex-col items-end gap-1">
                                             <div className="text-xs font-mono opacity-40">
-                                                {new Date(track.duration * 1000).toISOString().substr(14, 5)}
+                                                {track.duration ? new Date(track.duration * 1000).toISOString().substr(14, 5) : '--:--'}
                                             </div>
                                             {isAdminAuthenticated && (
                                                 <button 
