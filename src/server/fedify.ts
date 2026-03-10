@@ -17,7 +17,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
         return {
             software: {
                 name: "tunecamp",
-                version: "2.0.0",
+                version: { major: 2, minor: 0, patch: 0 },
                 repository: new URL("https://github.com/scobru/tunecamp"),
             },
             protocols: ["activitypub"],
