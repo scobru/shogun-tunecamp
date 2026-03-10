@@ -22,81 +22,58 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     // --- Helpers ---
 
-    const createResponse = (data: any, version = '1.16.1') => {
-        const root = create({ version: '1.0', encoding: 'UTF-8' })
-            .ele('subsonic-response', {
-                xmlns: 'http://subsonic.org/restapi',
-                status: 'ok',
-                version
-            });
+    const sendResponse = (res: any, req: any, data: object, status = 'ok') => {
+        const isJson = req.query.f === 'json';
+        const version = '1.16.1';
 
-        // Recursively add data
-        const addNodes = (parent: any, obj: any) => {
-            for (const key in obj) {
-                if (key === '_attr') {
-                    // Attributes for parent
-                    for (const attrKey in obj[key]) {
-                        parent.att(attrKey, obj[key][attrKey]);
-                    }
-                } else if (Array.isArray(obj[key])) {
-                    // Array of elements
-                    // E.g. musicFolders: [{id: 1, name: 'Music'}] -> <musicFolder id="1" .../>
-                    // Valid XML usually expects wrapped lists or repeated elements. 
-                    // Subsonic usually does: <musicFolders><musicFolder .../><musicFolder .../></musicFolders> which matches structure.
-                    // But if key is "entry", it might be direct chidren.
-                    // Let's assume the passed data structure matches XML structure.
-                    obj[key].forEach((item: any) => {
-                        // We need the singular name for the array item if it's a list.
-                        // Usually we pass explicit structure.
-                        // Simplification: We will construct explicit objects in endpoints
-                        // subNode = parent.ele(key) is WRONG for arrays. 
-                        // We usually expect `child: [{...}, {...}]`
-                        // In xmlbuilder2:
-                        /*
-                           obj = { musicFolders: { musicFolder: [ ... ] } }
-                        */
-                    });
-                } else if (typeof obj[key] === 'object') {
-                    const node = parent.ele(key);
-                    addNodes(node, obj[key]);
-                } else {
-                    // Attribute or text? Subsonic is mostly attributes.
-                    // But if we want text: parent.txt(val)
-                    // Strategy: Start clean. Endpoints return formatted object compatible with xmlbuilder or we build it there.
+        if (isJson) {
+            res.json({
+                'subsonic-response': {
+                    status,
+                    version,
+                    xmlns: 'http://subsonic.org/restapi',
+                    ...data
                 }
-            }
-        };
+            });
+            return;
+        }
 
-        // Easier: Just convert object form
-        // const root = create().ele('subsonic-response', { status: 'ok', version }).ele(data);
-        // But we need to handle "error" status.
-        return root;
-    };
-
-    // Simple helper to wrap XML response
-    const sendXML = (res: any, data: object) => {
         const doc = create({ version: '1.0', encoding: 'UTF-8' })
-            .ele('subsonic-response', { xmlns: 'http://subsonic.org/restapi', status: 'ok', version: '1.16.1' });
+            .ele('subsonic-response', { xmlns: 'http://subsonic.org/restapi', status, version });
 
-        // Merge data
-        // xmlbuilder2 supports converting logic object to XML
-        // We expect `data` to be e.g. { musicFolders: { musicFolder: [...] } }
-        // We need to inject it into `doc`.
-        // `import` method might work or manual construction.
-        // Let's try explicit construction via object update if possible or manual.
-
-        // Simplest: pass a callback to build the inner xml?
-        // Or just passing the object to `ele` often works in libraries.
-        doc.ele(data);
+        if (Object.keys(data).length > 0) {
+            doc.ele(data);
+        }
 
         const xml = doc.end({ prettyPrint: true });
         res.set('Content-Type', 'text/xml');
         res.send(xml);
     };
 
-    const sendError = (res: any, code: number, message: string) => {
+    const sendXML = (res: any, data: object) => {
+        // Legacy helper, now redirects to sendResponse with default req (XML)
+        sendResponse(res, { query: {} }, data);
+    };
+
+    const sendError = (res: any, req: any, code: number, message: string) => {
+        const isJson = req.query.f === 'json';
+        const status = 'failed';
+        const version = '1.16.1';
+
+        if (isJson) {
+            res.json({
+                'subsonic-response': {
+                    status,
+                    version,
+                    xmlns: 'http://subsonic.org/restapi',
+                    error: { code: String(code), message }
+                }
+            });
+            return;
+        }
+
         const doc = create({ version: '1.0', encoding: 'UTF-8' })
-            .ele('subsonic-response', { xmlns: 'http://subsonic.org/restapi', status: 'failed', version: '1.16.1' })
+            .ele('subsonic-response', { xmlns: 'http://subsonic.org/restapi', status, version })
             .ele('error', { code: String(code), message }).up();
 
         const xml = doc.end({ prettyPrint: true });
@@ -107,53 +84,44 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Middleware ---
 
     router.use(async (req, res, next) => {
-        // Log URL for debug
-        // console.log('Subsonic:', req.method, req.originalUrl);
+        // Handle discovery at root /rest (empty path since it's mounted at /rest)
+        if (req.path === '/') {
+            return sendResponse(res, req, { message: 'Tunecamp Subsonic API' });
+        }
 
-        const { u, p, t, s, v, c } = req.query as any;
+        const { u, p, t, s } = req.query as any;
 
-        if (!u) return sendError(res, 10, 'Parameter u is missing');
+        // Skip auth for cover art and stream if needed? 
+        // Subsonic spec usually REQUIRES auth for everything.
 
-        // 1. Token Auth (NOT SUPPORTED due to bcrypt) -> Fallback check or Fail?
-        // Actually, if we use Token auth, we can't verify unless we have the password.
-        // So we strictly fail Token auth and hope client falls back to Legacy?
-        // Some clients require Token auth. 
-        // Force Legacy: Returns code 40 (Wrong password)??
-        // Wait, if I can't support it, I should implement it via a workaround later.
-        // For now, let's implement Legacy only.
+        if (!u) return sendError(res, req, 10, 'Parameter u is missing');
 
         let authorized = false;
 
-        // 2. Legacy Auth (Hex encoded)
-        if (p && p.startsWith('enc:')) {
-            const hex = p.substring(4);
-            const password = Buffer.from(hex, 'hex').toString('utf8');
-            const result = await auth.authenticateUser(u, password);
-            if (result && result.success) authorized = true;
-        } else if (p) {
-            const password = Buffer.from(p, 'hex').toString('utf8');
+        // 1. Password Auth (Legacy)
+        if (p) {
+            let password = p;
+            if (p.startsWith('enc:')) {
+                const hex = p.substring(4);
+                password = Buffer.from(hex, 'hex').toString('utf8');
+            }
+
             const result = await auth.authenticateUser(u, password);
             if (result && result.success) authorized = true;
         }
 
-        // 3. Token Auth Check (Bypass/Trick?)
-        // If query has t (token) and s (salt), we technically can't verify.
-        // UNLESS we are in "Testing Mode" or generic admin.
-        // Let's Log it.
-        // Realistically, for this to work, we'd need to change Tunecamp to store MD5s or plain text (bad).
-
+        // 2. Token Auth (s = salt, t = md5(password + salt))
         if (!authorized && t && s) {
-            // We can't verify. Send error 40 "Wrong password" to prompt user?
-            // Or error 41 "Token authentication not supported"? (Not a standard code)
-            // Let's stick to fail.
+            // Note: Token auth is currently not supported for bcrypt hashes.
+            // We return error 40 below if not authorized.
         }
 
         if (!authorized) {
-            // Delay to prevent timing attacks?
-            return sendError(res, 40, 'Wrong username or password');
+            // Log for debug
+            // console.log(`[Subsonic] Auth failed for user: ${u}`);
+            return sendError(res, req, 40, 'Wrong username or password');
         }
 
-        // Add user to request?
         (req as any).user = { username: u };
         next();
     });
@@ -161,11 +129,11 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Endpoints ---
 
     router.get('/ping.view', (req, res) => {
-        sendXML(res, {}); // Empty data, just status=ok
+        sendResponse(res, req, {});
     });
 
     router.get('/getLicense.view', (req, res) => {
-        sendXML(res, {
+        sendResponse(res, req, {
             license: {
                 '@valid': 'true',
                 '@email': 'user@example.com',
@@ -176,9 +144,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     // Compatibility for clients checking API
     // DSub often checks these
-    router.post('/ping.view', (req, res) => { sendXML(res, {}); });
+    router.post('/ping.view', (req, res) => { sendResponse(res, req, {}); });
     router.post('/getLicense.view', (req, res) => {
-        sendXML(res, {
+        sendResponse(res, req, {
             license: {
                 '@valid': 'true',
                 '@email': 'user@example.com',
@@ -190,7 +158,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Browsing ---
 
     const getMusicFolders = (req: any, res: any) => {
-        sendXML(res, {
+        sendResponse(res, req, {
             musicFolders: {
                 musicFolder: [
                     { '@id': 1, '@name': 'Music' }
@@ -223,7 +191,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             artist: indexes[key]
         }));
 
-        sendXML(res, {
+        sendResponse(res, req, {
             indexes: {
                 '@lastModified': new Date().getTime(),
                 '@ignoredArticles': 'The El La Los Las Le Les',
@@ -234,13 +202,13 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const getMusicDirectory = (req: any, res: any) => {
         const { id } = req.query as any;
-        if (!id) return sendError(res, 10, 'Missing parameter id');
+        if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         // Handle Artist -> Return Albums
         if (id.startsWith('ar_')) {
             const artistId = parseInt(id.substring(3));
             const artist = db.getArtist(artistId);
-            if (!artist) return sendError(res, 70, 'Artist not found');
+            if (!artist) return sendError(res, req, 70, 'Artist not found');
 
             const albums = db.getAlbumsByArtist(artistId);
 
@@ -259,14 +227,14 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     '@year': album.date ? new Date(album.date).getFullYear() : undefined
                 }))
             };
-            return sendXML(res, { directory });
+            return sendResponse(res, req, { directory });
         }
 
         // Handle Album -> Return Tracks
         if (id.startsWith('al_')) {
             const albumId = parseInt(id.substring(3));
             const album = db.getAlbum(albumId);
-            if (!album) return sendError(res, 70, 'Album not found');
+            if (!album) return sendError(res, req, 70, 'Album not found');
 
             const tracks = db.getTracks(albumId);
 
@@ -292,10 +260,10 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     '@isDir': 'false'
                 }))
             };
-            return sendXML(res, { directory });
+            return sendResponse(res, req, { directory });
         }
 
-        return sendError(res, 70, 'Directory not found');
+        return sendError(res, req, 70, 'Directory not found');
     };
 
     router.get('/getMusicFolders.view', getMusicFolders);
@@ -311,7 +279,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const getCoverArt = async (req: any, res: any) => {
         const { id } = req.query as any;
-        if (!id) return sendError(res, 10, 'Missing parameter id');
+        if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         let imagePath: string | null = null;
 
@@ -333,12 +301,12 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         // Return 404 or a placeholder? Subsonic spec says generic image or 404.
         // Let's return 404 for now, client handles fallback.
         // Or send empty?
-        return sendError(res, 70, 'Cover art not found'); // Code 70 = Data not found
+        return sendError(res, req, 70, 'Cover art not found'); // Code 70 = Data not found
     };
 
     const stream = async (req: any, res: any) => {
         const { id } = req.query as any;
-        if (!id) return sendError(res, 10, 'Missing parameter id');
+        if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         if (id.startsWith('tr_')) {
             const track = db.getTrack(parseInt(id.substring(3)));
@@ -351,7 +319,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             }
         }
 
-        return sendError(res, 70, 'File not found');
+        return sendError(res, req, 70, 'File not found');
     };
 
     const scrobble = async (req: any, res: any) => {
@@ -406,7 +374,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             }
         }
 
-        sendXML(res, {});
+        sendResponse(res, req, {});
     };
 
     router.get('/getCoverArt.view', getCoverArt);
@@ -420,14 +388,14 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const getArtist = (req: any, res: any) => {
         const { id } = req.query as any;
-        if (!id) return sendError(res, 10, 'Missing parameter id');
+        if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         if (id.startsWith('ar_')) {
             const artistId = parseInt(id.substring(3));
             const artist = db.getArtist(artistId);
             if (artist) {
                 const albums = db.getAlbumsByArtist(artistId);
-                sendXML(res, {
+                sendResponse(res, req, {
                     artist: {
                         '@id': id,
                         '@name': artist.name,
@@ -447,19 +415,19 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 return;
             }
         }
-        return sendError(res, 70, 'Artist not found');
+        return sendError(res, req, 70, 'Artist not found');
     };
 
     const getAlbum = (req: any, res: any) => {
         const { id } = req.query as any;
-        if (!id) return sendError(res, 10, 'Missing parameter id');
+        if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         if (id.startsWith('al_')) {
             const albumId = parseInt(id.substring(3));
             const album = db.getAlbum(albumId);
             if (album) {
                 const tracks = db.getTracks(albumId);
-                sendXML(res, {
+                sendResponse(res, req, {
                     album: {
                         '@id': id,
                         '@name': album.title,
@@ -491,7 +459,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 return;
             }
         }
-        return sendError(res, 70, 'Album not found');
+        return sendError(res, req, 70, 'Album not found');
     };
 
     router.get('/getArtist.view', getArtist);
@@ -499,6 +467,11 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     router.get('/getAlbum.view', getAlbum);
     router.post('/getAlbum.view', getAlbum);
+
+    // Catch-all for unmatched .view requests
+    router.use((req, res) => {
+        sendError(res, req, 0, `Unknown Subsonic request: ${req.path}`);
+    });
 
     return router;
 };

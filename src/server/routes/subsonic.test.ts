@@ -16,29 +16,37 @@ describe('Subsonic Scrobbling', () => {
     const dbPath = './test-subsonic-scrobble.db';
 
     beforeAll(async () => {
-        database = createDatabase(dbPath);
-        authService = createAuthService(database.db, 'test-secret');
-        await authService.init();
+        try {
+            database = createDatabase(dbPath);
+            authService = createAuthService(database.db, 'test-secret');
+            await authService.init();
 
-        // Create a dummy user
-        database.db.prepare("INSERT OR IGNORE INTO admin (username, password_hash) VALUES (?, ?)").run('user', '$2b$10$vI8.Z.T1/R1S1y6G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G'); // 'password' in bcrypt
+            // Create a dummy user
+            database.db.prepare("INSERT OR IGNORE INTO admin (username, password_hash) VALUES (?, ?)").run('user', '$2b$10$vI8.Z.T1/R1S1y6G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G'); // 'password' in bcrypt
 
-        mockGundbService = {
-            incrementTrackPlayCount: jest.fn().mockReturnValue(Promise.resolve(1)),
-            getTrackPlayCount: jest.fn().mockReturnValue(Promise.resolve(1))
-        };
+            mockGundbService = {
+                incrementTrackPlayCount: jest.fn().mockReturnValue(Promise.resolve(1)),
+                getTrackPlayCount: jest.fn().mockReturnValue(Promise.resolve(1))
+            };
 
-        app = express();
-        app.use('/rest', createSubsonicRouter({
-            db: database,
-            auth: authService,
-            musicDir: './music',
-            gundbService: mockGundbService
-        }));
+            app = express();
+            app.use(express.json()); // Add JSON parser for testing
+            app.use('/rest', createSubsonicRouter({
+                db: database,
+                auth: authService,
+                musicDir: './music',
+                gundbService: mockGundbService
+            }));
+        } catch (e) {
+            console.error('FAILED beforeAll:', e);
+            throw e;
+        }
     });
 
     afterAll(async () => {
-        database.db.close();
+        if (database && database.db) {
+            database.db.close();
+        }
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
         if (fs.existsSync(dbPath + '-shm')) fs.unlinkSync(dbPath + '-shm');
         if (fs.existsSync(dbPath + '-wal')) fs.unlinkSync(dbPath + '-wal');
@@ -85,7 +93,7 @@ describe('Subsonic Scrobbling', () => {
         const authQuery = 'u=user&p=enc:70617373776f7264&v=1.16.1&c=test';
 
         const response = await request(app)
-            .get(`/rest/scrobble.view?${authQuery}&id=tr_${trackId}&id=tr_${trackId}&submission=true&timestamp=${nowSeconds}&timestamp=${nowSeconds-10}`);
+            .get(`/rest/scrobble.view?${authQuery}&id=tr_${trackId}&id=tr_${trackId}&submission=true&timestamp=${nowSeconds}&timestamp=${nowSeconds - 10}`);
 
         expect(response.status).toBe(200);
 
@@ -105,5 +113,34 @@ describe('Subsonic Scrobbling', () => {
         expect(response.status).toBe(200);
         const playsAfter = database.getRecentPlays(100).length;
         expect(playsAfter).toBe(playsBefore);
+    });
+
+    it('should return JSON when f=json is provided', async () => {
+        const authQuery = 'u=user&p=enc:70617373776f7264&v=1.16.1&c=test';
+        const response = await request(app)
+            .get(`/rest/ping.view?${authQuery}&f=json`);
+
+        expect(response.status).toBe(200);
+        expect(response.body['subsonic-response']).toBeDefined();
+        expect(response.body['subsonic-response'].status).toBe('ok');
+    });
+
+    it('should handle clear-text password authentication', async () => {
+        const authQuery = 'u=user&p=password&v=1.16.1&c=test';
+        const response = await request(app)
+            .get(`/rest/ping.view?${authQuery}&f=json`);
+
+        expect(response.status).toBe(200);
+        expect(response.body['subsonic-response'].status).toBe('ok');
+    });
+
+    it('should return 404 error in JSON for unknown endpoints', async () => {
+        const authQuery = 'u=user&p=password&v=1.16.1&c=test';
+        const response = await request(app)
+            .get(`/rest/unknown.view?${authQuery}&f=json`);
+
+        expect(response.status).toBe(200); // Subsonic often returns 200 with error inside
+        expect(response.body['subsonic-response'].status).toBe('failed');
+        expect(response.body['subsonic-response'].error.code).toBe('0');
     });
 });
