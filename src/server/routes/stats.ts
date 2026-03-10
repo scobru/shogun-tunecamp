@@ -161,7 +161,11 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
     router.get("/network/tracks", async (req, res) => {
         try {
             // 1. Get tracks from GunDB (P2P Federation)
-            const gundbTracks = await gundbService.getCommunityTracks();
+            const gundbTracksRaw = await gundbService.getCommunityTracks();
+            const gundbTracks = gundbTracksRaw.map(t => ({
+                ...t,
+                federation: "gundb"
+            }));
 
             // 2. Get tracks from ActivityPub (Standard Federation)
             const remoteApContent = dbService.getRemoteTracks();

@@ -140,6 +140,7 @@ export interface NetworkSite {
     version: string;
     lastSeen: string;
     coverImage?: string;
+    federation?: 'gundb' | 'activitypub';
 }
 
 export interface NetworkTrack {
