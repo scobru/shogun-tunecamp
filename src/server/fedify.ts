@@ -282,6 +282,3 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
     return federation;
 }
 
-    return federation;
-}
-
