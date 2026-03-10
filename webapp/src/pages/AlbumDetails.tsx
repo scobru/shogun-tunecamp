@@ -204,7 +204,7 @@ export const AlbumDetails = () => {
       </div>
 
       {/* Tracklist */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto min-h-[400px]">
         <table className="table w-full">
           <thead>
             <tr className="border-b border-white/10 text-xs uppercase opacity-50">

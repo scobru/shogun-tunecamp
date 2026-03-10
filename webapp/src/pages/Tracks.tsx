@@ -106,7 +106,7 @@ export const Tracks = () => {
         </div>
       </div>
 
-      <div className="overflow-x-auto bg-base-200/30 rounded-xl border border-white/5">
+      <div className="overflow-x-auto bg-base-200/30 rounded-xl border border-white/5 min-h-[400px]">
         <table className="table w-full table-sm md:table-md">
           <thead>
             <tr className="border-b border-white/10 text-xs uppercase opacity-50">

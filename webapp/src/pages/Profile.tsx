@@ -342,7 +342,7 @@ const TrackList = ({
   onPlay: (t: Track) => void;
 }) => {
   return (
-    <div className="overflow-x-auto bg-base-200/30 rounded-2xl border border-white/5">
+    <div className="overflow-x-auto bg-base-200/30 rounded-2xl border border-white/5 min-h-[300px]">
       <table className="table w-full">
         <thead>
           <tr className="border-b border-white/10 opacity-50 text-xs uppercase tracking-wider">

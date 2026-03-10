@@ -1,6 +1,9 @@
 import Gun from 'gun';
 import 'gun/sea';
 import "gun/lib/yson.js"
+import 'gun/lib/radix';
+import 'gun/lib/radisk';
+import 'gun/lib/rindexed';
 import API from './api';
 import type { UserPlaylist, UserPlaylistTrack, Track } from '../types';
 
@@ -22,8 +25,8 @@ const PEERS = envPeers ? envPeers.split(',') : defaultPeers;
 // Initialize Gun
 const gun = Gun({
     peers: PEERS,
-    localStorage: true, // Enable local persistence to survive peer drops
-    radisk: false,
+    localStorage: false,
+    radisk: true,
     wire: true,
     axe: true
 });
@@ -173,7 +176,7 @@ export const GunAuth = {
      * Subscribe to profile changes
      */
     subscribeProfile: (cb: (profile: any) => void): (() => void) => {
-        if (!user.is) return () => {};
+        if (!user.is) return () => { };
         const ref = user.get('profile').on((data: any) => {
             cb(data);
         });
@@ -188,7 +191,7 @@ export const GunAuth = {
     updateProfile: async (data: { avatar?: string; bio?: string }): Promise<void> => {
         return new Promise((resolve, reject) => {
             if (!user.is) return reject(new Error('Not logged in'));
-            
+
             // Validate data size for GunDB (avatars can be large)
             if (data.avatar && data.avatar.length > 1024 * 1024) {
                 return reject(new Error('Avatar image is too large (max 1MB)'));
