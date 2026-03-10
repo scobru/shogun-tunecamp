@@ -26,6 +26,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const isJson = req.query.f === 'json';
         const version = '1.16.1';
 
+        // OpenSubsonic: Add header to identify as compatible server
+        res.set('X-OpenSubsonic-Server', 'Tunecamp/2.0');
+
         if (isJson) {
             res.json({
                 'subsonic-response': {
@@ -476,6 +479,100 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.get('/getAlbum.view', getAlbum);
     router.post('/getAlbum.view', getAlbum);
 
+    const getGenres = (req: any, res: any) => {
+        const albums = db.getAlbums(false);
+        const genreMap: Record<string, { count: number, songCount: number }> = {};
+        
+        albums.forEach(album => {
+            if (album.genre) {
+                const genres = album.genre.split(',').map(g => g.trim());
+                genres.forEach(g => {
+                    if (!genreMap[g]) genreMap[g] = { count: 0, songCount: 0 };
+                    genreMap[g].count++;
+                    // Estimate song count per genre
+                    const tracks = db.getTracks(album.id);
+                    genreMap[g].songCount += tracks.length;
+                });
+            }
+        });
+
+        const genres = Object.keys(genreMap).sort().map(name => ({
+            '@value': name,
+            '@songCount': genreMap[name].songCount,
+            '@albumCount': genreMap[name].count
+        }));
+
+        sendResponse(res, req, {
+            genres: {
+                genre: genres
+            }
+        });
+    };
+
+    router.get('/getGenres.view', getGenres);
+    router.post('/getGenres.view', getGenres);
+
+    const getStarred = (req: any, res: any) => {
+        // Tunecamp doesn't have a "starred" system yet, so we return empty lists 
+        // to satisfy OpenSubsonic clients.
+        sendResponse(res, req, {
+            starred: {
+                artist: [],
+                album: [],
+                song: []
+            }
+        });
+    };
+
+    const getStarred2 = (req: any, res: any) => {
+        sendResponse(res, req, {
+            starred2: {
+                artist: [],
+                album: [],
+                song: []
+            }
+        });
+    };
+
+    router.get('/getStarred.view', getStarred);
+    router.get('/getStarred2.view', getStarred2);
+    router.post('/getStarred.view', getStarred);
+    router.post('/getStarred2.view', getStarred2);
+
+    const getSong = (req: any, res: any) => {
+        const { id } = req.query as any;
+        if (!id) return sendError(res, req, 10, 'Missing parameter id');
+
+        const trackId = parseInt(id.startsWith('tr_') ? id.substring(3) : id);
+        const track = db.getTrack(trackId);
+
+        if (!track) return sendError(res, req, 70, 'Song not found');
+
+        sendResponse(res, req, {
+            song: {
+                '@id': `tr_${track.id}`,
+                '@title': track.title,
+                '@album': track.album_title,
+                '@artist': track.artist_name,
+                '@track': track.track_num,
+                '@year': track.created_at ? new Date(track.created_at).getFullYear() : undefined,
+                '@genre': '',
+                '@coverArt': `al_${track.album_id}`,
+                '@duration': Math.floor(track.duration || 0),
+                '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
+                '@suffix': track.format || 'mp3',
+                '@contentType': 'audio/mpeg',
+                '@path': track.file_path,
+                '@albumId': `al_${track.album_id}`,
+                '@artistId': `ar_${track.artist_id}`,
+                '@type': 'music'
+            }
+        });
+    };
+
+    router.get('/getSong.view', getSong);
+    router.post('/getSong.view', getSong);
+
     const getArtists = (req: any, res: any) => {
         const artists = db.getArtists();
         const indexes: Record<string, any[]> = {};
@@ -485,12 +582,14 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             if (!/[A-Z]/.test(char)) char = '#';
             if (!indexes[char]) indexes[char] = [];
 
+            const artistAlbums = db.getAlbumsByArtist(artist.id);
+
             indexes[char].push({
                 '@id': `ar_${artist.id}`,
                 '@name': artist.name,
                 '@coverArt': `ar_${artist.id}`,
                 '@artistImageUrl': `/api/artists/${artist.id}/cover`,
-                '@albumCount': db.getAlbumsByArtist(artist.id).length
+                '@albumCount': artistAlbums.length
             });
         });
 
