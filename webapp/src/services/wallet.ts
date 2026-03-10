@@ -39,5 +39,16 @@ export async function deriveTunecampWallet(userPrivStr: string) {
 }
 
 export const WalletService = {
-    provider
+    provider,
+    getUsdcBalance: async (address: string) => {
+        const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base Mainnet USDC
+        const abi = ["function balanceWithRate(address) view returns (uint256)", "function balanceOf(address) view returns (uint256)"];
+        const contract = new ethers.Contract(USDC_ADDRESS, abi, provider);
+        try {
+            return await contract.balanceOf(address);
+        } catch (e) {
+            console.error("USDC Balance Fetch Error:", e);
+            return BigInt(0);
+        }
+    }
 };

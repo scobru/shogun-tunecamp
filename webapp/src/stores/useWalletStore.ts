@@ -7,6 +7,7 @@ interface WalletState {
     wallet: ethers.Wallet | null;
     address: string | null;
     balanceEth: string | null;
+    balanceUsdc: string | null;
     isWalletReady: boolean;
     isWalletLoading: boolean;
     error: string | null;
@@ -16,6 +17,7 @@ interface WalletState {
     externalWallet: ethers.JsonRpcSigner | null;
     externalAddress: string | null;
     externalBalanceEth: string | null;
+    externalBalanceUsdc: string | null;
     isExternalConnected: boolean;
     useExternalWallet: boolean;
 
@@ -35,6 +37,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     wallet: null,
     address: null,
     balanceEth: null,
+    balanceUsdc: null,
     isWalletReady: false,
     isWalletLoading: false,
     error: null,
@@ -43,6 +46,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     externalWallet: null,
     externalAddress: null,
     externalBalanceEth: null,
+    externalBalanceUsdc: null,
     isExternalConnected: false,
     useExternalWallet: false,
 
@@ -90,7 +94,11 @@ export const useWalletStore = create<WalletState>((set, get) => ({
                 const ethBalanceWei = await WalletService.provider.getBalance(address);
                 const balanceEth = ethers.formatEther(ethBalanceWei);
 
-                set({ balanceEth });
+                // Get USDC Balance
+                const usdcBalanceWei = await WalletService.getUsdcBalance(address);
+                const balanceUsdc = ethers.formatUnits(usdcBalanceWei, 6);
+
+                set({ balanceEth, balanceUsdc });
             }
 
             // External Wallet Balances
@@ -98,7 +106,11 @@ export const useWalletStore = create<WalletState>((set, get) => ({
                 const ethBalanceWei = await externalProvider.getBalance(externalAddress);
                 const externalBalanceEth = ethers.formatEther(ethBalanceWei);
 
-                set({ externalBalanceEth });
+                // For external, we use the same WalletService helper
+                const usdcBalanceWei = await WalletService.getUsdcBalance(externalAddress);
+                const externalBalanceUsdc = ethers.formatUnits(usdcBalanceWei, 6);
+
+                set({ externalBalanceEth, externalBalanceUsdc });
             }
         } catch (e: any) {
             console.error("Failed to fetch balances:", e);
@@ -110,6 +122,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
             wallet: null,
             address: null,
             balanceEth: null,
+            balanceUsdc: null,
             isWalletReady: false,
             error: null
         });
@@ -165,6 +178,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
             externalWallet: null,
             externalAddress: null,
             externalBalanceEth: null,
+            externalBalanceUsdc: null,
             isExternalConnected: false,
             useExternalWallet: false
         });
