@@ -12,6 +12,27 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
         kv,
     });
 
+    federation.setNodeInfoDispatcher("/nodeinfo/2.1", async (_ctx) => {
+        const stats = await dbService.getStats();
+        return {
+            software: {
+                name: "tunecamp",
+                version: "2.0.0",
+                repository: new URL("https://github.com/scobru/tunecamp"),
+            },
+            protocols: ["activitypub"],
+            usage: {
+                users: {
+                    total: stats.artists > 0 ? stats.artists : 1,
+                    activeHalfyear: stats.artists > 0 ? stats.artists : 1,
+                    activeMonth: stats.artists > 0 ? stats.artists : 1,
+                },
+                localPosts: stats.tracks + (stats.albums || 0),
+                localComments: 0,
+            },
+        };
+    });
+
     // Validates actor handles: @slug@domain
     federation.setActorDispatcher("/users/{handle}", async (ctx, handle) => {
         let name: string | null = null;
@@ -128,7 +149,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
             if (parsed?.type !== "actor") return;
 
             const handle = parsed.identifier;
-            
+
             // Handle site follow (relay or other instances)
             if (handle === "site") {
                 const follower = await follow.getActor(ctx);
@@ -136,7 +157,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
 
                 // For site follow, we just accept it and maybe store it as a peer
                 console.log(`📥 New site follower: ${follower.id?.toString()}`);
-                
+
                 await ctx.sendActivity(
                     { identifier: "site" },
                     follower,
@@ -179,9 +200,9 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
             // Handle Accept from a Relay
             const actor = await accept.getActor(ctx);
             if (!actor) return;
-            
+
             console.log(`✅ Received Accept from: ${actor.id?.toString()}`);
-            
+
             // Save as remote actor
             dbService.upsertRemoteActor({
                 uri: actor.id?.toString() || "",
@@ -210,7 +231,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
                 for await (const attachment of note.getAttachments()) {
                     attachments.push(attachment);
                 }
-                
+
                 const audio = attachments.find(a => a.type?.toString().toLowerCase().includes('audio') || (a as any).mediaType?.startsWith('audio/'));
                 const image = attachments.find(a => a.type?.toString().toLowerCase().includes('image') || (a as any).mediaType?.startsWith('image/'));
 

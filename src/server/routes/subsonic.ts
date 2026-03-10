@@ -114,14 +114,14 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (!authorized && t && s) {
             // Verify using the stored subsonic_token (which is md5(password))
             const user = db.db.prepare("SELECT subsonic_token FROM admin WHERE username = ?").get(u) as { subsonic_token: string } | undefined;
-            
+
             if (user && user.subsonic_token) {
                 // Some clients might send md5(password + salt)
                 // If we have md5(password), we can't easily verify md5(password + salt).
                 // HOWEVER, if the user set their "password" in the client to the MD5 of their real password,
                 // then the client sends md5(md5(password) + salt).
                 // Let's check both possibilities.
-                
+
                 const expectedTokenFromMd5 = md5(user.subsonic_token + s);
                 if (t === expectedTokenFromMd5) {
                     authorized = true;
@@ -482,7 +482,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     const getGenres = (req: any, res: any) => {
         const albums = db.getAlbums(false);
         const genreMap: Record<string, { count: number, songCount: number }> = {};
-        
+
         albums.forEach(album => {
             if (album.genre) {
                 const genres = album.genre.split(',').map(g => g.trim());
@@ -789,6 +789,62 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     router.get('/getPlaylist.view', getPlaylist);
     router.post('/getPlaylist.view', getPlaylist);
+
+    const getUser = (req: any, res: any) => {
+        const { username } = req.query as any;
+        const requestedUser = username || (req as any).user.username;
+        sendResponse(res, req, {
+            user: {
+                username: requestedUser,
+                email: 'admin@tunecamp.local',
+                scrobblingEnabled: true,
+                adminRole: true,
+                settingsRole: true,
+                downloadRole: true,
+                uploadRole: true,
+                playlistRole: true,
+                coverArtRole: true,
+                commentRole: true,
+                podcastRole: true,
+                streamRole: true,
+                jukeboxRole: true,
+                shareRole: true,
+                videoConversionRole: true,
+                avatarLastChanged: new Date().toISOString()
+            }
+        });
+    };
+
+    router.get('/getUser.view', getUser);
+    router.post('/getUser.view', getUser);
+
+    const getAvatar = async (req: any, res: any) => {
+        return sendError(res, req, 70, 'Avatar not found');
+    };
+
+    router.get('/getAvatar.view', getAvatar);
+    router.post('/getAvatar.view', getAvatar);
+
+    // Alias getTopSongs to getRandomSongs for now
+    router.get('/getTopSongs.view', getRandomSongs);
+    router.post('/getTopSongs.view', getRandomSongs);
+
+    // Dummy endpoints for unsupported features
+    const getPodcasts = (req: any, res: any) => sendResponse(res, req, { podcasts: { channel: [] } });
+    router.get('/getPodcasts.view', getPodcasts);
+    router.post('/getPodcasts.view', getPodcasts);
+
+    const getInternetRadioStations = (req: any, res: any) => sendResponse(res, req, { internetRadioStations: { internetRadioStation: [] } });
+    router.get('/getInternetRadioStations.view', getInternetRadioStations);
+    router.post('/getInternetRadioStations.view', getInternetRadioStations);
+
+    const getBookmarks = (req: any, res: any) => sendResponse(res, req, { bookmarks: { bookmark: [] } });
+    router.get('/getBookmarks.view', getBookmarks);
+    router.post('/getBookmarks.view', getBookmarks);
+
+    const getPlayQueue = (req: any, res: any) => sendResponse(res, req, { playQueue: { song: [] } });
+    router.get('/getPlayQueue.view', getPlayQueue);
+    router.post('/getPlayQueue.view', getPlayQueue);
 
     // Catch-all for unmatched .view requests
     router.use((req, res) => {
