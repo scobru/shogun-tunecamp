@@ -145,7 +145,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
                     peers: peers
                 },
                 activitypub: {
-                    enabled: !!dbService.getSetting("publicUrl")
+                    enabled: !!(dbService.getSetting("publicUrl") || config.publicUrl)
                 }
             });
         } catch (error) {

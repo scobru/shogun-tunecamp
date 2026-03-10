@@ -448,6 +448,26 @@ const AdminSettingsPanel = () => {
 
       <div className="form-control">
         <label className="label">
+          <span className="label-text">
+            Public URL (for ActivityPub & GunDB)
+          </span>
+          <span className="label-text-alt opacity-50">
+            Example: https://sudorecords.scobrudot.dev
+          </span>
+        </label>
+        <input
+          type="url"
+          className="input input-bordered"
+          value={settings.publicUrl || ""}
+          onChange={(e) =>
+            setSettings({ ...settings, publicUrl: e.target.value })
+          }
+          placeholder="https://your-site.com"
+        />
+      </div>
+
+      <div className="form-control">
+        <label className="label">
           <span className="label-text">Background Image URL</span>
         </label>
         <input
