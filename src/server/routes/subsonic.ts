@@ -508,7 +508,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const limit = parseInt(size) || 10;
         const skip = parseInt(offset) || 0;
 
-        let albums = db.getAlbums(true); // Public only for now
+        let albums = db.getAlbums(false); // Show ALL authenticated user's albums
 
         if (type === 'random') {
             albums = albums.sort(() => Math.random() - 0.5);
