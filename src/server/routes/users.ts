@@ -75,8 +75,8 @@ export function createUsersRoutes(
                 // Non-fatal - AP can still work without pre-generated keys
             }
 
-            // 4. Create DB user with artist link + storage quota (10MB)
-            const DEFAULT_QUOTA = 10 * 1024 * 1024; // 10MB
+            // 4. Create DB user with artist link + storage quota (1GB)
+            const DEFAULT_QUOTA = 1024 * 1024 * 1024; // 1GB
             const { id: userId } = await authService.createUser(username, password, artistId, DEFAULT_QUOTA);
 
             // 5. Generate JWT token for auto-login

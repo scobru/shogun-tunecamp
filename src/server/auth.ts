@@ -113,6 +113,11 @@ export function createAuthService(
 
                 // 4. Drop old table
                 db.exec("DROP TABLE admin_old");
+            } else {
+                // Migration: Existing users with 10MB quota (likely early test users) get upgraded to 1GB
+                const TEN_MB = 10 * 1024 * 1024;
+                const ONE_GB = 1024 * 1024 * 1024;
+                db.prepare("UPDATE admin SET storage_quota = ? WHERE storage_quota = ?").run(ONE_GB, TEN_MB);
             }
         }
     } catch (e) {
@@ -218,7 +223,7 @@ export function createAuthService(
             db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota) VALUES (?, ?, ?, 'admin', 0)").run(username, hash, artistId);
         },
 
-        async createUser(username: string, password: string, artistId: number, storageQuota: number = 10 * 1024 * 1024): Promise<{ id: number }> {
+        async createUser(username: string, password: string, artistId: number, storageQuota: number = 1024 * 1024 * 1024): Promise<{ id: number }> {
             const hash = await this.hashPassword(password);
             const result = db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota, storage_used) VALUES (?, ?, ?, 'user', ?, 0)").run(username, hash, artistId, storageQuota);
             return { id: Number(result.lastInsertRowid) };

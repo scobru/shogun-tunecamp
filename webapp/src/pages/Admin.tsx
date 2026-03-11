@@ -335,7 +335,7 @@ export const Admin = () => {
         {activeTab === "tracks" && <AdminTracksList />}
 
         {activeTab === "settings" && <AdminSettingsPanel />}
-        {activeTab === "identity" && <IdentityPanel />}
+        {activeTab === "identity" && <IdentityPanel isAdmin={adminUser?.isAdmin} />}
         {activeTab === "activitypub" && <ActivityPubPanel />}
         {activeTab === "backup" && <BackupPanel />}
       </div>

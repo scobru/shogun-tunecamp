@@ -13,7 +13,11 @@ import {
 } from "lucide-react";
 import type { Artist } from "../../types";
 
-export const IdentityPanel = () => {
+interface IdentityPanelProps {
+  isAdmin?: boolean;
+}
+
+export const IdentityPanel = ({ isAdmin = false }: IdentityPanelProps) => {
   const [identity, setIdentity] = useState<{
     pub: string;
     epub: string;
@@ -38,13 +42,20 @@ export const IdentityPanel = () => {
 
   const loadData = async () => {
     try {
-      const [idData, apData, artists] = await Promise.all([
-        API.getIdentity(),
-        API.getSiteApIdentity(),
-        API.getArtists(),
-      ]);
-      setIdentity(idData);
-      setSiteApIdentity(apData);
+      const promises: Promise<any>[] = [API.getArtists()];
+      
+      if (isAdmin) {
+        promises.push(API.getIdentity());
+        promises.push(API.getSiteApIdentity());
+      }
+
+      const results = await Promise.all(promises);
+      const artists = results[0];
+      
+      if (isAdmin) {
+        setIdentity(results[1]);
+        setSiteApIdentity(results[2]);
+      }
 
       // Load RSA keys for each artist
       const apIdentities = await Promise.all(
@@ -121,121 +132,123 @@ export const IdentityPanel = () => {
         <h2 className="text-xl font-bold">Identity Management</h2>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Current Identity Card (GunDB) */}
-        <div className="card bg-base-200 border border-white/5">
-          <div className="card-body">
-            <h3 className="card-title text-sm uppercase tracking-wider opacity-70 mb-4">
-              Current P2P Node Identity (GunDB)
-            </h3>
+      {isAdmin && (
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Current Identity Card (GunDB) */}
+          <div className="card bg-base-200 border border-white/5">
+            <div className="card-body">
+              <h3 className="card-title text-sm uppercase tracking-wider opacity-70 mb-4">
+                Current P2P Node Identity (GunDB)
+              </h3>
 
-            {identity ? (
-              <div className="space-y-4">
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text text-xs">Public Key (pub)</span>
-                  </label>
-                  <div className="p-3 bg-base-300 rounded font-mono text-[10px] break-all select-all">
-                    {identity.pub}
+              {identity ? (
+                <div className="space-y-4">
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-xs">Public Key (pub)</span>
+                    </label>
+                    <div className="p-3 bg-base-300 rounded font-mono text-[10px] break-all select-all">
+                      {identity.pub}
+                    </div>
+                  </div>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-xs">
+                        Encryption Key (epub)
+                      </span>
+                    </label>
+                    <div className="p-3 bg-base-300 rounded font-mono text-[10px] break-all select-all">
+                      {identity.epub}
+                    </div>
+                  </div>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-xs">Alias</span>
+                    </label>
+                    <div className="p-3 bg-base-300 rounded font-mono text-sm">
+                      {identity.alias || "N/A"}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline gap-2"
+                      onClick={() => {
+                        const json = JSON.stringify(identity, null, 2);
+                        navigator.clipboard.writeText(json);
+                      }}
+                    >
+                      <Copy size={14} /> Copy JSON
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline gap-2"
+                      onClick={() => {
+                        const blob = new Blob(
+                          [JSON.stringify(identity, null, 2)],
+                          { type: "application/json" },
+                        );
+                        const a = document.createElement("a");
+                        a.href = URL.createObjectURL(blob);
+                        a.download = `tunecamp-identity-${identity.alias || "node"}.json`;
+                        a.click();
+                        URL.revokeObjectURL(a.href);
+                      }}
+                    >
+                      <Download size={14} /> Export
+                    </button>
                   </div>
                 </div>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text text-xs">
-                      Encryption Key (epub)
-                    </span>
-                  </label>
-                  <div className="p-3 bg-base-300 rounded font-mono text-[10px] break-all select-all">
-                    {identity.epub}
-                  </div>
+              ) : (
+                <div className="py-8 text-center opacity-50">
+                  Loading identity...
                 </div>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text text-xs">Alias</span>
-                  </label>
-                  <div className="p-3 bg-base-300 rounded font-mono text-sm">
-                    {identity.alias || "N/A"}
-                  </div>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline gap-2"
-                    onClick={() => {
-                      const json = JSON.stringify(identity, null, 2);
-                      navigator.clipboard.writeText(json);
-                    }}
-                  >
-                    <Copy size={14} /> Copy JSON
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline gap-2"
-                    onClick={() => {
-                      const blob = new Blob(
-                        [JSON.stringify(identity, null, 2)],
-                        { type: "application/json" },
-                      );
-                      const a = document.createElement("a");
-                      a.href = URL.createObjectURL(blob);
-                      a.download = `tunecamp-identity-${identity.alias || "node"}.json`;
-                      a.click();
-                      URL.revokeObjectURL(a.href);
-                    }}
-                  >
-                    <Download size={14} /> Export
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="py-8 text-center opacity-50">
-                Loading identity...
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Import Identity Card */}
-        <div className="card bg-base-200 border border-warning/20">
-          <div className="card-body">
-            <h3 className="card-title text-sm uppercase tracking-wider text-warning mb-4 flex items-center gap-2">
-              <Key size={16} /> Import Node Identity
-            </h3>
-
-            <div className="alert alert-warning shadow-lg text-xs mb-4">
-              <div>
-                <AlertTriangle size={16} />
-                <span>
-                  Paste a valid GunDB key pair (JSON) to restore a previous
-                  identity. This is a destructive action.
-                </span>
-              </div>
+              )}
             </div>
+          </div>
 
-            <form onSubmit={handleImport} className="space-y-4">
-              <textarea
-                className="textarea textarea-bordered w-full font-mono text-xs h-32"
-                placeholder='{"pub":"...", "priv":"...", "epub":"...", "epriv":"..."}'
-                value={importData}
-                onChange={(e) => setImportData(e.target.value)}
-              ></textarea>
+          {/* Import Identity Card */}
+          <div className="card bg-base-200 border border-warning/20">
+            <div className="card-body">
+              <h3 className="card-title text-sm uppercase tracking-wider text-warning mb-4 flex items-center gap-2">
+                <Key size={16} /> Import Node Identity
+              </h3>
 
-              {error && <div className="text-error text-sm">{error}</div>}
-              {success && <div className="text-success text-sm">{success}</div>}
-
-              <div className="card-actions justify-end">
-                <button
-                  type="submit"
-                  className="btn btn-warning btn-sm gap-2"
-                  disabled={loading || !importData}
-                >
-                  <Save size={16} /> Import Identity
-                </button>
+              <div className="alert alert-warning shadow-lg text-xs mb-4">
+                <div>
+                  <AlertTriangle size={16} />
+                  <span>
+                    Paste a valid GunDB key pair (JSON) to restore a previous
+                    identity. This is a destructive action.
+                  </span>
+                </div>
               </div>
-            </form>
+
+              <form onSubmit={handleImport} className="space-y-4">
+                <textarea
+                  className="textarea textarea-bordered w-full font-mono text-xs h-32"
+                  placeholder='{"pub":"...", "priv":"...", "epub":"...", "epriv":"..."}'
+                  value={importData}
+                  onChange={(e) => setImportData(e.target.value)}
+                ></textarea>
+
+                {error && <div className="text-error text-sm">{error}</div>}
+                {success && <div className="text-success text-sm">{success}</div>}
+
+                <div className="card-actions justify-end">
+                  <button
+                    type="submit"
+                    className="btn btn-warning btn-sm gap-2"
+                    disabled={loading || !importData}
+                  >
+                    <Save size={16} /> Import Identity
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ActivityPub Artist Identities */}
       <div className="space-y-4">
@@ -248,7 +261,7 @@ export const IdentityPanel = () => {
 
         <div className="grid gap-6">
           {/* Site Actor Identity (Service) */}
-          {siteApIdentity && (
+          {isAdmin && siteApIdentity && (
             <div className="card bg-base-200 border border-primary/20">
               <div className="card-body p-6">
                 <div className="flex items-center justify-between mb-4">

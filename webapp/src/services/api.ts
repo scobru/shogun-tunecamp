@@ -31,7 +31,9 @@ const handleResponse = async <T>(request: Promise<{ data: T }>): Promise<T> => {
             // Trigger an event so the app knows to update auth state
             window.dispatchEvent(new Event('auth:unauthorized'));
         }
-        throw new Error(error.response?.data?.message || error.response?.data || error.message);
+        const errorData = error.response?.data;
+        const errorMessage = errorData?.error || errorData?.message || (typeof errorData === 'string' ? errorData : null) || error.message;
+        throw new Error(errorMessage);
     }
 };
 
