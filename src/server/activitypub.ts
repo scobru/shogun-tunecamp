@@ -152,6 +152,17 @@ export class ActivityPubService {
      */
     public async fetchRemoteOutbox(actorUri: string): Promise<void> {
         console.log(`📥 Fetching remote outbox for: ${actorUri}`);
+        
+        // Helper: ActivityPub types can be a string OR an array of strings
+        // e.g. "Note" or ["Note", "MusicAlbum"]
+        const hasType = (typeField: any, ...targets: string[]): boolean => {
+            if (!typeField) return false;
+            if (Array.isArray(typeField)) {
+                return targets.some(t => typeField.includes(t));
+            }
+            return targets.includes(typeField);
+        };
+
         try {
             // 1. Get Actor profile to find outbox URL and metadata
             const res = await fetch(actorUri, { headers: { "Accept": "application/activity+json" } });
@@ -163,7 +174,7 @@ export class ActivityPubService {
             if (actor.outbox) outboxesToScan.push(actor.outbox);
 
             // Funkwhale specific: check for libraries or channels in the profile
-            if (actor.type === "Service" || actor.type === "Application") {
+            if (hasType(actor.type, "Service", "Application")) {
                 // Try to find Funkwhale library actor if main outbox is empty
                 const domain = new URL(actorUri).hostname;
                 // Common Funkwhale library paths
@@ -197,7 +208,7 @@ export class ActivityPubService {
                 for (const activity of items) {
                     try {
                         // Handle both direct objects and 'Create' activities
-                        const obj = (activity.type === "Create" || activity.type === "Announce") ? activity.object : activity;
+                        const obj = hasType(activity.type, "Create", "Announce") ? activity.object : activity;
                         if (!obj || typeof obj !== 'object') continue;
 
                         // Resolve object if it's just a URI (common in Announce)
@@ -207,15 +218,12 @@ export class ActivityPubService {
                             if (objRes.ok) resolvedObj = await objRes.json();
                         }
 
-                        if (resolvedObj.type === "Note" || resolvedObj.type === "Audio" || resolvedObj.type === "Track" || resolvedObj.type === "Album" || resolvedObj.type === "MusicRecording" || resolvedObj.type === "MusicAlbum") {
+                        // Check if this is a known content type (handles both string and array types)
+                        if (hasType(resolvedObj.type, "Note", "Audio", "Track", "Album", "MusicRecording", "MusicAlbum", "Article")) {
                             let type = 'post';
                             // Music markers: Audio, Track, MusicRecording, MusicAlbum, or objects with audio attachments
-                            const isMusic = resolvedObj.type === "Audio" || 
-                                          resolvedObj.type === "Track" || 
-                                          resolvedObj.type === "Album" || 
-                                          resolvedObj.type === "MusicRecording" || 
-                                          resolvedObj.type === "MusicAlbum" ||
-                                          (resolvedObj.attachment && Array.isArray(resolvedObj.attachment) && resolvedObj.attachment.some((a: any) => a.type === "Audio" || a.mediaType?.startsWith("audio/")));
+                            const isMusic = hasType(resolvedObj.type, "Audio", "Track", "Album", "MusicRecording", "MusicAlbum") ||
+                                          (resolvedObj.attachment && Array.isArray(resolvedObj.attachment) && resolvedObj.attachment.some((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/")));
 
                             if (isMusic) {
                                 type = 'release';
@@ -223,7 +231,7 @@ export class ActivityPubService {
 
                             // Mapping logic
                             const attachments = Array.isArray(resolvedObj.attachment) ? resolvedObj.attachment : (resolvedObj.attachment ? [resolvedObj.attachment] : []);
-                            const audioAttachment = attachments.find((a: any) => a.type === "Audio" || a.mediaType?.startsWith("audio/"));
+                            const audioAttachment = attachments.find((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/"));
                             
                             const remoteContent = {
                                 ap_id: resolvedObj.id,
@@ -232,14 +240,16 @@ export class ActivityPubService {
                                 title: resolvedObj.name || resolvedObj.title || resolvedObj.content?.replace(/<[^>]*>?/gm, '').substring(0, 50) || "Untitled",
                                 content: resolvedObj.content || resolvedObj.summary || "",
                                 url: resolvedObj.url || (Array.isArray(resolvedObj.url) ? resolvedObj.url[0]?.href : resolvedObj.url?.href),
-                                cover_url: resolvedObj.image?.url || resolvedObj.icon?.url || (attachments.find((a: any) => a.type === "Image" || a.mediaType?.startsWith("image/"))?.url),
-                                stream_url: resolvedObj.type === "Audio" ? resolvedObj.url : audioAttachment?.url || audioAttachment?.href,
+                                cover_url: resolvedObj.image?.url || resolvedObj.icon?.url || (attachments.find((a: any) => hasType(a.type, "Image") || a.mediaType?.startsWith("image/"))?.url),
+                                stream_url: hasType(resolvedObj.type, "Audio") ? resolvedObj.url : audioAttachment?.url || audioAttachment?.href,
                                 artist_name: resolvedObj.attributedTo?.name || actor.name || actor.preferredUsername || "Remote Artist",
+                                album_name: resolvedObj.name || resolvedObj.title || null,
                                 published_at: resolvedObj.published || new Date().toISOString()
                             };
 
                             if (remoteContent.ap_id) {
                                 this.db.upsertRemoteContent(remoteContent as any);
+                                console.log(`  ✅ Stored remote ${type}: ${remoteContent.title}`);
                             }
                         }
                     } catch (itemErr) {

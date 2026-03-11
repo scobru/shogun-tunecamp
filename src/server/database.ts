@@ -343,6 +343,10 @@ export interface DatabaseService {
     unstarItem(username: string, itemType: string, itemId: string): void;
     getStarredItems(username: string, itemType?: string): { item_type: string; item_id: string; created_at: string }[];
     isStarred(username: string, itemType: string, itemId: string): boolean;
+
+    // Play Queue (Subsonic)
+    savePlayQueue(username: string, trackIds: string[], current: string | null, positionMs: number): void;
+    getPlayQueue(username: string): { trackIds: string[], current: string | null, positionMs: number };
 }
 
 export function createDatabase(dbPath: string): DatabaseService {
@@ -591,6 +595,20 @@ export function createDatabase(dbPath: string): DatabaseService {
       item_id TEXT NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(username, item_type, item_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS play_queue_state (
+      username TEXT PRIMARY KEY,
+      current_track_id TEXT,
+      position_ms INTEGER DEFAULT 0,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS play_queue_tracks (
+      username TEXT NOT NULL,
+      track_id TEXT NOT NULL,
+      position INTEGER NOT NULL,
+      PRIMARY KEY (username, position)
     );
   `);
 
@@ -2018,6 +2036,34 @@ export function createDatabase(dbPath: string): DatabaseService {
                 SELECT 1 FROM likes WHERE remote_actor_fid = ? AND object_type = ? AND object_id = ?
             `).get(actorUri, objectType, objectId);
             return !!row;
+        },
+
+        // Play Queue (Subsonic)
+        savePlayQueue(username: string, trackIds: string[], current: string | null, positionMs: number): void {
+            db.transaction(() => {
+                db.prepare("INSERT OR REPLACE INTO play_queue_state (username, current_track_id, position_ms, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)")
+                  .run(username, current || null, positionMs || 0);
+                
+                db.prepare("DELETE FROM play_queue_tracks WHERE username = ?").run(username);
+                
+                const insertTrack = db.prepare("INSERT INTO play_queue_tracks (username, track_id, position) VALUES (?, ?, ?)");
+                for (let i = 0; i < trackIds.length; i++) {
+                    insertTrack.run(username, trackIds[i], i);
+                }
+            })();
+        },
+
+        getPlayQueue(username: string): { trackIds: string[], current: string | null, positionMs: number } {
+            const state = db.prepare("SELECT current_track_id, position_ms FROM play_queue_state WHERE username = ?").get(username) as any;
+            if (!state) return { trackIds: [], current: null, positionMs: 0 };
+
+            const tracks = db.prepare("SELECT track_id FROM play_queue_tracks WHERE username = ? ORDER BY position ASC").all(username) as any[];
+            
+            return {
+                trackIds: tracks.map(t => t.track_id),
+                current: state.current_track_id,
+                positionMs: state.position_ms
+            };
         }
     };
 }

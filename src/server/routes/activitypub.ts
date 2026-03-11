@@ -34,54 +34,71 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     // Inbox Endpoint
     router.post("/users/:slug/inbox", async (req, res) => {
         const { slug } = req.params;
-        const artist = db.getArtistBySlug(slug);
+        const isSite = slug === "site";
+        const artist = isSite ? null : db.getArtistBySlug(slug);
 
-        if (!artist) {
+        if (!artist && !isSite) {
             return res.status(404).send("Not found");
         }
 
         const activity = req.body;
         console.log(`📨 Received ActivityPub message for ${slug}:`, activity.type);
 
+        // Helper: ActivityPub types can be a string OR an array of strings
+        const hasType = (typeField: any, ...targets: string[]): boolean => {
+            if (!typeField) return false;
+            if (Array.isArray(typeField)) {
+                return targets.some(t => typeField.includes(t));
+            }
+            return targets.includes(typeField);
+        };
+
         try {
-            if (activity.type === "Follow") {
-                await apService.acceptFollow(artist, activity);
+            if (hasType(activity.type, "Follow")) {
+                // For the site actor, create a minimal artist-like object
+                const actorForAccept = artist || { id: -1, slug: "site", name: "Site" } as any;
+                await apService.acceptFollow(actorForAccept, activity);
                 return res.status(202).send("Accepted");
-            } else if (activity.type === "Undo") {
+            } else if (hasType(activity.type, "Undo")) {
                 const object = activity.object;
-                if (object.type === "Follow") {
+                if (hasType(object.type, "Follow") && artist) {
                     const follower = object.actor;
                     db.removeFollower(artist.id, follower);
                     console.log(`➖ Removed follower ${follower} for ${artist.name}`);
                     return res.status(200).send("OK");
                 }
-            } else if (activity.type === "Create") {
+            } else if (hasType(activity.type, "Create")) {
                 const obj = activity.object;
-                // Parse Funkwhale/Music objects
-                if (obj && (obj.type === "Note" || obj.type === "Audio" || obj.type === "Track" || obj.type === "Artist" || obj.type === "Album")) {
-                    console.log(`🎵 Parsing remote music object: ${obj.type} (${obj.name || obj.title})`);
+                // Parse Funkwhale/Music/Tunecamp objects (handles array types like ["Note", "MusicAlbum"])
+                if (obj && hasType(obj.type, "Note", "Audio", "Track", "Artist", "Album", "MusicRecording", "MusicAlbum", "Article")) {
+                    console.log(`🎵 Parsing remote music object: ${JSON.stringify(obj.type)} (${obj.name || obj.title})`);
 
                     let type = 'post';
-                    if (obj.type === "Audio" || obj.type === "Track" || obj.type === "Album" || (obj.attachment && obj.attachment.some((a: any) => a.type === "Audio"))) {
+                    if (hasType(obj.type, "Audio", "Track", "Album", "MusicRecording", "MusicAlbum") || 
+                        (obj.attachment && Array.isArray(obj.attachment) && obj.attachment.some((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/")))) {
                         type = 'release';
                     }
+
+                    const attachments = Array.isArray(obj.attachment) ? obj.attachment : (obj.attachment ? [obj.attachment] : []);
+                    const audioAttachment = attachments.find((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/"));
 
                     // Map to RemoteContent
                     const remoteContent = {
                         ap_id: obj.id,
                         actor_uri: typeof activity.actor === 'string' ? activity.actor : activity.actor.id,
                         type: type,
-                        title: obj.name || obj.title || obj.content?.substring(0, 50),
+                        title: obj.name || obj.title || obj.content?.replace(/<[^>]*>?/gm, '').substring(0, 50),
                         content: obj.content || obj.summary || "",
                         url: obj.url || (Array.isArray(obj.url) ? obj.url[0]?.href : obj.url?.href),
-                        cover_url: obj.image?.url || obj.icon?.url || (obj.attachment?.find((a: any) => a.type === "Image")?.url),
-                        stream_url: obj.type === "Audio" ? obj.url : obj.attachment?.find((a: any) => a.type === "Audio")?.url,
+                        cover_url: obj.image?.url || obj.icon?.url || (attachments.find((a: any) => hasType(a.type, "Image") || a.mediaType?.startsWith("image/"))?.url),
+                        stream_url: hasType(obj.type, "Audio") ? obj.url : audioAttachment?.url || audioAttachment?.href,
                         artist_name: obj.attributedTo?.name || "Remote Artist",
+                        album_name: obj.name || obj.title || null,
                         published_at: obj.published || new Date().toISOString()
                     };
 
                     db.upsertRemoteContent(remoteContent as any);
-                    console.log(`✅ Saved remote content: ${remoteContent.title}`);
+                    console.log(`✅ Saved remote content (${type}): ${remoteContent.title}`);
                 }
             }
         } catch (e) {
@@ -217,8 +234,57 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
         });
     });
 
-    // Shared Inbox (Optional placeholder)
+    // Shared Inbox - processes activities sent to the instance level
     router.post("/inbox", (req, res) => {
+        const activity = req.body;
+        console.log(`📨 Shared inbox received: ${activity?.type}`);
+
+        // Helper for array-safe type check
+        const hasType = (typeField: any, ...targets: string[]): boolean => {
+            if (!typeField) return false;
+            if (Array.isArray(typeField)) {
+                return targets.some(t => typeField.includes(t));
+            }
+            return targets.includes(typeField);
+        };
+
+        try {
+            if (hasType(activity?.type, "Create")) {
+                const obj = activity.object;
+                if (obj && hasType(obj.type, "Note", "Audio", "Track", "Album", "MusicRecording", "MusicAlbum", "Article")) {
+                    let type = 'post';
+                    if (hasType(obj.type, "Audio", "Track", "Album", "MusicRecording", "MusicAlbum") ||
+                        (obj.attachment && Array.isArray(obj.attachment) && obj.attachment.some((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/")))) {
+                        type = 'release';
+                    }
+
+                    const attachments = Array.isArray(obj.attachment) ? obj.attachment : (obj.attachment ? [obj.attachment] : []);
+                    const audioAttachment = attachments.find((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/"));
+
+                    const remoteContent = {
+                        ap_id: obj.id,
+                        actor_uri: typeof activity.actor === 'string' ? activity.actor : activity.actor?.id,
+                        type,
+                        title: obj.name || obj.title || obj.content?.replace(/<[^>]*>?/gm, '').substring(0, 50) || "Untitled",
+                        content: obj.content || obj.summary || "",
+                        url: obj.url || (Array.isArray(obj.url) ? obj.url[0]?.href : obj.url?.href),
+                        cover_url: obj.image?.url || obj.icon?.url || (attachments.find((a: any) => hasType(a.type, "Image") || a.mediaType?.startsWith("image/"))?.url),
+                        stream_url: hasType(obj.type, "Audio") ? obj.url : audioAttachment?.url || audioAttachment?.href,
+                        artist_name: obj.attributedTo?.name || "Remote Artist",
+                        album_name: obj.name || obj.title || null,
+                        published_at: obj.published || new Date().toISOString()
+                    };
+
+                    if (remoteContent.ap_id) {
+                        db.upsertRemoteContent(remoteContent as any);
+                        console.log(`✅ Shared inbox stored remote ${type}: ${remoteContent.title}`);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("❌ Error processing shared inbox:", e);
+        }
+
         res.status(202).send("Accepted");
     });
 

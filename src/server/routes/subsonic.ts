@@ -924,7 +924,43 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.get('/getBookmarks.view', getBookmarks);
     router.post('/getBookmarks.view', getBookmarks);
 
-    const getPlayQueue = (req: any, res: any) => sendResponse(res, req, { playQueue: {} });
+    const getPlayQueue = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        const pq = db.getPlayQueue(username);
+        
+        const entry: any[] = [];
+        for (const trackId of pq.trackIds) {
+            const track = db.getTrack(parseInt(trackId));
+            if (track) {
+                entry.push({
+                    '@id': `tr_${track.id}`,
+                    '@title': track.title,
+                    '@album': track.album_title,
+                    '@artist': track.artist_name,
+                    '@track': track.track_num,
+                    '@duration': Math.floor(track.duration || 0),
+                    '@coverArt': `al_${track.album_id}`,
+                    '@albumId': `al_${track.album_id}`,
+                    '@artistId': `ar_${track.artist_id}`,
+                    '@suffix': track.format || 'mp3',
+                    '@contentType': getContentType(track.format),
+                    '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128
+                });
+            }
+        }
+        
+        const response: any = {
+            playQueue: {
+                entry
+            }
+        };
+        
+        if (pq.current) response.playQueue['@current'] = `tr_${pq.current}`;
+        if (pq.positionMs) response.playQueue['@position'] = pq.positionMs;
+        
+        sendResponse(res, req, response);
+    };
+    
     router.get('/getPlayQueue.view', getPlayQueue);
     router.post('/getPlayQueue.view', getPlayQueue);
 
@@ -1192,14 +1228,49 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const limit = parseInt(count) || 10;
         const isV2 = req.path.includes('getSimilarSongs2');
 
-        // Return random songs as a fallback for similar songs
-        const allTracks = db.getTracks(undefined, true);
-        const randomTracks = allTracks.sort(() => Math.random() - 0.5).slice(0, limit);
+        let similarTracks: any[] = [];
+        
+        if (id) {
+            const trackId = parseInt(id.startsWith('tr_') ? id.substring(3) : id);
+            const track = db.getTrack(trackId);
+            if (track && track.album_id) {
+                const album = db.getAlbum(track.album_id);
+                if (album && album.genre) {
+                    // Find other public albums with the same genre
+                    const genre = album.genre.split(',')[0].trim().toLowerCase();
+                    const allAlbums = db.getAlbums(true);
+                    const similarAlbums = allAlbums.filter(a => 
+                        a.id !== album.id && 
+                        a.genre && 
+                        a.genre.toLowerCase().includes(genre)
+                    );
+                    
+                    // Get some tracks from these albums
+                    for (const simAlbum of similarAlbums.sort(() => Math.random() - 0.5).slice(0, 5)) {
+                        const albumTracks = db.getTracks(simAlbum.id);
+                        if (albumTracks.length > 0) {
+                            // Take a random track from this similar album
+                            similarTracks.push(albumTracks[Math.floor(Math.random() * albumTracks.length)]);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Return random songs as a fallback for similar songs if we didn't find enough
+        if (similarTracks.length < limit) {
+            const allTracks = db.getTracks(undefined, true);
+            const existingIds = new Set(similarTracks.map(t => t.id));
+            const randomTracks = allTracks.filter(t => !existingIds.has(t.id)).sort(() => Math.random() - 0.5).slice(0, limit - similarTracks.length);
+            similarTracks = [...similarTracks, ...randomTracks];
+        } else {
+            similarTracks = similarTracks.slice(0, limit);
+        }
 
         const wrapperKey = isV2 ? 'similarSongs2' : 'similarSongs';
         sendResponse(res, req, {
             [wrapperKey]: {
-                song: randomTracks.map(track => ({
+                song: similarTracks.map(track => ({
                     '@id': `tr_${track.id}`,
                     '@title': track.title,
                     '@album': track.album_title,
@@ -1255,7 +1326,26 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Save/Get Play Queue ---
 
     const savePlayQueue = (req: any, res: any) => {
-        // Accept and discard - we don't persist play queue state yet
+        const username = (req as any).user?.username || 'admin';
+        const { id, current, position } = req.query as any;
+
+        const ids = id ? (Array.isArray(id) ? id : [id]) : [];
+        const trackIds = [];
+        for (const i of ids) {
+            if (i.startsWith('tr_')) {
+                trackIds.push(i.substring(3));
+            } else {
+                trackIds.push(i);
+            }
+        }
+        
+        let currentId = current;
+        if (current && current.startsWith('tr_')) {
+            currentId = current.substring(3);
+        }
+
+        db.savePlayQueue(username, trackIds, currentId, parseInt(position) || 0);
+
         sendResponse(res, req, {});
     };
 
@@ -1266,7 +1356,10 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const getOpenSubsonicExtensions = (req: any, res: any) => {
         sendResponse(res, req, {
-            openSubsonicExtensions: []
+            openSubsonicExtensions: [
+                { name: 'transcodeOffset', versions: [1] },
+                { name: 'songId', versions: [1] }
+            ]
         });
     };
 
