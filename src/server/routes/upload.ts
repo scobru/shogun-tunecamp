@@ -153,6 +153,7 @@ export function createUploadRoutes(
         try {
             const files = req.files as Express.Multer.File[];
             const { releaseSlug } = req.body;
+            const artistId = (req as any).artistId;
 
             if (!files || files.length === 0) {
                 return res.status(400).json({ error: "No files uploaded" });
@@ -257,18 +258,39 @@ export function createUploadRoutes(
                         const dbPath = path.relative(musicDir, destPath).replace(/\\/g, '/');
                         const existingTrack = database.getTrackByPath(dbPath);
                         if (existingTrack) {
+                            // If it's a duplicate path but linked to a DIFFERENT artist (or no artist), 
+                            // we might want to still add a track record for this user if we want them to have their own entry.
+                            // BUT: Current DB design uses file_path as unique-ish. 
+                            // For now, let's just make sure it's linked to the release.
                             database.addTrackToRelease(release.id, existingTrack.id);
                             console.log(`   🔗 Linked existing duplicate track ${existingTrack.id} to release ${release.title}`);
                             processedCount++;
                             scannerResults.push({ success: true, trackId: existingTrack.id, isDuplicate: true });
                         } else {
-                            // File exists but not in DB? Force a scan
-                            const scanResult = await scanner.processAudioFile(destPath, musicDir);
+                            // File exists but not in DB? Force a scan with the current artistId
+                            const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId);
                             if (scanResult && scanResult.success && scanResult.trackId) {
                                 database.addTrackToRelease(release.id, scanResult.trackId);
                                 processedCount++;
                                 scannerResults.push(scanResult);
                             }
+                        }
+                    } else {
+                        // Orphan upload that is a duplicate on disk.
+                        // Check if it's in the DB.
+                        const dbPath = path.relative(musicDir, destPath).replace(/\\/g, '/');
+                        const existingTrack = database.getTrackByPath(dbPath);
+                        if (!existingTrack) {
+                            // Disk exists, but no DB record? Create it.
+                            const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId);
+                            if (scanResult && scanResult.success) {
+                                processedCount++;
+                                scannerResults.push(scanResult);
+                            }
+                        } else {
+                            // Already in DB. 
+                            processedCount++;
+                            scannerResults.push({ success: true, trackId: existingTrack.id, isDuplicate: true, message: "Track already in library." });
                         }
                     }
                     continue; // Skip fs.move and standard scanner processing
@@ -278,8 +300,8 @@ export function createUploadRoutes(
                     await fs.move(file.path, destPath, { overwrite: false });
                     movedCount++;
 
-                    // Process immediately to get Track ID
-                    const scanResult = await scanner.processAudioFile(destPath, musicDir);
+                    // Process immediately to get Track ID, pass artistId
+                    const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId);
 
                     if (scanResult && scanResult.success && scanResult.trackId) {
                         scannerResults.push(scanResult);
@@ -301,10 +323,11 @@ export function createUploadRoutes(
             console.log(`✅ Processed ${movedCount}/${files.length} uploads to ${destDir}. Scanned: ${processedCount}`);
 
             // Update storage usage for quota-tracked users
-            if (authService && req.username && movedCount > 0) {
+            if (authService && req.username && processedCount > 0) {
                 const admins = authService.listAdmins();
                 const currentUser = admins.find(a => a.username === req.username);
                 if (currentUser && currentUser.storage_quota > 0) {
+                    // Recalculate based on ALL processed files in this upload
                     const uploadedBytes = files.reduce((sum, f) => sum + f.size, 0);
                     const storageInfo = authService.getStorageInfo(currentUser.id);
                     const newUsed = (storageInfo?.storage_used || 0) + uploadedBytes;

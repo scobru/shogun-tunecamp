@@ -115,7 +115,7 @@ export interface ScannerService {
     scanDirectory(dir: string): Promise<ScanResult>;
     startWatching(dir: string): void;
     stopWatching(): void;
-    processAudioFile(filePath: string, musicDir: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
+    processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
 }
 
 export class Scanner implements ScannerService {
@@ -428,7 +428,7 @@ export class Scanner implements ScannerService {
         }
     }
 
-    public async processAudioFile(filePath: string, musicDir: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
+    public async processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
         let currentFilePath = filePath;
         const ext = path.extname(currentFilePath).toLowerCase();
 
@@ -479,8 +479,8 @@ export class Scanner implements ScannerService {
                     const title = metadata.common.title || path.basename(currentFilePath, path.extname(currentFilePath));
                     const artistName = metadata.common.artist;
 
-                    let artistId: number | null = null;
-                    if (artistName) {
+                    let artistId: number | null = overrideArtistId || null;
+                    if (!artistId && artistName) {
                         const existingArtist = this.database.getArtistByName(artistName);
                         artistId = existingArtist ? existingArtist.id : null;
                     }
@@ -543,13 +543,15 @@ export class Scanner implements ScannerService {
             const common = metadata.common;
             const format = metadata.format;
 
-            let artistId: number | null = null;
-            if (common.artist) {
-                const existingArtist = this.database.getArtistByName(common.artist);
-                artistId = existingArtist ? existingArtist.id : this.database.createArtist(common.artist);
-            } else {
-                const unknownArtist = this.database.getArtistByName("Unknown Artist");
-                artistId = unknownArtist ? unknownArtist.id : this.database.createArtist("Unknown Artist");
+            let artistId: number | null = overrideArtistId || null;
+            if (!artistId) {
+                if (common.artist) {
+                    const existingArtist = this.database.getArtistByName(common.artist);
+                    artistId = existingArtist ? existingArtist.id : this.database.createArtist(common.artist);
+                } else {
+                    const unknownArtist = this.database.getArtistByName("Unknown Artist");
+                    artistId = unknownArtist ? unknownArtist.id : this.database.createArtist("Unknown Artist");
+                }
             }
 
             let duration: number | null = await getDurationFromFfmpeg(currentFilePath);
