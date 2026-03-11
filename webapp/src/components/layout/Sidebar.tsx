@@ -25,13 +25,12 @@ import { WalletPill } from "../ui/WalletPill";
 
 export const Sidebar = () => {
   const location = useLocation();
-  const { user, isAuthenticated, isAdminAuthenticated, role, logout, logoutAdmin } =
-    useAuthStore();
+  const { user, isAuthenticated, role, logout } = useAuthStore();
   const [siteName, setSiteName] = useState("TuneCamp");
-
+ 
   const isAdmin = role === 'admin';
   const isUser = role === 'user';
-
+ 
   useEffect(() => {
     API.getSiteSettings()
       .then((s) => {
@@ -39,16 +38,15 @@ export const Sidebar = () => {
       })
       .catch(console.error);
   }, []);
-
+ 
   const handleLogout = () => {
     logout();
-    logoutAdmin();
   };
-
+ 
   const isActive = (path: string) =>
     location.pathname === path ||
     (path !== "/" && location.pathname.startsWith(path));
-
+ 
   const NavItem = ({
     to,
     icon: Icon,
@@ -72,7 +70,7 @@ export const Sidebar = () => {
       </Link>
     </li>
   );
-
+ 
   return (
     <div className="menu p-2 w-20 min-h-full bg-base-100/20 backdrop-blur-md text-base-content border-r border-white/5 flex flex-col gap-2 pb-28 items-center">
       {/* Brand */}
@@ -84,17 +82,17 @@ export const Sidebar = () => {
           <Music className="text-white w-6 h-6" />
         </div>
       </div>
-
+ 
       {/* Main Nav */}
       <ul className="menu bg-base-200/50 rounded-box w-full gap-1 p-1 font-medium items-center">
         <NavItem to="/" icon={Home} label="Home" />
         <NavItem to="/search" icon={Search} label="Search" />
         <NavItem to="/network" icon={Globe} label="Network" />
       </ul>
-
+ 
       {/* Library Nav */}
       <div className="w-full h-px bg-white/5 my-2"></div>
-
+ 
       <ul className="menu bg-base-200/50 rounded-box w-full gap-1 p-1 font-medium flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin items-center no-scrollbar">
         <NavItem to="/albums" icon={Disc} label="Albums" />
         <NavItem to="/artists" icon={User} label="Artists" />
@@ -108,50 +106,48 @@ export const Sidebar = () => {
         )}
         <NavItem to="/stats" icon={BarChart2} label="Stats" />
         {/* File browser - admin only */}
-        {isAdmin && isAdminAuthenticated && (
+        {isAdmin && isAuthenticated && (
           <NavItem to="/browser" icon={Folder} label="Files" />
         )}
         {/* Upload shortcut - for registered users (both admin and user) */}
-        {isUser && isAdminAuthenticated && (
+        {(isAdmin || isUser) && isAuthenticated && (
           <NavItem to="/my-music" icon={Upload} label="My Music" />
         )}
       </ul>
-
+ 
       <ul className="menu bg-base-200/50 rounded-box w-full gap-1 p-1 font-medium mt-auto mb-2 items-center">
         <NavItem to="/support" icon={LifeBuoy} label="Support" />
       </ul>
-
+ 
       {/* User Footer */}
       <div className="flex flex-col items-center gap-3 p-2 border-t border-white/5 w-full">
-        {isAuthenticated || isAdminAuthenticated ? (
+        {isAuthenticated ? (
           <div className="flex flex-col items-center gap-3 w-full">
             <Link
               to="/profile"
               className="avatar placeholder tooltip tooltip-right z-50"
-              data-tip={
-                user?.alias || (isAdminAuthenticated ? (isAdmin ? "Admin" : "User") : "User")
-              }
+              data-tip={user?.username || "Profile"}
             >
               <div className="bg-neutral text-neutral-content rounded-full w-10 ring ring-primary ring-offset-base-100 ring-offset-2 cursor-pointer hover:scale-105 transition-transform overflow-hidden">
-                {user?.profile?.avatar ? (
+                {user?.gunProfile?.profile?.avatar ? (
                   <img
-                    src={user.profile.avatar}
-                    alt={user.alias || ""}
+                    src={user.gunProfile.profile.avatar}
+                    alt={user.username || ""}
                     className="w-full h-full object-cover"
                   />
                 ) : (
                   <span>
-                    {(user?.alias || (isAdmin ? "A" : "U"))
+                    {(user?.username || (isAdmin ? "A" : "U"))
                       ?.charAt(0)
                       .toUpperCase()}
                   </span>
                 )}
               </div>
             </Link>
-
+ 
             <div className="flex flex-col gap-2 items-center">
               {/* Admin Settings - only for admin role */}
-              {isAdmin && isAdminAuthenticated && (
+              {isAdmin && (
                 <Link
                   to="/admin"
                   className="btn btn-ghost btn-sm btn-circle text-primary tooltip tooltip-right z-50"
@@ -168,7 +164,7 @@ export const Sidebar = () => {
                 <LogOut size={20} />
               </button>
             </div>
-            {isAuthenticated && !isAdminAuthenticated && <WalletPill />}
+            {user?.gunProfile && <WalletPill />}
           </div>
         ) : (
           <div className="w-full flex justify-center">
@@ -182,19 +178,6 @@ export const Sidebar = () => {
               <LogIn size={20} />
             </button>
           </div>
-        )}
-
-        {/* Helper for Admin Login if not authenticated */}
-        {!isAdminAuthenticated && !isAuthenticated && (
-          <button
-            onClick={() =>
-              document.dispatchEvent(new CustomEvent("open-auth-modal"))
-            }
-            className="mt-2 opacity-30 hover:opacity-100 flex items-center justify-center tooltip tooltip-right z-50"
-            data-tip="Admin Login"
-          >
-            <Settings size={16} />
-          </button>
         )}
       </div>
     </div>
