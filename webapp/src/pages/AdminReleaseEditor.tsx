@@ -265,7 +265,6 @@ export default function AdminReleaseEditor() {
   };
 
   const handleSave = async (exit: boolean = false) => {
-    if (!adminUser?.isAdmin) return;
     setSaving(true);
     try {
       // Prepare track IDs in order

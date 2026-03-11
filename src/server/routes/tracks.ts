@@ -686,7 +686,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
      * Delete a track, optionally deleting the file
      */
     router.delete("/:id", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) {
+        if (!req.isAdmin && !req.artistId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
 

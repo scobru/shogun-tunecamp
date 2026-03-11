@@ -63,6 +63,7 @@ const mockDatabase = {
     getAlbum: jest.fn(),
     getTracks: jest.fn(),
     getTracksByArtist: jest.fn(),
+    deleteTrack: jest.fn(),
 } as unknown as DatabaseService;
 
 const mockPublishingService = {
@@ -170,6 +171,39 @@ describe('Tracks Routes', () => {
             expect(res.status).toBe(200);
             expect(res.body.length).toBe(2);
             expect(mockDatabase.getTracks).toHaveBeenCalledWith(undefined, true);
+        });
+    });
+
+    describe('Deletion Logic', () => {
+        test('Artists can delete their own tracks', async () => {
+            (app as any).testAuth = { isAdmin: false, artistId: 10 };
+            const myTrack = { id: 274, artist_id: 10, title: 'My Track' };
+            (mockDatabase.getTrack as jest.Mock).mockReturnValue(myTrack);
+
+            const res = await request(app).delete('/tracks/274');
+            expect(res.status).toBe(200);
+            expect(mockDatabase.deleteTrack).toHaveBeenCalledWith(274);
+        });
+
+        test('Artists cannot delete tracks of others', async () => {
+            (app as any).testAuth = { isAdmin: false, artistId: 10 };
+            const otherTrack = { id: 275, artist_id: 11, title: 'Other Track' };
+            (mockDatabase.getTrack as jest.Mock).mockReturnValue(otherTrack);
+
+            const res = await request(app).delete('/tracks/275');
+            expect(res.status).toBe(403);
+            expect(res.body.error).toContain('Access denied');
+            expect(mockDatabase.deleteTrack).not.toHaveBeenCalled();
+        });
+
+        test('Guests (no artistId) cannot delete anything', async () => {
+            (app as any).testAuth = { isAdmin: false, artistId: null };
+            const anyTrack = { id: 274, artist_id: 10, title: 'Any Track' };
+            (mockDatabase.getTrack as jest.Mock).mockReturnValue(anyTrack);
+
+            const res = await request(app).delete('/tracks/274');
+            expect(res.status).toBe(401);
+            expect(mockDatabase.deleteTrack).not.toHaveBeenCalled();
         });
     });
 });

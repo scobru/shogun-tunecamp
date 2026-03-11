@@ -69,6 +69,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 'subsonic-response': {
                     status,
                     version,
+                    openSubsonic: true,
                     ...sanitizeJsonKeys(data) // Remove XML attribute decorators
                 }
             });
@@ -76,7 +77,12 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         }
 
         const doc = create({ version: '1.0', encoding: 'UTF-8' })
-            .ele('subsonic-response', { xmlns: 'http://subsonic.org/restapi', status, version });
+            .ele('subsonic-response', { 
+                xmlns: 'http://subsonic.org/restapi', 
+                status, 
+                version,
+                openSubsonic: 'true' 
+            });
 
         if (Object.keys(data).length > 0) {
             doc.ele(data);
@@ -97,11 +103,15 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const status = 'failed';
         const version = '1.16.1';
 
+        // OpenSubsonic: Add header even on errors
+        res.set('X-OpenSubsonic-Server', 'Tunecamp/2.0');
+
         if (isJson) {
             res.json({
                 'subsonic-response': {
                     status,
                     version,
+                    openSubsonic: true,
                     error: { code: String(code), message }
                 }
             });
@@ -109,7 +119,12 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         }
 
         const doc = create({ version: '1.0', encoding: 'UTF-8' })
-            .ele('subsonic-response', { xmlns: 'http://subsonic.org/restapi', status, version })
+            .ele('subsonic-response', { 
+                xmlns: 'http://subsonic.org/restapi', 
+                status, 
+                version,
+                openSubsonic: 'true' 
+            })
             .ele('error', { code: String(code), message }).up();
 
         const xml = doc.end({ prettyPrint: true });
