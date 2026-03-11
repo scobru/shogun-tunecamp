@@ -69,6 +69,8 @@ export function createAuthService(
                     role TEXT NOT NULL DEFAULT 'admin',
                     storage_quota INTEGER NOT NULL DEFAULT 0,
                     storage_used INTEGER NOT NULL DEFAULT 0,
+                    subsonic_token TEXT,
+                    subsonic_password TEXT,
                     gun_pub TEXT,
                     gun_priv TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -82,9 +84,10 @@ export function createAuthService(
             const hasArtistId = columns.some(c => c.name === 'artist_id');
             const hasRole = columns.some(c => c.name === 'role');
             const hasGunPub = columns.some(c => c.name === 'gun_pub');
+            const hasSubsonic = columns.some(c => c.name === 'subsonic_token');
 
-            if (!hasUsername || !hasArtistId || !hasRole || !hasGunPub) {
-                console.log("📦 Migrating admin table to multi-user support (with roles, storage quotas & GunDB keys)...");
+            if (!hasUsername || !hasArtistId || !hasRole || !hasGunPub || !hasSubsonic) {
+                console.log("📦 Migrating admin table to multi-user support (with roles, storage quotas, GunDB keys & Subsonic support)...");
                 // We need to recreate the table
                 // 1. Rename existing table
                 db.exec("ALTER TABLE admin RENAME TO admin_old");
@@ -99,6 +102,8 @@ export function createAuthService(
                         role TEXT NOT NULL DEFAULT 'admin',
                         storage_quota INTEGER NOT NULL DEFAULT 0,
                         storage_used INTEGER NOT NULL DEFAULT 0,
+                        subsonic_token TEXT,
+                        subsonic_password TEXT,
                         gun_pub TEXT,
                         gun_priv TEXT,
                         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -108,12 +113,23 @@ export function createAuthService(
 
                 // 3. Migrate data - existing users keep role='admin' and unlimited quota (0)
                 const oldAdmins = db.prepare("SELECT * FROM admin_old").all() as any[];
-                const insertStmt = db.prepare("INSERT INTO admin (id, username, password_hash, created_at, updated_at, artist_id, role, storage_quota, storage_used, gun_pub, gun_priv) VALUES (?, ?, ?, ?, ?, ?, 'admin', 0, 0, ?, ?)");
+                const insertStmt = db.prepare("INSERT INTO admin (id, username, password_hash, created_at, updated_at, artist_id, role, storage_quota, storage_used, gun_pub, gun_priv, subsonic_token, subsonic_password) VALUES (?, ?, ?, ?, ?, ?, 'admin', 0, 0, ?, ?, ?, ?)");
 
                 for (const old of oldAdmins) {
                     let username = old.username;
                     if (!hasUsername && old.id === 1) username = 'admin';
-                    insertStmt.run(old.id, username, old.password_hash, old.created_at, old.updated_at, old.artist_id || null, old.gun_pub || null, old.gun_priv || null);
+                    insertStmt.run(
+                        old.id, 
+                        username, 
+                        old.password_hash, 
+                        old.created_at, 
+                        old.updated_at, 
+                        old.artist_id || null, 
+                        old.gun_pub || null, 
+                        old.gun_priv || null,
+                        old.subsonic_token || null,
+                        old.subsonic_password || null
+                    );
                 }
 
                 // 4. Drop old table
