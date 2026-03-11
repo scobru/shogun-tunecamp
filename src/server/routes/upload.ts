@@ -190,22 +190,53 @@ export function createUploadRoutes(
                 const sanitizedName = sanitizeFilename(file.originalname);
                 let destPath = path.join(destDir, sanitizedName);
 
-                // Check for collision and rename if necessary
-                let counter = 1;
+                let isExactDuplicate = false;
                 const ext = path.extname(sanitizedName);
                 const nameBase = path.basename(sanitizedName, ext);
 
-                while (await fs.pathExists(destPath)) {
-                    destPath = path.join(destDir, `${nameBase}_${counter}${ext}`);
-                    counter++;
+                if (await fs.pathExists(destPath)) {
+                    const existingStat = await fs.stat(destPath);
+                    // Deduplication heuristic: If same name and exact same size, it's the same file
+                    if (existingStat.size === file.size) {
+                        console.log(`   ⏭️ Skipping duplicate upload (same size): ${sanitizedName}`);
+                        isExactDuplicate = true;
+                    } else {
+                        // Different size, rename to avoid collision
+                        let counter = 1;
+                        while (await fs.pathExists(destPath)) {
+                            destPath = path.join(destDir, `${nameBase}_${counter}${ext}`);
+                            counter++;
+                        }
+                        console.log(`   ⚠️ Filename collision (different size). Renamed to: ${path.basename(destPath)}`);
+                    }
                 }
 
-                if (counter > 1) {
-                    console.log(`   ⚠️ Filename collision. Renamed to: ${path.basename(destPath)}`);
+                if (isExactDuplicate) {
+                    await fs.remove(file.path).catch(() => { });
+
+                    if (release) {
+                        const dbPath = path.relative(musicDir, destPath).replace(/\\/g, '/');
+                        const existingTrack = database.getTrackByPath(dbPath);
+                        if (existingTrack) {
+                            database.addTrackToRelease(release.id, existingTrack.id);
+                            console.log(`   🔗 Linked existing duplicate track ${existingTrack.id} to release ${release.title}`);
+                            processedCount++;
+                            scannerResults.push({ success: true, trackId: existingTrack.id, isDuplicate: true });
+                        } else {
+                            // File exists but not in DB? Force a scan
+                            const scanResult = await scanner.processAudioFile(destPath, musicDir);
+                            if (scanResult && scanResult.success && scanResult.trackId) {
+                                database.addTrackToRelease(release.id, scanResult.trackId);
+                                processedCount++;
+                                scannerResults.push(scanResult);
+                            }
+                        }
+                    }
+                    continue; // Skip fs.move and standard scanner processing
                 }
 
                 try {
-                    await fs.move(file.path, destPath, { overwrite: false }); // Should be safe now
+                    await fs.move(file.path, destPath, { overwrite: false });
                     movedCount++;
 
                     // Process immediately to get Track ID
