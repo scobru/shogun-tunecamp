@@ -22,6 +22,15 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     // --- Helpers ---
 
+    /**
+     * Ensures that a query parameter is a string, even if multiple values were provided as an array.
+     */
+    const ensureString = (val: any): string | undefined => {
+        if (typeof val === 'string') return val;
+        if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'string') return val[0];
+        return undefined;
+    };
+
     const sanitizeJsonKeys = (obj: any): any => {
         if (Array.isArray(obj)) {
             return obj.map(item => sanitizeJsonKeys(item));
@@ -49,7 +58,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     };
 
     const sendResponse = (res: any, req: any, data: object, status = 'ok') => {
-        const isJson = req.query.f === 'json';
+        const isJson = ensureString(req.query.f) === 'json';
         const version = '1.16.1';
 
         // OpenSubsonic: Add header to identify as compatible server
@@ -84,7 +93,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     };
 
     const sendError = (res: any, req: any, code: number, message: string) => {
-        const isJson = req.query.f === 'json';
+        const isJson = ensureString(req.query.f) === 'json';
         const status = 'failed';
         const version = '1.16.1';
 
@@ -178,7 +187,10 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             return sendResponse(res, req, { message: 'Tunecamp Subsonic API' });
         }
 
-        const { u, p, t, s } = req.query as any;
+        const u = ensureString(req.query.u);
+        const p = ensureString(req.query.p);
+        const t = ensureString(req.query.t);
+        const s = ensureString(req.query.s);
 
         if (!u) return sendError(res, req, 10, 'Parameter u is missing');
 
@@ -283,7 +295,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const getMusicDirectory = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
-        const { id } = req.query as any;
+        const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         // Handle Artist -> Return Albums
@@ -335,7 +347,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Media ---
 
     const getCoverArt = async (req: any, res: any) => {
-        const { id } = req.query as any;
+        const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         let imagePath: string | null = null;
@@ -387,7 +399,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     };
 
     const stream = async (req: any, res: any) => {
-        const { id } = req.query as any;
+        const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         if (id.startsWith('tr_')) {
@@ -405,7 +417,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     };
 
     const scrobble = async (req: any, res: any) => {
-        const { id, submission, timestamp } = req.query as any;
+        const { id, submission: subRaw, timestamp } = req.query as any;
+        const submission = ensureString(subRaw);
         const ids = Array.isArray(id) ? id : [id];
         const timestamps = Array.isArray(timestamp) ? timestamp : [timestamp];
 
@@ -470,7 +483,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const getArtist = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
-        const { id } = req.query as any;
+        const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         if (id.startsWith('ar_')) {
@@ -495,7 +508,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const getAlbum = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
-        const { id } = req.query as any;
+        const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         if (id.startsWith('al_')) {
@@ -606,7 +619,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const getSong = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
-        const { id } = req.query as any;
+        const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         const trackId = parseInt(id.startsWith('tr_') ? id.substring(3) : id);
@@ -657,9 +670,12 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/getArtists.view', getArtists);
 
     const getAlbumList = (req: any, res: any) => {
-        const { type, size, offset, genre } = req.query as any;
-        const limit = parseInt(size) || 10;
-        const skip = parseInt(offset) || 0;
+        const type = ensureString(req.query.type);
+        const size = ensureString(req.query.size);
+        const offset = ensureString(req.query.offset);
+        const genre = ensureString(req.query.genre);
+        const limit = parseInt(size || '') || 10;
+        const skip = parseInt(offset || '') || 0;
         const isV2 = req.path.includes('getAlbumList2');
 
         let albums = db.getAlbums(false);
@@ -682,9 +698,10 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         } else if (type === 'byGenre' && genre) {
             albums = albums.filter(a => a.genre && a.genre.toLowerCase().includes(genre.toLowerCase()));
         } else if (type === 'byYear') {
-            const { fromYear, toYear } = req.query as any;
-            const from = parseInt(fromYear) || 0;
-            const to = parseInt(toYear) || 9999;
+            const fromYear = ensureString(req.query.fromYear);
+            const toYear = ensureString(req.query.toYear);
+            const from = parseInt(fromYear || '') || 0;
+            const to = parseInt(toYear || '') || 9999;
             albums = albums.filter(a => {
                 const year = a.date ? new Date(a.date).getFullYear() : 0;
                 return year >= from && year <= to;
@@ -713,8 +730,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const getRandomSongs = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
-        const { size } = req.query as any;
-        const limit = parseInt(size) || 10;
+        const size = ensureString(req.query.size);
+        const limit = parseInt(size || '') || 10;
 
         const allTracks = db.getTracks(undefined, true);
         const randomTracks = allTracks.sort(() => Math.random() - 0.5).slice(0, limit);
@@ -731,14 +748,17 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const search = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
-        const { query, artistCount, albumCount, songCount } = req.query as any;
+        const query = ensureString(req.query.query);
+        const artistCount = ensureString(req.query.artistCount);
+        const albumCount = ensureString(req.query.albumCount);
+        const songCount = ensureString(req.query.songCount);
         if (!query) return sendError(res, req, 10, 'Missing query parameter');
 
         const results = db.search(query, true);
 
-        const aLimit = parseInt(artistCount) || 20;
-        const alLimit = parseInt(albumCount) || 20;
-        const sLimit = parseInt(songCount) || 50;
+        const aLimit = parseInt(artistCount || '') || 20;
+        const alLimit = parseInt(albumCount || '') || 20;
+        const sLimit = parseInt(songCount || '') || 50;
 
         const responseData: any = {
             searchResult2: {
@@ -785,7 +805,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const getPlaylist = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
-        const { id } = req.query as any;
+        const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing id parameter');
 
         const playlistId = parseInt(id.startsWith('pl_') ? id.substring(3) : id);
@@ -811,7 +831,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/getPlaylist.view', getPlaylist);
 
     const getUser = (req: any, res: any) => {
-        const { username } = req.query as any;
+        const username = ensureString(req.query.username);
         const requestedUser = username || (req as any).user.username;
         sendResponse(res, req, {
             user: {
@@ -917,10 +937,11 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const setRating = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
-        const { id, rating } = req.query as any;
+        const id = ensureString(req.query.id);
+        const rating = ensureString(req.query.rating);
         if (!id) return sendError(res, req, 10, 'Missing id');
         
-        const r = parseInt(rating);
+        const r = parseInt(rating || '');
         if (isNaN(r) || r < 0 || r > 5) return sendError(res, req, 10, 'Invalid rating (0-5)');
 
         let type = 'track';
@@ -937,7 +958,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Playlist Management ---
 
     const createPlaylistEndpoint = (req: any, res: any) => {
-        const { playlistId, name, songId } = req.query as any;
+        const playlistId = ensureString(req.query.playlistId);
+        const name = ensureString(req.query.name);
+        const { songId } = req.query as any;
 
         let plId: number;
 
@@ -994,7 +1017,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/createPlaylist.view', createPlaylistEndpoint);
 
     const updatePlaylistEndpoint = (req: any, res: any) => {
-        const { playlistId, name, songIdToAdd, songIndexToRemove } = req.query as any;
+        const playlistId = ensureString(req.query.playlistId);
+        const name = ensureString(req.query.name);
+        const { songIdToAdd, songIndexToRemove } = req.query as any;
         if (!playlistId) return sendError(res, req, 10, 'Missing playlistId');
 
         const plId = parseInt(playlistId.startsWith('pl_') ? playlistId.substring(3) : playlistId);
@@ -1037,7 +1062,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/updatePlaylist.view', updatePlaylistEndpoint);
 
     const deletePlaylistEndpoint = (req: any, res: any) => {
-        const { id } = req.query as any;
+        const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing id');
 
         const plId = parseInt(id.startsWith('pl_') ? id.substring(3) : id);
@@ -1051,7 +1076,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Download ---
 
     const download = async (req: any, res: any) => {
-        const { id } = req.query as any;
+        const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         if (id.startsWith('tr_')) {
@@ -1084,7 +1109,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Artist Info ---
 
     const getArtistInfo = (req: any, res: any) => {
-        const { id, count } = req.query as any;
+        const id = ensureString(req.query.id);
+        const count = ensureString(req.query.count);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         const isV2 = req.path.includes('getArtistInfo2');
@@ -1121,7 +1147,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Album Info ---
 
     const getAlbumInfo = (req: any, res: any) => {
-        const { id } = req.query as any;
+        const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         const isV2 = req.path.includes('getAlbumInfo2');
@@ -1157,8 +1183,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Similar Songs ---
 
     const getSimilarSongs = (req: any, res: any) => {
-        const { id, count } = req.query as any;
-        const limit = parseInt(count) || 10;
+        const id = ensureString(req.query.id);
+        const count = ensureString(req.query.count);
+        const limit = parseInt(count || '') || 10;
         const isV2 = req.path.includes('getSimilarSongs2');
 
         let similarTracks: any[] = [];
@@ -1228,7 +1255,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Lyrics ---
 
     const getLyrics = (req: any, res: any) => {
-        const { artist, title } = req.query as any;
+        const artist = ensureString(req.query.artist);
+        const title = ensureString(req.query.title);
 
         // Try to find the track by artist and title
         if (artist && title) {
@@ -1260,7 +1288,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const savePlayQueue = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
-        const { id, current, position } = req.query as any;
+        const current = ensureString(req.query.current);
+        const position = ensureString(req.query.position);
+        const { id } = req.query as any;
 
         const ids = id ? (Array.isArray(id) ? id : [id]) : [];
         const trackIds = [];
@@ -1302,11 +1332,13 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Songs By Genre ---
 
     const getSongsByGenre = (req: any, res: any) => {
-        const { genre, count, offset } = req.query as any;
+        const genre = ensureString(req.query.genre);
+        const count = ensureString(req.query.count);
+        const offset = ensureString(req.query.offset);
         if (!genre) return sendError(res, req, 10, 'Missing genre parameter');
 
-        const limit = parseInt(count) || 10;
-        const skip = parseInt(offset) || 0;
+        const limit = parseInt(count || '') || 10;
+        const skip = parseInt(offset || '') || 0;
 
         const allAlbums = db.getAlbums(false);
         const matchingAlbums = allAlbums.filter(a => a.genre && a.genre.toLowerCase().includes(genre.toLowerCase()));
@@ -1419,7 +1451,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const createBookmarkEndpoint = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
-        const { id, position, comment } = req.query as any;
+        const id = ensureString(req.query.id);
+        const position = ensureString(req.query.position);
+        const comment = ensureString(req.query.comment);
         if (!id || !position) return sendError(res, req, 10, 'Missing id or position');
 
         db.createBookmark(username, id, parseInt(position), comment);
@@ -1430,7 +1464,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const deleteBookmarkEndpoint = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
-        const { id } = req.query as any;
+        const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing id');
 
         db.deleteBookmark(username, id);
