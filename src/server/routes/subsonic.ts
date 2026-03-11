@@ -611,11 +611,12 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/getArtists.view', getArtists);
 
     const getAlbumList = (req: any, res: any) => {
-        const { type, size, offset } = req.query as any;
+        const { type, size, offset, genre } = req.query as any;
         const limit = parseInt(size) || 10;
         const skip = parseInt(offset) || 0;
+        const isV2 = req.path.includes('getAlbumList2');
 
-        let albums = db.getAlbums(false); // Show ALL authenticated user's albums
+        let albums = db.getAlbums(false);
 
         if (type === 'random') {
             albums = albums.sort(() => Math.random() - 0.5);
@@ -625,24 +626,48 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             albums = albums.sort((a, b) => (a.artist_name || '').localeCompare(b.artist_name || ''));
         } else if (type === 'alphabeticalByName') {
             albums = albums.sort((a, b) => a.title.localeCompare(b.title));
+        } else if (type === 'frequent' || type === 'recent') {
+            albums = albums.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        } else if (type === 'starred') {
+            const username = (req as any).user?.username || 'admin';
+            const starredItems = db.getStarredItems(username, 'album');
+            const starredIds = new Set(starredItems.map(s => s.item_id));
+            albums = albums.filter(a => starredIds.has(`al_${a.id}`));
+        } else if (type === 'byGenre' && genre) {
+            albums = albums.filter(a => a.genre && a.genre.toLowerCase().includes(genre.toLowerCase()));
+        } else if (type === 'byYear') {
+            const { fromYear, toYear } = req.query as any;
+            const from = parseInt(fromYear) || 0;
+            const to = parseInt(toYear) || 9999;
+            albums = albums.filter(a => {
+                const year = a.date ? new Date(a.date).getFullYear() : 0;
+                return year >= from && year <= to;
+            }).sort((a, b) => {
+                const ya = a.date ? new Date(a.date).getFullYear() : 0;
+                const yb = b.date ? new Date(b.date).getFullYear() : 0;
+                return ya - yb;
+            });
         }
 
         const paginated = albums.slice(skip, skip + limit);
 
+        const albumData = paginated.map(album => ({
+            '@id': `al_${album.id}`,
+            '@name': album.title,
+            '@title': album.title,
+            '@album': album.title,
+            '@artist': album.artist_name,
+            '@artistId': `ar_${album.artist_id}`,
+            '@coverArt': `al_${album.id}`,
+            '@created': album.created_at,
+            '@year': album.date ? new Date(album.date).getFullYear() : undefined,
+            '@genre': album.genre
+        }));
+
+        const wrapperKey = isV2 ? 'albumList2' : 'albumList';
         sendResponse(res, req, {
-            albumList: {
-                album: paginated.map(album => ({
-                    '@id': `al_${album.id}`,
-                    '@name': album.title,
-                    '@title': album.title,
-                    '@album': album.title,
-                    '@artist': album.artist_name,
-                    '@artistId': `ar_${album.artist_id}`,
-                    '@coverArt': `al_${album.id}`,
-                    '@created': album.created_at,
-                    '@year': album.date ? new Date(album.date).getFullYear() : undefined,
-                    '@genre': album.genre
-                }))
+            [wrapperKey]: {
+                album: albumData
             }
         });
     };

@@ -322,6 +322,12 @@ export interface DatabaseService {
 
     getOAuthLink(provider: string, subject: string): OAuthLink | undefined;
     createOAuthLink(provider: string, subject: string, gunPub: string, gunPriv: string): void;
+
+    // Starred Items (Subsonic)
+    starItem(username: string, itemType: string, itemId: string): void;
+    unstarItem(username: string, itemType: string, itemId: string): void;
+    getStarredItems(username: string, itemType?: string): { item_type: string; item_id: string; created_at: string }[];
+    isStarred(username: string, itemType: string, itemId: string): boolean;
 }
 
 export function createDatabase(dbPath: string): DatabaseService {
@@ -553,6 +559,15 @@ export function createDatabase(dbPath: string): DatabaseService {
       published_at TEXT,
       received_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS starred_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL,
+      item_type TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(username, item_type, item_id)
+    );
   `);
 
     // Migration: Add is_release column if it doesn't exist
@@ -575,15 +590,15 @@ export function createDatabase(dbPath: string): DatabaseService {
     try {
         db.exec(`ALTER TABLE gun_users ADD COLUMN epub TEXT`);
         console.log("📦 Migrated database: added epub to gun_users");
-    } catch (e) {}
+    } catch (e) { }
     try {
         db.exec(`ALTER TABLE gun_users ADD COLUMN alias TEXT`);
         console.log("📦 Migrated database: added alias to gun_users");
-    } catch (e) {}
+    } catch (e) { }
     try {
         db.exec(`ALTER TABLE gun_users ADD COLUMN avatar TEXT`);
         console.log("📦 Migrated database: added avatar to gun_users");
-    } catch (e) {}
+    } catch (e) { }
 
     // Migration: Add download column if it doesn't exist
     try {
@@ -1904,6 +1919,30 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         deleteRemoteContent(apId: string): void {
             db.prepare("DELETE FROM remote_content WHERE ap_id = ?").run(apId);
+        },
+
+        // Starred Items (Subsonic)
+        starItem(username: string, itemType: string, itemId: string): void {
+            db.prepare(`
+                INSERT OR IGNORE INTO starred_items (username, item_type, item_id)
+                VALUES (?, ?, ?)
+            `).run(username, itemType, itemId);
+        },
+
+        unstarItem(username: string, itemType: string, itemId: string): void {
+            db.prepare("DELETE FROM starred_items WHERE username = ? AND item_type = ? AND item_id = ?").run(username, itemType, itemId);
+        },
+
+        getStarredItems(username: string, itemType?: string): { item_type: string; item_id: string; created_at: string }[] {
+            if (itemType) {
+                return db.prepare("SELECT item_type, item_id, created_at FROM starred_items WHERE username = ? AND item_type = ?").all(username, itemType) as any[];
+            }
+            return db.prepare("SELECT item_type, item_id, created_at FROM starred_items WHERE username = ?").all(username) as any[];
+        },
+
+        isStarred(username: string, itemType: string, itemId: string): boolean {
+            const row = db.prepare("SELECT 1 FROM starred_items WHERE username = ? AND item_type = ? AND item_id = ?").get(username, itemType, itemId);
+            return !!row;
         }
     };
 }
