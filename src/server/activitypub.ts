@@ -81,25 +81,49 @@ export class ActivityPubService {
 
             const baseUrl = this.getBaseUrl();
 
+            // Normalize URI
+            let resolvedActorUri = actorUri;
+            if (!actorUri.startsWith("http")) {
+                resolvedActorUri = `https://${actorUri}`;
+            }
+
             // Check for self-follow
-            if (actorUri === baseUrl || actorUri === `${baseUrl}/` || actorUri === `${baseUrl}/users/site`) {
-                console.warn(`🛑 Self-following is disabled: ${actorUri}`);
+            if (resolvedActorUri === baseUrl || resolvedActorUri === `${baseUrl}/` || resolvedActorUri === `${baseUrl}/users/site`) {
+                console.warn(`🛑 Self-following is disabled: ${resolvedActorUri}`);
                 return;
+            }
+
+            // Robust Resolution Phase
+            console.log(`🔍 Resolving actor: ${resolvedActorUri}`);
+            let finalActorUri = resolvedActorUri;
+            
+            // If the URL is just a domain root, try to discover the site actor
+            try {
+                const url = new URL(resolvedActorUri);
+                if (url.pathname === "/" || url.pathname === "") {
+                    const discoveredUri = await this.discoverSiteActor(url.origin);
+                    if (discoveredUri) {
+                        finalActorUri = discoveredUri;
+                        console.log(`✨ Discovered site actor: ${finalActorUri}`);
+                    }
+                }
+            } catch (urlErr) {
+                console.warn(`⚠️ Invalid actor URL during resolution: ${resolvedActorUri}`);
             }
 
             const followerId = new URL(`/users/${followerHandle}`, baseUrl);
 
-            // Resolve inbox from actor URI
-            console.log(`🔍 Resolving inbox for actor: ${actorUri}`);
-            const inboxUri = await this.getInboxFromActor(actorUri);
+            // Resolve inbox from final actor URI
+            console.log(`🔍 Resolving inbox for actor: ${finalActorUri}`);
+            const inboxUri = await this.getInboxFromActor(finalActorUri);
             if (!inboxUri) {
-                console.error(`❌ Could not resolve inbox for actor: ${actorUri}`);
+                console.error(`❌ Could not resolve inbox for actor: ${finalActorUri}`);
                 return;
             }
 
             const follow = new Follow({
                 actor: followerId,
-                object: new URL(actorUri),
+                object: new URL(finalActorUri),
             });
 
             // Send Follow activity using the shared helper
@@ -766,6 +790,65 @@ export class ActivityPubService {
         return `keyId="${keyId}",algorithm="rsa-sha256",headers="(request-target) host date digest",signature="${signature}"`;
     }
 
+    /**
+     * Tries to find the main site actor for a domain using WebFinger and NodeInfo
+     */
+    private async discoverSiteActor(origin: string): Promise<string | null> {
+        try {
+            const domain = new URL(origin).hostname;
+            
+            // 1. Try WebFinger for 'site' or 'instance'
+            const wellKnownAliases = ["site", "instance", domain];
+            for (const alias of wellKnownAliases) {
+                const actorId = await this.getActorIdFromWebFinger(domain, alias);
+                if (actorId) return actorId;
+            }
+
+            // 2. Try NodeInfo
+            const nodeInfoActorId = await this.getActorIdFromNodeInfo(origin);
+            if (nodeInfoActorId) return nodeInfoActorId;
+        } catch (e) {
+            console.warn(`⚠️ Error during site actor discovery for ${origin}:`, e);
+        }
+
+        return null;
+    }
+
+    private async getActorIdFromWebFinger(domain: string, username: string): Promise<string | null> {
+        try {
+            const resource = `acct:${username}@${domain}`;
+            const wfUrl = `https://${domain}/.well-known/webfinger?resource=${encodeURIComponent(resource)}`;
+            const res = await fetch(wfUrl, { headers: { "Accept": "application/jrd+json, application/json" } });
+            if (!res.ok) return null;
+            const jrd = await res.json() as any;
+            const selfLink = jrd.links?.find((l: any) => l.rel === "self" && (l.type === "application/activity+json" || l.type?.includes("json")));
+            return selfLink?.href || null;
+        } catch {
+            return null;
+        }
+    }
+
+    private async getActorIdFromNodeInfo(origin: string): Promise<string | null> {
+        try {
+            // Find NodeInfo endpoint
+            const wellKnownRes = await fetch(`${origin}/.well-known/nodeinfo`);
+            if (!wellKnownRes.ok) return null;
+            const wellKnown = await wellKnownRes.json() as any;
+            const nodeInfoLink = wellKnown.links?.find((l: any) => l.rel?.includes("nodeinfo"));
+            if (!nodeInfoLink?.href) return null;
+
+            // Fetch NodeInfo
+            const niRes = await fetch(nodeInfoLink.href);
+            if (!niRes.ok) return null;
+            const ni = await niRes.json() as any;
+            
+            // Funkwhale and others put actorId in metadata
+            return ni.metadata?.actorId || null;
+        } catch {
+            return null;
+        }
+    }
+
     private async getInboxFromActor(actorUri: string): Promise<string | null> {
         if (!this.isSafeUrl(actorUri)) {
             console.warn(`⚠️ Blocked unsafe actor URI: ${actorUri}`);
@@ -775,7 +858,15 @@ export class ActivityPubService {
             const res = await fetch(actorUri, {
                 headers: { "Accept": "application/activity+json" }
             });
-            if (!res.ok) return null;
+            if (!res.ok) {
+                // Try again with a different content-type just in case
+                const res2 = await fetch(actorUri, {
+                    headers: { "Accept": "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"" }
+                });
+                if (!res2.ok) return null;
+                const actor = await res2.json() as any;
+                return actor.inbox || null;
+            }
             const actor = await res.json() as any;
             return actor.inbox || null;
         } catch {
