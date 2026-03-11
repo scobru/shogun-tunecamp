@@ -28,7 +28,8 @@ export function createCatalogRoutes(database: DatabaseService): Router {
                     totalUsers: stats.totalUsers,
                     storageUsed: stats.storageUsed,
                     networkSites: stats.networkSites,
-                    totalTracks: publicTracksCount
+                    totalTracks: publicTracksCount,
+                    genresCount: stats.genresCount
                 };
             }
 

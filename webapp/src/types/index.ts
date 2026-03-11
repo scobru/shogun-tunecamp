@@ -163,11 +163,16 @@ export interface NetworkTrack {
 
 export interface AdminStats {
     totalUsers: number;
-    totalArtists: number;
-    totalAlbums: number;
+    totalArtists?: number; // Optional as backend uses 'artists'
+    artists?: number;
+    totalAlbums?: number; // Optional as backend uses 'albums'
+    albums?: number;
     totalTracks: number;
+    tracks?: number;
+    publicAlbums?: number;
     storageUsed: number;
     networkSites: number;
+    genresCount?: number;
 }
 
 export interface GunProfile {
