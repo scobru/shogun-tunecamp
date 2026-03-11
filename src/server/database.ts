@@ -120,6 +120,7 @@ function mapAlbums(rows: any[]): Album[] {
 export interface Playlist {
     id: number;
     name: string;
+    username: string;
     description: string | null;
     isPublic: boolean;
     coverPath: string | null;
@@ -269,9 +270,9 @@ export interface DatabaseService {
     updateReleaseTracks(releaseId: number, toAdd: number[], toRemove: number[]): void;
     getReleaseTrackIds(releaseId: number): number[];
     // Playlists
-    getPlaylists(publicOnly?: boolean): Playlist[];
+    getPlaylists(username?: string, publicOnly?: boolean): Playlist[];
     getPlaylist(id: number): Playlist | undefined;
-    createPlaylist(name: string, description?: string, isPublic?: boolean): number;
+    createPlaylist(name: string, username: string, description?: string, isPublic?: boolean): number;
     updatePlaylistVisibility(id: number, isPublic: boolean): void;
     updatePlaylistCover(id: number, coverPath: string | null): void;
     deletePlaylist(id: number): void;
@@ -472,6 +473,7 @@ export function createDatabase(dbPath: string): DatabaseService {
     CREATE TABLE IF NOT EXISTS playlists (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      username TEXT NOT NULL,
       description TEXT,
       is_public INTEGER DEFAULT 0,
       cover_path TEXT,
@@ -759,6 +761,15 @@ export function createDatabase(dbPath: string): DatabaseService {
     try {
         db.exec(`ALTER TABLE playlists ADD COLUMN cover_path TEXT`);
         console.log("📦 Migrated database: added cover_path column to playlists");
+    } catch (e) {
+        // Column already exists, ignore
+    }
+
+    // Migration: Add username column to playlists if it doesn't exist
+    try {
+        db.exec(`ALTER TABLE playlists ADD COLUMN username TEXT`);
+        db.prepare("UPDATE playlists SET username = 'admin' WHERE username IS NULL").run();
+        console.log("📦 Migrated database: added username column to playlists");
     } catch (e) {
         // Column already exists, ignore
     }
@@ -1542,21 +1553,28 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         // Playlists
 
-        getPlaylists(publicOnly = false): Playlist[] {
+        getPlaylists(username?: string, publicOnly = false): Playlist[] {
+            if (username) {
+                const sql = publicOnly
+                    ? "SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists WHERE username = ? AND is_public = 1 ORDER BY name"
+                    : "SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists WHERE username = ? ORDER BY name";
+                return db.prepare(sql).all(username) as Playlist[];
+            }
+            
             const sql = publicOnly
-                ? "SELECT id, name, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists WHERE is_public = 1 ORDER BY name"
-                : "SELECT id, name, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists ORDER BY name";
+                ? "SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists WHERE is_public = 1 ORDER BY name"
+                : "SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists ORDER BY name";
             return db.prepare(sql).all() as Playlist[];
         },
 
         getPlaylist(id: number): Playlist | undefined {
-            return db.prepare("SELECT id, name, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists WHERE id = ?").get(id) as Playlist | undefined;
+            return db.prepare("SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists WHERE id = ?").get(id) as Playlist | undefined;
         },
 
-        createPlaylist(name: string, description?: string, isPublic = false): number {
+        createPlaylist(name: string, username: string, description?: string, isPublic = false): number {
             const result = db
-                .prepare("INSERT INTO playlists (name, description, is_public) VALUES (?, ?, ?)")
-                .run(name, description || null, isPublic ? 1 : 0);
+                .prepare("INSERT INTO playlists (name, username, description, is_public) VALUES (?, ?, ?, ?)")
+                .run(name, username, description || null, isPublic ? 1 : 0);
             return result.lastInsertRowid as number;
         },
 

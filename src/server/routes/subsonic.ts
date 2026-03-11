@@ -501,8 +501,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
-        if (id.startsWith('ar_')) {
-            const artistId = parseInt(id.substring(3));
+        const artistId = parseInt(id.startsWith('ar_') ? id.substring(3) : id);
+        if (!isNaN(artistId)) {
             const artist = db.getArtist(artistId);
             if (artist) {
                 const albums = db.getAlbumsByArtist(artistId);
@@ -526,8 +526,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
-        if (id.startsWith('al_')) {
-            const albumId = parseInt(id.substring(3));
+        const albumId = parseInt(id.startsWith('al_') ? id.substring(3) : id);
+        if (!isNaN(albumId)) {
             const album = db.getAlbum(albumId);
             if (album) {
                 const tracks = db.getTracks(albumId);
@@ -800,13 +800,14 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/search3.view', search);
 
     const getPlaylists = (req: any, res: any) => {
-        const playlists = db.getPlaylists(true);
+        const username = (req as any).user?.username || 'admin';
+        const playlists = db.getPlaylists(username);
         sendResponse(res, req, {
             playlists: {
                 playlist: playlists.map(p => ({
                     '@id': `pl_${p.id}`,
                     '@name': p.name,
-                    '@owner': 'admin',
+                    '@owner': p.username,
                     '@public': p.isPublic ? 'true' : 'false',
                     '@created': p.created_at,
                     '@songCount': db.getPlaylistTracks(p.id).length
@@ -833,7 +834,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             playlist: {
                 '@id': `pl_${playlist.id}`,
                 '@name': playlist.name,
-                '@owner': 'admin',
+                '@owner': playlist.username,
                 '@public': playlist.isPublic ? 'true' : 'false',
                 '@created': playlist.created_at,
                 '@songCount': tracks.length,
@@ -973,6 +974,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Playlist Management ---
 
     const createPlaylistEndpoint = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
         const playlistId = ensureString(req.query.playlistId);
         const name = ensureString(req.query.name);
         const { songId } = req.query as any;
@@ -984,9 +986,10 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             plId = parseInt(playlistId.startsWith('pl_') ? playlistId.substring(3) : playlistId);
             const existing = db.getPlaylist(plId);
             if (!existing) return sendError(res, req, 70, 'Playlist not found');
+            if (existing.username !== username && username !== 'admin') return sendError(res, req, 50, 'User is not being authorized for the given operation');
         } else if (name) {
             // Create new
-            plId = db.createPlaylist(name);
+            plId = db.createPlaylist(name, username);
         } else {
             return sendError(res, req, 10, 'Missing name or playlistId');
         }
@@ -1010,20 +1013,11 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             playlist: {
                 '@id': `pl_${plId}`,
                 '@name': playlist?.name || name,
-                '@owner': 'admin',
-                '@public': 'false',
+                '@owner': playlist?.username || username,
+                '@public': playlist?.isPublic ? 'true' : 'false',
                 '@songCount': tracks.length,
                 '@created': playlist?.created_at,
-                entry: tracks.map(t => ({
-                    '@id': `tr_${t.id}`,
-                    '@title': t.title,
-                    '@album': t.album_title,
-                    '@artist': t.artist_name,
-                    '@duration': Math.floor(t.duration || 0),
-                    '@coverArt': `tr_${t.id}`,
-                    '@albumId': `al_${t.album_id}`,
-                    '@artistId': `ar_${t.artist_id}`
-                }))
+                entry: tracks.map(t => formatTrack(t, username))
             }
         });
     };
@@ -1032,18 +1026,26 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/createPlaylist.view', createPlaylistEndpoint);
 
     const updatePlaylistEndpoint = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
         const playlistId = ensureString(req.query.playlistId);
         const name = ensureString(req.query.name);
+        const isPublicStr = ensureString(req.query.public);
         const { songIdToAdd, songIndexToRemove } = req.query as any;
         if (!playlistId) return sendError(res, req, 10, 'Missing playlistId');
 
         const plId = parseInt(playlistId.startsWith('pl_') ? playlistId.substring(3) : playlistId);
         const existing = db.getPlaylist(plId);
         if (!existing) return sendError(res, req, 70, 'Playlist not found');
+        if (existing.username !== username && username !== 'admin') return sendError(res, req, 50, 'User is not being authorized for the given operation');
 
         // Rename if specified (direct SQL since no dedicated method)
         if (name) {
             db.db.prepare('UPDATE playlists SET name = ? WHERE id = ?').run(name, plId);
+        }
+
+        // Update visibility
+        if (isPublicStr !== undefined) {
+            db.updatePlaylistVisibility(plId, isPublicStr === 'true');
         }
 
         // Add songs
@@ -1077,10 +1079,15 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/updatePlaylist.view', updatePlaylistEndpoint);
 
     const deletePlaylistEndpoint = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
         const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing id');
 
         const plId = parseInt(id.startsWith('pl_') ? id.substring(3) : id);
+        const existing = db.getPlaylist(plId);
+        if (!existing) return sendError(res, req, 70, 'Playlist not found');
+        if (existing.username !== username && username !== 'admin') return sendError(res, req, 50, 'User is not being authorized for the given operation');
+
         db.deletePlaylist(plId);
         sendResponse(res, req, {});
     };
