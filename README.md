@@ -201,7 +201,7 @@ Tunecamp is compatible with **Funkwhale** for music federation via ActivityPub.
 
 Tunecamp is built on a decentralized foundation:
 
-- **ActivityPub**: Connects artists with the Fediverse (Mastodon, Funkwhale, etc.). Supports followers, broadcasts for new releases, and standard actor models.
+- **ActivityPub**: Connects artists with the Fediverse (Mastodon, Funkwhale, etc.). Supports followers, likes/favorites, broadcasts for new releases, and standard actor models.
 - **GunDB**: Enables decentralized music discovery, global stats, and social interactions without a central server.
 
 For a deep dive into how Tunecamp handles federation, see [FEDERATION.md](./docs/FEDERATION.md).

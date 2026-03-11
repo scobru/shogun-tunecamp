@@ -37,7 +37,7 @@ ActivityPub allows Tunecamp to communicate with other platforms like Mastodon, P
 ### Key Roles
 
 - **Artist Profiles**: Every artist on Tunecamp is an ActivityPub "Person" actor.
-- **Followers**: Users on other Fediverse instances can follow Tunecamp artists.
+- **Followers & Likes**: Users on other Fediverse instances can follow Tunecamp artists and like/favorite their releases and posts.
 - **Broadcasts**: When an artist publishes a new release or a post, Tunecamp broadcasts a "Create Note" activity to all followers.
 - **Interoperability**: Tunecamp supports WebFinger and standard ActivityPub inboxes/outboxes.
 
@@ -91,6 +91,7 @@ When a Subsonic client scrobbles a track (`scrobble.view`), Tunecamp records the
 | Feature              | Technology   | Scope                     |
 | :------------------- | :----------- | :------------------------ |
 | Artist Following     | ActivityPub  | External (Mastodon, etc)  |
+| Likes / Favorites    | ActivityPub  | External (Mastodon, etc)  |
 | Release Notification | ActivityPub  | External (Mastodon, etc)  |
 | Funkwhale Federation | ActivityPub  | External (Funkwhale)      |
 | Global Track Search  | GunDB        | Internal (Tunecamp Nodes) |
