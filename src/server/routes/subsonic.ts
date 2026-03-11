@@ -1307,7 +1307,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             currentId = current.substring(3);
         }
 
-        db.savePlayQueue(username, trackIds, currentId, parseInt(position) || 0);
+        db.savePlayQueue(username, trackIds, currentId || null, parseInt(position || "0") || 0);
 
         sendResponse(res, req, {});
     };
