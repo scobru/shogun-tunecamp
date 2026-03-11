@@ -512,25 +512,70 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.get('/getGenres.view', getGenres);
     router.post('/getGenres.view', getGenres);
 
-    const getStarred = (req: any, res: any) => {
-        // Tunecamp doesn't have a "starred" system yet, so we return empty lists 
-        // to satisfy OpenSubsonic clients.
-        sendResponse(res, req, {
-            starred: {
-                artist: [],
-                album: [],
-                song: []
+    // Helper to build starred data
+    const buildStarredData = (username: string) => {
+        const starred = db.getStarredItems(username);
+        const artists: any[] = [];
+        const albums: any[] = [];
+        const songs: any[] = [];
+
+        for (const item of starred) {
+            if (item.item_type === 'artist' && item.item_id.startsWith('ar_')) {
+                const artist = db.getArtist(parseInt(item.item_id.substring(3)));
+                if (artist) {
+                    artists.push({
+                        '@id': item.item_id,
+                        '@name': artist.name,
+                        '@coverArt': item.item_id,
+                        '@starred': item.created_at
+                    });
+                }
+            } else if (item.item_type === 'album' && item.item_id.startsWith('al_')) {
+                const album = db.getAlbum(parseInt(item.item_id.substring(3)));
+                if (album) {
+                    albums.push({
+                        '@id': item.item_id,
+                        '@name': album.title,
+                        '@artist': album.artist_name,
+                        '@artistId': `ar_${album.artist_id}`,
+                        '@coverArt': item.item_id,
+                        '@starred': item.created_at,
+                        '@year': album.date ? new Date(album.date).getFullYear() : undefined
+                    });
+                }
+            } else if (item.item_type === 'track' && item.item_id.startsWith('tr_')) {
+                const track = db.getTrack(parseInt(item.item_id.substring(3)));
+                if (track) {
+                    songs.push({
+                        '@id': item.item_id,
+                        '@title': track.title,
+                        '@album': track.album_title,
+                        '@artist': track.artist_name,
+                        '@coverArt': `al_${track.album_id}`,
+                        '@duration': Math.floor(track.duration || 0),
+                        '@starred': item.created_at,
+                        '@albumId': `al_${track.album_id}`,
+                        '@artistId': `ar_${track.artist_id}`
+                    });
+                }
             }
+        }
+        return { artists, albums, songs };
+    };
+
+    const getStarred = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        const { artists, albums, songs } = buildStarredData(username);
+        sendResponse(res, req, {
+            starred: { artist: artists, album: albums, song: songs }
         });
     };
 
     const getStarred2 = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        const { artists, albums, songs } = buildStarredData(username);
         sendResponse(res, req, {
-            starred2: {
-                artist: [],
-                album: [],
-                song: []
-            }
+            starred2: { artist: artists, album: albums, song: songs }
         });
     };
 
@@ -867,12 +912,475 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.get('/getBookmarks.view', getBookmarks);
     router.post('/getBookmarks.view', getBookmarks);
 
-    const getPlayQueue = (req: any, res: any) => sendResponse(res, req, { playQueue: { song: [] } });
+    const getPlayQueue = (req: any, res: any) => sendResponse(res, req, { playQueue: {} });
     router.get('/getPlayQueue.view', getPlayQueue);
     router.post('/getPlayQueue.view', getPlayQueue);
 
+    // --- Star / Unstar ---
+
+    const star = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        const { id, albumId, artistId } = req.query as any;
+
+        const ids = id ? (Array.isArray(id) ? id : [id]) : [];
+        const albumIds = albumId ? (Array.isArray(albumId) ? albumId : [albumId]) : [];
+        const artistIds = artistId ? (Array.isArray(artistId) ? artistId : [artistId]) : [];
+
+        for (const i of ids) db.starItem(username, 'track', i);
+        for (const i of albumIds) db.starItem(username, 'album', i);
+        for (const i of artistIds) db.starItem(username, 'artist', i);
+
+        sendResponse(res, req, {});
+    };
+
+    const unstar = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        const { id, albumId, artistId } = req.query as any;
+
+        const ids = id ? (Array.isArray(id) ? id : [id]) : [];
+        const albumIds = albumId ? (Array.isArray(albumId) ? albumId : [albumId]) : [];
+        const artistIds = artistId ? (Array.isArray(artistId) ? artistId : [artistId]) : [];
+
+        for (const i of ids) db.unstarItem(username, 'track', i);
+        for (const i of albumIds) db.unstarItem(username, 'album', i);
+        for (const i of artistIds) db.unstarItem(username, 'artist', i);
+
+        sendResponse(res, req, {});
+    };
+
+    router.get('/star.view', star);
+    router.post('/star.view', star);
+    router.get('/unstar.view', unstar);
+    router.post('/unstar.view', unstar);
+
+    // --- Playlist Management ---
+
+    const createPlaylistEndpoint = (req: any, res: any) => {
+        const { playlistId, name, songId } = req.query as any;
+
+        let plId: number;
+
+        if (playlistId) {
+            // Update existing playlist
+            plId = parseInt(playlistId.startsWith('pl_') ? playlistId.substring(3) : playlistId);
+            const existing = db.getPlaylist(plId);
+            if (!existing) return sendError(res, req, 70, 'Playlist not found');
+        } else if (name) {
+            // Create new
+            plId = db.createPlaylist(name);
+        } else {
+            return sendError(res, req, 10, 'Missing name or playlistId');
+        }
+
+        // Add songs if provided
+        if (songId) {
+            const songIds = Array.isArray(songId) ? songId : [songId];
+            for (const sid of songIds) {
+                const trackId = parseInt(sid.startsWith('tr_') ? sid.substring(3) : sid);
+                if (!isNaN(trackId)) {
+                    try { db.addTrackToPlaylist(plId, trackId); } catch (e) { /* ignore duplicates */ }
+                }
+            }
+        }
+
+        // Return the playlist
+        const playlist = db.getPlaylist(plId);
+        const tracks = db.getPlaylistTracks(plId);
+
+        sendResponse(res, req, {
+            playlist: {
+                '@id': `pl_${plId}`,
+                '@name': playlist?.name || name,
+                '@owner': 'admin',
+                '@public': 'false',
+                '@songCount': tracks.length,
+                '@created': playlist?.created_at,
+                entry: tracks.map(t => ({
+                    '@id': `tr_${t.id}`,
+                    '@title': t.title,
+                    '@album': t.album_title,
+                    '@artist': t.artist_name,
+                    '@duration': Math.floor(t.duration || 0),
+                    '@coverArt': `al_${t.album_id}`,
+                    '@albumId': `al_${t.album_id}`,
+                    '@artistId': `ar_${t.artist_id}`
+                }))
+            }
+        });
+    };
+
+    router.get('/createPlaylist.view', createPlaylistEndpoint);
+    router.post('/createPlaylist.view', createPlaylistEndpoint);
+
+    const updatePlaylistEndpoint = (req: any, res: any) => {
+        const { playlistId, name, songIdToAdd, songIndexToRemove } = req.query as any;
+        if (!playlistId) return sendError(res, req, 10, 'Missing playlistId');
+
+        const plId = parseInt(playlistId.startsWith('pl_') ? playlistId.substring(3) : playlistId);
+        const existing = db.getPlaylist(plId);
+        if (!existing) return sendError(res, req, 70, 'Playlist not found');
+
+        // Rename if specified (direct SQL since no dedicated method)
+        if (name) {
+            db.db.prepare('UPDATE playlists SET name = ? WHERE id = ?').run(name, plId);
+        }
+
+        // Add songs
+        if (songIdToAdd) {
+            const toAdd = Array.isArray(songIdToAdd) ? songIdToAdd : [songIdToAdd];
+            for (const sid of toAdd) {
+                const trackId = parseInt(sid.startsWith('tr_') ? sid.substring(3) : sid);
+                if (!isNaN(trackId)) {
+                    try { db.addTrackToPlaylist(plId, trackId); } catch (e) { /* ignore */ }
+                }
+            }
+        }
+
+        // Remove songs by index
+        if (songIndexToRemove !== undefined) {
+            const indices = Array.isArray(songIndexToRemove) ? songIndexToRemove.map(Number) : [Number(songIndexToRemove)];
+            const currentTracks = db.getPlaylistTracks(plId);
+            // Remove in reverse order to maintain indices
+            const sorted = indices.sort((a, b) => b - a);
+            for (const idx of sorted) {
+                if (idx >= 0 && idx < currentTracks.length) {
+                    db.removeTrackFromPlaylist(plId, currentTracks[idx].id);
+                }
+            }
+        }
+
+        sendResponse(res, req, {});
+    };
+
+    router.get('/updatePlaylist.view', updatePlaylistEndpoint);
+    router.post('/updatePlaylist.view', updatePlaylistEndpoint);
+
+    const deletePlaylistEndpoint = (req: any, res: any) => {
+        const { id } = req.query as any;
+        if (!id) return sendError(res, req, 10, 'Missing id');
+
+        const plId = parseInt(id.startsWith('pl_') ? id.substring(3) : id);
+        db.deletePlaylist(plId);
+        sendResponse(res, req, {});
+    };
+
+    router.get('/deletePlaylist.view', deletePlaylistEndpoint);
+    router.post('/deletePlaylist.view', deletePlaylistEndpoint);
+
+    // --- Download ---
+
+    const download = async (req: any, res: any) => {
+        const { id } = req.query as any;
+        if (!id) return sendError(res, req, 10, 'Missing parameter id');
+
+        if (id.startsWith('tr_')) {
+            const track = db.getTrack(parseInt(id.substring(3)));
+            if (track && track.file_path) {
+                const fullPath = path.resolve(context.musicDir, track.file_path);
+                if (await fs.pathExists(fullPath)) {
+                    const filename = path.basename(track.file_path);
+                    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+                    return res.sendFile(fullPath);
+                }
+            }
+        }
+
+        return sendError(res, req, 70, 'File not found');
+    };
+
+    router.get('/download.view', download);
+    router.post('/download.view', download);
+
+    // --- Now Playing ---
+
+    const getNowPlaying = (req: any, res: any) => {
+        sendResponse(res, req, { nowPlaying: { entry: [] } });
+    };
+
+    router.get('/getNowPlaying.view', getNowPlaying);
+    router.post('/getNowPlaying.view', getNowPlaying);
+
+    // --- Artist Info ---
+
+    const getArtistInfo = (req: any, res: any) => {
+        const { id, count } = req.query as any;
+        if (!id) return sendError(res, req, 10, 'Missing parameter id');
+
+        const isV2 = req.path.includes('getArtistInfo2');
+        let artistId: number | undefined;
+
+        if (id.startsWith('ar_')) {
+            artistId = parseInt(id.substring(3));
+        } else {
+            artistId = parseInt(id);
+        }
+
+        const artist = artistId ? db.getArtist(artistId) : undefined;
+        if (!artist) return sendError(res, req, 70, 'Artist not found');
+
+        const wrapperKey = isV2 ? 'artistInfo2' : 'artistInfo';
+        sendResponse(res, req, {
+            [wrapperKey]: {
+                '@biography': artist.bio || '',
+                '@musicBrainzId': '',
+                '@lastFmUrl': '',
+                '@smallImageUrl': `/api/artists/${artist.id}/cover`,
+                '@mediumImageUrl': `/api/artists/${artist.id}/cover`,
+                '@largeImageUrl': `/api/artists/${artist.id}/cover`,
+                similarArtist: []
+            }
+        });
+    };
+
+    router.get('/getArtistInfo.view', getArtistInfo);
+    router.get('/getArtistInfo2.view', getArtistInfo);
+    router.post('/getArtistInfo.view', getArtistInfo);
+    router.post('/getArtistInfo2.view', getArtistInfo);
+
+    // --- Album Info ---
+
+    const getAlbumInfo = (req: any, res: any) => {
+        const { id } = req.query as any;
+        if (!id) return sendError(res, req, 10, 'Missing parameter id');
+
+        const isV2 = req.path.includes('getAlbumInfo2');
+        let albumId: number | undefined;
+
+        if (id.startsWith('al_')) {
+            albumId = parseInt(id.substring(3));
+        } else {
+            albumId = parseInt(id);
+        }
+
+        const album = albumId ? db.getAlbum(albumId) : undefined;
+        if (!album) return sendError(res, req, 70, 'Album not found');
+
+        const wrapperKey = isV2 ? 'albumInfo2' : 'albumInfo';
+        sendResponse(res, req, {
+            [wrapperKey]: {
+                '@notes': album.description || '',
+                '@musicBrainzId': '',
+                '@lastFmUrl': '',
+                '@smallImageUrl': `/api/albums/${album.id}/cover`,
+                '@mediumImageUrl': `/api/albums/${album.id}/cover`,
+                '@largeImageUrl': `/api/albums/${album.id}/cover`
+            }
+        });
+    };
+
+    router.get('/getAlbumInfo.view', getAlbumInfo);
+    router.get('/getAlbumInfo2.view', getAlbumInfo);
+    router.post('/getAlbumInfo.view', getAlbumInfo);
+    router.post('/getAlbumInfo2.view', getAlbumInfo);
+
+    // --- Similar Songs ---
+
+    const getSimilarSongs = (req: any, res: any) => {
+        const { id, count } = req.query as any;
+        const limit = parseInt(count) || 10;
+        const isV2 = req.path.includes('getSimilarSongs2');
+
+        // Return random songs as a fallback for similar songs
+        const allTracks = db.getTracks(undefined, true);
+        const randomTracks = allTracks.sort(() => Math.random() - 0.5).slice(0, limit);
+
+        const wrapperKey = isV2 ? 'similarSongs2' : 'similarSongs';
+        sendResponse(res, req, {
+            [wrapperKey]: {
+                song: randomTracks.map(track => ({
+                    '@id': `tr_${track.id}`,
+                    '@title': track.title,
+                    '@album': track.album_title,
+                    '@artist': track.artist_name,
+                    '@duration': Math.floor(track.duration || 0),
+                    '@coverArt': `al_${track.album_id}`,
+                    '@albumId': `al_${track.album_id}`,
+                    '@artistId': `ar_${track.artist_id}`,
+                    '@suffix': track.format || 'mp3',
+                    '@contentType': 'audio/mpeg',
+                    '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128
+                }))
+            }
+        });
+    };
+
+    router.get('/getSimilarSongs.view', getSimilarSongs);
+    router.get('/getSimilarSongs2.view', getSimilarSongs);
+    router.post('/getSimilarSongs.view', getSimilarSongs);
+    router.post('/getSimilarSongs2.view', getSimilarSongs);
+
+    // --- Lyrics ---
+
+    const getLyrics = (req: any, res: any) => {
+        const { artist, title } = req.query as any;
+
+        // Try to find the track by artist and title
+        if (artist && title) {
+            const results = db.search(title, false);
+            const match = results.tracks.find(t =>
+                t.title.toLowerCase() === title.toLowerCase() &&
+                (t.artist_name || '').toLowerCase() === artist.toLowerCase()
+            );
+            if (match && match.lyrics) {
+                sendResponse(res, req, {
+                    lyrics: {
+                        '@artist': artist,
+                        '@title': title,
+                        '#': match.lyrics
+                    }
+                });
+                return;
+            }
+        }
+
+        // No lyrics found
+        sendResponse(res, req, { lyrics: {} });
+    };
+
+    router.get('/getLyrics.view', getLyrics);
+    router.post('/getLyrics.view', getLyrics);
+
+    // --- Save/Get Play Queue ---
+
+    const savePlayQueue = (req: any, res: any) => {
+        // Accept and discard - we don't persist play queue state yet
+        sendResponse(res, req, {});
+    };
+
+    router.get('/savePlayQueue.view', savePlayQueue);
+    router.post('/savePlayQueue.view', savePlayQueue);
+
+    // --- OpenSubsonic Extensions ---
+
+    const getOpenSubsonicExtensions = (req: any, res: any) => {
+        sendResponse(res, req, {
+            openSubsonicExtensions: []
+        });
+    };
+
+    router.get('/getOpenSubsonicExtensions.view', getOpenSubsonicExtensions);
+    router.post('/getOpenSubsonicExtensions.view', getOpenSubsonicExtensions);
+
+    // --- Songs By Genre ---
+
+    const getSongsByGenre = (req: any, res: any) => {
+        const { genre, count, offset } = req.query as any;
+        if (!genre) return sendError(res, req, 10, 'Missing genre parameter');
+
+        const limit = parseInt(count) || 10;
+        const skip = parseInt(offset) || 0;
+
+        const allAlbums = db.getAlbums(false);
+        const matchingAlbums = allAlbums.filter(a => a.genre && a.genre.toLowerCase().includes(genre.toLowerCase()));
+
+        const songs: any[] = [];
+        for (const album of matchingAlbums) {
+            const tracks = db.getTracks(album.id);
+            for (const track of tracks) {
+                songs.push({
+                    '@id': `tr_${track.id}`,
+                    '@title': track.title,
+                    '@album': album.title,
+                    '@artist': track.artist_name || album.artist_name,
+                    '@track': track.track_num,
+                    '@year': album.date ? new Date(album.date).getFullYear() : undefined,
+                    '@genre': album.genre,
+                    '@coverArt': `al_${album.id}`,
+                    '@duration': Math.floor(track.duration || 0),
+                    '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
+                    '@suffix': track.format || 'mp3',
+                    '@contentType': 'audio/mpeg',
+                    '@albumId': `al_${album.id}`,
+                    '@artistId': `ar_${album.artist_id}`
+                });
+            }
+        }
+
+        const paginated = songs.slice(skip, skip + limit);
+        sendResponse(res, req, {
+            songsByGenre: { song: paginated }
+        });
+    };
+
+    router.get('/getSongsByGenre.view', getSongsByGenre);
+    router.post('/getSongsByGenre.view', getSongsByGenre);
+
+    // --- Get Shares (stub) ---
+    const getShares = (req: any, res: any) => sendResponse(res, req, { shares: { share: [] } });
+    router.get('/getShares.view', getShares);
+    router.post('/getShares.view', getShares);
+
+    // --- Get Scan Status (Navidrome requests this) ---
+    const getScanStatus = (req: any, res: any) => {
+        sendResponse(res, req, {
+            scanStatus: { '@scanning': 'false', '@count': 0 }
+        });
+    };
+    router.get('/getScanStatus.view', getScanStatus);
+    router.post('/getScanStatus.view', getScanStatus);
+
+    // --- Start Scan (stub) ---
+    const startScan = (req: any, res: any) => {
+        sendResponse(res, req, {
+            scanStatus: { '@scanning': 'false', '@count': 0 }
+        });
+    };
+    router.get('/startScan.view', startScan);
+    router.post('/startScan.view', startScan);
+
+    // --- Get Users (Navidrome) ---
+    const getUsers = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        sendResponse(res, req, {
+            users: {
+                user: [{
+                    '@username': username,
+                    '@email': 'admin@tunecamp.local',
+                    '@scrobblingEnabled': 'true',
+                    '@adminRole': 'true',
+                    '@settingsRole': 'true',
+                    '@downloadRole': 'true',
+                    '@uploadRole': 'true',
+                    '@playlistRole': 'true',
+                    '@coverArtRole': 'true',
+                    '@commentRole': 'true',
+                    '@podcastRole': 'true',
+                    '@streamRole': 'true',
+                    '@jukeboxRole': 'true',
+                    '@shareRole': 'true'
+                }]
+            }
+        });
+    };
+    router.get('/getUsers.view', getUsers);
+    router.post('/getUsers.view', getUsers);
+
+    // --- Create/Update Bookmarks (stubs) ---
+    const createBookmark = (req: any, res: any) => sendResponse(res, req, {});
+    router.get('/createBookmark.view', createBookmark);
+    router.post('/createBookmark.view', createBookmark);
+
+    const deleteBookmark = (req: any, res: any) => sendResponse(res, req, {});
+    router.get('/deleteBookmark.view', deleteBookmark);
+    router.post('/deleteBookmark.view', deleteBookmark);
+
+    // --- Jukebox Control (stub) ---
+    const jukeboxControl = (req: any, res: any) => {
+        sendResponse(res, req, {
+            jukeboxStatus: {
+                '@currentIndex': '0',
+                '@playing': 'false',
+                '@gain': '0.5',
+                '@position': '0'
+            }
+        });
+    };
+    router.get('/jukeboxControl.view', jukeboxControl);
+    router.post('/jukeboxControl.view', jukeboxControl);
+
     // Catch-all for unmatched .view requests
     router.use((req, res) => {
+        console.warn(`[Subsonic] Unknown request: ${req.method} ${req.path}`);
         sendError(res, req, 0, `Unknown Subsonic request: ${req.path}`);
     });
 

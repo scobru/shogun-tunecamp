@@ -14,6 +14,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
 
     federation.setNodeInfoDispatcher("/nodeinfo/2.1", async (_ctx) => {
         const stats = await dbService.getStats();
+        const siteName = dbService.getSetting("siteName") || config.siteName || "TuneCamp Instance";
         return {
             software: {
                 name: "tunecamp",
@@ -21,6 +22,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
                 repository: new URL("https://github.com/scobru/tunecamp"),
             },
             protocols: ["activitypub"],
+            openRegistrations: false,
             usage: {
                 users: {
                     total: stats.artists > 0 ? stats.artists : 1,
@@ -29,6 +31,17 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
                 },
                 localPosts: stats.tracks + (stats.albums || 0),
                 localComments: 0,
+            },
+            metadata: {
+                nodeName: siteName,
+                nodeDescription: dbService.getSetting("siteDescription") || "Tunecamp music server with ActivityPub federation",
+                library: {
+                    federationEnabled: true,
+                    anonymousCanListen: true,
+                },
+                supportedUploadExtensions: ["mp3", "flac", "ogg", "wav", "m4a", "aac", "opus"],
+                allowList: { enabled: false, domains: [] },
+                funkwhaleVersion: "compatible",
             },
         };
     });

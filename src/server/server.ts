@@ -185,6 +185,52 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/ap", createActivityPubRoutes(apService, database, authMiddleware));
     // app.use("/.well-known", createWebFingerRoute(apService)); // Legacy, handled by Fedify
 
+    // Funkwhale-compatible federation libraries endpoint
+    app.get("/api/v1/federation/libraries", async (_req, res) => {
+        const publicUrl = database.getSetting("publicUrl") || config.publicUrl || `http://localhost:${config.port}`;
+        const stats = await database.getStats();
+        res.json({
+            count: 1,
+            results: [{
+                uuid: "tunecamp-library",
+                fid: `${publicUrl}/federation/libraries/tunecamp-library`,
+                name: database.getSetting("siteName") || config.siteName || "TuneCamp Library",
+                description: database.getSetting("siteDescription") || "Tunecamp music library",
+                privacy_level: "everyone",
+                creation_date: new Date().toISOString(),
+                uploads_count: stats.tracks,
+                size: 0,
+                actor: {
+                    fid: `${publicUrl}/users/site`,
+                    url: publicUrl,
+                    name: database.getSetting("siteName") || "TuneCamp",
+                    preferred_username: "site",
+                    domain: new URL(publicUrl).hostname,
+                }
+            }]
+        });
+    });
+
+    // Funkwhale nodeinfo compatibility - also expose at /api/v1/instance/nodeinfo/2.0
+    app.get("/api/v1/instance/nodeinfo/2.0", async (_req, res) => {
+        const stats = await database.getStats();
+        res.json({
+            version: "2.0",
+            software: { name: "tunecamp", version: "2.0.0" },
+            protocols: ["activitypub"],
+            openRegistrations: false,
+            usage: {
+                users: { total: stats.artists || 1, activeHalfyear: stats.artists || 1, activeMonth: stats.artists || 1 },
+                localPosts: stats.tracks + (stats.albums || 0),
+                localComments: 0,
+            },
+            metadata: {
+                nodeName: database.getSetting("siteName") || config.siteName || "TuneCamp",
+                library: { federationEnabled: true },
+            }
+        });
+    });
+
     // Human-readable profile redirect (for ActivityPub/WebFinger links)
     app.get("/@:slug", (req, res) => {
         const { slug } = req.params;
