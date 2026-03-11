@@ -1,6 +1,6 @@
 # Federation & Decentralization in Tunecamp
 
-Tunecamp leverages two primary technologies to enable a decentralized music ecosystem: **ActivityPub** for social federation and **GunDB** for decentralized data storage and discovery.
+Tunecamp leverages two primary technologies to enable a decentralized music ecosystem: **ActivityPub** for social federation and **GunDB** for decentralized data storage and discovery. It also provides full **Subsonic API** compatibility for mobile and desktop clients.
 
 ## GunDB: Decentralized Social & Discovery
 
@@ -32,7 +32,7 @@ Set GunDB relay peers using:
 
 ## ActivityPub: Fediverse Integration
 
-ActivityPub allows Tunecamp to communicate with other platforms like Mastodon, Pleroma, and Lemmy.
+ActivityPub allows Tunecamp to communicate with other platforms like Mastodon, Pleroma, Funkwhale, and Lemmy.
 
 ### Key Roles
 
@@ -54,13 +54,48 @@ ActivityPub allows Tunecamp to communicate with other platforms like Mastodon, P
 
 ---
 
+## Funkwhale Compatibility
+
+Tunecamp is compatible with **Funkwhale** instances for music-specific federation.
+
+### How It Works
+
+- **NodeInfo**: Tunecamp exposes metadata at `/.well-known/nodeinfo` including Funkwhale-compatible fields (`library.federationEnabled`, `supportedUploadExtensions`, `funkwhaleVersion`).
+- **Federation Libraries**: `GET /api/v1/federation/libraries` returns Tunecamp's music catalog in Funkwhale's expected format.
+- **NodeInfo 2.0 API**: `GET /api/v1/instance/nodeinfo/2.0` provides instance metadata for Funkwhale-style discovery.
+- **Actor Types**: Artists are exposed as `["Person", "Artist", "MusicArtist"]` with Funkwhale namespace extensions.
+- **Audio Attachments**: Release broadcasts include `Audio` objects with `funkwhale:bitrate` and `funkwhale:duration` properties.
+
+---
+
+## Subsonic API: Client Compatibility
+
+Tunecamp exposes a full **Subsonic REST API** at `/rest` (API version 1.16.1), enabling connection from any Subsonic-compatible client.
+
+### Authentication Methods
+
+| Method      | Format                        | Description             |
+| :---------- | :---------------------------- | :---------------------- |
+| Clear-text  | `p=password`                  | Plain password in query |
+| Hex-encoded | `p=enc:hex`                   | Password hex-encoded    |
+| Token+Salt  | `t=md5(password+salt)&s=salt` | Secure token-based auth |
+
+### Scrobbling & GunDB
+
+When a Subsonic client scrobbles a track (`scrobble.view`), Tunecamp records the play in the local database **and** increments the play count in GunDB for public/unlisted releases, enabling decentralized play statistics.
+
+---
+
 ## Architecture Summary
 
-| Feature              | Technology  | Scope                     |
-| :------------------- | :---------- | :------------------------ |
-| Artist Following     | ActivityPub | External (Mastodon, etc)  |
-| Release Notification | ActivityPub | External (Mastodon, etc)  |
-| Global Track Search  | GunDB       | Internal (Tunecamp Nodes) |
-| Comments & Likes     | GunDB       | Internal (Tunecamp Nodes) |
-| Playcounts           | GunDB       | Internal (Tunecamp Nodes) |
-| User Playlists       | GunDB       | Internal (Tunecamp Nodes) |
+| Feature              | Technology   | Scope                     |
+| :------------------- | :----------- | :------------------------ |
+| Artist Following     | ActivityPub  | External (Mastodon, etc)  |
+| Release Notification | ActivityPub  | External (Mastodon, etc)  |
+| Funkwhale Federation | ActivityPub  | External (Funkwhale)      |
+| Global Track Search  | GunDB        | Internal (Tunecamp Nodes) |
+| Comments & Likes     | GunDB        | Internal (Tunecamp Nodes) |
+| Playcounts           | GunDB        | Internal (Tunecamp Nodes) |
+| User Playlists       | GunDB        | Internal (Tunecamp Nodes) |
+| Mobile Streaming     | Subsonic API | External (Any client)     |
+| Starred/Favorites    | Subsonic API | Local (per user)          |

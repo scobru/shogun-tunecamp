@@ -586,6 +586,14 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Column already exists
     }
 
+    // Migration: Add subsonic_password (encrypted cleartext) to admin for token+salt auth
+    try {
+        db.exec(`ALTER TABLE admin ADD COLUMN subsonic_password TEXT`);
+        console.log("📦 Migrated database: added subsonic_password to admin");
+    } catch (e) {
+        // Column already exists
+    }
+
     // Migration: Add epub, alias, avatar to gun_users
     try {
         db.exec(`ALTER TABLE gun_users ADD COLUMN epub TEXT`);

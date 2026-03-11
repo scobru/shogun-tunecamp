@@ -112,21 +112,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         // 2. Token Auth (s = salt, t = md5(password + salt))
         if (!authorized && t && s) {
-            // Verify using the stored subsonic_token (which is md5(password))
-            const user = db.db.prepare("SELECT subsonic_token FROM admin WHERE username = ?").get(u) as { subsonic_token: string } | undefined;
-
-            if (user && user.subsonic_token) {
-                // Some clients might send md5(password + salt)
-                // If we have md5(password), we can't easily verify md5(password + salt).
-                // HOWEVER, if the user set their "password" in the client to the MD5 of their real password,
-                // then the client sends md5(md5(password) + salt).
-                // Let's check both possibilities.
-
-                const expectedTokenFromMd5 = md5(user.subsonic_token + s);
-                if (t === expectedTokenFromMd5) {
-                    authorized = true;
-                }
-            }
+            const tokenValid = await auth.verifySubsonicToken(u, t, s);
+            if (tokenValid) authorized = true;
         }
 
         if (!authorized) {

@@ -28,7 +28,7 @@ export const Admin = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
     | "overview"
-    | "content"
+    | "albums"
     | "tracks"
     | "users"
     | "artists"
@@ -127,10 +127,10 @@ export const Admin = () => {
         </a>
         <a
           role="tab"
-          className={`tab ${activeTab === "content" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("content")}
+          className={`tab ${activeTab === "albums" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("albums")}
         >
-          Content
+          Albums
         </a>
         <a
           role="tab"
@@ -305,7 +305,7 @@ export const Admin = () => {
           </div>
         )}
 
-        {activeTab === "content" && (
+        {activeTab === "albums" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-lg">Releases</h3>
