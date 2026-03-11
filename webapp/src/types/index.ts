@@ -23,6 +23,7 @@ export interface Track {
     lyrics?: string;
     streamUrl?: string; // For remote/network tracks
     coverUrl?: string; // For remote/network tracks
+    walletAddress?: string;
 }
 
 export interface Artist {
@@ -34,6 +35,7 @@ export interface Artist {
     postParams?: any; // ActivityPub actor
     links?: ArtistLink[];
     donationLinks?: ArtistLink[];
+    walletAddress?: string;
 }
 
 export interface ArtistLink {
@@ -61,6 +63,7 @@ export interface Album {
     download?: 'free' | 'paid' | 'codes';
     external_links?: string; // JSON string
     price?: number;
+    walletAddress?: string;
 }
 
 export interface Playlist {

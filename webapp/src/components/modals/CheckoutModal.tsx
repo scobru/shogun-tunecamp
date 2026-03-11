@@ -14,6 +14,7 @@ interface CheckoutTrack {
   currency?: "ETH" | "USD";
   albumId?: number | string;
   album_id?: number | string;
+  walletAddress?: string;
 }
 
 export const CheckoutModal = () => {
@@ -114,14 +115,17 @@ export const CheckoutModal = () => {
     setError(null);
 
     try {
-      const ownerAddress =
+      const defaultOwnerAddress =
         (window as any).TUNECAMP_CONFIG?.ownerAddress ||
         import.meta.env.VITE_TUNECAMP_OWNER_ADDRESS;
-      if (!ownerAddress) throw new Error("Owner address not configured.");
+        
+      const recipientAddress = track.walletAddress || defaultOwnerAddress;
+
+      if (!recipientAddress) throw new Error("Recipient address not configured. Cannot process payment.");
 
       const activeSigner = useExternalWallet ? externalWallet! : wallet!;
       const tx = await activeSigner.sendTransaction({
-        to: ownerAddress,
+        to: recipientAddress,
         value: ethers.parseEther(finalPriceEth),
       });
 

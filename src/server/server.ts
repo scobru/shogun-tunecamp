@@ -72,7 +72,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     await gundbService.init();
 
     // Upload routes - MOVED BEFORE FEDIFY/BODY PARSERS to avoid stream consumption issues
-    app.use("/api/admin/upload", authMiddleware.requireAdmin, createUploadRoutes(database, scanner, config.musicDir));
+    app.use("/api/admin/upload", authMiddleware.requireUser, createUploadRoutes(database, scanner, config.musicDir, authService));
     app.use("/api/admin/backup", authMiddleware.requireAdmin, createBackupRoutes(database, config, () => {
         console.log("🔄 Restarting server...");
         process.exit(0); // Docker/PM2 should handle restart

@@ -273,7 +273,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     '@track': track.track_num,
                     '@year': album.date ? new Date(album.date).getFullYear() : undefined,
                     '@genre': album.genre,
-                    '@coverArt': `al_${albumId}`,
+                    '@coverArt': `tr_${track.id}`,
                     '@size': 0,
                     '@contentType': getContentType(track.format),
                     '@suffix': track.format || 'mp3',
@@ -312,6 +312,19 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         } else if (id.startsWith('al_')) {
             const album = db.getAlbum(parseInt(id.substring(3)));
             if (album?.cover_path) imagePath = album.cover_path;
+        } else if (id.startsWith('tr_')) {
+            const track = db.getTrack(parseInt(id.substring(3)));
+            if (track) {
+                if (track.external_artwork) {
+                    if (track.external_artwork.startsWith('http')) {
+                        return res.redirect(track.external_artwork);
+                    }
+                    imagePath = track.external_artwork;
+                } else if (track.album_id) {
+                    const album = db.getAlbum(track.album_id);
+                    if (album?.cover_path) imagePath = album.cover_path;
+                }
+            }
         }
 
         if (imagePath) {
@@ -468,7 +481,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                             '@album': album.title,
                             '@artist': track.artist_name || album.artist_name,
                             '@track': track.track_num,
-                            '@coverArt': `al_${album.id}`,
+                            '@coverArt': `tr_${track.id}`,
                             '@artistId': `ar_${album.artist_id}`,
                             '@albumId': id,
                             '@path': track.file_path || '',
@@ -563,7 +576,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                         '@title': track.title,
                         '@album': track.album_title,
                         '@artist': track.artist_name,
-                        '@coverArt': `al_${track.album_id}`,
+                        '@coverArt': `tr_${track.id}`,
                         '@duration': Math.floor(track.duration || 0),
                         '@starred': item.created_at,
                         '@albumId': `al_${track.album_id}`,
@@ -749,7 +762,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     '@album': track.album_title,
                     '@artist': track.artist_name,
                     '@track': track.track_num,
-                    '@coverArt': `al_${track.album_id}`,
+                    '@coverArt': `tr_${track.id}`,
                     '@duration': Math.floor(track.duration || 0),
                     '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
                     '@suffix': track.format || 'mp3',
@@ -795,7 +808,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     '@album': t.album_title,
                     '@artist': t.artist_name,
                     '@duration': Math.floor(t.duration || 0),
-                    '@coverArt': `al_${t.album_id}`,
+                    '@coverArt': `tr_${t.id}`,
                     '@albumId': `al_${t.album_id}`,
                     '@artistId': `ar_${t.artist_id}`
                 }))
@@ -1049,7 +1062,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     '@album': t.album_title,
                     '@artist': t.artist_name,
                     '@duration': Math.floor(t.duration || 0),
-                    '@coverArt': `al_${t.album_id}`,
+                    '@coverArt': `tr_${t.id}`,
                     '@albumId': `al_${t.album_id}`,
                     '@artistId': `ar_${t.artist_id}`
                 }))

@@ -27,6 +27,7 @@ export interface Artist {
     post_params: string | null; // JSON string of ActivityPub/Mastodon config
     public_key: string | null;
     private_key: string | null;
+    wallet_address: string | null;
     created_at: string;
 }
 
@@ -147,6 +148,7 @@ export interface Post {
     created_at: string;
 }
 
+
 export interface ApNote {
     id: number;
     artist_id: number;
@@ -213,8 +215,8 @@ export interface DatabaseService {
     getArtist(id: number): Artist | undefined;
     getArtistByName(name: string): Artist | undefined;
     getArtistBySlug(slug: string): Artist | undefined;
-    createArtist(name: string, bio?: string, photoPath?: string, links?: any, postParams?: any): number;
-    updateArtist(id: number, bio?: string, photoPath?: string, links?: any, postParams?: any): void;
+    createArtist(name: string, bio?: string, photoPath?: string, links?: any, postParams?: any, walletAddress?: string): number;
+    updateArtist(id: number, bio?: string, photoPath?: string, links?: any, postParams?: any, walletAddress?: string): void;
     updateArtistKeys(id: number, publicKey: string, privateKey: string): void;
     deleteArtist(id: number): void;
     // Followers
@@ -392,6 +394,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       links TEXT,
       public_key TEXT,
       private_key TEXT,
+      wallet_address TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -748,6 +751,14 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Column already exists
     }
 
+    // Migration: Add wallet_address to artists
+    try {
+        db.exec(`ALTER TABLE artists ADD COLUMN wallet_address TEXT`);
+        console.log("📦 Migrated database: added wallet_address to artists");
+    } catch (e) {
+        // Column already exists
+    }
+
     // Migration: Add visibility to albums
     try {
         const columns = db.pragma("table_info(albums)") as any[];
@@ -958,31 +969,31 @@ export function createDatabase(dbPath: string): DatabaseService {
 
     // Optimized: Pre-compile frequent queries
     const getArtistStmt = db.prepare("SELECT * FROM artists WHERE id = ?");
-    const getAlbumStmt = db.prepare(`SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a
+    const getAlbumStmt = db.prepare(`SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
            LEFT JOIN artists ar ON a.artist_id = ar.id
            WHERE a.id = ?`);
-    const getTrackStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name
+    const getTrackStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
            WHERE t.id = ?`);
-    const getTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name
+    const getTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
              FROM tracks t
              LEFT JOIN albums a ON t.album_id = a.id
              LEFT JOIN artists ar ON t.artist_id = ar.id
              WHERE t.album_id = ? ORDER BY t.track_num`);
-    const getPublicTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name
+    const getPublicTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
             FROM tracks t
             JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar ON t.artist_id = ar.id
             WHERE t.album_id = ? AND a.is_public = 1
             ORDER BY t.track_num`);
-    const getAllTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name
+    const getAllTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
            ORDER BY ar.name, a.title, t.track_num`);
-    const getAllPublicTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name
+    const getAllPublicTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
            FROM tracks t
            JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
@@ -1036,7 +1047,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             return db.prepare("SELECT * FROM artists WHERE slug = ?").get(slug) as Artist | undefined;
         },
 
-        createArtist(name: string, bio?: string, photoPath?: string, links?: any, postParams?: any): number {
+        createArtist(name: string, bio?: string, photoPath?: string, links?: any, postParams?: any, walletAddress?: string): number {
             const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
             const linksJson = links ? JSON.stringify(links) : null;
             const postParamsJson = postParams ? JSON.stringify(postParams) : null;
@@ -1047,8 +1058,8 @@ export function createDatabase(dbPath: string): DatabaseService {
             while (attempt < 100) {
                 try {
                     const result = db
-                        .prepare("INSERT INTO artists (name, slug, bio, photo_path, links, post_params) VALUES (?, ?, ?, ?, ?, ?)")
-                        .run(name, finalSlug, bio || null, photoPath || null, linksJson, postParamsJson);
+                        .prepare("INSERT INTO artists (name, slug, bio, photo_path, links, post_params, wallet_address) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                        .run(name, finalSlug, bio || null, photoPath || null, linksJson, postParamsJson, walletAddress || null);
                     return result.lastInsertRowid as number;
                 } catch (e: any) {
                     if (e.code === "SQLITE_CONSTRAINT_UNIQUE" && e.message.includes("slug")) {
@@ -1062,11 +1073,11 @@ export function createDatabase(dbPath: string): DatabaseService {
             throw new Error("Could not create unique slug for artist");
         },
 
-        updateArtist(id: number, bio?: string, photoPath?: string, links?: any, postParams?: any): void {
+        updateArtist(id: number, bio?: string, photoPath?: string, links?: any, postParams?: any, walletAddress?: string): void {
             const linksJson = links ? JSON.stringify(links) : null;
             const postParamsJson = postParams ? JSON.stringify(postParams) : null;
-            db.prepare("UPDATE artists SET bio = ?, photo_path = ?, links = ?, post_params = ? WHERE id = ?")
-                .run(bio || null, photoPath || null, linksJson, postParamsJson, id);
+            db.prepare("UPDATE artists SET bio = ?, photo_path = ?, links = ?, post_params = ?, wallet_address = ? WHERE id = ?")
+                .run(bio || null, photoPath || null, linksJson, postParamsJson, walletAddress || null, id);
         },
 
         updateArtistKeys(id: number, publicKey: string, privateKey: string): void {
@@ -1107,10 +1118,10 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Albums
         getAlbums(publicOnly = false): Album[] {
             const sql = publicOnly
-                ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.visibility = 'public' ORDER BY a.date DESC`
-                : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            ORDER BY a.date DESC`;
             return db.prepare(sql).all() as Album[];
@@ -1118,10 +1129,10 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         getReleases(publicOnly = false): Album[] {
             const sql = publicOnly
-                ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.is_release = 1 AND a.visibility = 'public' ORDER BY a.date DESC`
-                : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.is_release = 1 ORDER BY a.date DESC`;
             return db.prepare(sql).all() as Album[];
@@ -1129,7 +1140,7 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         getLibraryAlbums(): Album[] {
             const rows = db.prepare(
-                `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.is_release = 0 ORDER BY a.title`
             ).all();
@@ -1332,7 +1343,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                 const placeholders = chunk.map(() => '?').join(',');
                 const tracks = db
                     .prepare(
-                        `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, ar.name as artist_name
+                        `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, ar.name as artist_name, ar.wallet_address as walletAddress
              FROM tracks t
              LEFT JOIN albums a ON t.album_id = a.id
              LEFT JOIN artists ar ON t.artist_id = ar.id
@@ -1471,8 +1482,8 @@ export function createDatabase(dbPath: string): DatabaseService {
         getTracksByReleaseId(releaseId: number): Track[] {
             return db
                 .prepare(
-                    `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, ar.name as artist_name 
-           FROM tracks t
+                    `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, ar.name as artist_name, ar.wallet_address as walletAddress 
+            FROM tracks t
            JOIN release_tracks rt ON t.id = rt.track_id
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id

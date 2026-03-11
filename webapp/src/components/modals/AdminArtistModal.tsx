@@ -20,6 +20,8 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
     const [donationUrl, setDonationUrl] = useState('');
     const [socialLinks, setSocialLinks] = useState<{platform: string, url: string}[]>([]);
     
+    const [walletAddress, setWalletAddress] = useState('');
+    
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -68,6 +70,8 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                     setDonationUrl('');
                     setSocialLinks([]);
                 }
+                
+                setWalletAddress(artist.walletAddress || '');
 
             } else {
                 // Create Mode
@@ -80,6 +84,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 setMastodonToken('');
                 setDonationUrl('');
                 setSocialLinks([]);
+                setWalletAddress('');
             }
             
             setAvatarFile(null);
@@ -115,7 +120,8 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                     slug: slug || undefined,
                     description,
                     links: allLinks,
-                    postParams: postParamsValue
+                    postParams: postParamsValue,
+                    walletAddress: walletAddress || undefined
                 });
             } else {
                 artist = await API.createArtist({ 
@@ -123,7 +129,8 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                     slug: slug || undefined, 
                     description,
                     links: allLinks,
-                    postParams: postParamsValue
+                    postParams: postParamsValue,
+                    walletAddress: walletAddress || undefined
                 });
             }
 
@@ -228,6 +235,22 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                                 placeholder="twitter.com/..., instagram.com/..."
                             />
                         </div>
+                    </div>
+                    
+                    <div className="form-control">
+                        <label className="label">
+                            <span className="label-text font-bold text-accent">Payment Wallet Address (optional)</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            className="input input-bordered w-full border-accent/30 font-mono text-sm" 
+                            value={walletAddress}
+                            onChange={e => setWalletAddress(e.target.value)}
+                            placeholder="0x..."
+                        />
+                         <label className="label">
+                            <span className="label-text-alt opacity-70">If provided, payments for this artist's releases will be sent directly to this address.</span>
+                        </label>
                     </div>
                     
                     <div className="divider text-xs opacity-50 uppercase tracking-widest">ActivityPub / Mastodon Config</div>

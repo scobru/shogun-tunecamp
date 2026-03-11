@@ -59,7 +59,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
         }
 
         try {
-            const { name, bio, links, postParams } = req.body;
+            const { name, bio, links, postParams, walletAddress } = req.body;
 
             if (!name) {
                 return res.status(400).json({ error: "Name is required" });
@@ -81,7 +81,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 }
             }
 
-            const artistId = database.createArtist(name, bio || undefined, undefined, parsedLinks, postParams);
+            const artistId = database.createArtist(name, bio || undefined, undefined, parsedLinks, postParams, walletAddress);
             const artist = database.getArtist(artistId);
 
             console.log(`🎤 Created artist: ${name}`);
@@ -103,7 +103,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
 
         try {
             const id = parseInt(req.params.id as string, 10);
-            const { bio, links, postParams } = req.body;
+            const { bio, links, postParams, walletAddress } = req.body;
 
             const artist = database.getArtist(id);
             if (!artist) {
@@ -139,7 +139,10 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             }
 
 
-            database.updateArtist(id, bio || artist.bio || undefined, artist.photo_path || undefined, parsedLinks, parsedPostParams);
+            // Update wallet address if provided, otherwise keep existing
+            const finalWalletAddress = walletAddress !== undefined ? walletAddress : artist.wallet_address;
+
+            database.updateArtist(id, bio || artist.bio || undefined, artist.photo_path || undefined, parsedLinks, parsedPostParams, finalWalletAddress || undefined);
 
             const updatedArtist = database.getArtist(id);
             console.log(`🎤 Updated artist: ${artist.name}`);

@@ -28,6 +28,18 @@ import { useAuthStore } from "./stores/useAuthStore";
 import { useEffect } from "react";
 import { ForcePasswordChangeModal } from "./components/modals/ForcePasswordChangeModal";
 
+/**
+ * Guard component: only renders children if the user has admin role.
+ * Otherwise redirects to home.
+ */
+function AdminGuard({ children }: { children: React.ReactNode }) {
+  const { role, isAdminAuthenticated } = useAuthStore();
+  if (!isAdminAuthenticated || role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
 function App() {
   const { init, checkAdminAuth } = useAuthStore();
 
@@ -73,14 +85,14 @@ function App() {
           {/* Auth Callback */}
           <Route path="/auth/callback" element={<AuthCallback />} />
 
-          {/* Admin */}
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/admin/release/new" element={<AdminReleaseEditor />} />
+          {/* Admin - Protected: only role='admin' can access */}
+          <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
+          <Route path="/admin/release/new" element={<AdminGuard><AdminReleaseEditor /></AdminGuard>} />
           <Route
             path="/admin/release/:id/edit"
-            element={<AdminReleaseEditor />}
+            element={<AdminGuard><AdminReleaseEditor /></AdminGuard>}
           />
-          <Route path="/browser" element={<Files />} />
+          <Route path="/browser" element={<AdminGuard><Files /></AdminGuard>} />
 
           {/* Other */}
           <Route path="/support" element={<Support />} />

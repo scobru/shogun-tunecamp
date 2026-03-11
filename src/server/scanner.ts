@@ -148,9 +148,9 @@ export class Scanner implements ScannerService {
         // Check if we already mapped this in this session
         if (this.folderToAlbumMap.has(dir)) return this.folderToAlbumMap.get(dir)!;
 
-        // Check if an album already exists with this slug (folder name)
+        // Check if an album already exists with this slug (relative path based)
         const folderName = path.basename(dir);
-        const slug = slugify("lib-" + folderName); // Prefix to avoid collisions with real releases
+        const slug = slugify("lib-" + relativeDir); 
         let album = this.database.getAlbumBySlug(slug);
 
         if (album) {

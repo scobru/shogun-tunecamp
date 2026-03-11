@@ -5,6 +5,7 @@ import fs from "fs-extra";
 import os from "os";
 import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
+import type { AuthService } from "../auth.js";
 import { sanitizeFilename } from "../../utils/audioUtils.js";
 
 const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
@@ -73,7 +74,8 @@ function imageFileFilter(
 export function createUploadRoutes(
     database: DatabaseService,
     scanner: ScannerService,
-    musicDir: string
+    musicDir: string,
+    authService?: AuthService
 ): Router {
     const router = Router();
 
@@ -160,6 +162,31 @@ export function createUploadRoutes(
             files.forEach(f => console.log(`   - ${f.originalname}: ${(f.size / 1024 / 1024).toFixed(2)} MB`));
             if (releaseSlug) {
                 console.log(`   Target Release Slug: ${releaseSlug}`);
+            }
+
+            // Storage quota check for non-admin users
+            if (authService && req.username) {
+                const admins = authService.listAdmins();
+                const currentUser = admins.find(a => a.username === req.username);
+                if (currentUser && currentUser.storage_quota > 0) {
+                    const storageInfo = authService.getStorageInfo(currentUser.id);
+                    const totalUploadSize = files.reduce((sum, f) => sum + f.size, 0);
+                    const currentUsed = storageInfo?.storage_used || 0;
+                    const remaining = currentUser.storage_quota - currentUsed;
+
+                    if (totalUploadSize > remaining) {
+                        // Cleanup temp files
+                        for (const file of files) {
+                            await fs.remove(file.path).catch(() => { });
+                        }
+                        const quotaMB = (currentUser.storage_quota / 1024 / 1024).toFixed(1);
+                        const usedMB = (currentUsed / 1024 / 1024).toFixed(1);
+                        const remainingMB = (remaining / 1024 / 1024).toFixed(1);
+                        return res.status(413).json({
+                            error: `Storage quota exceeded. Used: ${usedMB}MB / ${quotaMB}MB. Remaining: ${remainingMB}MB.`
+                        });
+                    }
+                }
             }
 
             // Get release if applicable
@@ -272,6 +299,19 @@ export function createUploadRoutes(
             }
 
             console.log(`✅ Processed ${movedCount}/${files.length} uploads to ${destDir}. Scanned: ${processedCount}`);
+
+            // Update storage usage for quota-tracked users
+            if (authService && req.username && movedCount > 0) {
+                const admins = authService.listAdmins();
+                const currentUser = admins.find(a => a.username === req.username);
+                if (currentUser && currentUser.storage_quota > 0) {
+                    const uploadedBytes = files.reduce((sum, f) => sum + f.size, 0);
+                    const storageInfo = authService.getStorageInfo(currentUser.id);
+                    const newUsed = (storageInfo?.storage_used || 0) + uploadedBytes;
+                    authService.updateStorageUsed(currentUser.id, newUsed);
+                    console.log(`📊 Updated storage for ${req.username}: ${(newUsed / 1024 / 1024).toFixed(1)}MB / ${(currentUser.storage_quota / 1024 / 1024).toFixed(1)}MB`);
+                }
+            }
 
             res.status(202).json({
                 message: `Uploaded ${movedCount} files. ${processedCount} processed and linked.`,
