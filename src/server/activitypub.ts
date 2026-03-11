@@ -734,7 +734,26 @@ export class ActivityPubService {
     }
 
     public async sendActivity(actor: Artist | { slug: string, private_key?: string, public_key?: string }, inboxUri: string, activity: any): Promise<void> {
-        const body = JSON.stringify(activity);
+        let activityJson: any;
+
+        // Fedify objects need to be converted to JSON-LD properly
+        if (activity && typeof activity.toJsonLd === 'function') {
+            activityJson = await activity.toJsonLd();
+        } else {
+            activityJson = { ...activity };
+        }
+
+        // Ensure Activity has a @context
+        if (!activityJson["@context"]) {
+            activityJson["@context"] = "https://www.w3.org/ns/activitystreams";
+        }
+
+        // Ensure Activity has a unique ID (required by many servers like Funkwhale)
+        if (!activityJson.id) {
+            activityJson.id = `${this.getBaseUrl()}/activity/${crypto.randomUUID()}`;
+        }
+
+        const body = JSON.stringify(activityJson);
         const url = new URL(inboxUri);
         const date = new Date().toUTCString();
         const digest = `SHA-256=${crypto.createHash("sha256").update(body).digest("base64")}`;

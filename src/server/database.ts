@@ -259,6 +259,7 @@ export interface DatabaseService {
     updateTrackWaveform(id: number, waveform: string): void;
     updateTrackLosslessPath(id: number, losslessPath: string | null): void;
     updateTrackLyrics(id: number, lyrics: string | null): void;
+    updateTrackPathsPrefix(oldPrefix: string, newPrefix: string): void;
     deleteTrack(id: number): void;
     addTrackToRelease(releaseId: number, trackId: number): void;
     removeTrackFromRelease(releaseId: number, trackId: number): void;
@@ -1406,6 +1407,21 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
         updateTrackLyrics(id: number, lyrics: string | null): void {
             db.prepare("UPDATE tracks SET lyrics = ? WHERE id = ?").run(lyrics, id);
+        },
+        updateTrackPathsPrefix(oldPrefix: string, newPrefix: string): void {
+            // Update file_path
+            db.prepare(`
+                UPDATE tracks 
+                SET file_path = ? || SUBSTR(file_path, LENGTH(?) + 1)
+                WHERE file_path = ? OR file_path LIKE ? || '/%'
+            `).run(newPrefix, oldPrefix, oldPrefix, oldPrefix);
+            
+            // Update lossless_path
+            db.prepare(`
+                UPDATE tracks 
+                SET lossless_path = ? || SUBSTR(lossless_path, LENGTH(?) + 1)
+                WHERE lossless_path = ? OR lossless_path LIKE ? || '/%'
+            `).run(newPrefix, oldPrefix, oldPrefix, oldPrefix);
         },
 
         deleteTrack(id: number): void {

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import fs from "fs-extra";
 import path from "path";
+import type { DatabaseService } from "../database.js";
 
 const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
@@ -36,7 +37,7 @@ function resolveSafePath(rootDir: string, userPath: string): string | null {
     return absPath;
 }
 
-export function createBrowserRoutes(musicDir: string): Router {
+export function createBrowserRoutes(musicDir: string, database: DatabaseService): Router {
     const router = Router();
 
     /**
@@ -199,7 +200,13 @@ export function createBrowserRoutes(musicDir: string): Router {
             }
 
             await fs.move(absOldPath, absNewPath);
-            console.log(`✏️ Renamed via browser: ${oldPath} -> ${newPath}`);
+            
+            // Reconstruct the normalized relative paths to update the DB consistently
+            const normOld = path.relative(musicDir, absOldPath).replace(/\\/g, "/");
+            const normNew = path.relative(musicDir, absNewPath).replace(/\\/g, "/");
+            database.updateTrackPathsPrefix(normOld, normNew);
+            
+            console.log(`✏️ Renamed via browser: ${normOld} -> ${normNew}`);
 
             res.json({ message: "Renamed successfully" });
         } catch (error) {

@@ -176,7 +176,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/admin/releases", authMiddleware.requireAdmin, createReleaseRoutes(database, scanner, config.musicDir, publishingService));
     app.use("/api/stats", createStatsRoutes(gundbService, database, config));
     app.use("/api/stats/library", createLibraryStatsRoutes(database));
-    app.use("/api/browser", authMiddleware.requireAdmin, createBrowserRoutes(config.musicDir));
+    app.use("/api/browser", authMiddleware.requireAdmin, createBrowserRoutes(config.musicDir, database));
     app.use("/api/metadata", authMiddleware.requireAdmin, createMetadataRoutes(database, config.musicDir));
     app.use("/api/users", createUsersRoutes(gundbService, database));
     app.use("/api/comments", createCommentsRoutes(gundbService));
