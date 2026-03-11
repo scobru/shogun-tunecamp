@@ -26,8 +26,10 @@ export function createAdminRoutes(
      */
     router.get("/releases", (req: any, res) => {
         try {
+            const showMine = req.query.mine === 'true';
             let albums: any[] = [];
-            if (req.isAdmin) {
+            
+            if (req.isAdmin && !showMine) {
                 albums = database.getAlbums(false); // Admin sees everything
             } else if (req.artistId) {
                 albums = database.getAlbumsByArtist(req.artistId, false); // Artist sees their own
@@ -92,7 +94,8 @@ export function createAdminRoutes(
      */
     router.get("/stats", async (req: any, res) => {
         try {
-            const stats = await database.getStats(req.isAdmin ? undefined : req.artistId);
+            const showMine = req.query.mine === 'true';
+            const stats = await database.getStats((req.isAdmin && !showMine) ? undefined : req.artistId);
             res.json(stats);
         } catch (error) {
             console.error("Error getting stats:", error);

@@ -743,17 +743,17 @@ const AdminArtistsList = () => {
   );
 };
 
-export const AdminReleasesList = () => {
+export const AdminReleasesList = ({ mine }: { mine?: boolean }) => {
   const navigate = useNavigate();
   const [releases, setReleases] = useState<any[]>([]);
   useEffect(() => {
     const loadReleases = () =>
-      API.getAdminReleases().then(setReleases).catch(console.error);
+      API.getAdminReleases({ mine }).then(setReleases).catch(console.error);
     loadReleases();
     window.addEventListener("refresh-admin-releases", loadReleases);
     return () =>
       window.removeEventListener("refresh-admin-releases", loadReleases);
-  }, []);
+  }, [mine]);
 
   const handleToggleVisibility = async (e: React.MouseEvent, release: any) => {
     e.stopPropagation(); // prevent row click if any
@@ -830,16 +830,16 @@ export const AdminReleasesList = () => {
   );
 };
 
-export const AdminTracksList = () => {
+export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
   const [tracks, setTracks] = useState<any[]>([]);
 
-  const loadTracks = () => API.getTracks().then(setTracks).catch(console.error);
+  const loadTracks = () => API.getTracks({ mine }).then(setTracks).catch(console.error);
 
   useEffect(() => {
     loadTracks();
     window.addEventListener("refresh-admin-tracks", loadTracks);
     return () => window.removeEventListener("refresh-admin-tracks", loadTracks);
-  }, []);
+  }, [mine]);
 
   const handleDelete = async (id: string, name: string) => {
     if (

@@ -15,10 +15,11 @@ if (ffmpegPath) {
     ffmpeg.setFfmpegPath(ffmpegPath);
 }
 
+import type { AuthService } from "../auth.js";
 import type { PublishingService } from "../publishing.js";
 import { metadataService } from "../metadata.js";
 
-export function createTracksRoutes(database: DatabaseService, publishingService: PublishingService, musicDir: string): Router {
+export function createTracksRoutes(database: DatabaseService, publishingService: PublishingService, musicDir: string, authService?: AuthService): Router {
     const router = Router();
 
     const mapTrack = (t: any) => ({
@@ -42,14 +43,21 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
-            // If admin, return everything
-            if (req.isAdmin) {
+            const showMine = req.query.mine === 'true';
+
+            // If admin, return everything (unless filtering for 'mine')
+            if (req.isAdmin && !showMine) {
                 return res.json(database.getTracks().map(mapTrack));
             }
 
-            // If a non-admin artist, return their own tracks + all public tracks
+            // If a non-admin artist, or admin filtering for 'mine', return their own tracks (+ all public tracks if not filtering)
             if (req.artistId) {
                 const myTracks = database.getTracksByArtist(req.artistId).map(mapTrack);
+                
+                if (showMine) {
+                    return res.json(myTracks);
+                }
+
                 const publicTracks = database.getTracks(undefined, true).map(mapTrack);
                 
                 // Deduplicate if any of my tracks are also in the public tracks (though unlikely they'd be duplicates in the array)
@@ -77,13 +85,21 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
      * Create a new track (usually for external links)
      */
     router.post("/", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) {
+        if (!req.isAdmin && !req.artistId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
 
         try {
-            const { title, albumId, artistId, trackNum, url, service, externalArtwork, duration, lyrics, currency } = req.body;
-
+            const { title, albumId, artistId: bodyArtistId, trackNum, url, service, externalArtwork, duration, lyrics, currency } = req.body;
+            
+            // SECURITY: If not root admin, force the artistId to the current user's artistId
+            let finalArtistId = bodyArtistId;
+            if (!req.isAdmin) {
+                finalArtistId = req.artistId;
+            } else if (authService && !authService.isRootAdmin(req.username || "")) {
+                // Restricted admin also forced if they have an artistId
+                if (req.artistId) finalArtistId = req.artistId;
+            }
             if (!title) {
                 return res.status(400).json({ error: "Title is required" });
             }
@@ -91,7 +107,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             const trackId = database.createTrack({
                 title,
                 album_id: albumId || null,
-                artist_id: artistId || null,
+                artist_id: finalArtistId || null,
                 track_num: trackNum || null,
                 duration: duration || 0,
                 file_path: null,
@@ -164,13 +180,22 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
      * Extract ID3/metadata (including cover art) from the physical file
      */
     router.get("/:id/metadata", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
 
         try {
             const id = parseInt(req.params.id as string, 10);
             const track = database.getTrack(id);
 
-            if (!track || !track.file_path) {
+            if (!track) {
+                return res.status(404).json({ error: "Track not found" });
+            }
+
+            // Permission Check: Artist can only see metadata for their own tracks
+            if (!req.isAdmin && track.artist_id !== req.artistId) {
+                return res.status(403).json({ error: "Access denied" });
+            }
+
+            if (!track.file_path) {
                 return res.status(404).json({ error: "Local track not found" });
             }
 
@@ -214,7 +239,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
      * Search for track metadata on MusicBrainz
      */
     router.get("/search-metadata", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
         const query = req.query.q as string;
         if (!query) return res.status(400).json({ error: "Query 'q' is required" });
 
@@ -260,13 +285,18 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
      * Apply MusicBrainz metadata to a track
      */
     router.post("/:id/match-metadata", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
         const id = parseInt(req.params.id, 10);
         const { title, artist, albumTitle, coverUrl } = req.body;
 
         try {
             const track = database.getTrack(id);
             if (!track) return res.status(404).json({ error: "Track not found" });
+
+            // Permission Check: Artist can only match metadata for their own tracks
+            if (!req.isAdmin && track.artist_id !== req.artistId) {
+                return res.status(403).json({ error: "Access denied" });
+            }
 
             // 1. Update Artist
             let artistId = track.artist_id;
@@ -494,7 +524,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
      * Update track metadata and ID3 tags (admin only)
      */
     router.put("/:id", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) {
+        if (!req.isAdmin && !req.artistId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
 

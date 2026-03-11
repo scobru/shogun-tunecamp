@@ -47,10 +47,10 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
 
     /**
      * POST /api/albums/:id/promote
-     * Promote a library album to a release (admin only)
+     * Promote a library album to a release (admin/owner only)
      */
     router.post("/:id/promote", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) {
+        if (!req.isAdmin && !req.artistId) {
             return res.status(401).json({ error: "Unauthorized" });
         }
         try {
@@ -59,6 +59,12 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             if (!album) {
                 return res.status(404).json({ error: "Album not found" });
             }
+
+            // Permission Check: Artist can only promote their own albums
+            if (!req.isAdmin && album.artist_id !== req.artistId) {
+                return res.status(403).json({ error: "Access denied" });
+            }
+
             database.promoteToRelease(id);
             res.json({ success: true, message: "Album promoted to release" });
         } catch (error) {

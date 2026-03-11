@@ -80,7 +80,7 @@ export const API = {
     getArtist: (idOrSlug: string | number) => handleResponse(api.get<Artist>(`/artists/${idOrSlug}`)),
     getArtistCoverUrl: (idOrSlug: string | number, timestamp?: number) => idOrSlug ? `${API_URL}/artists/${idOrSlug}/cover${timestamp ? `?v=${timestamp}` : ''}` : '',
 
-    getTracks: () => handleResponse(api.get<Track[]>('/tracks')),
+    getTracks: (options: { mine?: boolean } = {}) => handleResponse(api.get<Track[]>(`/tracks${options.mine ? '?mine=true' : ''}`)),
     getTrack: (id: string | number) => handleResponse(api.get<Track>(`/tracks/${id}`)),
 
     getPlaylists: () => handleResponse(api.get<Playlist[]>('/playlists')),
@@ -121,7 +121,6 @@ export const API = {
     getRecentPlays: (limit = 50) => handleResponse(api.get<any[]>(`/stats/library/recent?limit=${limit}`)),
     getTopTracks: (limit = 20, days = 30) => handleResponse(api.get<any[]>(`/stats/library/top-tracks?limit=${limit}&days=${days}`)),
     getTopArtists: (limit = 10, days = 30) => handleResponse(api.get<any[]>(`/stats/library/top-artists?limit=${limit}&days=${days}`)),
-    getListeningStats: () => handleResponse(api.get<any>('/stats/library/overview')),
 
     // --- Community / ActivityPub ---
     getArtistPosts: (idOrSlug: string) => handleResponse(api.get<Post[]>(`/artists/${idOrSlug}/posts`)),
@@ -140,7 +139,7 @@ export const API = {
     followRemoteActor: (url: string) => handleResponse(api.post('/admin/network/ap/follow', { url })),
 
     // --- Admin: Releases & Content ---
-    getAdminReleases: () => handleResponse(api.get<Release[]>('/admin/releases')),
+    getAdminReleases: (options: { mine?: boolean } = {}) => handleResponse(api.get<Release[]>(`/admin/releases${options.mine ? '?mine=true' : ''}`)),
     createRelease: (data: Partial<Release>) => handleResponse(api.post<Release>('/admin/releases', data)),
     updateRelease: (id: string, data: Partial<Release>) => handleResponse(api.put<Release>(`/admin/releases/${id}`, data)),
     deleteRelease: (id: string, keepFiles = false) =>
@@ -221,8 +220,9 @@ export const API = {
     },
 
     // --- Admin: System ---
+    getListeningStats: () => handleResponse(api.get<any>('/stats/library/overview')),
     cleanupNetwork: () => handleResponse(api.post('/admin/network/cleanup')),
-    getAdminStats: () => handleResponse(api.get<AdminStats>('/admin/stats')),
+    getAdminStats: (options: { mine?: boolean } = {}) => handleResponse(api.get<AdminStats>(`/admin/stats${options.mine ? '?mine=true' : ''}`)),
     getBrowser: (path = '') => handleResponse(api.get<any>(`/browser?path=${encodeURIComponent(path)}`)),
     deleteBrowserPath: (path: string) => handleResponse(api.delete(`/browser?path=${encodeURIComponent(path)}`)),
     renameBrowserPath: (oldPath: string, newPath: string) => handleResponse(api.put("/browser", { oldPath, newPath })),

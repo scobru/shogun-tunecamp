@@ -33,7 +33,7 @@ export const MyMusic = () => {
 
   const loadStats = async () => {
     try {
-      const data = await API.getAdminStats();
+      const data = await API.getAdminStats({ mine: true });
       setStats(data);
     } catch (e) {
       console.error(e);
@@ -182,11 +182,11 @@ export const MyMusic = () => {
                 </button>
               </div>
             </div>
-            <AdminReleasesList />
+            <AdminReleasesList mine={true} />
           </div>
         )}
 
-        {activeTab === "tracks" && <AdminTracksList />}
+        {activeTab === "tracks" && <AdminTracksList mine={true} />}
 
         {activeTab === "identity" && (
            <div className="space-y-4">
