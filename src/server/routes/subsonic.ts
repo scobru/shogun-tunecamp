@@ -22,6 +22,22 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     // --- Helpers ---
 
+    const sanitizeJsonKeys = (obj: any): any => {
+        if (Array.isArray(obj)) {
+            return obj.map(item => sanitizeJsonKeys(item));
+        } else if (obj !== null && typeof obj === 'object') {
+            const newObj: any = {};
+            for (const key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    const newKey = key.startsWith('@') ? key.substring(1) : key;
+                    newObj[newKey] = sanitizeJsonKeys(obj[key]);
+                }
+            }
+            return newObj;
+        }
+        return obj;
+    };
+
     const sendResponse = (res: any, req: any, data: object, status = 'ok') => {
         const isJson = req.query.f === 'json';
         const version = '1.16.1';
@@ -34,8 +50,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 'subsonic-response': {
                     status,
                     version,
-                    xmlns: 'http://subsonic.org/restapi',
-                    ...data
+                    ...sanitizeJsonKeys(data) // Remove XML attribute decorators
                 }
             });
             return;
@@ -68,7 +83,6 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 'subsonic-response': {
                     status,
                     version,
-                    xmlns: 'http://subsonic.org/restapi',
                     error: { code: String(code), message }
                 }
             });
