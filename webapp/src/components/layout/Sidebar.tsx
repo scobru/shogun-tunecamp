@@ -164,7 +164,7 @@ export const Sidebar = () => {
                 <LogOut size={20} />
               </button>
             </div>
-            {user?.gunProfile && <WalletPill />}
+            {isAuthenticated && <WalletPill />}
           </div>
         ) : (
           <div className="w-full flex justify-center">

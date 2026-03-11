@@ -163,6 +163,7 @@ export function createAuthRoutes(authService: AuthService): Router {
             isRootAdmin: username ? authService.isRootAdmin(username) : false,
             artistId: req.artistId || null,
             role: req.role || null,
+            pair: username ? authService.getUserPair(username) : null,
             firstRun: authService.isFirstRun(),
             mustChangePassword: username ? await authService.isDefaultPassword(username) : false
         });

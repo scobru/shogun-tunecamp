@@ -32,6 +32,8 @@ export interface AuthService {
     isFirstRun(): boolean;
     /** Returns true if the username belongs to the root admin (id=1, first created). */
     isRootAdmin(username: string): boolean;
+    /** Returns the GunDB pair for a user if they have one. */
+    getUserPair(username: string): any | null;
 
     // Mastodon
     registerMastodonApp(instanceUrl: string, redirectUri: string): Promise<{ clientId: string; clientSecret: string; redirectUri: string }>;
@@ -348,6 +350,17 @@ export function createAuthService(
         isRootAdmin(username: string): boolean {
             const row = db.prepare("SELECT id FROM admin WHERE username = ?").get(username) as { id: number } | undefined;
             return row?.id === 1;
+        },
+
+        getUserPair(username: string): any | null {
+            const user = db.prepare("SELECT gun_priv FROM admin WHERE username = ?").get(username) as { gun_priv: string | null } | undefined;
+            if (!user || !user.gun_priv) return null;
+            try {
+                return this.decryptGunPriv(user.gun_priv);
+            } catch (e) {
+                console.error("Failed to decrypt GunDB keys for user", username);
+                return null;
+            }
         },
 
         // Mastodon
