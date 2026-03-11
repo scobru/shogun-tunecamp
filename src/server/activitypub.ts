@@ -136,9 +136,90 @@ export class ActivityPubService {
                 }
             }
             console.log(`📤 Sent Follow request to: ${inboxUri}`);
+
+            // NEW: Immediately fetch remote outbox to populate the feed with existing content
+            // We don't await this to keep the response fast, let it run in background
+            this.fetchRemoteOutbox(finalActorUri).catch(e => console.error(`⚠️ Failed to pre-fetch outbox for ${finalActorUri}:`, e));
+
         } catch (e) {
             console.error(`❌ Failed to follow actor ${actorUri}:`, e);
             throw e;
+        }
+    }
+
+    /**
+     * Fetches and parses a remote actor's outbox to populate the local feed.
+     */
+    public async fetchRemoteOutbox(actorUri: string): Promise<void> {
+        console.log(`📥 Fetching remote outbox for: ${actorUri}`);
+        try {
+            // 1. Get Actor profile to find outbox URL
+            const res = await fetch(actorUri, { headers: { "Accept": "application/activity+json" } });
+            if (!res.ok) return;
+            const actor = await res.json() as any;
+            const outboxUrl = actor.outbox;
+
+            if (!outboxUrl) {
+                console.warn(`⚠️ No outbox URL found for actor: ${actorUri}`);
+                return;
+            }
+
+            // 2. Fetch first page of outbox
+            const outboxRes = await fetch(outboxUrl, { headers: { "Accept": "application/activity+json" } });
+            if (!outboxRes.ok) return;
+            let outbox = await outboxRes.json() as any;
+
+            // If it's a collection, get the first page
+            if (outbox.first) {
+                const firstPageUrl = typeof outbox.first === 'string' ? outbox.first : outbox.first.id;
+                const pageRes = await fetch(firstPageUrl, { headers: { "Accept": "application/activity+json" } });
+                if (pageRes.ok) {
+                    outbox = await pageRes.json();
+                }
+            }
+
+            const items = outbox.orderedItems || outbox.items || [];
+            console.log(`📑 Found ${items.length} items in remote outbox of ${actorUri}`);
+
+            for (const activity of items) {
+                try {
+                    // We only care about 'Create' activities with music-related objects
+                    if (activity.type === "Create" || !activity.type) {
+                        const obj = activity.object || activity;
+                        if (!obj || typeof obj !== 'object') continue;
+
+                        if (obj.type === "Note" || obj.type === "Audio" || obj.type === "Track" || obj.type === "Album") {
+                            let type = 'post';
+                            if (obj.type === "Audio" || obj.type === "Track" || obj.type === "Album" || 
+                               (obj.attachment && Array.isArray(obj.attachment) && obj.attachment.some((a: any) => a.type === "Audio"))) {
+                                type = 'release';
+                            }
+
+                            const remoteContent = {
+                                ap_id: obj.id,
+                                actor_uri: actorUri,
+                                type: type,
+                                title: obj.name || obj.title || obj.content?.replace(/<[^>]*>?/gm, '').substring(0, 50),
+                                content: obj.content || obj.summary || "",
+                                url: obj.url || (Array.isArray(obj.url) ? obj.url[0]?.href : obj.url?.href),
+                                cover_url: obj.image?.url || obj.icon?.url || (obj.attachment?.find((a: any) => a.type === "Image")?.url),
+                                stream_url: obj.type === "Audio" ? obj.url : obj.attachment?.find((a: any) => a.type === "Audio")?.url,
+                                artist_name: actor.name || actor.preferredUsername || "Remote Artist",
+                                published_at: obj.published || new Date().toISOString()
+                            };
+
+                            if (remoteContent.ap_id) {
+                                this.db.upsertRemoteContent(remoteContent as any);
+                            }
+                        }
+                    }
+                } catch (itemErr) {
+                    console.warn("⚠️ Failed to parse remote outbox item:", itemErr);
+                }
+            }
+            console.log(`✅ Successfully populated ${items.length} items from ${actorUri}`);
+        } catch (e) {
+            console.error(`❌ Error fetching remote outbox for ${actorUri}:`, e);
         }
     }
 
