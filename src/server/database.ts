@@ -286,7 +286,7 @@ export interface DatabaseService {
     updatePost(id: number, content: string, visibility?: 'public' | 'private' | 'unlisted'): void;
     deletePost(id: number): void;
     // Stats
-    getStats(): Promise<{ artists: number; albums: number; tracks: number; publicAlbums: number; totalUsers: number; storageUsed: number; networkSites: number; totalTracks: number }>;
+    getStats(artistId?: number): Promise<{ artists: number; albums: number; tracks: number; publicAlbums: number; totalUsers: number; storageUsed: number; networkSites: number; totalTracks: number; genresCount: number }>;
     getPublicTracksCount(): number;
     // Play History
     recordPlay(trackId: number, playedAt?: string): void;
@@ -1642,29 +1642,28 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         // Stats
-        async getStats() {
-            const artists = (db.prepare("SELECT COUNT(*) as count FROM artists").get() as { count: number }).count;
-            const albums = (db.prepare("SELECT COUNT(*) as count FROM albums").get() as { count: number }).count;
-            const tracks = (db.prepare("SELECT COUNT(*) as count FROM tracks").get() as { count: number }).count;
-            const publicAlbums = (db.prepare("SELECT COUNT(*) as count FROM albums WHERE is_public = 1").get() as { count: number }).count;
-            const totalUsers = (db.prepare("SELECT COUNT(*) as count FROM admin").get() as { count: number } | undefined)?.count || 0;
+        async getStats(artistId?: number) {
+            const artistFilter = artistId ? `WHERE id = ${artistId}` : "";
+            const albumFilter = artistId ? `WHERE artist_id = ${artistId}` : "";
+            const trackFilter = artistId ? `WHERE artist_id = ${artistId}` : "";
+            const publicAlbumFilter = artistId ? `WHERE artist_id = ${artistId} AND is_public = 1` : "WHERE is_public = 1";
 
-            // Calculate storage used (filesize of all tracks)
-            // Note: This relies on filesystem or storing size in DB.
-            // If size is not in DB, we'll estimate or read from disk.
-            // For now, let's try to sum up a size column if it exists, or 0.
-            // Since we don't have a size column in tracks based on previous view, we might need to add it or do a file scan.
-            // But wait, checking schema... we don't have file size in tracks table.
-            // Let's check if we can get it from file system or if we should add it.
-            // A quick fix is to return 0 for now or estimate based on duration * bitrate.
+            const artists = (db.prepare(`SELECT COUNT(*) as count FROM artists ${artistFilter}`).get() as { count: number }).count;
+            const albums = (db.prepare(`SELECT COUNT(*) as count FROM albums ${albumFilter}`).get() as { count: number }).count;
+            const tracks = (db.prepare(`SELECT COUNT(*) as count FROM tracks ${trackFilter}`).get() as { count: number }).count;
+            const publicAlbums = (db.prepare(`SELECT COUNT(*) as count FROM albums ${publicAlbumFilter}`).get() as { count: number }).count;
+            
+            // Total users count is only relevant for global admin
+            const totalUsers = artistId ? 0 : (db.prepare("SELECT COUNT(*) as count FROM admin").get() as { count: number } | undefined)?.count || 0;
 
-            // Estimate based on duration * bitrate (if available) or default 
-            // 320kbps = 40KB/s approx.
-            const storageStats = db.prepare("SELECT SUM(duration) as total_duration FROM tracks").get() as { total_duration: number };
+            const storageStats = db.prepare(`SELECT SUM(duration) as total_duration FROM tracks ${trackFilter}`).get() as { total_duration: number };
             const estimatedSize = (storageStats.total_duration || 0) * 40 * 1024; // Very rough estimate
 
-            // Count unique genres/tags
-            const allGenres = db.prepare("SELECT genre FROM albums WHERE genre IS NOT NULL AND genre != ''").all() as { genre: string }[];
+            // Genre count
+            const genreQuery = artistId 
+                ? `SELECT genre FROM albums WHERE artist_id = ${artistId} AND genre IS NOT NULL AND genre != ''`
+                : `SELECT genre FROM albums WHERE genre IS NOT NULL AND genre != ''`;
+            const allGenres = db.prepare(genreQuery).all() as { genre: string }[];
             const genreSet = new Set<string>();
             allGenres.forEach(row => {
                 row.genre.split(',').forEach(g => {
@@ -1677,12 +1676,12 @@ export function createDatabase(dbPath: string): DatabaseService {
             return {
                 artists,
                 albums,
-                tracks: tracks,
-                totalTracks: tracks, // Frontend expects totalTracks
+                tracks,
+                totalTracks: tracks,
                 publicAlbums,
                 totalUsers,
                 storageUsed: estimatedSize,
-                networkSites: 0, // Placeholder, actual count should come from GunDB service if possible or DB if we sync it
+                networkSites: 0,
                 genresCount
             };
         },

@@ -165,7 +165,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     app.use("/rest", createSubsonicRouter({ db: database, auth: authService, musicDir: config.musicDir, gundbService }));
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService));
-    app.use("/api/admin", authMiddleware.requireAdmin, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService, publishingService, apService));
+    app.use("/api/admin", authMiddleware.requireUser, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService, publishingService, apService));
     // Backup routes moved earlier
     app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(database));
     app.use("/api/artists", authMiddleware.optionalAuth, createArtistsRoutes(database, config.musicDir));
@@ -173,11 +173,11 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database, publishingService, config.musicDir));
     app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database));
 
-    app.use("/api/admin/releases", authMiddleware.requireAdmin, createReleaseRoutes(database, scanner, config.musicDir, publishingService));
+    app.use("/api/admin/releases", authMiddleware.requireUser, createReleaseRoutes(database, scanner, config.musicDir, publishingService));
     app.use("/api/stats", createStatsRoutes(gundbService, database, config));
     app.use("/api/stats/library", createLibraryStatsRoutes(database));
-    app.use("/api/browser", authMiddleware.requireAdmin, createBrowserRoutes(config.musicDir, database));
-    app.use("/api/metadata", authMiddleware.requireAdmin, createMetadataRoutes(database, config.musicDir));
+    app.use("/api/browser", authMiddleware.requireUser, createBrowserRoutes(config.musicDir, database));
+    app.use("/api/metadata", authMiddleware.requireUser, createMetadataRoutes(database, config.musicDir));
     app.use("/api/users", createUsersRoutes(gundbService, database, authService, apService));
     app.use("/api/comments", createCommentsRoutes(gundbService));
     app.use("/api/unlock", createUnlockRoutes(database));

@@ -24,9 +24,16 @@ export function createAdminRoutes(
      * GET /api/admin/releases
      * List all albums with visibility status
      */
-    router.get("/releases", (req, res) => {
+    router.get("/releases", (req: any, res) => {
         try {
-            const albums = database.getAlbums(false); // Include private
+            let albums: any[] = [];
+            if (req.isAdmin) {
+                albums = database.getAlbums(false); // Admin sees everything
+            } else if (req.artistId) {
+                albums = database.getAlbumsByArtist(req.artistId, false); // Artist sees their own
+            } else {
+                albums = []; // No access
+            }
             res.json(albums);
         } catch (error) {
             console.error("Error getting releases:", error);
@@ -83,9 +90,9 @@ export function createAdminRoutes(
      * GET /api/admin/stats
      * Get admin statistics
      */
-    router.get("/stats", async (req, res) => {
+    router.get("/stats", async (req: any, res) => {
         try {
-            const stats = await database.getStats();
+            const stats = await database.getStats(req.isAdmin ? undefined : req.artistId);
             res.json(stats);
         } catch (error) {
             console.error("Error getting stats:", error);
@@ -97,7 +104,8 @@ export function createAdminRoutes(
      * GET /api/admin/settings
      * Get all site settings
      */
-    router.get("/settings", (req, res) => {
+    router.get("/settings", (req: any, res) => {
+        if (!req.isAdmin) return res.status(403).json({ error: "Admin access required" });
         try {
             const settings = database.getAllSettings();
             res.json(settings);

@@ -743,7 +743,7 @@ const AdminArtistsList = () => {
   );
 };
 
-const AdminReleasesList = () => {
+export const AdminReleasesList = () => {
   const navigate = useNavigate();
   const [releases, setReleases] = useState<any[]>([]);
   useEffect(() => {
@@ -830,7 +830,7 @@ const AdminReleasesList = () => {
   );
 };
 
-const AdminTracksList = () => {
+export const AdminTracksList = () => {
   const [tracks, setTracks] = useState<any[]>([]);
 
   const loadTracks = () => API.getTracks().then(setTracks).catch(console.error);

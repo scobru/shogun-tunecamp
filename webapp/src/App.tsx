@@ -20,6 +20,7 @@ import {
   Wallet,
   Purchases,
   Profile,
+  MyMusic,
 } from "./pages";
 import Admin from "./pages/Admin";
 import AdminReleaseEditor from "./pages/AdminReleaseEditor";
@@ -81,6 +82,7 @@ function App() {
           <Route path="/stats" element={<Stats />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/my-music" element={<MyMusic />} />
 
           {/* Auth Callback */}
           <Route path="/auth/callback" element={<AuthCallback />} />
