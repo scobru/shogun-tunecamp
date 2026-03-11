@@ -12,7 +12,7 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
             const isPublicOnly = !req.isAdmin;
-            const playlists = database.getPlaylists(isPublicOnly);
+            const playlists = database.getPlaylists(undefined, isPublicOnly);
             res.json(playlists);
         } catch (error) {
             console.error("Error getting playlists:", error);
