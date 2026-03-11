@@ -120,15 +120,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             if (result.pair) {
                 try {
                     gunProfile = await GunAuth.loginWithPair(result.pair);
-                    
+                } catch (gunErr) {
+                    console.error("Failed to auto-login to GunDB with pair:", gunErr);
+                }
+            } else if (password) {
+                // Fallback: Use password to derive identity if pair is missing from server
+                console.log("🔐 No SEA credentials found. Attempting to derive from password...");
+                try {
+                    // Try to login with password
+                    gunProfile = await GunAuth.login(username, password);
+                } catch (loginErr) {
+                    // If login fails, user might not exist in GunDB yet
+                    console.log("🆕 Identity not found in GunDB. Registering...");
+                    try {
+                        await GunAuth.register(username, password);
+                        gunProfile = GunAuth.getProfile();
+                    } catch (regErr) {
+                        console.error("GunDB registration failed:", regErr);
+                    }
+                }
+
+                // If we now have a profile (and thus a pair), sync it back to the server
+                if (gunProfile && (gunProfile as any).user?._?.sea) {
+                    try {
+                        const pair = (gunProfile as any).user._.sea;
+                        await API.syncGunPair(pair);
+                        console.log("✅ GunDB identity synced to server.");
+                    } catch (syncErr) {
+                        console.error("Failed to sync GunDB pair to server:", syncErr);
+                    }
+                }
+            }
+
+            if (gunProfile) {
+                try {
                     // Subscribe to profile changes
                     GunAuth.subscribeProfile((profileData) => {
                         set((state) => ({
                             user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, profile: profileData } } : null
                         }));
                     });
-                } catch (gunErr) {
-                    console.error("Failed to auto-login to GunDB:", gunErr);
+                } catch (subErr) {
+                    console.error("Failed to subscribe to GunDB profile:", subErr);
                 }
             }
 

@@ -34,6 +34,8 @@ export interface AuthService {
     isRootAdmin(username: string): boolean;
     /** Returns the GunDB pair for a user if they have one. */
     getUserPair(username: string): any | null;
+    /** Updates or sets the GunDB pair for a user. */
+    updateGunPair(username: string, pair: any): void;
 
     // Mastodon
     registerMastodonApp(instanceUrl: string, redirectUri: string): Promise<{ clientId: string; clientSecret: string; redirectUri: string }>;
@@ -361,6 +363,14 @@ export function createAuthService(
                 console.error("Failed to decrypt GunDB keys for user", username);
                 return null;
             }
+        },
+
+        updateGunPair(username: string, pair: any): void {
+            const encryptedPriv = this.encryptGunPriv(pair);
+            db.prepare("UPDATE admin SET gun_pub = ?, gun_priv = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?").run(pair.pub, encryptedPriv, username);
+            
+            // Also ensure it's in gun_users for profile lookups
+            db.prepare(`INSERT OR IGNORE INTO gun_users (pub, epub, alias) VALUES (?, ?, ?)`).run(pair.pub, pair.epub, username);
         },
 
         // Mastodon

@@ -163,6 +163,29 @@ export function createUsersRoutes(
     });
 
     /**
+     * POST /api/users/sync-pair
+     * Sync full GunDB pair (SEA) to server for persistence
+     */
+    router.post("/sync-pair", authMiddleware.requireUser, async (req: AuthenticatedRequest, res) => {
+        try {
+            const { pair } = req.body;
+            if (!pair || !pair.pub || !pair.priv || !pair.epub || !pair.epriv) {
+                return res.status(400).json({ error: "Complete GunDB pair required" });
+            }
+
+            if (!req.username) {
+                return res.status(401).json({ error: "Unauthorized" });
+            }
+
+            authService.updateGunPair(req.username, pair);
+            res.json({ success: true });
+        } catch (error) {
+            console.error("User pair sync error:", error);
+            res.status(500).json({ error: "Pair sync failed" });
+        }
+    });
+
+    /**
      * GET /api/users/me/storage
      * Get current user's storage usage (requires auth)
      */

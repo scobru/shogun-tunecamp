@@ -158,6 +158,7 @@ export const API = {
     postComment: (trackId: string, data: { text: string, pubKey: string, username: string, signature: string }) => handleResponse(api.post('/comments/track/' + trackId, data)),
     deleteComment: (commentId: string, data?: { pubKey: string, signature: string }) => handleResponse(api.delete(`/comments/${commentId}`, { data })),
     syncGunUser: (pub: string, epub: string, alias: string, avatar?: string) => handleResponse(api.post('/users/sync', { pub, epub, alias, avatar })),
+    syncGunPair: (pair: any) => handleResponse(api.post('/users/sync-pair', { pair })),
 
     // --- Admin: Artists ---
     createArtist: (data: Partial<Artist>) => handleResponse(api.post<Artist>('/artists', data)),
