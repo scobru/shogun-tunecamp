@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { promisify } from "util";
 import fetch from "node-fetch";
 import type { ActorKeyPair, Federation } from "@fedify/fedify";
 import { createFederation, Note, Create, PUBLIC_COLLECTION, Person, Mention, Follow, Announce } from "@fedify/fedify";
@@ -37,26 +38,16 @@ export class ActivityPubService {
 
         if (!artist.public_key || !artist.private_key) {
             console.log(`🔑 Generating ActivityPub keys for artist: ${artist.name}`);
-            const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
-                modulusLength: 4096,
-                publicKeyEncoding: {
-                    type: "spki",
-                    format: "pem"
-                },
-                privateKeyEncoding: {
-                    type: "pkcs8",
-                    format: "pem"
-                }
-            });
+            const { publicKey, privateKey } = await this.generateKeyPair();
             this.db.updateArtistKeys(artistId, publicKey, privateKey);
         }
     }
 
     public async generateKeysForAllArtists(): Promise<void> {
         const artists = this.db.getArtists();
-        for (const artist of artists) {
-            await this.ensureArtistKeys(artist.id);
-        }
+
+        // Generate keys for all artists concurrently
+        await Promise.all(artists.map(artist => this.ensureArtistKeys(artist.id)));
 
         // Generate keys for the Site Actor if they don't exist
         if (!this.db.getSetting("site_public_key")) {
@@ -301,7 +292,8 @@ export class ActivityPubService {
     }
 
     private async generateKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
-        const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
+        const generateKeyPairAsync = promisify(crypto.generateKeyPair);
+        const { publicKey, privateKey } = await (generateKeyPairAsync as any)("rsa", {
             modulusLength: 4096,
             publicKeyEncoding: {
                 type: "spki",
