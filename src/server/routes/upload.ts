@@ -178,8 +178,20 @@ export function createUploadRoutes(
                 return res.status(403).json({ error: "Access denied: Cannot upload tracks to another artist's release" });
             }
 
-            // Move files from temp to musicDir/tracks
-            const destDir = path.join(musicDir, "tracks");
+            // Move files from temp to their final destination
+            // Unified File Architecture: 
+            // - If associated with a release -> musicDir/releases/<safe-slug>/
+            // - If orphaned (no release) -> musicDir/tracks/
+            let destDir: string;
+
+            if (release) {
+                // SECURITY: Use release.slug from DB, not req.body.releaseSlug
+                const safeSlug = release.slug;
+                destDir = path.join(musicDir, "releases", safeSlug);
+            } else {
+                destDir = path.join(musicDir, "tracks");
+            }
+
             await fs.ensureDir(destDir);
 
             let movedCount = 0;
