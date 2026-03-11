@@ -39,6 +39,14 @@ export interface Follower {
     created_at: string;
 }
 
+export interface LikeEntry {
+    id: number;
+    remote_actor_fid: string;
+    object_type: 'album' | 'track' | 'post';
+    object_id: number;
+    created_at: string;
+}
+
 export interface Album {
     id: number;
     title: string;
@@ -316,6 +324,12 @@ export interface DatabaseService {
     getRemotePosts(): RemoteContent[];
     deleteRemoteContent(apId: string): void;
 
+    // Likes
+    addLike(actorUri: string, objectType: 'album' | 'track' | 'post', objectId: number): void;
+    removeLike(actorUri: string, objectType: 'album' | 'track' | 'post', objectId: number): void;
+    getLikesCount(objectType: 'album' | 'track' | 'post', objectId: number): number;
+    hasLiked(actorUri: string, objectType: 'album' | 'track' | 'post', objectId: number): boolean;
+
     // OAuth
     getOAuthClient(instanceUrl: string): OAuthClient | undefined;
     saveOAuthClient(client: Omit<OAuthClient, "created_at">): void;
@@ -384,6 +398,15 @@ export function createDatabase(dbPath: string): DatabaseService {
       shared_inbox_uri TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(artist_id, actor_uri)
+    );
+
+    CREATE TABLE IF NOT EXISTS likes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      remote_actor_fid TEXT NOT NULL,
+      object_type TEXT NOT NULL,
+      object_id INTEGER NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(remote_actor_fid, object_type, object_id)
     );
 
     CREATE TABLE IF NOT EXISTS albums (
@@ -1950,6 +1973,34 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         isStarred(username: string, itemType: string, itemId: string): boolean {
             const row = db.prepare("SELECT 1 FROM starred_items WHERE username = ? AND item_type = ? AND item_id = ?").get(username, itemType, itemId);
+            return !!row;
+        },
+
+        // Likes
+        addLike(actorUri: string, objectType: 'album' | 'track' | 'post', objectId: number): void {
+            db.prepare(`
+                INSERT OR IGNORE INTO likes (remote_actor_fid, object_type, object_id)
+                VALUES (?, ?, ?)
+            `).run(actorUri, objectType, objectId);
+        },
+
+        removeLike(actorUri: string, objectType: 'album' | 'track' | 'post', objectId: number): void {
+            db.prepare(`
+                DELETE FROM likes WHERE remote_actor_fid = ? AND object_type = ? AND object_id = ?
+            `).run(actorUri, objectType, objectId);
+        },
+
+        getLikesCount(objectType: 'album' | 'track' | 'post', objectId: number): number {
+            const row = db.prepare(`
+                SELECT COUNT(*) as count FROM likes WHERE object_type = ? AND object_id = ?
+            `).get(objectType, objectId) as { count: number };
+            return row ? row.count : 0;
+        },
+
+        hasLiked(actorUri: string, objectType: 'album' | 'track' | 'post', objectId: number): boolean {
+            const row = db.prepare(`
+                SELECT 1 FROM likes WHERE remote_actor_fid = ? AND object_type = ? AND object_id = ?
+            `).get(actorUri, objectType, objectId);
             return !!row;
         }
     };

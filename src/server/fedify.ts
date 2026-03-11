@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { createFederation, Person, Endpoints, CryptographicKey, Follow, Accept, Undo, Announce, type Federation, Service, Note } from "@fedify/fedify";
+import { createFederation, Person, Endpoints, CryptographicKey, Follow, Accept, Undo, Announce, type Federation, Service, Note, Like } from "@fedify/fedify";
 import { BetterSqliteKvStore } from "./fedify-kv.js";
 import type { DatabaseService } from "./database.js";
 import type { ServerConfig } from "./config.js";
@@ -284,37 +284,76 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
                 console.error("❌ Error processing Announce:", e);
             }
         })
-        .on(Undo, async (ctx, undo) => {
-            // Check if this is an Undo of a Follow (i.e., unfollow)
-            const object = await undo.getObject(ctx);
-            if (!(object instanceof Follow)) {
-                return; // Not an unfollow, ignore
-            }
+        .on(Like, async (ctx, like) => {
+            const objectUri = like.objectId?.toString();
+            if (!objectUri) return;
 
-            const follow = object;
-            if (follow.objectId == null) return;
-
-            const parsed = ctx.parseUri(follow.objectId);
-            if (parsed?.type !== "actor") return;
-
-            const handle = parsed.identifier;
-            if (handle === "site") {
-                console.log(`📥 Site unfollowed by: ${(await undo.getActor(ctx))?.id?.toString()}`);
+            const note = dbService.getApNote(objectUri);
+            if (!note) {
+                console.log(`⚠️ Received Like for unknown object: ${objectUri}`);
                 return;
             }
 
-            const artist = dbService.getArtistBySlug(handle);
-            if (!artist) return;
+            const actor = await like.getActor(ctx);
+            if (!actor || !actor.id) return;
+            const actorUri = actor.id.toString();
 
-            // Get the actor who is unfollowing
-            const unfollower = await undo.getActor(ctx);
-            const unfollowerUri = unfollower?.id?.toString();
+            dbService.addLike(actorUri, note.note_type as 'album' | 'track' | 'post', note.content_id);
+            console.log(`❤️ Like received from ${actorUri} for ${note.note_type} ${note.content_slug}`);
 
-            if (!unfollowerUri) return;
+            // Upsert remote actor
+            dbService.upsertRemoteActor({
+                uri: actorUri,
+                type: actor instanceof Person ? 'Person' : 'Service',
+                username: actor.preferredUsername?.toString() || null,
+                name: actor.name?.toString() || null,
+                summary: actor.summary?.toString() || null,
+                icon_url: (actor as any).icon?.id?.toString() || (actor as any).icon?.toString() || null,
+                inbox_url: actor.inboxId?.toString() || null,
+                outbox_url: actor.outboxId?.toString() || null,
+            });
+        })
+        .on(Undo, async (ctx, undo) => {
+            const object = await undo.getObject(ctx);
 
-            // Remove from database
-            dbService.removeFollower(artist.id, unfollowerUri);
-            console.log(`📥 Unfollowed ${artist.name}: ${unfollowerUri}`);
+            if (object instanceof Follow) {
+                const follow = object;
+                if (follow.objectId == null) return;
+
+                const parsed = ctx.parseUri(follow.objectId);
+                if (parsed?.type !== "actor") return;
+
+                const handle = parsed.identifier;
+                if (handle === "site") {
+                    console.log(`📥 Site unfollowed by: ${(await undo.getActor(ctx))?.id?.toString()}`);
+                    return;
+                }
+
+                const artist = dbService.getArtistBySlug(handle);
+                if (!artist) return;
+
+                const unfollower = await undo.getActor(ctx);
+                const unfollowerUri = unfollower?.id?.toString();
+
+                if (!unfollowerUri) return;
+
+                dbService.removeFollower(artist.id, unfollowerUri);
+                console.log(`📥 Unfollowed ${artist.name}: ${unfollowerUri}`);
+            } else if (object instanceof Like) {
+                const like = object;
+                const objectUri = like.objectId?.toString();
+                if (!objectUri) return;
+
+                const note = dbService.getApNote(objectUri);
+                if (!note) return;
+
+                const actor = await undo.getActor(ctx);
+                const actorUri = actor?.id?.toString();
+                if (!actorUri) return;
+
+                dbService.removeLike(actorUri, note.note_type as 'album' | 'track' | 'post', note.content_id);
+                console.log(`💔 Undo Like received from ${actorUri} for ${note.note_type} ${note.content_slug}`);
+            }
         });
 
     return federation;
