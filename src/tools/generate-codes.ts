@@ -16,6 +16,7 @@ import Gun from 'gun';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { StringUtils } from '../utils/stringUtils.js';
 
 // Default public GunDB peers
 const DEFAULT_PEERS = [
@@ -46,21 +47,7 @@ interface CodeOptions {
  * Generate a random unlock code
  */
 function generateCode(): string {
-    // Format: XXXX-XXXX-XXXX (alphanumeric, no ambiguous chars)
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No 0, O, 1, I
-    const segments = 3;
-    const segmentLength = 4;
-
-    const code: string[] = [];
-    for (let s = 0; s < segments; s++) {
-        let segment = '';
-        for (let i = 0; i < segmentLength; i++) {
-            segment += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        code.push(segment);
-    }
-
-    return code.join('-');
+    return StringUtils.generateUnlockCode();
 }
 
 /**

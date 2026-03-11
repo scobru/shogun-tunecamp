@@ -49,3 +49,32 @@ describe('StringUtils.escapeHtml', () => {
         expect(StringUtils.escapeHtml('<<>>""&&\'\'')).toBe('&lt;&lt;&gt;&gt;&quot;&quot;&amp;&amp;&#039;&#039;');
     });
 });
+
+describe('StringUtils.generateUnlockCode', () => {
+    test('should generate codes matching the format XXXX-XXXX-XXXX', () => {
+        const regex = /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
+        for (let i = 0; i < 100; i++) {
+            const code = StringUtils.generateUnlockCode();
+            expect(code).toMatch(regex);
+        }
+    });
+
+    test('should not contain ambiguous characters', () => {
+        const ambiguousChars = ['0', 'O', '1', 'I'];
+        for (let i = 0; i < 100; i++) {
+            const code = StringUtils.generateUnlockCode();
+            ambiguousChars.forEach(char => {
+                expect(code).not.toContain(char);
+            });
+        }
+    });
+
+    test('should generate unique codes', () => {
+        const codes = new Set();
+        const iterations = 100;
+        for (let i = 0; i < iterations; i++) {
+            codes.add(StringUtils.generateUnlockCode());
+        }
+        expect(codes.size).toBe(iterations);
+    });
+});
