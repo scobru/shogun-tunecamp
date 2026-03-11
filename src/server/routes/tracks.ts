@@ -42,10 +42,25 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
-
             // If admin, return everything
             if (req.isAdmin) {
                 return res.json(database.getTracks().map(mapTrack));
+            }
+
+            // If a non-admin artist, return their own tracks + all public tracks
+            if (req.artistId) {
+                const myTracks = database.getTracksByArtist(req.artistId).map(mapTrack);
+                const publicTracks = database.getTracks(undefined, true).map(mapTrack);
+                
+                // Deduplicate if any of my tracks are also in the public tracks (though unlikely they'd be duplicates in the array)
+                const seenIds = new Set(myTracks.map(t => t.id));
+                const combined = [...myTracks];
+                for (const t of publicTracks) {
+                    if (!seenIds.has(t.id)) {
+                        combined.push(t);
+                    }
+                }
+                return res.json(combined);
             }
 
             // Otherwise, filter for public/unlisted tracks

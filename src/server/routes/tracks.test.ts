@@ -61,6 +61,8 @@ const { createTracksRoutes } = await import('./tracks.js');
 const mockDatabase = {
     getTrack: jest.fn(),
     getAlbum: jest.fn(),
+    getTracks: jest.fn(),
+    getTracksByArtist: jest.fn(),
 } as unknown as DatabaseService;
 
 const mockPublishingService = {
@@ -76,8 +78,10 @@ describe('Tracks Routes', () => {
         app = express();
         app.use(express.json());
         // Mock auth middleware
+        let testAuth = { isAdmin: true, artistId: null as number | null };
         app.use((req: any, res, next) => {
-            req.isAdmin = true;
+            req.isAdmin = (app as any).testAuth?.isAdmin ?? true;
+            req.artistId = (app as any).testAuth?.artistId ?? null;
             next();
         });
 
@@ -124,5 +128,48 @@ describe('Tracks Routes', () => {
         (mockDatabase.getTrack as jest.Mock).mockReturnValue(null);
         const response = await request(app).get('/tracks/999/stream');
         expect(response.status).toBe(404);
+    });
+
+    describe('Visibility Logic', () => {
+        const publicTracks = [
+            { id: 1, title: 'Public 1', artist_id: 10, album_id: 100 },
+            { id: 2, title: 'Public 2', artist_id: 11, album_id: 101 }
+        ];
+        const privateTracks = [
+            { id: 3, title: 'Private 1', artist_id: 10, album_id: null },
+        ];
+
+        test('Admins see all tracks', async () => {
+            (app as any).testAuth = { isAdmin: true };
+            (mockDatabase.getTracks as jest.Mock).mockReturnValue([...publicTracks, ...privateTracks]);
+            
+            const res = await request(app).get('/tracks');
+            expect(res.status).toBe(200);
+            expect(res.body.length).toBe(3);
+            expect(mockDatabase.getTracks).toHaveBeenCalledWith();
+        });
+
+        test('Artists see their own tracks + public catalog', async () => {
+            (app as any).testAuth = { isAdmin: false, artistId: 10 };
+            (mockDatabase.getTracksByArtist as jest.Mock).mockReturnValue(privateTracks);
+            (mockDatabase.getTracks as jest.Mock).mockReturnValue(publicTracks);
+
+            const res = await request(app).get('/tracks');
+            expect(res.status).toBe(200);
+            // Combined: 1 private + 2 public = 3
+            expect(res.body.length).toBe(3);
+            expect(mockDatabase.getTracksByArtist).toHaveBeenCalledWith(10);
+            expect(mockDatabase.getTracks).toHaveBeenCalledWith(undefined, true);
+        });
+
+        test('Guests see only public tracks', async () => {
+            (app as any).testAuth = { isAdmin: false, artistId: null };
+            (mockDatabase.getTracks as jest.Mock).mockReturnValue(publicTracks);
+
+            const res = await request(app).get('/tracks');
+            expect(res.status).toBe(200);
+            expect(res.body.length).toBe(2);
+            expect(mockDatabase.getTracks).toHaveBeenCalledWith(undefined, true);
+        });
     });
 });

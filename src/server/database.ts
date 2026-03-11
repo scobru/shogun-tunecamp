@@ -246,6 +246,7 @@ export interface DatabaseService {
     deleteAlbum(id: number, keepTracks?: boolean): void;
     // Tracks
     getTracks(albumId?: number, publicOnly?: boolean): Track[];
+    getTracksByArtist(artistId: number, publicOnly?: boolean): Track[];
     getTracksByAlbumIds(albumIds: number[]): Track[];
     getTracksByReleaseId(releaseId: number): Track[];
     getTrack(id: number): Track | undefined;
@@ -1023,10 +1024,22 @@ export function createDatabase(dbPath: string): DatabaseService {
            ORDER BY ar.name, a.title, t.track_num`);
     const getAllPublicTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
            FROM tracks t
-           JOIN albums a ON t.album_id = a.id
+           LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar ON t.artist_id = ar.id
-           WHERE a.is_public = 1
+           WHERE a.is_public = 1 OR (t.album_id IS NULL AND ar.id IS NOT NULL)
            ORDER BY ar.name, a.title, t.track_num`);
+    const getTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
+            FROM tracks t
+            LEFT JOIN albums a ON t.album_id = a.id
+            LEFT JOIN artists ar ON t.artist_id = ar.id
+            WHERE t.artist_id = ?
+            ORDER BY a.title, t.track_num`);
+    const getPublicTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
+            FROM tracks t
+            LEFT JOIN albums a ON t.album_id = a.id
+            LEFT JOIN artists ar ON t.artist_id = ar.id
+            WHERE t.artist_id = ? AND (a.is_public = 1 OR t.album_id IS NULL)
+            ORDER BY a.title, t.track_num`);
 
     return {
         db,
@@ -1358,6 +1371,13 @@ export function createDatabase(dbPath: string): DatabaseService {
                 return getAllPublicTracksStmt.all() as Track[];
             }
             return getAllTracksStmt.all() as Track[];
+        },
+
+        getTracksByArtist(artistId: number, publicOnly = false): Track[] {
+            if (publicOnly) {
+                return getPublicTracksByArtistStmt.all(artistId) as Track[];
+            }
+            return getTracksByArtistStmt.all(artistId) as Track[];
         },
 
         getTracksByAlbumIds(albumIds: number[]): Track[] {

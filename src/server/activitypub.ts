@@ -73,9 +73,32 @@ export class ActivityPubService {
             const baseUrl = this.getBaseUrl();
 
             // Normalize URI
-            let resolvedActorUri = actorUri;
-            if (!actorUri.startsWith("http")) {
-                resolvedActorUri = `https://${actorUri}`;
+            let resolvedActorUri = actorUri.trim();
+            if (!resolvedActorUri.startsWith("http")) {
+                resolvedActorUri = `https://${resolvedActorUri}`;
+            }
+
+            // Remove trailing slashes for consistency
+            if (resolvedActorUri.endsWith("/")) {
+                resolvedActorUri = resolvedActorUri.slice(0, -1);
+            }
+
+            // Funkwhale profile URL normalization: https://domain/@user -> try to resolve to actor URI
+            // We'll try to fetch with Accept header first, but sometimes we need to guess or use WebFinger
+            if (resolvedActorUri.includes("/@")) {
+                console.log(`👤 Detected profile URL, attempting to resolve actor: ${resolvedActorUri}`);
+                try {
+                    const url = new URL(resolvedActorUri);
+                    const domain = url.hostname;
+                    const username = url.pathname.split("/@")[1];
+                    const actorId = await this.getActorIdFromWebFinger(domain, username);
+                    if (actorId) {
+                        resolvedActorUri = actorId;
+                        console.log(`✨ Resolved via WebFinger to: ${resolvedActorUri}`);
+                    }
+                } catch (e) {
+                    console.warn(`⚠️ Failed to resolve profile URL via WebFinger: ${resolvedActorUri}`);
+                }
             }
 
             // Check for self-follow
@@ -145,107 +168,123 @@ export class ActivityPubService {
         console.log(`📥 Fetching remote outbox for: ${actorUri}`);
         
         // Helper: ActivityPub types can be a string OR an array of strings
-        // e.g. "Note" or ["Note", "MusicAlbum"]
         const hasType = (typeField: any, ...targets: string[]): boolean => {
             if (!typeField) return false;
-            if (Array.isArray(typeField)) {
-                return targets.some(t => typeField.includes(t));
-            }
-            return targets.includes(typeField);
+            // Handle both string and array of strings
+            const types = Array.isArray(typeField) ? typeField : [typeField];
+            // Normalize to string values for comparison if they are objects
+            const typeStrings = types.map(t => typeof t === 'string' ? t.toLowerCase() : (t.type || t.toString()).toLowerCase());
+            return targets.some(t => typeStrings.includes(t.toLowerCase()));
         };
 
         try {
             // 1. Get Actor profile to find outbox URL and metadata
             const res = await fetch(actorUri, { headers: { "Accept": "application/activity+json" } });
-            if (!res.ok) return;
+            if (!res.ok) {
+                console.error(`❌ Failed to fetch actor profile ${actorUri}: ${res.status}`);
+                return;
+            }
             const actor = await res.json() as any;
             
-            // Collect outboxes to scan (some actors might point to others)
-            const outboxesToScan: string[] = [];
-            if (actor.outbox) outboxesToScan.push(actor.outbox);
-
-            // Funkwhale specific: check for libraries or channels in the profile
-            if (hasType(actor.type, "Service", "Application")) {
-                // Try to find Funkwhale library actor if main outbox is empty
-                const domain = new URL(actorUri).hostname;
-                // Common Funkwhale library paths
-                const commonLibraryActors = [
-                    `https://${domain}/federation/music/libraries`,
-                    `https://${domain}/federation/actors/music`
-                ];
-                
-                // If it's a Funkwhale instance, the NodeInfo might tell us more, 
-                // but for now let's just add common guesses if the main one fails
+            // Collect outboxes/libraries to scan
+            const outboxesToScan: Set<string> = new Set();
+            if (actor.outbox) outboxesToScan.add(typeof actor.outbox === 'string' ? actor.outbox : actor.outbox.id);
+            
+            // Funkwhale specific: Library and libraries collections
+            if (actor.library) outboxesToScan.add(typeof actor.library === 'string' ? actor.library : actor.library.id);
+            if (actor.libraries) {
+                const libs = Array.isArray(actor.libraries) ? actor.libraries : [actor.libraries];
+                libs.forEach((l: any) => outboxesToScan.add(typeof l === 'string' ? l : l.id));
             }
 
+            // Also check for 'featured' and other common collections
+            if (actor.featured) outboxesToScan.add(typeof actor.featured === 'string' ? actor.featured : actor.featured.id);
+
+            console.log(`🔍 Scanning ${outboxesToScan.size} collections for actor ${actorUri}`);
+
             for (const outboxUrl of outboxesToScan) {
-                // 2. Fetch first page of outbox
-                const outboxRes = await fetch(outboxUrl, { headers: { "Accept": "application/activity+json" } });
-                if (!outboxRes.ok) continue;
-                let outbox = await outboxRes.json() as any;
+                if (!outboxUrl) continue;
+                console.log(`  📂 Fetching collection: ${outboxUrl}`);
 
-                // If it's a collection, get the first page
-                if (outbox.first) {
-                    const firstPageUrl = typeof outbox.first === 'string' ? outbox.first : outbox.first.id;
-                    const pageRes = await fetch(firstPageUrl, { headers: { "Accept": "application/activity+json" } });
-                    if (pageRes.ok) {
-                        outbox = await pageRes.json();
-                    }
-                }
+                // 2. Fetch first page of outbox/collection
+                try {
+                    const outboxRes = await fetch(outboxUrl, { headers: { "Accept": "application/activity+json" } });
+                    if (!outboxRes.ok) continue;
+                    let outbox = await outboxRes.json() as any;
 
-                const items = outbox.orderedItems || outbox.items || [];
-                console.log(`📑 Found ${items.length} items in remote outbox of ${actorUri}`);
-
-                for (const activity of items) {
-                    try {
-                        // Handle both direct objects and 'Create' activities
-                        const obj = hasType(activity.type, "Create", "Announce") ? activity.object : activity;
-                        if (!obj || typeof obj !== 'object') continue;
-
-                        // Resolve object if it's just a URI (common in Announce)
-                        let resolvedObj = obj;
-                        if (typeof obj === 'string') {
-                            const objRes = await fetch(obj, { headers: { "Accept": "application/activity+json" } });
-                            if (objRes.ok) resolvedObj = await objRes.json();
+                    // If it's a collection, get the first page
+                    if (outbox.first) {
+                        const firstPageUrl = typeof outbox.first === 'string' ? outbox.first : outbox.first.id;
+                        const pageRes = await fetch(firstPageUrl, { headers: { "Accept": "application/activity+json" } });
+                        if (pageRes.ok) {
+                            outbox = await pageRes.json();
                         }
+                    }
 
-                        // Check if this is a known content type (handles both string and array types)
-                        if (hasType(resolvedObj.type, "Note", "Audio", "Track", "Album", "MusicRecording", "MusicAlbum", "Article")) {
-                            let type = 'post';
-                            // Music markers: Audio, Track, MusicRecording, MusicAlbum, or objects with audio attachments
-                            const isMusic = hasType(resolvedObj.type, "Audio", "Track", "Album", "MusicRecording", "MusicAlbum") ||
-                                          (resolvedObj.attachment && Array.isArray(resolvedObj.attachment) && resolvedObj.attachment.some((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/")));
+                    const items = outbox.orderedItems || outbox.items || [];
+                    console.log(`📑 Found ${items.length} items in collection ${outboxUrl}`);
 
-                            if (isMusic) {
-                                type = 'release';
+                    for (const activity of items) {
+                        try {
+                            if (!activity || typeof activity !== 'object') continue;
+
+                            // Handle both direct objects and activities (Create, Announce, Listen)
+                            let obj = activity;
+                            if (hasType(activity.type, "Create", "Announce", "Listen")) {
+                                obj = activity.object;
                             }
 
-                            // Mapping logic
-                            const attachments = Array.isArray(resolvedObj.attachment) ? resolvedObj.attachment : (resolvedObj.attachment ? [resolvedObj.attachment] : []);
-                            const audioAttachment = attachments.find((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/"));
-                            
-                            const remoteContent = {
-                                ap_id: resolvedObj.id,
-                                actor_uri: actorUri,
-                                type: type,
-                                title: resolvedObj.name || resolvedObj.title || resolvedObj.content?.replace(/<[^>]*>?/gm, '').substring(0, 50) || "Untitled",
-                                content: resolvedObj.content || resolvedObj.summary || "",
-                                url: resolvedObj.url || (Array.isArray(resolvedObj.url) ? resolvedObj.url[0]?.href : resolvedObj.url?.href),
-                                cover_url: resolvedObj.image?.url || resolvedObj.icon?.url || (attachments.find((a: any) => hasType(a.type, "Image") || a.mediaType?.startsWith("image/"))?.url),
-                                stream_url: hasType(resolvedObj.type, "Audio") ? resolvedObj.url : audioAttachment?.url || audioAttachment?.href,
-                                artist_name: resolvedObj.attributedTo?.name || actor.name || actor.preferredUsername || "Remote Artist",
-                                album_name: resolvedObj.name || resolvedObj.title || null,
-                                published_at: resolvedObj.published || new Date().toISOString()
-                            };
+                            if (!obj) continue;
 
-                            if (remoteContent.ap_id) {
-                                this.db.upsertRemoteContent(remoteContent as any);
-                                console.log(`  ✅ Stored remote ${type}: ${remoteContent.title}`);
+                            // Resolve object if it's just a URI
+                            let resolvedObj = obj;
+                            if (typeof obj === 'string') {
+                                const objRes = await fetch(obj, { headers: { "Accept": "application/activity+json" } });
+                                if (objRes.ok) resolvedObj = await objRes.json();
+                                else continue;
                             }
+
+                            // Check if this is a known content type
+                            if (hasType(resolvedObj.type, "Note", "Audio", "Track", "Album", "MusicRecording", "MusicAlbum", "Article")) {
+                                let type = 'post';
+                                // Music markers: Audio, Track, MusicRecording, MusicAlbum, or objects with audio attachments
+                                const isMusic = hasType(resolvedObj.type, "Audio", "Track", "Album", "MusicRecording", "MusicAlbum") ||
+                                              (resolvedObj.attachment && Array.isArray(resolvedObj.attachment) && resolvedObj.attachment.some((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/")));
+
+                                if (isMusic) {
+                                    type = 'release';
+                                }
+
+                                // Mapping logic
+                                const attachments = Array.isArray(resolvedObj.attachment) ? resolvedObj.attachment : (resolvedObj.attachment ? [resolvedObj.attachment] : []);
+                                const audioAttachment = attachments.find((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/"));
+                                
+                                const remoteContent = {
+                                    ap_id: resolvedObj.id,
+                                    actor_uri: actorUri,
+                                    type: type,
+                                    title: resolvedObj.name || resolvedObj.title || resolvedObj.content?.replace(/<[^>]*>?/gm, '').substring(0, 50) || "Untitled",
+                                    content: resolvedObj.content || resolvedObj.summary || "",
+                                    url: resolvedObj.url || (Array.isArray(resolvedObj.url) ? resolvedObj.url[0]?.href : resolvedObj.url?.href),
+                                    cover_url: resolvedObj.image?.url || resolvedObj.icon?.url || (attachments.find((a: any) => hasType(a.type, "Image") || a.mediaType?.startsWith("image/"))?.url),
+                                    stream_url: hasType(resolvedObj.type, "Audio") ? resolvedObj.url : audioAttachment?.url || audioAttachment?.href,
+                                    artist_name: resolvedObj.attributedTo?.name || actor.name || actor.preferredUsername || "Remote Artist",
+                                    album_name: resolvedObj.album?.name || resolvedObj.name || resolvedObj.title || null,
+                                    duration: resolvedObj.duration || audioAttachment?.duration || null,
+                                    published_at: resolvedObj.published || activity.published || new Date().toISOString()
+                                };
+
+                                if (remoteContent.ap_id) {
+                                    this.db.upsertRemoteContent(remoteContent as any);
+                                    console.log(`  ✅ Stored remote ${type}: ${remoteContent.title}`);
+                                }
+                            }
+                        } catch (itemErr) {
+                            console.warn("⚠️ Failed to parse collection item:", itemErr);
                         }
-                    } catch (itemErr) {
-                        console.warn("⚠️ Failed to parse remote outbox item:", itemErr);
                     }
+                } catch (outboxErr) {
+                    console.warn(`⚠️ Error fetching outbox/collection ${outboxUrl}:`, outboxErr);
                 }
             }
             console.log(`✅ Finished population attempt from ${actorUri}`);
