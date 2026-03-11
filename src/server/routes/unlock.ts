@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
+import { StringUtils } from "../../utils/stringUtils.js";
 
 export function createUnlockRoutes(database: DatabaseService): Router {
     const router = Router();
@@ -72,14 +73,14 @@ export function createUnlockRoutes(database: DatabaseService): Router {
         const created = [];
 
         for (let i = 0; i < numCodes; i++) {
-            // Simple random code generation
-            const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+            // Standardized alphanumeric code generation
+            const code = StringUtils.generateUnlockCode();
             try {
                 database.createUnlockCode(code, releaseId);
                 created.push(code);
             } catch (e) {
                 // Retry once if collision (rare)
-                const retry = Math.random().toString(36).substring(2, 10).toUpperCase();
+                const retry = StringUtils.generateUnlockCode();
                 try {
                     database.createUnlockCode(retry, releaseId);
                     created.push(retry);
