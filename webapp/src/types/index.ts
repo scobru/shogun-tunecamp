@@ -94,6 +94,7 @@ export interface AuthStatus {
     user?: User;
     firstRun?: boolean;
     mustChangePassword?: boolean;
+    pair?: any; // Added GunDB identity pair
 }
 
 export interface SiteSettings {

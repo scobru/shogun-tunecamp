@@ -19,7 +19,7 @@ export interface AuthService {
     generateToken(payload: { isAdmin: boolean; username: string; artistId: number | null; role: UserRole }): string;
     verifyToken(token: string): { isAdmin: boolean; username: string; artistId: number | null; role: UserRole } | null;
     // Multi-user management
-    authenticateUser(username: string, password: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole } | false>;
+    authenticateUser(username: string, password: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; pair?: any } | false>;
     verifySubsonicToken(username: string, token: string, salt: string): Promise<boolean>;
     createAdmin(username: string, password: string, artistId?: number | null): Promise<void>;
     createUser(username: string, password: string, artistId: number, storageQuota?: number): Promise<{ id: number }>;
@@ -69,6 +69,8 @@ export function createAuthService(
                     role TEXT NOT NULL DEFAULT 'admin',
                     storage_quota INTEGER NOT NULL DEFAULT 0,
                     storage_used INTEGER NOT NULL DEFAULT 0,
+                    gun_pub TEXT,
+                    gun_priv TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
@@ -79,14 +81,15 @@ export function createAuthService(
             const hasUsername = columns.some(c => c.name === 'username');
             const hasArtistId = columns.some(c => c.name === 'artist_id');
             const hasRole = columns.some(c => c.name === 'role');
+            const hasGunPub = columns.some(c => c.name === 'gun_pub');
 
-            if (!hasUsername || !hasArtistId || !hasRole) {
-                console.log("📦 Migrating admin table to multi-user support (with roles & storage quotas)...");
+            if (!hasUsername || !hasArtistId || !hasRole || !hasGunPub) {
+                console.log("📦 Migrating admin table to multi-user support (with roles, storage quotas & GunDB keys)...");
                 // We need to recreate the table
                 // 1. Rename existing table
                 db.exec("ALTER TABLE admin RENAME TO admin_old");
 
-                // 2. Create new table with role + storage
+                // 2. Create new table with role + storage + gun keys
                 db.exec(`
                     CREATE TABLE admin (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,6 +99,8 @@ export function createAuthService(
                         role TEXT NOT NULL DEFAULT 'admin',
                         storage_quota INTEGER NOT NULL DEFAULT 0,
                         storage_used INTEGER NOT NULL DEFAULT 0,
+                        gun_pub TEXT,
+                        gun_priv TEXT,
                         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                     )
@@ -103,12 +108,12 @@ export function createAuthService(
 
                 // 3. Migrate data - existing users keep role='admin' and unlimited quota (0)
                 const oldAdmins = db.prepare("SELECT * FROM admin_old").all() as any[];
-                const insertStmt = db.prepare("INSERT INTO admin (id, username, password_hash, created_at, updated_at, artist_id, role, storage_quota, storage_used) VALUES (?, ?, ?, ?, ?, ?, 'admin', 0, 0)");
+                const insertStmt = db.prepare("INSERT INTO admin (id, username, password_hash, created_at, updated_at, artist_id, role, storage_quota, storage_used, gun_pub, gun_priv) VALUES (?, ?, ?, ?, ?, ?, 'admin', 0, 0, ?, ?)");
 
                 for (const old of oldAdmins) {
                     let username = old.username;
                     if (!hasUsername && old.id === 1) username = 'admin';
-                    insertStmt.run(old.id, username, old.password_hash, old.created_at, old.updated_at, old.artist_id || null);
+                    insertStmt.run(old.id, username, old.password_hash, old.created_at, old.updated_at, old.artist_id || null, old.gun_pub || null, old.gun_priv || null);
                 }
 
                 // 4. Drop old table
@@ -164,13 +169,29 @@ export function createAuthService(
             }
         },
 
-        async authenticateUser(username: string, password: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole } | false> {
-            const user = db.prepare("SELECT id, password_hash, artist_id, role FROM admin WHERE username = ?").get(username) as { id: number; password_hash: string; artist_id: number | null; role: UserRole } | undefined;
+        async authenticateUser(username: string, password: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; pair?: any } | false> {
+            const user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv FROM admin WHERE username = ?").get(username) as { id: number; password_hash: string; artist_id: number | null; role: UserRole; gun_pub: string | null; gun_priv: string | null } | undefined;
             if (!user) return false;
             const valid = await this.verifyPassword(password, user.password_hash);
             if (!valid) return false;
 
             const userRole: UserRole = user.role || 'admin';
+
+            // Handle GunDB Key Management for existing admins
+            let gunPair: any = undefined;
+            if (user.gun_pub && user.gun_priv) {
+                try {
+                    gunPair = this.decryptGunPriv(user.gun_priv);
+                } catch (e) {
+                    console.error("Failed to decrypt GunDB keys for user", username);
+                }
+            } else if (userRole === 'admin') {
+                // Lazy-generate GunDB identity for admins who don't have one yet
+                console.log(`🔐 Generating new GunDB Identity for admin: ${username}...`);
+                gunPair = await Gun.SEA.pair();
+                const encryptedPriv = this.encryptGunPriv(gunPair);
+                db.prepare("UPDATE admin SET gun_pub = ?, gun_priv = ? WHERE id = ?").run(gunPair.pub, encryptedPriv, user.id);
+            }
 
             // Update Subsonic Token (MD5 of cleartext password) on successful login
             const subsonicToken = md5(password);
@@ -189,7 +210,8 @@ export function createAuthService(
                 id: user.id,
                 isAdmin: userRole === 'admin',
                 artistId: user.artist_id,
-                role: userRole
+                role: userRole,
+                pair: gunPair
             };
         },
 

@@ -218,9 +218,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             const result = await API.login(username, password);
             API.setToken(result.token);
+
+            // Auto-login to GunDB if a pair is provided
+            if (result.pair) {
+                try {
+                    const profile = await GunAuth.loginWithPair(result.pair);
+                    set({ user: profile, isAuthenticated: true });
+                    
+                    // Subscribe to profile changes
+                     GunAuth.subscribeProfile((profileData) => {
+                        set((state) => ({
+                            user: state.user ? { ...state.user, profile: profileData } : null
+                        }));
+                        if (profileData && profileData.avatar) {
+                            const currentUser = get().user;
+                            if (currentUser) {
+                                API.syncGunUser(currentUser.pub, currentUser.epub, currentUser.alias, profileData.avatar).catch(console.error);
+                            }
+                        }
+                    });
+                } catch (gunErr) {
+                    console.error("Failed to auto-login to GunDB:", gunErr);
+                }
+            }
+
             set({
                 isAdminAuthenticated: true,
-                adminUser: result.user || { username, isAdmin: true, id: '0' } as User,
+                adminUser: result.user || { username, isAdmin: true, id: String(result.artistId || '0') } as User,
                 mustChangePassword: !!result.mustChangePassword,
                 role: (result as any).role || 'admin',
                 isAdminLoading: false

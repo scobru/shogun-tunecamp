@@ -15,11 +15,11 @@ const defaultPeers = [
     "https://relay.peer.ooo/gun"
 ];
 
-if (import.meta.env.DEV || window.location.hostname === 'localhost') {
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     defaultPeers.push("http://localhost:1970/gun");
 }
 
-const envPeers = (window as any).TUNECAMP_CONFIG?.gunPeers || import.meta.env.VITE_GUN_PEERS;
+const envPeers = (window as any).TUNECAMP_CONFIG?.gunPeers;
 const PEERS = envPeers ? envPeers.split(',') : defaultPeers;
 
 // Initialize Gun
@@ -31,7 +31,7 @@ const gun = Gun({
     axe: true
 });
 
-const user = gun.user();
+const user = gun.user().recall({ sessionStorage: true });
 
 // Helper interface for Gun User Profile
 export interface GunProfile {

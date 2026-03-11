@@ -49,6 +49,7 @@ export function createAuthRoutes(authService: AuthService): Router {
                 isRootAdmin: authService.isRootAdmin(userToAuth),
                 artistId: result.artistId,
                 role: result.role,
+                pair: result.pair, // Return GunDB identity pair
                 mustChangePassword: await authService.isDefaultPassword(userToAuth)
             });
         } catch (error) {
