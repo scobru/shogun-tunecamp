@@ -30,25 +30,25 @@ import { useEffect } from "react";
 import { ForcePasswordChangeModal } from "./components/modals/ForcePasswordChangeModal";
 
 /**
- * Guard component: only renders children if the user has admin role.
+ * Guard component: only renders children if the user has correct role.
  * Otherwise redirects to home.
  */
 function AdminGuard({ children }: { children: React.ReactNode }) {
-  const { role, isAdminAuthenticated } = useAuthStore();
-  if (!isAdminAuthenticated || (role !== 'admin' && role !== 'user')) {
+  const { role, isAuthenticated } = useAuthStore();
+  if (!isAuthenticated || (role !== 'admin' && role !== 'user')) {
     return <Navigate to="/" replace />;
   }
   return <>{children}</>;
 }
 
 function App() {
-  const { init, checkAdminAuth } = useAuthStore();
+  const { init, checkAuth } = useAuthStore();
 
   useEffect(() => {
     init();
 
     const handleUnauthorized = () => {
-      checkAdminAuth(); // Re-check admin auth on 401
+      checkAuth(); // Re-check auth on 401
     };
 
     window.addEventListener("auth:unauthorized", handleUnauthorized);

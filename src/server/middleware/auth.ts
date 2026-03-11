@@ -4,6 +4,7 @@ import type { UserRole } from "../auth.js";
 
 export interface AuthenticatedRequest extends Request {
     isAdmin?: boolean;
+    isRootAdmin?: boolean;
     username?: string;
     artistId?: number | null;
     role?: UserRole;
@@ -50,6 +51,7 @@ export function createAuthMiddleware(authService: AuthService) {
             req.username = payload.username;
             req.artistId = payload.artistId;
             req.role = payload.role;
+            req.isRootAdmin = authService.isRootAdmin(payload.username);
             next();
         },
 
@@ -71,6 +73,7 @@ export function createAuthMiddleware(authService: AuthService) {
             req.username = payload.username;
             req.artistId = payload.artistId;
             req.role = payload.role;
+            req.isRootAdmin = authService.isRootAdmin(payload.username);
             next();
         },
 
@@ -89,8 +92,10 @@ export function createAuthMiddleware(authService: AuthService) {
                 req.username = payload.username;
                 req.artistId = payload.artistId;
                 req.role = payload.role;
+                req.isRootAdmin = authService.isRootAdmin(payload.username);
             } else {
                 req.isAdmin = false;
+                req.isRootAdmin = false;
             }
 
             next();

@@ -6,11 +6,11 @@ import { match } from 'ts-pattern';
 
 export const AuthModal = () => {
     const dialogRef = useRef<HTMLDialogElement>(null);
-    const [mode, setMode] = useState<'admin' | 'user' | 'register' | 'setup'>('admin');
+    const [mode, setMode] = useState<'login' | 'register' | 'setup'>('login');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPass, setConfirmPass] = useState('');
-    const { login, register, loginAdmin, checkAdminAuth, error, clearError, isFirstRun } = useAuthStore();
+    const { login, register, checkAuth, error, clearError, isFirstRun } = useAuthStore();
     const [localError, setLocalError] = useState('');
     const [showSetupOffer, setShowSetupOffer] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -19,10 +19,10 @@ export const AuthModal = () => {
         const handleOpen = () => {
             dialogRef.current?.showModal();
             if (isFirstRun) {
-                setMode('admin'); // Stay in admin tab but show offer
+                setMode('login'); // Show setup offer if first run
                 setShowSetupOffer(true);
             } else {
-                setMode('user'); 
+                setMode('login'); 
                 setShowSetupOffer(false);
             }
             clearError();
@@ -32,7 +32,7 @@ export const AuthModal = () => {
         return () => document.removeEventListener('open-auth-modal', handleOpen);
     }, [isFirstRun]);
 
-    const switchMode = (newMode: 'admin' | 'user' | 'register' | 'setup') => {
+    const switchMode = (newMode: 'login' | 'register' | 'setup') => {
         setMode(newMode);
         clearError();
         setLocalError('');
@@ -46,15 +46,14 @@ export const AuthModal = () => {
         setIsLoading(true);
         
         try {
-            await match(mode)
-                .with('register', async () => {
-                    if (password !== confirmPass) {
-                        throw new Error('Passwords do not match');
-                    }
-                    await register(username, password);
-                })
-                .with('admin', () => loginAdmin(username, password))
-                .otherwise(() => login(username, password));
+            if (mode === 'register') {
+                if (password !== confirmPass) {
+                    throw new Error('Passwords do not match');
+                }
+                await register(username, password);
+            } else {
+                await login(username, password);
+            }
 
             // Close on success
             dialogRef.current?.close();
@@ -65,7 +64,7 @@ export const AuthModal = () => {
             if (err.message === 'Passwords do not match') {
                 setLocalError('Passwords do not match');
             }
-            // Error managed by store usually, but set local if needed
+            // Error managed by store usually
         } finally {
             setIsLoading(false);
         }
@@ -82,30 +81,23 @@ export const AuthModal = () => {
                     {match(mode)
                         .with('register', () => <><UserPlus size={20}/> Create Account</>)
                         .with('setup', () => <><Shield size={20}/> Create First Admin</>)
-                        .with('admin', () => <><LogIn size={20}/> Admin Login</>)
-                        .otherwise(() => <><LogIn size={20}/> Community Login</>)
+                        .otherwise(() => <><LogIn size={20}/> Sign In</>)
                     }
                 </h3>
 
                 <div className="tabs tabs-boxed bg-base-200 p-1 mb-6" role="tablist">
                     <button 
-                        className={`tab flex-1 ${mode === 'user' ? 'tab-active' : ''}`}
-                        onClick={() => switchMode('user')}
+                        className={`tab flex-1 ${mode === 'login' ? 'tab-active' : ''}`}
+                        onClick={() => switchMode('login')}
                         role="tab"
-                        aria-selected={mode === 'user'}
-                    >User</button>
+                        aria-selected={mode === 'login'}
+                    >Login</button>
                     <button 
                         className={`tab flex-1 ${mode === 'register' ? 'tab-active' : ''}`}
                         onClick={() => switchMode('register')}
                         role="tab"
                         aria-selected={mode === 'register'}
                     >Register</button>
-                    <button 
-                        className={`tab flex-1 ${mode === 'admin' ? 'tab-active' : ''}`}
-                        onClick={() => switchMode('admin')}
-                        role="tab"
-                        aria-selected={mode === 'admin'}
-                    >Admin</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -164,40 +156,42 @@ export const AuthModal = () => {
                     )}
 
                     {showSetupOffer && (
-                        <p className="text-sm opacity-80 text-center">
-                            No admin account yet. Create the first admin with the credentials above.
-                        </p>
+                        <div className="bg-primary/10 p-4 rounded-lg flex flex-col gap-3">
+                            <p className="text-sm opacity-90 text-center">
+                                No admin account yet. Create the first admin with the credentials above.
+                            </p>
+                            <button
+                                type="button"
+                                className="btn btn-primary btn-sm w-full"
+                                disabled={isLoading}
+                                onClick={async () => {
+                                    setLocalError('');
+                                    setIsLoading(true);
+                                    try {
+                                        const result = await API.setup(username, password);
+                                        API.setToken(result.token);
+                                        await checkAuth();
+                                        dialogRef.current?.close();
+                                        setUsername('');
+                                        setPassword('');
+                                        setShowSetupOffer(false);
+                                    } catch (e: any) {
+                                        setLocalError(e?.message ?? 'Setup failed');
+                                    } finally {
+                                        setIsLoading(false);
+                                    }
+                                }}
+                            >
+                                {isLoading ? (
+                                    <span className="loading loading-spinner loading-xs"></span>
+                                ) : (
+                                    'Create Admin Account'
+                                )}
+                            </button>
+                        </div>
                     )}
-                    {showSetupOffer ? (
-                        <button
-                            type="button"
-                            className="btn btn-primary w-full mt-2"
-                            disabled={isLoading}
-                            onClick={async () => {
-                                setLocalError('');
-                                setIsLoading(true);
-                                try {
-                                    const result = await API.setup(username, password);
-                                    API.setToken(result.token);
-                                    await checkAdminAuth();
-                                    dialogRef.current?.close();
-                                    setUsername('');
-                                    setPassword('');
-                                    setShowSetupOffer(false);
-                                } catch (e: any) {
-                                    setLocalError(e?.message ?? 'Setup failed');
-                                } finally {
-                                    setIsLoading(false);
-                                }
-                            }}
-                        >
-                            {isLoading ? (
-                                <span className="loading loading-spinner loading-sm"></span>
-                            ) : (
-                                'Create Admin Account'
-                            )}
-                        </button>
-                    ) : (
+                    
+                    {!showSetupOffer && (
                         <button type="submit" className="btn btn-primary w-full mt-2" disabled={isLoading}>
                             {isLoading ? (
                                 <span className="loading loading-spinner loading-sm"></span>

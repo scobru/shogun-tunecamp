@@ -92,6 +92,8 @@ export interface AuthStatus {
     authenticated: boolean;
     username?: string;
     user?: User;
+    role?: string;
+    artistId?: string | number;
     firstRun?: boolean;
     mustChangePassword?: boolean;
     pair?: any; // Added GunDB identity pair

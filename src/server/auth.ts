@@ -193,7 +193,7 @@ export function createAuthService(
 
             const userRole: UserRole = user.role || 'admin';
 
-            // Handle GunDB Key Management for existing admins
+            // Handle GunDB Key Management for all users
             let gunPair: any = undefined;
             if (user.gun_pub && user.gun_priv) {
                 try {
@@ -201,9 +201,9 @@ export function createAuthService(
                 } catch (e) {
                     console.error("Failed to decrypt GunDB keys for user", username);
                 }
-            } else if (userRole === 'admin') {
-                // Lazy-generate GunDB identity for admins who don't have one yet
-                console.log(`🔐 Generating new GunDB Identity for admin: ${username}...`);
+            } else {
+                // Lazy-generate GunDB identity for any user who doesn't have one yet
+                console.log(`🔐 Generating new GunDB Identity for ${userRole} ${username}...`);
                 gunPair = await Gun.SEA.pair();
                 const encryptedPriv = this.encryptGunPriv(gunPair);
                 db.prepare("UPDATE admin SET gun_pub = ?, gun_priv = ? WHERE id = ?").run(gunPair.pub, encryptedPriv, user.id);
@@ -221,11 +221,38 @@ export function createAuthService(
                 // Column might not exist yet
             }
 
+            let artistId = user.artist_id;
+
+            // Handle Artist Profile (Actor) Management - ensure everyone has an artist record for wallet support
+            if (!artistId) {
+                console.log(`🎤 Creating missing artist profile for ${userRole} ${username}...`);
+                const slug = username.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+                
+                // Simple slug collision handling
+                let finalSlug = slug;
+                let attempt = 0;
+                while (attempt < 10) {
+                    try {
+                        const result = db.prepare("INSERT INTO artists (name, slug, bio) VALUES (?, ?, ?)").run(username, finalSlug, `Artist profile for ${username}`);
+                        artistId = result.lastInsertRowid as number;
+                        db.prepare("UPDATE admin SET artist_id = ? WHERE id = ?").run(artistId, user.id);
+                        break;
+                    } catch (e: any) {
+                        if (e.code === "SQLITE_CONSTRAINT_UNIQUE") {
+                            attempt++;
+                            finalSlug = `${slug}-${attempt}`;
+                        } else {
+                            throw e;
+                        }
+                    }
+                }
+            }
+
             return {
                 success: true,
                 id: user.id,
                 isAdmin: userRole === 'admin',
-                artistId: user.artist_id,
+                artistId: artistId,
                 role: userRole,
                 pair: gunPair
             };

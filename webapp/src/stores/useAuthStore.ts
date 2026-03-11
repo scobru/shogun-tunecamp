@@ -6,185 +6,155 @@ import type { User } from '../types';
 type UserRole = 'admin' | 'user' | null;
 
 interface AuthState {
-    // Community User (GunDB)
-    user: GunProfile | null;
+    user: (User & { gunProfile?: GunProfile | null }) | null;
     isAuthenticated: boolean;
-    isInitializing: boolean;
-
-    // Admin/User (API/SQL)
-    adminUser: User | null;
-    isAdminAuthenticated: boolean;
-    isAdminLoading: boolean;
+    isLoading: boolean;
     isFirstRun: boolean;
     mustChangePassword?: boolean;
     role: UserRole;
-
     error: string | null;
 
     // Actions
     init: () => Promise<void>;
-
-    // Community Actions
     login: (username: string, password?: string) => Promise<void>;
-    loginWithPair: (pair: any) => Promise<void>;
     register: (username: string, password: string) => Promise<void>;
     logout: () => void;
-
-    // Admin Actions
-    loginAdmin: (username: string, password?: string) => Promise<void>;
-    logoutAdmin: () => void;
-    checkAdminAuth: () => Promise<void>;
+    checkAuth: () => Promise<void>;
     clearError: () => void;
+
+    // Compatibility (for existing components)
+    adminUser: User | null;
+    isAdminAuthenticated: boolean;
+    loginAdmin: (username: string, password?: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-    // Community State
     user: null,
     isAuthenticated: false,
-    isInitializing: true,
-
-    // Admin State
-    adminUser: null,
-    isAdminAuthenticated: false,
-    isAdminLoading: true,
+    isLoading: true,
     isFirstRun: false,
     mustChangePassword: false,
     role: null,
-
     error: null,
+
+    // Compat helpers
+    adminUser: null,
+    isAdminAuthenticated: false,
 
     clearError: () => set({ error: null }),
 
     init: async () => {
-        set({ isInitializing: true, isAdminLoading: true });
-
-        // 1. Initialize GunDB (Async)
-        GunAuth.init().then(gunProfile => {
-            set({
-                user: gunProfile,
-                isAuthenticated: !!gunProfile,
-                isInitializing: false
-            });
-
-            if (gunProfile) {
-                // Subscribe to profile changes (avatar, bio)
-                GunAuth.subscribeProfile((profileData) => {
-                    set((state) => ({
-                        user: state.user ? { ...state.user, profile: profileData } : null
-                    }));
-
-                    // Keep backend in sync with profile updates
-                    if (profileData && (profileData.avatar || profileData.bio)) {
-                        const currentUser = get().user;
-                        if (currentUser) {
-                            API.syncGunUser(currentUser.pub, currentUser.epub, currentUser.alias, profileData.avatar).catch(console.error);
-                        }
-                    }
-                });
-            }
-        }).catch(e => {
-            console.error('GunAuth Init Error', e);
-            set({ user: null, isAuthenticated: false, isInitializing: false });
-        });
-
-        // 2. Check Admin Auth (Immediate)
-        get().checkAdminAuth();
+        set({ isLoading: true });
+        await get().checkAuth();
     },
 
-    // --- Community Actions ---
-    login: async (username, password) => {
-        if (!password) throw new Error("Password required for community login");
-        set({ error: null });
+    checkAuth: async () => {
+        set({ isLoading: true });
         try {
-            const profile = await GunAuth.login(username, password);
-            set({ user: profile, isAuthenticated: true });
+            const status = await API.getAuthStatus();
+            const isAdmin = status.authenticated && (status.role === 'admin' || status.role === 'user');
             
-            // Subscribe to profile changes
-            GunAuth.subscribeProfile((profileData) => {
-                set((state) => ({
-                    user: state.user ? { ...state.user, profile: profileData } : null
-                }));
-
-                // Keep backend in sync
-                if (profileData && profileData.avatar) {
-                    const currentUser = get().user;
-                    if (currentUser) {
-                        API.syncGunUser(currentUser.pub, currentUser.epub, currentUser.alias, profileData.avatar).catch(console.error);
-                    }
+            let gunProfile: GunProfile | null = null;
+            if (status.pair) {
+                try {
+                    gunProfile = await GunAuth.loginWithPair(status.pair);
+                } catch (e) {
+                    console.error("GunDB re-auth failed:", e);
                 }
+            } else if (status.authenticated) {
+                // Try session storage or init
+                try {
+                    await GunAuth.init();
+                    gunProfile = GunAuth.getProfile();
+                } catch (e) {}
+            }
+
+            const transformedUser = status.user || (status.username ? { 
+                username: status.username, 
+                isAdmin: status.role === 'admin', 
+                id: String(status.artistId || '0'), 
+                artistId: String(status.artistId) 
+            } as User : null);
+
+            set({
+                isAuthenticated: status.authenticated,
+                isAdminAuthenticated: isAdmin, // compat
+                user: transformedUser ? { ...transformedUser, gunProfile } : null,
+                adminUser: transformedUser, // compat
+                isFirstRun: !!status.firstRun,
+                mustChangePassword: !!status.mustChangePassword,
+                role: (status as any).role || (status.authenticated ? 'admin' : null),
+                isLoading: false
+            });
+        } catch (e) {
+            set({ isAuthenticated: false, isAdminAuthenticated: false, user: null, adminUser: null, isLoading: false, isFirstRun: false, role: null });
+        }
+    },
+
+    login: async (username, password) => {
+        set({ error: null, isLoading: true });
+        try {
+            const result = await API.login(username, password);
+            API.setToken(result.token);
+
+            let gunProfile: GunProfile | null = null;
+            if (result.pair) {
+                try {
+                    gunProfile = await GunAuth.loginWithPair(result.pair);
+                    
+                    // Subscribe to profile changes
+                    GunAuth.subscribeProfile((profileData) => {
+                        set((state) => ({
+                            user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, profile: profileData } } : null
+                        }));
+                    });
+                } catch (gunErr) {
+                    console.error("Failed to auto-login to GunDB:", gunErr);
+                }
+            }
+
+            const transformedUser = result.user || { 
+                username, 
+                isAdmin: result.role === 'admin', 
+                id: String(result.artistId || '0'),
+                artistId: String(result.artistId)
+            } as User;
+
+            set({
+                isAuthenticated: true,
+                isAdminAuthenticated: true, // compat
+                user: { ...transformedUser, gunProfile },
+                adminUser: transformedUser, // compat
+                mustChangePassword: !!result.mustChangePassword,
+                role: (result as any).role || 'admin',
+                isLoading: false
             });
         } catch (e: any) {
-            set({ error: e.message });
+            set({ error: e.message, isLoading: false });
             throw e;
         }
+    },
+
+    // Compat alias
+    loginAdmin: async (username, password) => {
+        return get().login(username, password);
     },
 
     register: async (username, password) => {
-        set({ error: null });
+        set({ error: null, isLoading: true });
         try {
-            // 1. Register on GunDB first (for community/P2P features)
-            await GunAuth.register(username, password);
-            const profile = GunAuth.getProfile();
-            set({ user: profile, isAuthenticated: true });
-
-            // 2. Register on backend (creates DB user + artist + AP actor)
+            // 1. Register on backend (creates DB user + artist + AP actor)
             const result = await API.registerUser(username, password);
             
-            // 3. Auto-login with the JWT token
+            // 2. Auto-login with the JWT token
             API.setToken(result.token);
 
-            set({
-                isAdminAuthenticated: true,
-                adminUser: {
-                    username: result.username,
-                    isAdmin: result.role === 'admin',
-                    id: String(result.artistId)
-                } as User,
-                role: result.role as UserRole,
-            });
+            // 3. Since we're logged in, perform a check to get the pair and full user object
+            await get().checkAuth();
 
-            // Subscribe to profile changes
-            GunAuth.subscribeProfile((profileData) => {
-                set((state) => ({
-                    user: state.user ? { ...state.user, profile: profileData } : null
-                }));
-
-                // Keep backend in sync
-                if (profileData && profileData.avatar) {
-                    const currentUser = get().user;
-                    if (currentUser) {
-                        API.syncGunUser(currentUser.pub, currentUser.epub, currentUser.alias, profileData.avatar).catch(console.error);
-                    }
-                }
-            });
+            set({ isLoading: false });
         } catch (e: any) {
-            set({ error: e.message });
-            throw e;
-        }
-    },
-
-    loginWithPair: async (pair: any) => {
-        set({ error: null });
-        try {
-            const profile = await GunAuth.loginWithPair(pair);
-            set({ user: profile, isAuthenticated: true });
-
-            // Subscribe to profile changes
-            GunAuth.subscribeProfile((profileData) => {
-                set((state) => ({
-                    user: state.user ? { ...state.user, profile: profileData } : null
-                }));
-
-                // Keep backend in sync
-                if (profileData && profileData.avatar) {
-                    const currentUser = get().user;
-                    if (currentUser) {
-                        API.syncGunUser(currentUser.pub, currentUser.epub, currentUser.alias, profileData.avatar).catch(console.error);
-                    }
-                }
-            });
-        } catch (e: any) {
-            set({ error: e.message });
+            set({ error: e.message, isLoading: false });
             throw e;
         }
     },
@@ -192,71 +162,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     logout: () => {
         GunAuth.logout();
         API.setToken(null);
-        set({ user: null, isAuthenticated: false, adminUser: null, isAdminAuthenticated: false, role: null });
-    },
-
-    // --- Admin Actions ---
-    checkAdminAuth: async () => {
-        set({ isAdminLoading: true });
-        try {
-            const status = await API.getAuthStatus();
-            set({
-                isAdminAuthenticated: status.authenticated,
-                adminUser: status.user || (status.username ? { username: status.username, isAdmin: true, id: '0' } as User : null),
-                isFirstRun: !!status.firstRun,
-                mustChangePassword: !!status.mustChangePassword,
-                role: (status as any).role || (status.authenticated ? 'admin' : null),
-                isAdminLoading: false
-            });
-        } catch (e) {
-            set({ isAdminAuthenticated: false, adminUser: null, isAdminLoading: false, isFirstRun: false, mustChangePassword: false, role: null });
-        }
-    },
-
-    loginAdmin: async (username, password) => {
-        set({ error: null, isAdminLoading: true });
-        try {
-            const result = await API.login(username, password);
-            API.setToken(result.token);
-
-            // Auto-login to GunDB if a pair is provided
-            if (result.pair) {
-                try {
-                    const profile = await GunAuth.loginWithPair(result.pair);
-                    set({ user: profile, isAuthenticated: true });
-                    
-                    // Subscribe to profile changes
-                     GunAuth.subscribeProfile((profileData) => {
-                        set((state) => ({
-                            user: state.user ? { ...state.user, profile: profileData } : null
-                        }));
-                        if (profileData && profileData.avatar) {
-                            const currentUser = get().user;
-                            if (currentUser) {
-                                API.syncGunUser(currentUser.pub, currentUser.epub, currentUser.alias, profileData.avatar).catch(console.error);
-                            }
-                        }
-                    });
-                } catch (gunErr) {
-                    console.error("Failed to auto-login to GunDB:", gunErr);
-                }
-            }
-
-            set({
-                isAdminAuthenticated: true,
-                adminUser: result.user || { username, isAdmin: true, id: String(result.artistId || '0') } as User,
-                mustChangePassword: !!result.mustChangePassword,
-                role: (result as any).role || 'admin',
-                isAdminLoading: false
-            });
-        } catch (e: any) {
-            set({ error: e.message, isAdminLoading: false });
-            throw e;
-        }
-    },
-
-    logoutAdmin: () => {
-        API.logout();
-        set({ adminUser: null, isAdminAuthenticated: false, role: null });
+        set({ 
+            user: null, 
+            isAuthenticated: false, 
+            adminUser: null, 
+            isAdminAuthenticated: false, 
+            role: null 
+        });
     }
 }));

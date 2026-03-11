@@ -140,7 +140,23 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
 
 
             // Update wallet address if provided, otherwise keep existing
-            const finalWalletAddress = walletAddress !== undefined ? walletAddress : artist.wallet_address;
+            // Security: Managed artists can update their own wallet. Root admins cannot change it.
+            let finalWalletAddress = artist.wallet_address;
+            if (walletAddress !== undefined) {
+                if (req.artistId && req.artistId === id) {
+                    finalWalletAddress = walletAddress;
+                } else if (req.isRootAdmin) {
+                    // Root admin can only set it if it was null, or if we decide to block it entirely.
+                    // The user said "ADMIN non puo cambiare questo wallet".
+                    // Assuming this means even root admin cannot change it once set, or at all.
+                    // Let's allow setting if null, but not changing if already set.
+                    if (!artist.wallet_address) {
+                        finalWalletAddress = walletAddress;
+                    } else {
+                        console.warn(`Attempt by root admin to change wallet for artist ${id} blocked.`);
+                    }
+                }
+            }
 
             database.updateArtist(id, bio || artist.bio || undefined, artist.photo_path || undefined, parsedLinks, parsedPostParams, finalWalletAddress || undefined);
 

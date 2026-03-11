@@ -700,7 +700,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             // Permission Check: Restricted admin can only delete their own tracks
-            if (req.artistId && track.artist_id && track.artist_id !== req.artistId) {
+            if (req.artistId && track.artist_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied: You can only delete your own tracks" });
             }
 

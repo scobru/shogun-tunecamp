@@ -38,16 +38,18 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
             // 2. Fetch transaction details to verify 'to' and 'value'
             const tx = await provider.getTransaction(txHash);
 
-            // Check receiver
-            if (ownerAddress && tx?.to?.toLowerCase() !== ownerAddress.toLowerCase()) {
-                console.warn(`Payment verified but sent to ${tx?.to}, expected ${ownerAddress}`);
-                // return res.status(400).json({ error: "Transaction recipient mismatch" });
-            }
-
             // Check track exists
             const track = database.getTrack(parseInt(trackId, 10));
             if (!track) {
                 return res.status(404).json({ error: "Track not found" });
+            }
+
+            // Check receiver
+            const expectedRecipient = (track as any).walletAddress || ownerAddress;
+
+            if (expectedRecipient && tx?.to?.toLowerCase() !== expectedRecipient.toLowerCase()) {
+                console.warn(`Payment verification mismatch: Track ${trackId} expected recipient ${expectedRecipient}, but transaction was sent to ${tx?.to}`);
+                return res.status(400).json({ error: "Transaction recipient mismatch" });
             }
 
             // Verify value (loose check to allow for small price fluctuations if in USD)
