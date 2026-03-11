@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { createFederation, Person, Endpoints, CryptographicKey, Follow, Accept, Undo, Announce, type Federation, Service, Note, Like } from "@fedify/fedify";
+import { createFederation, Person, Endpoints, CryptographicKey, Follow, Accept, Undo, Announce, type Federation, Service, Note, Like, Image } from "@fedify/fedify";
 import { BetterSqliteKvStore } from "./fedify-kv.js";
 import type { DatabaseService } from "./database.js";
 import type { ServerConfig } from "./config.js";
@@ -19,7 +19,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
             software: {
                 name: "tunecamp",
                 version: { major: 2, minor: 0, patch: 0 },
-                repository: new URL("https://github.com/scobru/tunecamp"),
+                repository: new URL("https://github.com/scobru/shogun-tunecamp"),
             },
             protocols: ["activitypub"],
             openRegistrations: false,
@@ -98,8 +98,8 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig): 
             outbox: new URL(`/api/ap/users/${slug}/outbox`, baseUrl),
             followers: new URL(`/api/ap/users/${slug}/followers`, baseUrl),
             following: new URL(`/api/ap/users/${slug}/following`, baseUrl),
-            icon: handle !== "site" ? new URL(`/api/artists/${slug}/cover`, baseUrl) : undefined,
-            image: handle !== "site" ? new URL(`/api/artists/${slug}/cover`, baseUrl) : undefined,
+            icon: new Image({ url: new URL(handle !== "site" ? `/api/artists/${slug}/cover` : `/vite.svg`, baseUrl) }),
+            image: new Image({ url: new URL(handle !== "site" ? `/api/artists/${slug}/cover` : `/vite.svg`, baseUrl) }),
             url: new URL(handle === "site" ? "/" : `/@${slug}`, baseUrl),
             endpoints: new Endpoints({
                 sharedInbox: new URL("/inbox", baseUrl)

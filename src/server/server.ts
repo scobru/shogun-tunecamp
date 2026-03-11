@@ -392,6 +392,16 @@ export async function startServer(config: ServerConfig): Promise<void> {
                 console.log(`🌐 Registered on GunDB community: ${publicUrl}`);
             }
 
+            // --- Decentralized Mesh: Auto-Follow other instances ---
+            // We wait a bit for GunDB to connect to peers before scanning
+            setTimeout(async () => {
+                try {
+                    await publishingService.syncCommunityFollows();
+                } catch (e) {
+                    console.error("❌ Failed to auto-sync community follows on startup:", e);
+                }
+            }, 10000); // 10 seconds delay to allow GunDB to discover peers
+
             // ActivityPub Relay Support
             const relayUrl = database.getSetting("relayUrl") || config.relayUrl;
             if (relayUrl) {

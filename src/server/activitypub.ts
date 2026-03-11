@@ -184,16 +184,16 @@ export class ActivityPubService {
         }
 
         console.log(`👤 Extracted username: ${username}`);
-        const artist = this.db.getArtistBySlug(username);
-
-        if (!artist) {
+        let artist = this.db.getArtistBySlug(username);
+        
+        if (!artist && username !== "site") {
             console.log(`❌ Artist not found for slug: ${username}`);
             return null;
         }
 
         const baseUrl = this.getBaseUrl();
-        const profileUrl = `${baseUrl}/@${artist.slug}`; // Local profile
-        const actorUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        const profileUrl = username === "site" ? `${baseUrl}/` : `${baseUrl}/@${username}`;
+        const actorUrl = `${baseUrl}/users/${username}`; // Use Fedify-style URL
 
         return {
             subject: resource,
@@ -212,19 +212,30 @@ export class ActivityPubService {
         };
     }
 
-    public generateActor(artist: Artist): any {
+    public generateActor(artist: Artist | { slug: string, name: string, bio?: string, photo_path?: string }): any {
         const baseUrl = this.getBaseUrl();
+        const slug = artist.slug;
+        const isSite = slug === "site";
+        
         // Align with Fedify's actor path
-        const userUrl = `${baseUrl}/users/${artist.slug}`;
-        const apiUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        const userUrl = `${baseUrl}/users/${slug}`;
+        const apiUrl = `${baseUrl}/api/ap/users/${slug}`;
 
         let iconMediaType = "image/jpeg";
-        if (artist.photo_path) {
+        let iconUrl = `${baseUrl}/api/artists/${slug}/cover`;
+        
+        if (isSite) {
+            iconMediaType = "image/svg+xml";
+            iconUrl = `${baseUrl}/vite.svg`;
+        } else if (artist.photo_path) {
             const ext = artist.photo_path.split('.').pop()?.toLowerCase();
             if (ext === 'png') iconMediaType = "image/png";
             else if (ext === 'webp') iconMediaType = "image/webp";
             else if (ext === 'gif') iconMediaType = "image/gif";
         }
+
+        const name = artist.name;
+        const summary = (artist as any).bio || artist.bio || (isSite ? "Tunecamp Federation Actor" : `Artist on ${this.getDomain()}`);
 
         return {
             "@context": [
@@ -240,15 +251,20 @@ export class ActivityPubService {
                 }
             ],
             id: userUrl,
-            type: ["Person", "Artist", "MusicArtist"],
-            preferredUsername: artist.slug,
-            name: artist.name,
-            summary: artist.bio || `Artist on ${this.getDomain()}`,
-            url: `${baseUrl}/@${artist.slug}`,
+            type: isSite ? "Service" : ["Person", "Artist", "MusicArtist"],
+            preferredUsername: slug,
+            name: name,
+            summary: summary,
+            url: isSite ? `${baseUrl}/` : `${baseUrl}/@${slug}`,
             icon: {
                 type: "Image",
                 mediaType: iconMediaType,
-                url: `${baseUrl}/api/artists/${artist.slug}/cover`
+                url: iconUrl
+            },
+            image: {
+                type: "Image",
+                mediaType: iconMediaType,
+                url: iconUrl
             },
             inbox: `${userUrl}/inbox`,
             outbox: `${apiUrl}/outbox`,
@@ -257,7 +273,7 @@ export class ActivityPubService {
             publicKey: {
                 id: `${userUrl}#main-key`,
                 owner: userUrl,
-                publicKeyPem: artist.public_key
+                publicKeyPem: (artist as any).public_key || (isSite ? this.db.getSetting("site_public_key") : undefined)
             },
             endpoints: {
                 sharedInbox: `${baseUrl}/inbox`

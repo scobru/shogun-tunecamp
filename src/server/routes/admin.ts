@@ -308,6 +308,27 @@ export function createAdminRoutes(
     });
 
     /**
+     * POST /api/admin/network/sync-community
+     * Discover other Tunecamp instances via GunDB and follow them via ActivityPub (Root Admin only)
+     */
+    router.post("/network/sync-community", async (req: any, res) => {
+        try {
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can sync community" });
+            }
+
+            const result = await publishingService.syncCommunityFollows();
+            res.json({ 
+                message: `Community sync completed. Discovered ${result.discovered} sites, followed ${result.followed} new instances.`,
+                ...result 
+            });
+        } catch (error: any) {
+            console.error("Error syncing community follows:", error);
+            res.status(500).json({ error: error.message || "Failed to sync community follows" });
+        }
+    });
+
+    /**
      * GET /api/admin/artists/:id/identity
      * Get artist identity keypair (Root Admin or Assigned Artist Admin only)
      */

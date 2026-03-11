@@ -38,6 +38,16 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         return obj;
     };
 
+    const getContentType = (format?: string | null): string => {
+        if (!format) return 'audio/mpeg';
+        const f = format.toLowerCase();
+        if (f === 'flac') return 'audio/flac';
+        if (f === 'ogg') return 'audio/ogg';
+        if (f === 'wav') return 'audio/wav';
+        if (f === 'm4a' || f === 'mp4') return 'audio/mp4';
+        return 'audio/mpeg';
+    };
+
     const sendResponse = (res: any, req: any, data: object, status = 'ok') => {
         const isJson = req.query.f === 'json';
         const version = '1.16.1';
@@ -135,6 +145,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         }
 
         (req as any).user = { username: u };
+        console.log(`[Subsonic Request] ${req.method} ${req.path} ?`, req.query);
         next();
     });
 
@@ -264,7 +275,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     '@genre': album.genre,
                     '@coverArt': `al_${albumId}`,
                     '@size': 0,
-                    '@contentType': 'audio/mpeg',
+                    '@contentType': getContentType(track.format),
                     '@suffix': track.format || 'mp3',
                     '@duration': Math.floor(track.duration || 0),
                     '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
@@ -462,7 +473,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                             '@albumId': id,
                             '@path': track.file_path || '',
                             '@suffix': track.format || 'mp3',
-                            '@contentType': 'audio/mpeg',
+                            '@contentType': getContentType(track.format),
                             '@duration': Math.floor(track.duration || 0),
                             '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128
                         }))
@@ -742,7 +753,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     '@duration': Math.floor(track.duration || 0),
                     '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
                     '@suffix': track.format || 'mp3',
-                    '@contentType': 'audio/mpeg',
+                    '@contentType': getContentType(track.format),
                     '@path': track.file_path,
                     '@albumId': `al_${track.album_id}`,
                     '@artistId': `ar_${track.artist_id}`
@@ -1198,7 +1209,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     '@albumId': `al_${track.album_id}`,
                     '@artistId': `ar_${track.artist_id}`,
                     '@suffix': track.format || 'mp3',
-                    '@contentType': 'audio/mpeg',
+                    '@contentType': getContentType(track.format),
                     '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128
                 }))
             }
@@ -1290,7 +1301,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     '@duration': Math.floor(track.duration || 0),
                     '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
                     '@suffix': track.format || 'mp3',
-                    '@contentType': 'audio/mpeg',
+                    '@contentType': getContentType(track.format),
                     '@albumId': `al_${album.id}`,
                     '@artistId': `ar_${album.artist_id}`
                 });

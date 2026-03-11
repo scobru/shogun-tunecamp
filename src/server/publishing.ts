@@ -178,6 +178,61 @@ export class PublishingService {
             await this.unpublishPostFromAP(post);
         }
     }
+
+    /**
+     * Automatically discovers other Tunecamp instances via GunDB 
+     * and follows their Site Actor via ActivityPub to create a decentralized mesh.
+     */
+    async syncCommunityFollows(): Promise<{ discovered: number, followed: number }> {
+        console.log("🌐 Starting decentralized community discovery via GunDB...");
+        
+        const publicUrl = this.db.getSetting("publicUrl") || this.config.publicUrl;
+        if (!publicUrl) {
+            console.warn("⚠️ Skipping community sync: No public URL configured.");
+            return { discovered: 0, followed: 0 };
+        }
+
+        try {
+            // 1. Get all sites registered in the GunDB community
+            const sites = await this.gundb.getCommunitySites();
+            const myUrl = publicUrl.replace(/\/$/, ""); // Normalize
+            
+            let followedCount = 0;
+            const remoteActors = this.db.getRemoteActors();
+            const existingUris = new Set(remoteActors.map(a => a.uri.replace(/\/$/, "")));
+
+            for (const site of sites) {
+                if (!site.url) continue;
+                
+                const siteUrl = site.url.replace(/\/$/, "");
+                
+                // Skip self
+                if (siteUrl === myUrl || siteUrl.includes("localhost") || siteUrl.includes("127.0.0.1")) {
+                    continue;
+                }
+
+                // The Site Actor URI for a Tunecamp instance is always /users/site
+                const siteActorUri = `${siteUrl}/users/site`;
+                
+                // If we haven't interacted with this actor yet, follow it
+                if (!existingUris.has(siteActorUri)) {
+                    console.log(`📡 Discovered new instance: ${site.title} (${siteUrl}). Sending follow request...`);
+                    try {
+                        await this.ap.followRemoteActor(siteActorUri, "site");
+                        followedCount++;
+                    } catch (e) {
+                        console.error(`❌ Failed to follow discovered instance ${siteUrl}:`, e);
+                    }
+                }
+            }
+
+            console.log(`✅ Community sync complete. Discovered ${sites.length} sites, followed ${followedCount} new instances.`);
+            return { discovered: sites.length, followed: followedCount };
+        } catch (error) {
+            console.error("❌ Error during community follow sync:", error);
+            return { discovered: 0, followed: 0 };
+        }
+    }
 }
 
 export function createPublishingService(

@@ -9,15 +9,24 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     // Actor Endpoint
     router.get("/users/:slug", async (req, res) => {
         const { slug } = req.params;
-        console.log(`👤 Actor request for: ${slug}`);
-        const artist = db.getArtistBySlug(slug);
-
-        if (!artist) {
-            console.log(`❌ Actor not found: ${slug}`);
-            return res.status(404).send("Not found");
+        let actor;
+        if (slug === "site") {
+            const siteName = db.getSetting("siteName") || "TuneCamp Instance";
+            const siteDescription = db.getSetting("siteDescription") || "Tunecamp Federation Actor";
+            actor = apService.generateActor({
+                slug: "site",
+                name: siteName,
+                bio: siteDescription
+            });
+        } else {
+            const artist = db.getArtistBySlug(slug);
+            if (!artist) {
+                console.log(`❌ Actor not found: ${slug}`);
+                return res.status(404).send("Not found");
+            }
+            actor = apService.generateActor(artist);
         }
 
-        const actor = apService.generateActor(artist);
         res.setHeader("Content-Type", "application/activity+json");
         res.json(actor);
     });
@@ -87,65 +96,73 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     // Outbox Endpoint
     router.get("/users/:slug/outbox", async (req, res) => {
         const { slug } = req.params;
-        const artist = db.getArtistBySlug(slug);
+        const isSite = slug === "site";
+        const artist = isSite ? null : db.getArtistBySlug(slug);
 
-        if (!artist) return res.status(404).send("Not found");
+        if (!artist && !isSite) return res.status(404).send("Not found");
 
         const baseUrl = apService.getBaseUrl();
-        const userUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        const userUrl = `${baseUrl}/api/ap/users/${slug}`;
 
-        // Get public releases
-        const albums = db.getAlbumsByArtist(artist.id, true);
-        const releases = albums.filter(a => a.is_release && a.is_public);
+        let orderedItems: any[] = [];
 
-        // Get posts (only public)
-        const posts = db.getPostsByArtist(artist.id, true);
+        if (isSite) {
+            // Site outbox currently empty
+            orderedItems = [];
+        } else if (artist) {
+            // Get public releases
+            const albums = db.getAlbumsByArtist(artist.id, true);
+            const releases = albums.filter(a => a.is_release && a.is_public);
 
-        // OPTIMIZATION: Fetch all tracks for these releases in one go
-        const releaseIds = releases.map(r => r.id);
-        const allTracks = db.getTracksByAlbumIds(releaseIds);
-        const tracksByRelease = new Map<number, Track[]>();
-        for (const track of allTracks) {
-            if (!track.album_id) continue;
-            if (!tracksByRelease.has(track.album_id)) {
-                tracksByRelease.set(track.album_id, []);
+            // Get posts (only public)
+            const posts = db.getPostsByArtist(artist.id, true);
+
+            // OPTIMIZATION: Fetch all tracks for these releases in one go
+            const releaseIds = releases.map(r => r.id);
+            const allTracks = db.getTracksByAlbumIds(releaseIds);
+            const tracksByRelease = new Map<number, Track[]>();
+            for (const track of allTracks) {
+                if (!track.album_id) continue;
+                if (!tracksByRelease.has(track.album_id)) {
+                    tracksByRelease.set(track.album_id, []);
+                }
+                tracksByRelease.get(track.album_id)!.push(track);
             }
-            tracksByRelease.get(track.album_id)!.push(track);
+
+            // Combine and sort
+            const combined = [
+                ...releases.map(r => ({ type: 'release', date: r.published_at || r.created_at, item: r })),
+                ...posts.map(p => ({ type: 'post', date: p.created_at, item: p }))
+            ].sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
+
+            orderedItems = combined.map(entry => {
+                if (entry.type === 'release') {
+                    const release = entry.item as any;
+                    const tracks = tracksByRelease.get(release.id) || [];
+                    const note = apService.generateNote(release, artist, tracks);
+                    return {
+                        type: "Create",
+                        id: `${baseUrl}/api/ap/activity/release/${release.slug}`,
+                        actor: userUrl,
+                        published: note.published,
+                        to: ["https://www.w3.org/ns/activitystreams#Public"],
+                        object: note
+                    };
+                } else {
+                    const post = entry.item as any;
+                    const note = apService.generatePostNote(post, artist);
+                    return {
+                        type: "Create",
+                        id: `${baseUrl}/api/ap/activity/post/${post.slug}`,
+                        actor: userUrl,
+                        published: note.published,
+                        to: ["https://www.w3.org/ns/activitystreams#Public"],
+                        cc: [`${userUrl}/followers`],
+                        object: note
+                    };
+                }
+            });
         }
-
-        // Combine and sort
-        const combined = [
-            ...releases.map(r => ({ type: 'release', date: r.published_at || r.created_at, item: r })),
-            ...posts.map(p => ({ type: 'post', date: p.created_at, item: p }))
-        ].sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
-
-        const orderedItems = combined.map(entry => {
-            if (entry.type === 'release') {
-                const release = entry.item as any;
-                const tracks = tracksByRelease.get(release.id) || [];
-                const note = apService.generateNote(release, artist, tracks);
-                return {
-                    type: "Create",
-                    id: `${baseUrl}/api/ap/activity/release/${release.slug}`,
-                    actor: userUrl,
-                    published: note.published,
-                    to: ["https://www.w3.org/ns/activitystreams#Public"],
-                    object: note
-                };
-            } else {
-                const post = entry.item as any;
-                const note = apService.generatePostNote(post, artist);
-                return {
-                    type: "Create",
-                    id: `${baseUrl}/api/ap/activity/post/${post.slug}`,
-                    actor: userUrl,
-                    published: note.published,
-                    to: ["https://www.w3.org/ns/activitystreams#Public"],
-                    cc: [`${userUrl}/followers`],
-                    object: note
-                };
-            }
-        });
 
         res.setHeader("Content-Type", "application/activity+json");
         res.json({
@@ -160,13 +177,14 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     // Followers Endpoint
     router.get("/users/:slug/followers", async (req, res) => {
         const { slug } = req.params;
-        const artist = db.getArtistBySlug(slug);
+        const isSite = slug === "site";
+        const artist = isSite ? null : db.getArtistBySlug(slug);
 
-        if (!artist) return res.status(404).send("Not found");
+        if (!artist && !isSite) return res.status(404).send("Not found");
 
         const baseUrl = apService.getBaseUrl();
-        const userUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
-        const followers = db.getFollowers(artist.id);
+        const userUrl = `${baseUrl}/api/ap/users/${slug}`;
+        const followers = isSite ? [] : db.getFollowers(artist!.id);
 
         res.setHeader("Content-Type", "application/activity+json");
         res.json({
@@ -181,12 +199,13 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     // Following Endpoint
     router.get("/users/:slug/following", async (req, res) => {
         const { slug } = req.params;
-        const artist = db.getArtistBySlug(slug);
+        const isSite = slug === "site";
+        const artist = isSite ? null : db.getArtistBySlug(slug);
 
-        if (!artist) return res.status(404).send("Not found");
+        if (!artist && !isSite) return res.status(404).send("Not found");
 
         const baseUrl = apService.getBaseUrl();
-        const userUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
+        const userUrl = `${baseUrl}/api/ap/users/${slug}`;
 
         res.setHeader("Content-Type", "application/activity+json");
         res.json({

@@ -147,6 +147,15 @@ export interface NetworkTrack {
     track: Track;
     siteName: string;
     siteUrl: string;
+    federation?: 'gundb' | 'activitypub';
+    // For ActivityPub tracks (flattened structure)
+    audioUrl?: string;
+    title?: string;
+    artistName?: string;
+    slug?: string;
+    duration?: number;
+    coverUrl?: string;
+    releaseTitle?: string;
 }
 
 export interface AdminStats {
