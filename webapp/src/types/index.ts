@@ -207,3 +207,13 @@ export interface UserPlaylist {
     tracks: UserPlaylistTrack[];
     trackCount: number;
 }
+
+export interface NetworkStatus {
+    gundb?: {
+        connected: boolean;
+        peers: number;
+    };
+    activitypub?: {
+        enabled: boolean;
+    };
+}

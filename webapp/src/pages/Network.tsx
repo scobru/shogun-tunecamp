@@ -4,7 +4,7 @@ import { useAuthStore } from "../stores/useAuthStore";
 import { Globe, Server, Music, ExternalLink, Play } from "lucide-react";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { StringUtils } from "../utils/stringUtils";
-import type { NetworkSite, NetworkTrack } from "../types";
+import type { NetworkSite, NetworkTrack, NetworkStatus } from "../types";
 
 export const Network = () => {
   const [sites, setSites] = useState<NetworkSite[]>([]);
@@ -14,7 +14,7 @@ export const Network = () => {
   const { isAdminAuthenticated } = useAuthStore();
   const [hiddenTracks, setHiddenTracks] = useState<string[]>([]);
   const [showHidden, setShowHidden] = useState(false);
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<NetworkStatus | null>(null);
 
   const getHostname = (url: string) => {
     try {
@@ -116,18 +116,18 @@ export const Network = () => {
     localStorage.setItem("tunecamp_blocked_tracks", JSON.stringify(newHidden));
   };
 
-  const handlePlayNetworkTrack = (networkTrack: NetworkTrack | any) => {
+  const handlePlayNetworkTrack = (networkTrack: NetworkTrack) => {
     if (networkTrack.federation === "activitypub") {
       const track = {
-        id: networkTrack.slug,
-        title: networkTrack.title,
-        artistName: networkTrack.artistName,
-        albumTitle: networkTrack.releaseTitle,
-        streamUrl: networkTrack.audioUrl,
-        coverUrl: networkTrack.coverUrl,
-        coverImage: networkTrack.coverUrl,
-        duration: networkTrack.duration,
-        siteUrl: networkTrack.siteUrl,
+        id: networkTrack.slug || "",
+        title: networkTrack.title || "",
+        artistName: networkTrack.artistName || "",
+        albumTitle: networkTrack.releaseTitle || "",
+        streamUrl: networkTrack.audioUrl || "",
+        coverUrl: networkTrack.coverUrl || "",
+        coverImage: networkTrack.coverUrl || "",
+        duration: networkTrack.duration || 0,
+        siteUrl: networkTrack.siteUrl || "",
         service: "activitypub",
       };
       playTrack(track as any, [track as any]);
@@ -166,11 +166,11 @@ export const Network = () => {
       </div>
     );
 
-  const filteredTracks = tracks.filter((item: NetworkTrack | any) => {
+  const filteredTracks = tracks.filter((item: NetworkTrack) => {
     if (!item) return false;
     const uniqueId =
       item.federation === "activitypub"
-        ? item.slug
+        ? item.slug || ""
         : item.siteUrl + "::" + item.track?.id;
 
     if (showHidden) return true;
@@ -503,8 +503,8 @@ export const Network = () => {
                       alert(
                         `Sync complete! Processed ${res.artists} artists and ${res.notes} items.`,
                       );
-                    } catch (err: any) {
-                      alert("Sync failed: " + err.message);
+                    } catch (err: unknown) {
+                      alert("Sync failed: " + (err instanceof Error ? err.message : String(err)));
                     }
                   }
                 }}
