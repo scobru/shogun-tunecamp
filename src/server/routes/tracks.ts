@@ -145,6 +145,56 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
     });
 
     /**
+     * GET /api/tracks/:id/metadata
+     * Extract ID3/metadata (including cover art) from the physical file
+     */
+    router.get("/:id/metadata", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+
+        try {
+            const id = parseInt(req.params.id as string, 10);
+            const track = database.getTrack(id);
+
+            if (!track || !track.file_path) {
+                return res.status(404).json({ error: "Local track not found" });
+            }
+
+            const trackPath = path.join(musicDir, track.file_path);
+            if (!await fs.pathExists(trackPath)) {
+                return res.status(404).json({ error: "File not found on disk" });
+            }
+
+            const metadata = await parseFile(trackPath).catch(() => null);
+            if (!metadata) {
+                return res.status(500).json({ error: "Failed to parse metadata" });
+            }
+
+            const { common } = metadata;
+            
+            let coverBase64 = null;
+            if (common.picture && common.picture.length > 0) {
+                const pic = common.picture[0];
+                const base64 = pic.data.toString('base64');
+                coverBase64 = `data:${pic.format};base64,${base64}`;
+            }
+
+            res.json({
+                title: common.title || track.title,
+                artist: common.artist || common.albumartist,
+                album: common.album,
+                year: common.year,
+                genre: common.genre ? common.genre.join(", ") : undefined,
+                cover: coverBase64
+            });
+
+        } catch (error) {
+            console.error("Error extracting metadata:", error);
+            res.status(500).json({ error: "Failed to extract metadata" });
+        }
+    });
+
+
+    /**
      * GET /api/tracks/search-metadata
      * Search for track metadata on MusicBrainz
      */

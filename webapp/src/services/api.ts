@@ -169,6 +169,7 @@ export const API = {
     updateTrack: (id: string | number, data: Partial<Track>) => handleResponse(api.put<Track>(`/tracks/${id}`, data)),
     deleteTrack: (id: string | number, deleteFile = false) =>
         handleResponse(api.delete(`/tracks/${id}${deleteFile ? '?deleteFile=true' : ''}`)),
+    getTrackMetadata: (id: string | number) => handleResponse(api.get<any>(`/tracks/${id}/metadata`)),
     searchTrackMetadata: (query: string) => handleResponse(api.get<any[]>(`/tracks/search-metadata?q=${encodeURIComponent(query)}`)),
     matchTrackMetadata: (id: string | number, metadata: { title: string, artist: string, albumTitle?: string, coverUrl?: string }) =>
         handleResponse(api.post<{ message: string, track: Track }>(`/tracks/${id}/match-metadata`, metadata)),

@@ -739,6 +739,67 @@ export default function AdminReleaseEditor() {
         {/* RIGHT COLUMN: METADATA */}
         <div className="w-96 bg-base-200 p-6 overflow-y-auto border-l border-base-content/10">
           <div className="space-y-6">
+
+            {/* Auto-Fill Button */}
+            <div className="form-control">
+              <button 
+                type="button" 
+                className="btn btn-outline btn-primary w-full shadow-sm"
+                onClick={async () => {
+                  const firstLocalTrack = tracks.find(t => t.file_path);
+                  if (!firstLocalTrack) {
+                    alert("Please add a local audio file first to extract metadata.");
+                    return;
+                  }
+
+                  setLoading(true);
+                  try {
+                    const resp = await API.getTrackMetadata(firstLocalTrack.id);
+                    
+                    setMetadata(prev => ({
+                      ...prev,
+                      title: resp.title || resp.album || prev.title,
+                      year: resp.year || prev.year,
+                      tags: resp.genre || prev.tags,
+                    }));
+
+                    if (resp.artist) {
+                      const matchedArtist = artists.find(a => 
+                        a.name.toLowerCase() === resp.artist.toLowerCase() ||
+                        a.id.toString() === metadata.artist_id?.toString()
+                      );
+                      if (matchedArtist && matchedArtist.name.toLowerCase() === resp.artist.toLowerCase()) {
+                        setMetadata(prev => ({ ...prev, artist_id: parseInt(matchedArtist.id) }));
+                      }
+                    }
+
+                    if (resp.cover) {
+                      try {
+                        const res = await fetch(resp.cover);
+                        const blob = await res.blob();
+                        const ext = blob.type.split('/')[1] || 'jpg';
+                        const file = new File([blob], `cover.${ext}`, { type: blob.type });
+                        setCoverFile(file);
+                        setCoverPreview(URL.createObjectURL(file));
+                      } catch (e) {
+                           console.error("Failed to parse cover image", e);
+                      }
+                    }
+
+                  } catch (e) {
+                    console.error(e);
+                    alert("Failed to auto-fill metadata from track.");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading || saving}
+              >
+                <ImageIcon className="w-4 h-4 mr-2" />
+                Auto-Fill Album from Track Data
+              </button>
+            </div>
+
             {/* Cover Art */}
             <div className="form-control">
               <label className="label font-bold">Cover Art</label>
