@@ -18,15 +18,19 @@ import {
   LogOut,
   Heart,
   Download,
+  Upload,
 } from "lucide-react";
 import clsx from "clsx";
 import { WalletPill } from "../ui/WalletPill";
 
 export const Sidebar = () => {
   const location = useLocation();
-  const { user, isAuthenticated, isAdminAuthenticated, logout, logoutAdmin } =
+  const { user, isAuthenticated, isAdminAuthenticated, role, logout, logoutAdmin } =
     useAuthStore();
   const [siteName, setSiteName] = useState("TuneCamp");
+
+  const isAdmin = role === 'admin';
+  const isUser = role === 'user';
 
   useEffect(() => {
     API.getSiteSettings()
@@ -103,8 +107,13 @@ export const Sidebar = () => {
           </>
         )}
         <NavItem to="/stats" icon={BarChart2} label="Stats" />
-        {isAdminAuthenticated && (
+        {/* File browser - admin only */}
+        {isAdmin && isAdminAuthenticated && (
           <NavItem to="/browser" icon={Folder} label="Files" />
+        )}
+        {/* Upload shortcut - for registered users (both admin and user) */}
+        {isUser && isAdminAuthenticated && (
+          <NavItem to="/my-music" icon={Upload} label="My Music" />
         )}
       </ul>
 
@@ -120,7 +129,7 @@ export const Sidebar = () => {
               to="/profile"
               className="avatar placeholder tooltip tooltip-right z-50"
               data-tip={
-                user?.alias || (isAdminAuthenticated ? "Admin" : "User")
+                user?.alias || (isAdminAuthenticated ? (isAdmin ? "Admin" : "User") : "User")
               }
             >
               <div className="bg-neutral text-neutral-content rounded-full w-10 ring ring-primary ring-offset-base-100 ring-offset-2 cursor-pointer hover:scale-105 transition-transform overflow-hidden">
@@ -132,7 +141,7 @@ export const Sidebar = () => {
                   />
                 ) : (
                   <span>
-                    {(user?.alias || (isAdminAuthenticated ? "A" : "?"))
+                    {(user?.alias || (isAdmin ? "A" : "U"))
                       ?.charAt(0)
                       .toUpperCase()}
                   </span>
@@ -141,7 +150,8 @@ export const Sidebar = () => {
             </Link>
 
             <div className="flex flex-col gap-2 items-center">
-              {isAdminAuthenticated && (
+              {/* Admin Settings - only for admin role */}
+              {isAdmin && isAdminAuthenticated && (
                 <Link
                   to="/admin"
                   className="btn btn-ghost btn-sm btn-circle text-primary tooltip tooltip-right z-50"

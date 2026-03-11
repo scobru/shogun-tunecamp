@@ -1,47 +1,76 @@
 import type { Request, Response, NextFunction } from "express";
 import type { AuthService } from "../auth.js";
+import type { UserRole } from "../auth.js";
 
 export interface AuthenticatedRequest extends Request {
     isAdmin?: boolean;
     username?: string;
     artistId?: number | null;
+    role?: UserRole;
+    userId?: number;
 }
 
 /**
  * Creates auth middleware that validates JWT tokens
  */
 export function createAuthMiddleware(authService: AuthService) {
+    /**
+     * Extracts and verifies token from request
+     */
+    function extractPayload(req: AuthenticatedRequest) {
+        let token: string | undefined;
+        const authHeader = req.headers.authorization;
+
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+        } else if (req.query.token) {
+            token = req.query.token as string;
+        }
+
+        if (!token) return null;
+        return authService.verifyToken(token);
+    }
+
     return {
         /**
-         * Middleware that requires valid admin authentication
+         * Middleware that requires valid admin authentication (role='admin')
          */
         requireAdmin(
             req: AuthenticatedRequest,
             res: Response,
             next: NextFunction
         ) {
-            let token: string | undefined;
-            const authHeader = req.headers.authorization;
-
-            if (authHeader && authHeader.startsWith("Bearer ")) {
-                token = authHeader.substring(7);
-            } else if (req.query.token) {
-                token = req.query.token as string;
-            }
-
-            if (!token) {
-                return res.status(401).json({ error: "No token provided" });
-            }
-
-            const payload = authService.verifyToken(token);
+            const payload = extractPayload(req);
 
             if (!payload || !payload.isAdmin) {
-                return res.status(401).json({ error: "Invalid or expired token" });
+                return res.status(401).json({ error: "No token provided" });
             }
 
             req.isAdmin = true;
             req.username = payload.username;
             req.artistId = payload.artistId;
+            req.role = payload.role;
+            next();
+        },
+
+        /**
+         * Middleware that requires any authenticated user (admin OR user role)
+         */
+        requireUser(
+            req: AuthenticatedRequest,
+            res: Response,
+            next: NextFunction
+        ) {
+            const payload = extractPayload(req);
+
+            if (!payload) {
+                return res.status(401).json({ error: "No token provided" });
+            }
+
+            req.isAdmin = payload.isAdmin;
+            req.username = payload.username;
+            req.artistId = payload.artistId;
+            req.role = payload.role;
             next();
         },
 
@@ -53,22 +82,13 @@ export function createAuthMiddleware(authService: AuthService) {
             res: Response,
             next: NextFunction
         ) {
-            let token: string | undefined;
-            const authHeader = req.headers.authorization;
+            const payload = extractPayload(req);
 
-            if (authHeader && authHeader.startsWith("Bearer ")) {
-                token = authHeader.substring(7);
-            } else if (req.query.token) {
-                token = req.query.token as string;
-            }
-
-            if (token) {
-                const payload = authService.verifyToken(token);
-                req.isAdmin = payload?.isAdmin || false;
-                if (payload?.username) {
-                    req.username = payload.username;
-                    req.artistId = payload.artistId;
-                }
+            if (payload) {
+                req.isAdmin = payload.isAdmin;
+                req.username = payload.username;
+                req.artistId = payload.artistId;
+                req.role = payload.role;
             } else {
                 req.isAdmin = false;
             }

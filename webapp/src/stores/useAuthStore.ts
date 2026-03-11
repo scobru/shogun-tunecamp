@@ -3,18 +3,21 @@ import API from '../services/api';
 import { GunAuth, type GunProfile } from '../services/gun';
 import type { User } from '../types';
 
+type UserRole = 'admin' | 'user' | null;
+
 interface AuthState {
     // Community User (GunDB)
     user: GunProfile | null;
     isAuthenticated: boolean;
     isInitializing: boolean;
 
-    // Admin User (API/SQL)
+    // Admin/User (API/SQL)
     adminUser: User | null;
     isAdminAuthenticated: boolean;
     isAdminLoading: boolean;
     isFirstRun: boolean;
     mustChangePassword?: boolean;
+    role: UserRole;
 
     error: string | null;
 
@@ -46,6 +49,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     isAdminLoading: true,
     isFirstRun: false,
     mustChangePassword: false,
+    role: null,
 
     error: null,
 
@@ -118,9 +122,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     register: async (username, password) => {
         set({ error: null });
         try {
+            // 1. Register on GunDB first (for community/P2P features)
             await GunAuth.register(username, password);
             const profile = GunAuth.getProfile();
             set({ user: profile, isAuthenticated: true });
+
+            // 2. Register on backend (creates DB user + artist + AP actor)
+            const result = await API.registerUser(username, password);
+            
+            // 3. Auto-login with the JWT token
+            API.setToken(result.token);
+
+            set({
+                isAdminAuthenticated: true,
+                adminUser: {
+                    username: result.username,
+                    isAdmin: result.role === 'admin',
+                    id: String(result.artistId)
+                } as User,
+                role: result.role as UserRole,
+            });
 
             // Subscribe to profile changes
             GunAuth.subscribeProfile((profileData) => {
@@ -170,7 +191,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     logout: () => {
         GunAuth.logout();
-        set({ user: null, isAuthenticated: false });
+        API.setToken(null);
+        set({ user: null, isAuthenticated: false, adminUser: null, isAdminAuthenticated: false, role: null });
     },
 
     // --- Admin Actions ---
@@ -183,10 +205,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 adminUser: status.user || (status.username ? { username: status.username, isAdmin: true, id: '0' } as User : null),
                 isFirstRun: !!status.firstRun,
                 mustChangePassword: !!status.mustChangePassword,
+                role: (status as any).role || (status.authenticated ? 'admin' : null),
                 isAdminLoading: false
             });
         } catch (e) {
-            set({ isAdminAuthenticated: false, adminUser: null, isAdminLoading: false, isFirstRun: false, mustChangePassword: false });
+            set({ isAdminAuthenticated: false, adminUser: null, isAdminLoading: false, isFirstRun: false, mustChangePassword: false, role: null });
         }
     },
 
@@ -199,6 +222,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 isAdminAuthenticated: true,
                 adminUser: result.user || { username, isAdmin: true, id: '0' } as User,
                 mustChangePassword: !!result.mustChangePassword,
+                role: (result as any).role || 'admin',
                 isAdminLoading: false
             });
         } catch (e: any) {
@@ -209,6 +233,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     logoutAdmin: () => {
         API.logout();
-        set({ adminUser: null, isAdminAuthenticated: false });
+        set({ adminUser: null, isAdminAuthenticated: false, role: null });
     }
 }));

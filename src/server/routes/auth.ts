@@ -36,9 +36,10 @@ export function createAuthRoutes(authService: AuthService): Router {
             }
 
             const token = authService.generateToken({
-                isAdmin: true,
+                isAdmin: result.isAdmin,
                 username: userToAuth,
-                artistId: result.artistId
+                artistId: result.artistId,
+                role: result.role
             });
 
             res.json({
@@ -47,6 +48,7 @@ export function createAuthRoutes(authService: AuthService): Router {
                 username: userToAuth,
                 isRootAdmin: authService.isRootAdmin(userToAuth),
                 artistId: result.artistId,
+                role: result.role,
                 mustChangePassword: await authService.isDefaultPassword(userToAuth)
             });
         } catch (error) {
@@ -79,7 +81,8 @@ export function createAuthRoutes(authService: AuthService): Router {
             const token = authService.generateToken({
                 isAdmin: true,
                 username: userToCreate,
-                artistId: null
+                artistId: null,
+                role: 'admin'
             });
 
             res.json({
@@ -132,7 +135,8 @@ export function createAuthRoutes(authService: AuthService): Router {
             const token = authService.generateToken({
                 isAdmin: true,
                 username,
-                artistId
+                artistId,
+                role: 'admin'
             });
 
             res.json({
@@ -153,10 +157,11 @@ export function createAuthRoutes(authService: AuthService): Router {
     router.get("/status", async (req: AuthenticatedRequest, res) => {
         const username = req.username || "";
         res.json({
-            authenticated: req.isAdmin === true,
+            authenticated: req.isAdmin === true || req.role === 'user',
             username: username,
             isRootAdmin: username ? authService.isRootAdmin(username) : false,
             artistId: req.artistId || null,
+            role: req.role || null,
             firstRun: authService.isFirstRun(),
             mustChangePassword: username ? await authService.isDefaultPassword(username) : false
         });

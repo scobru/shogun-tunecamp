@@ -11,17 +11,22 @@ import { isSafeUrl } from "../utils/networkUtils.js";
 const SALT_ROUNDS = 10;
 const JWT_EXPIRES_IN = "7d";
 
+export type UserRole = 'admin' | 'user';
+
 export interface AuthService {
     hashPassword(password: string): Promise<string>;
     verifyPassword(password: string, hash: string): Promise<boolean>;
-    generateToken(payload: { isAdmin: boolean; username: string; artistId: number | null }): string;
-    verifyToken(token: string): { isAdmin: boolean; username: string; artistId: number | null } | null;
+    generateToken(payload: { isAdmin: boolean; username: string; artistId: number | null; role: UserRole }): string;
+    verifyToken(token: string): { isAdmin: boolean; username: string; artistId: number | null; role: UserRole } | null;
     // Multi-user management
-    authenticateUser(username: string, password: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number } | false>;
+    authenticateUser(username: string, password: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole } | false>;
     verifySubsonicToken(username: string, token: string, salt: string): Promise<boolean>;
     createAdmin(username: string, password: string, artistId?: number | null): Promise<void>;
+    createUser(username: string, password: string, artistId: number, storageQuota?: number): Promise<{ id: number }>;
     updateAdmin(id: number, artistId: number | null): void;
-    listAdmins(): { id: number; username: string; artist_id: number | null; created_at: string }[];
+    updateStorageUsed(userId: number, bytesUsed: number): void;
+    getStorageInfo(userId: number): { storage_quota: number; storage_used: number } | null;
+    listAdmins(): { id: number; username: string; artist_id: number | null; role: UserRole; storage_quota: number; created_at: string }[];
     deleteAdmin(id: number): void;
     changePassword(username: string, newPassword: string): Promise<void>;
     isFirstRun(): boolean;
@@ -61,44 +66,48 @@ export function createAuthService(
                     username TEXT NOT NULL UNIQUE,
                     password_hash TEXT NOT NULL,
                     artist_id INTEGER DEFAULT NULL,
+                    role TEXT NOT NULL DEFAULT 'admin',
+                    storage_quota INTEGER NOT NULL DEFAULT 0,
+                    storage_used INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
             `);
         } else {
-            // Check if username column exists (migration)
+            // Check if columns exist (migration)
             const columns = db.prepare("PRAGMA table_info(admin)").all() as any[];
             const hasUsername = columns.some(c => c.name === 'username');
             const hasArtistId = columns.some(c => c.name === 'artist_id');
+            const hasRole = columns.some(c => c.name === 'role');
 
-            if (!hasUsername || !hasArtistId) {
-                console.log("📦 Migrating admin table to multi-user support (with artist linking)...");
+            if (!hasUsername || !hasArtistId || !hasRole) {
+                console.log("📦 Migrating admin table to multi-user support (with roles & storage quotas)...");
                 // We need to recreate the table
                 // 1. Rename existing table
                 db.exec("ALTER TABLE admin RENAME TO admin_old");
 
-                // 2. Create new table
+                // 2. Create new table with role + storage
                 db.exec(`
                     CREATE TABLE admin (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         username TEXT NOT NULL UNIQUE,
                         password_hash TEXT NOT NULL,
                         artist_id INTEGER DEFAULT NULL,
+                        role TEXT NOT NULL DEFAULT 'admin',
+                        storage_quota INTEGER NOT NULL DEFAULT 0,
+                        storage_used INTEGER NOT NULL DEFAULT 0,
                         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                     )
                 `);
 
-                // 3. Migrate data
+                // 3. Migrate data - existing users keep role='admin' and unlimited quota (0)
                 const oldAdmins = db.prepare("SELECT * FROM admin_old").all() as any[];
-                const insertStmt = db.prepare("INSERT INTO admin (id, username, password_hash, created_at, updated_at, artist_id) VALUES (?, ?, ?, ?, ?, ?)");
+                const insertStmt = db.prepare("INSERT INTO admin (id, username, password_hash, created_at, updated_at, artist_id, role, storage_quota, storage_used) VALUES (?, ?, ?, ?, ?, ?, 'admin', 0, 0)");
 
                 for (const old of oldAdmins) {
-                    // If migrating from v1 (no username), default to 'admin' for id 1
                     let username = old.username;
                     if (!hasUsername && old.id === 1) username = 'admin';
-
-                    // Preserve ID if possible, or let autoincrement handle it if conflicts (but usually we want to keep ID 1 as root)
                     insertStmt.run(old.id, username, old.password_hash, old.created_at, old.updated_at, old.artist_id || null);
                 }
 
@@ -132,42 +141,50 @@ export function createAuthService(
             return bcrypt.compare(password, hash);
         },
 
-        generateToken(payload: { isAdmin: boolean; username: string; artistId: number | null }): string {
+        generateToken(payload: { isAdmin: boolean; username: string; artistId: number | null; role: UserRole }): string {
             return jwt.sign(payload, jwtSecret, { expiresIn: JWT_EXPIRES_IN });
         },
 
-        verifyToken(token: string): { isAdmin: boolean; username: string; artistId: number | null } | null {
+        verifyToken(token: string): { isAdmin: boolean; username: string; artistId: number | null; role: UserRole } | null {
             try {
-                return jwt.verify(token, jwtSecret) as { isAdmin: boolean; username: string; artistId: number | null };
+                const decoded = jwt.verify(token, jwtSecret) as any;
+                return {
+                    isAdmin: decoded.isAdmin ?? (decoded.role === 'admin'),
+                    username: decoded.username,
+                    artistId: decoded.artistId ?? null,
+                    role: decoded.role || 'admin' // backward compat: old tokens without role are admin
+                };
             } catch {
                 return null;
             }
         },
 
-        async authenticateUser(username: string, password: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number } | false> {
-            const user = db.prepare("SELECT id, password_hash, artist_id FROM admin WHERE username = ?").get(username) as { id: number; password_hash: string; artist_id: number | null } | undefined;
+        async authenticateUser(username: string, password: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole } | false> {
+            const user = db.prepare("SELECT id, password_hash, artist_id, role FROM admin WHERE username = ?").get(username) as { id: number; password_hash: string; artist_id: number | null; role: UserRole } | undefined;
             if (!user) return false;
             const valid = await this.verifyPassword(password, user.password_hash);
             if (!valid) return false;
+
+            const userRole: UserRole = user.role || 'admin';
 
             // Update Subsonic Token (MD5 of cleartext password) on successful login
             const subsonicToken = md5(password);
             db.prepare("UPDATE admin SET subsonic_token = ? WHERE id = ?").run(subsonicToken, user.id);
 
             // Also store encrypted cleartext password for Subsonic token+salt auth
-            // This is needed because token auth requires md5(password + salt) which needs the original password
             const encryptedPass = encryptGunPrivHelper(password, jwtSecret);
             try {
                 db.prepare("UPDATE admin SET subsonic_password = ? WHERE id = ?").run(encryptedPass, user.id);
             } catch (e) {
-                // Column might not exist yet, will be added by migration
+                // Column might not exist yet
             }
 
             return {
                 success: true,
                 id: user.id,
-                isAdmin: true,
-                artistId: user.artist_id
+                isAdmin: userRole === 'admin',
+                artistId: user.artist_id,
+                role: userRole
             };
         },
 
@@ -198,16 +215,30 @@ export function createAuthService(
 
         async createAdmin(username: string, password: string, artistId: number | null = null): Promise<void> {
             const hash = await this.hashPassword(password);
-            db.prepare("INSERT INTO admin (username, password_hash, artist_id) VALUES (?, ?, ?)").run(username, hash, artistId);
+            db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota) VALUES (?, ?, ?, 'admin', 0)").run(username, hash, artistId);
+        },
+
+        async createUser(username: string, password: string, artistId: number, storageQuota: number = 10 * 1024 * 1024): Promise<{ id: number }> {
+            const hash = await this.hashPassword(password);
+            const result = db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota, storage_used) VALUES (?, ?, ?, 'user', ?, 0)").run(username, hash, artistId, storageQuota);
+            return { id: Number(result.lastInsertRowid) };
         },
 
         updateAdmin(id: number, artistId: number | null): void {
             db.prepare("UPDATE admin SET artist_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(artistId, id);
         },
 
-        listAdmins(): { id: number; username: string; artist_id: number | null; artist_name: string | null; created_at: string; is_root: boolean }[] {
+        updateStorageUsed(userId: number, bytesUsed: number): void {
+            db.prepare("UPDATE admin SET storage_used = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(bytesUsed, userId);
+        },
+
+        getStorageInfo(userId: number): { storage_quota: number; storage_used: number } | null {
+            return db.prepare("SELECT storage_quota, storage_used FROM admin WHERE id = ?").get(userId) as { storage_quota: number; storage_used: number } | null;
+        },
+
+        listAdmins(): { id: number; username: string; artist_id: number | null; artist_name: string | null; role: UserRole; storage_quota: number; created_at: string; is_root: boolean }[] {
             const rows = db.prepare(`
-                SELECT a.id, a.username, a.artist_id, a.created_at, ar.name as artist_name 
+                SELECT a.id, a.username, a.artist_id, a.role, a.storage_quota, a.created_at, ar.name as artist_name 
                 FROM admin a
                 LEFT JOIN artists ar ON a.artist_id = ar.id
                 ORDER BY a.username
@@ -215,6 +246,7 @@ export function createAuthService(
 
             return rows.map(r => ({
                 ...r,
+                role: r.role || 'admin',
                 is_root: r.id === 1
             }));
         },
@@ -225,8 +257,9 @@ export function createAuthService(
                 throw new Error("Cannot delete the primary admin");
             }
             // Prevent deleting the last admin
-            const count = (db.prepare("SELECT COUNT(*) as count FROM admin").get() as any).count;
-            if (count <= 1) {
+            const adminCount = (db.prepare("SELECT COUNT(*) as count FROM admin WHERE role = 'admin'").get() as any).count;
+            const user = db.prepare("SELECT role FROM admin WHERE id = ?").get(id) as { role: string } | undefined;
+            if (user?.role === 'admin' && adminCount <= 1) {
                 throw new Error("Cannot delete the last admin user");
             }
             db.prepare("DELETE FROM admin WHERE id = ?").run(id);
