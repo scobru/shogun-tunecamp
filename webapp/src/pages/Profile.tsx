@@ -27,8 +27,8 @@ export const Profile = () => {
   const [activeTab, setActiveTab] = useState<
     "settings" | "favorites" | "collection"
   >("settings");
-  const [alias, setAlias] = useState(user?.alias || "");
-  const [avatar, setAvatar] = useState<string | null>(null);
+  const [alias, setAlias] = useState(user?.gunProfile?.alias || "");
+  const [avatar, setAvatar] = useState<string | null>(user?.gunProfile?.profile?.avatar || null);
   const [isSaving, setIsSaving] = useState(false);
   const [likedTracks, setLikedTracks] = useState<any[]>([]);
   const [allTracks, setAllTracks] = useState<Track[]>([]);
@@ -36,8 +36,8 @@ export const Profile = () => {
 
   useEffect(() => {
     if (user) {
-      setAlias(user.alias);
-      setAvatar(user.profile?.avatar || null);
+      setAlias(user.gunProfile?.alias || "");
+      setAvatar(user.gunProfile?.profile?.avatar || null);
     }
   }, [user]);
 
@@ -131,11 +131,11 @@ export const Profile = () => {
             {avatar ? (
               <img
                 src={avatar}
-                alt={user?.alias}
+                alt={user?.gunProfile?.alias}
                 className="w-full h-full object-cover"
               />
             ) : (
-              user?.alias?.charAt(0).toUpperCase()
+              user?.gunProfile?.alias?.charAt(0).toUpperCase()
             )}
           </div>
           <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-full">
@@ -151,9 +151,9 @@ export const Profile = () => {
 
         <div className="text-center md:text-left flex-1">
           <h1 className="text-4xl font-black tracking-tight mb-2">
-            {user?.alias}
+            {user?.gunProfile?.alias || user?.username}
             <span className="text-lg font-normal opacity-40 ml-3">
-              @{user?.pub?.substring(0, 8)}
+              @{user?.gunProfile?.pub?.substring(0, 8)}
             </span>
           </h1>
           <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-4">
@@ -234,7 +234,7 @@ export const Profile = () => {
                       isSaving && "loading",
                     )}
                     onClick={handleUpdateAlias}
-                    disabled={alias === user?.alias || isSaving}
+                    disabled={alias === user?.gunProfile?.alias || isSaving}
                   >
                     {!isSaving && <Check size={20} />}
                   </button>

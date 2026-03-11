@@ -5,7 +5,7 @@ import API from '../../services/api';
 import { ShieldAlert } from 'lucide-react';
 
 export const ForcePasswordChangeModal = () => {
-    const { mustChangePassword, checkAdminAuth, logoutAdmin } = useAuthStore();
+    const { mustChangePassword, checkAuth, logout } = useAuthStore();
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPass, setConfirmPass] = useState('');
@@ -32,7 +32,7 @@ export const ForcePasswordChangeModal = () => {
         try {
             await API.changePassword(currentPassword, newPassword);
             // Refresh auth status to clear the flag
-            await checkAdminAuth();
+            await checkAuth();
         } catch (e: any) {
             setError(e.message || 'Failed to change password');
         } finally {
@@ -89,7 +89,7 @@ export const ForcePasswordChangeModal = () => {
                     {error && <div className="text-error text-sm">{error}</div>}
 
                     <div className="modal-action">
-                        <button type="button" className="btn btn-ghost" onClick={logoutAdmin}>Log Out</button>
+                        <button type="button" className="btn btn-ghost" onClick={logout}>Log Out</button>
                         <button type="submit" className="btn btn-error" disabled={loading}>
                             {loading ? <span className="loading loading-spinner"></span> : 'Change Password'}
                         </button>

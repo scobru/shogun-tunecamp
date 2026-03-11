@@ -68,7 +68,7 @@ export const MyPlaylists = () => {
           <div>
             <h1 className="text-4xl font-bold">My Playlists</h1>
             <p className="opacity-50 text-sm mt-1">
-              {user?.alias}'s personal collection
+              {user?.gunProfile?.alias || user?.username}'s personal collection
             </p>
           </div>
         </div>

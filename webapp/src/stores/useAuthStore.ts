@@ -25,7 +25,12 @@ interface AuthState {
     // Compatibility (for existing components)
     adminUser: User | null;
     isAdminAuthenticated: boolean;
+    isAdminLoading: boolean;
+    isInitializing: boolean;
     loginAdmin: (username: string, password?: string) => Promise<void>;
+    loginWithPair: (pair: any) => Promise<void>;
+    checkAdminAuth: () => Promise<void>;
+    logoutAdmin: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -40,6 +45,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Compat helpers
     adminUser: null,
     isAdminAuthenticated: false,
+    isAdminLoading: true,
+    isInitializing: true,
 
     clearError: () => set({ error: null }),
 
@@ -84,10 +91,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 isFirstRun: !!status.firstRun,
                 mustChangePassword: !!status.mustChangePassword,
                 role: (status as any).role || (status.authenticated ? 'admin' : null),
-                isLoading: false
+                isLoading: false,
+                isAdminLoading: false, // compat
+                isInitializing: false // compat
             });
         } catch (e) {
-            set({ isAuthenticated: false, isAdminAuthenticated: false, user: null, adminUser: null, isLoading: false, isFirstRun: false, role: null });
+            set({ 
+                isAuthenticated: false, 
+                isAdminAuthenticated: false, 
+                user: null, 
+                adminUser: null, 
+                isLoading: false, 
+                isAdminLoading: false,
+                isInitializing: false,
+                isFirstRun: false, 
+                role: null 
+            });
         }
     },
 
@@ -127,7 +146,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 adminUser: transformedUser, // compat
                 mustChangePassword: !!result.mustChangePassword,
                 role: (result as any).role || 'admin',
-                isLoading: false
+                isLoading: false,
+                isAdminLoading: false, // compat
+                isInitializing: false // compat
             });
         } catch (e: any) {
             set({ error: e.message, isLoading: false });
@@ -138,6 +159,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Compat alias
     loginAdmin: async (username, password) => {
         return get().login(username, password);
+    },
+
+    loginWithPair: async (pair: any) => {
+        set({ isLoading: true, isAdminLoading: true, isInitializing: true });
+        try {
+            const gunProfile = await GunAuth.loginWithPair(pair);
+            set((state) => ({ 
+                user: state.user ? { ...state.user, gunProfile } : { gunProfile } as any,
+                isAuthenticated: true,
+                isAdminAuthenticated: true,
+                isLoading: false,
+                isAdminLoading: false,
+                isInitializing: false
+            }));
+        } catch (e) {
+            set({ isLoading: false, isAdminLoading: false, isInitializing: false });
+            throw e;
+        }
+    },
+
+    checkAdminAuth: async () => {
+        return get().checkAuth();
+    },
+
+    logoutAdmin: () => {
+        get().logout();
     },
 
     register: async (username, password) => {
@@ -167,6 +214,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isAuthenticated: false, 
             adminUser: null, 
             isAdminAuthenticated: false, 
+            isAdminLoading: false,
+            isInitializing: false,
             role: null 
         });
     }

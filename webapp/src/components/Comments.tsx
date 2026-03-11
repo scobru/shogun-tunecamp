@@ -20,7 +20,7 @@ interface CommentsProps {
 }
 
 export const Comments = ({ trackId }: CommentsProps) => {
-  const { user, isAuthenticated, adminUser } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(false);
   const [newComment, setNewComment] = useState("");
@@ -51,7 +51,7 @@ export const Comments = ({ trackId }: CommentsProps) => {
     setSubmitting(true);
     try {
       // Ensure user is logged in via Gun
-      if (!user || !user.pub) {
+      if (!user || !user.gunProfile?.pub) {
         alert("Please log in to comment.");
         return;
       }
@@ -60,8 +60,8 @@ export const Comments = ({ trackId }: CommentsProps) => {
 
       await API.postComment(trackId, {
         text: newComment,
-        pubKey: user.pub,
-        username: user.alias,
+        pubKey: user.gunProfile?.pub,
+        username: user.gunProfile?.alias,
         signature,
       });
 
@@ -80,10 +80,10 @@ export const Comments = ({ trackId }: CommentsProps) => {
     try {
       // If user is a Gun user, sign the delete request
       let deleteData;
-      if (user && user.pub) {
+      if (user && user.gunProfile?.pub) {
         const signature = await GunAuth.sign(commentId);
         deleteData = {
-          pubKey: user.pub,
+          pubKey: user.gunProfile.pub,
           signature,
         };
       }
@@ -155,7 +155,7 @@ export const Comments = ({ trackId }: CommentsProps) => {
                 </div>
                 <p className="text-sm opacity-80 break-words">{c.text}</p>
               </div>
-              {(adminUser?.isAdmin || (user?.pub && user.pub === c.pubKey)) && (
+              {(user?.isAdmin || (user?.gunProfile?.pub && user.gunProfile.pub === c.pubKey)) && (
                 <button
                   className="btn btn-ghost btn-xs btn-circle text-error opacity-0 group-hover:opacity-100 transition-opacity self-center"
                   onClick={() => handleDelete(c.id)}

@@ -141,7 +141,7 @@ export const MyPlaylistDetails = () => {
     playTrack(allPlayable[0], allPlayable);
   };
 
-  const isOwner = isAuthenticated && user?.pub === playlist?.ownerPub;
+  const isOwner = isAuthenticated && user?.gunProfile?.pub === playlist?.ownerPub;
 
   if (loading)
     return (
