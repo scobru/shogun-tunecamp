@@ -2,6 +2,7 @@ import { Router } from "express";
 import fs from "fs-extra";
 import path from "path";
 import fetch from "node-fetch";
+import { isSafeUrl } from "../utils/networkUtils.js";
 import { metadataService } from "../metadata.js";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
@@ -46,6 +47,11 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
 
             // 2. Download Cover if URL provided
             if (coverUrl) {
+                // Validate SSRF
+                if (!(await isSafeUrl(coverUrl))) {
+                    return res.status(400).json({ error: "Invalid or unsafe cover URL" });
+                }
+
                 // Find album directory
                 // We need to find the directory path from tracks or store it on album
                 // Schema doesn't store album path directly, only cover_path
