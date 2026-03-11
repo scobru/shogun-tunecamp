@@ -349,6 +349,14 @@ export interface DatabaseService {
     // Play Queue (Subsonic)
     savePlayQueue(username: string, trackIds: string[], current: string | null, positionMs: number): void;
     getPlayQueue(username: string): { trackIds: string[], current: string | null, positionMs: number };
+
+    // Ratings & Bookmarks
+    setItemRating(username: string, itemType: string, itemId: string, rating: number): void;
+    getItemRating(username: string, itemType: string, itemId: string): number;
+    createBookmark(username: string, trackId: string, positionMs: number, comment?: string): void;
+    getBookmarks(username: string): any[];
+    deleteBookmark(username: string, trackId: string): void;
+    getBookmark(username: string, trackId: string): any | undefined;
 }
 
 export function createDatabase(dbPath: string): DatabaseService {
@@ -613,6 +621,26 @@ export function createDatabase(dbPath: string): DatabaseService {
       position INTEGER NOT NULL,
       PRIMARY KEY (username, position)
     );
+
+    CREATE TABLE IF NOT EXISTS item_ratings (
+      username TEXT NOT NULL,
+      item_type TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      rating INTEGER NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (username, item_type, item_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS bookmarks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL,
+      track_id TEXT NOT NULL,
+      position_ms INTEGER NOT NULL,
+      comment TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(username);
   `);
 
     // Migration: Add is_release column if it doesn't exist
@@ -1681,7 +1709,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                 publicAlbums,
                 totalUsers,
                 storageUsed: estimatedSize,
-                networkSites: 0,
+                networkSites: artistId ? 0 : (db.prepare("SELECT COUNT(*) as count FROM remote_actors WHERE type = 'Service'").get() as { count: number }).count,
                 genresCount
             };
         },
@@ -2074,6 +2102,42 @@ export function createDatabase(dbPath: string): DatabaseService {
                 current: state.current_track_id,
                 positionMs: state.position_ms
             };
+        },
+
+        // Ratings & Bookmarks
+        setItemRating(username: string, itemType: string, itemId: string, rating: number): void {
+            db.prepare(`
+                INSERT INTO item_ratings (username, item_type, item_id, rating)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(username, item_type, item_id) DO UPDATE SET rating = excluded.rating
+            `).run(username, itemType, itemId, rating);
+        },
+
+        getItemRating(username: string, itemType: string, itemId: string): number {
+            const row = db.prepare("SELECT rating FROM item_ratings WHERE username = ? AND item_type = ? AND item_id = ?").get(username, itemType, itemId) as { rating: number } | undefined;
+            return row?.rating || 0;
+        },
+
+        createBookmark(username: string, trackId: string, positionMs: number, comment?: string): void {
+            // Subsonic: Only one bookmark per track per user? 
+            // Actually, spec says "Retrieves all bookmarks for this user".
+            // Some implementations use one per track.
+            db.prepare(`
+                INSERT INTO bookmarks (username, track_id, position_ms, comment, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            `).run(username, trackId, positionMs, comment || null);
+        },
+
+        getBookmarks(username: string): any[] {
+            return db.prepare("SELECT * FROM bookmarks WHERE username = ? ORDER BY updated_at DESC").all(username);
+        },
+
+        deleteBookmark(username: string, trackId: string): void {
+            db.prepare("DELETE FROM bookmarks WHERE username = ? AND track_id = ?").run(username, trackId);
+        },
+
+        getBookmark(username: string, trackId: string): any | undefined {
+            return db.prepare("SELECT * FROM bookmarks WHERE username = ? AND track_id = ?").get(username, trackId);
         }
     };
 }

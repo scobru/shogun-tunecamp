@@ -108,6 +108,68 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         res.send(xml);
     };
 
+    // --- Formatters ---
+
+    const formatTrack = (track: any, username: string) => {
+        const id = `tr_${track.id}`;
+        return {
+            '@id': id,
+            '@parent': track.album_id ? `al_${track.album_id}` : undefined,
+            '@isDir': 'false',
+            '@title': track.title,
+            '@album': track.album_title,
+            '@artist': track.artist_name,
+            '@track': track.track_num,
+            '@year': track.year,
+            '@genre': track.genre,
+            '@coverArt': track.album_id ? `al_${track.album_id}` : id,
+            '@size': 0,
+            '@contentType': getContentType(track.format),
+            '@suffix': track.format || 'mp3',
+            '@duration': Math.floor(track.duration || 0),
+            '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
+            '@path': track.file_path,
+            '@albumId': track.album_id ? `al_${track.album_id}` : undefined,
+            '@artistId': track.artist_id ? `ar_${track.artist_id}` : undefined,
+            '@type': 'music',
+            '@starred': db.isStarred(username, 'track', id) ? track.created_at || new Date().toISOString() : undefined,
+            '@userRating': db.getItemRating(username, 'track', id) || undefined,
+            '@averageRating': db.getItemRating(username, 'track', id) || undefined // Simplified
+        };
+    };
+
+    const formatAlbum = (album: any, username: string) => {
+        const id = `al_${album.id}`;
+        const artistId = album.artist_id ? `ar_${album.artist_id}` : undefined;
+        return {
+            '@id': id,
+            '@name': album.title,
+            '@artist': album.artist_name,
+            '@artistId': artistId,
+            '@coverArt': id,
+            '@songCount': undefined as number | undefined,
+            '@duration': undefined as number | undefined,
+            '@created': album.created_at,
+            '@year': album.date ? new Date(album.date).getFullYear() : undefined,
+            '@genre': album.genre,
+            '@starred': db.isStarred(username, 'album', id) ? album.created_at || new Date().toISOString() : undefined,
+            '@userRating': db.getItemRating(username, 'album', id) || undefined
+        };
+    };
+
+    const formatArtist = (artist: any, username: string) => {
+        const id = `ar_${artist.id}`;
+        return {
+            '@id': id,
+            '@name': artist.name,
+            '@coverArt': id,
+            '@artistImageUrl': `/rest/getCoverArt.view?id=${id}`,
+            '@albumCount': undefined as number | undefined,
+            '@starred': db.isStarred(username, 'artist', id) ? artist.created_at || new Date().toISOString() : undefined,
+            '@userRating': db.getItemRating(username, 'artist', id) || undefined
+        };
+    };
+
     // --- Middleware ---
 
     router.use(async (req, res, next) => {
@@ -191,6 +253,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     };
 
     const getIndexes = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
         const artists = db.getArtists();
         const indexes: Record<string, any[]> = {};
 
@@ -200,12 +263,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             if (!/[A-Z]/.test(char)) char = '#';
             if (!indexes[char]) indexes[char] = [];
 
-            indexes[char].push({
-                '@id': `ar_${artist.id}`,
-                '@name': artist.name,
-                '@coverArt': `ar_${artist.id}`,
-                '@artistImageUrl': `/api/artists/${artist.id}/cover`
-            });
+            indexes[char].push(formatArtist(artist, username));
         });
 
         const sortedKeys = Object.keys(indexes).sort();
@@ -224,6 +282,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     };
 
     const getMusicDirectory = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
         const { id } = req.query as any;
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
@@ -239,16 +298,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 '@id': id,
                 '@name': artist.name,
                 '@parent': '1',
-                child: albums.map(album => ({
-                    '@id': `al_${album.id}`,
-                    '@title': album.title,
-                    '@parent': id,
-                    '@artist': artist.name,
-                    '@isDir': 'true',
-                    '@coverArt': `al_${album.id}`,
-                    '@album': album.title,
-                    '@year': album.date ? new Date(album.date).getFullYear() : undefined
-                }))
+                child: albums.map(album => formatAlbum(album, username))
             };
             return sendResponse(res, req, { directory });
         }
@@ -265,23 +315,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 '@id': id,
                 '@name': album.title,
                 '@parent': `ar_${album.artist_id}`,
-                child: tracks.map((track: any) => ({
-                    '@id': `tr_${track.id}`,
-                    '@title': track.title,
-                    '@album': album.title,
-                    '@artist': track.artist_name || album.artist_name,
-                    '@track': track.track_num,
-                    '@year': album.date ? new Date(album.date).getFullYear() : undefined,
-                    '@genre': album.genre,
-                    '@coverArt': `tr_${track.id}`,
-                    '@size': 0,
-                    '@contentType': getContentType(track.format),
-                    '@suffix': track.format || 'mp3',
-                    '@duration': Math.floor(track.duration || 0),
-                    '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
-                    '@path': track.file_path,
-                    '@isDir': 'false'
-                }))
+                child: tracks.map((track: any) => formatTrack(track, username))
             };
             return sendResponse(res, req, { directory });
         }
@@ -307,8 +341,20 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         let imagePath: string | null = null;
 
         if (id.startsWith('ar_')) {
-            const artist = db.getArtist(parseInt(id.substring(3)));
-            if (artist?.photo_path) imagePath = artist.photo_path;
+            const artistId = parseInt(id.substring(3));
+            const artist = db.getArtist(artistId);
+            if (artist?.photo_path) {
+                imagePath = artist.photo_path;
+            } else if (artist) {
+                // Fallback to first album cover
+                const albums = db.getAlbumsByArtist(artistId, false);
+                for (const album of albums) {
+                    if (album.cover_path) {
+                        imagePath = album.cover_path;
+                        break;
+                    }
+                }
+            }
         } else if (id.startsWith('al_')) {
             const album = db.getAlbum(parseInt(id.substring(3)));
             if (album?.cover_path) imagePath = album.cover_path;
@@ -423,6 +469,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/scrobble.view', scrobble);
 
     const getArtist = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
         const { id } = req.query as any;
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
@@ -431,21 +478,13 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             const artist = db.getArtist(artistId);
             if (artist) {
                 const albums = db.getAlbumsByArtist(artistId);
+                const artistData = formatArtist(artist, username);
+                artistData['@albumCount'] = albums.length;
+                
                 sendResponse(res, req, {
                     artist: {
-                        '@id': id,
-                        '@name': artist.name,
-                        '@coverArt': `ar_${artist.id}`,
-                        '@albumCount': albums.length,
-                        '@artistImageUrl': `/api/artists/${artist.id}/cover`,
-                        album: albums.map(a => ({
-                            '@id': `al_${a.id}`,
-                            '@name': a.title,
-                            '@coverArt': `al_${a.id}`,
-                            '@artistId': id,
-                            '@artist': artist.name,
-                            '@year': a.date ? new Date(a.date).getFullYear() : undefined
-                        }))
+                        ...artistData,
+                        album: albums.map(a => formatAlbum(a, username))
                     }
                 });
                 return;
@@ -455,6 +494,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     };
 
     const getAlbum = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
         const { id } = req.query as any;
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
@@ -463,33 +503,14 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             const album = db.getAlbum(albumId);
             if (album) {
                 const tracks = db.getTracks(albumId);
+                const albumData = formatAlbum(album, username);
+                albumData['@songCount'] = tracks.length;
+                albumData['@duration'] = tracks.reduce((acc, t) => acc + (t.duration || 0), 0);
+
                 sendResponse(res, req, {
                     album: {
-                        '@id': id,
-                        '@name': album.title,
-                        '@artist': album.artist_name,
-                        '@artistId': `ar_${album.artist_id}`,
-                        '@coverArt': `al_${album.id}`,
-                        '@songCount': tracks.length,
-                        '@duration': tracks.reduce((acc, t) => acc + (t.duration || 0), 0),
-                        '@created': album.created_at,
-                        '@year': album.date ? new Date(album.date).getFullYear() : undefined,
-                        song: tracks.map((track: any) => ({
-                            '@id': `tr_${track.id}`,
-                            '@title': track.title,
-                            '@isDir': 'false',
-                            '@album': album.title,
-                            '@artist': track.artist_name || album.artist_name,
-                            '@track': track.track_num,
-                            '@coverArt': `tr_${track.id}`,
-                            '@artistId': `ar_${album.artist_id}`,
-                            '@albumId': id,
-                            '@path': track.file_path || '',
-                            '@suffix': track.format || 'mp3',
-                            '@contentType': getContentType(track.format),
-                            '@duration': Math.floor(track.duration || 0),
-                            '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128
-                        }))
+                        ...albumData,
+                        song: tracks.map((track: any) => formatTrack(track, username))
                     }
                 });
                 return;
@@ -545,44 +566,18 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const songs: any[] = [];
 
         for (const item of starred) {
-            if (item.item_type === 'artist' && item.item_id.startsWith('ar_')) {
-                const artist = db.getArtist(parseInt(item.item_id.substring(3)));
-                if (artist) {
-                    artists.push({
-                        '@id': item.item_id,
-                        '@name': artist.name,
-                        '@coverArt': item.item_id,
-                        '@starred': item.created_at
-                    });
-                }
-            } else if (item.item_type === 'album' && item.item_id.startsWith('al_')) {
-                const album = db.getAlbum(parseInt(item.item_id.substring(3)));
-                if (album) {
-                    albums.push({
-                        '@id': item.item_id,
-                        '@name': album.title,
-                        '@artist': album.artist_name,
-                        '@artistId': `ar_${album.artist_id}`,
-                        '@coverArt': item.item_id,
-                        '@starred': item.created_at,
-                        '@year': album.date ? new Date(album.date).getFullYear() : undefined
-                    });
-                }
-            } else if (item.item_type === 'track' && item.item_id.startsWith('tr_')) {
-                const track = db.getTrack(parseInt(item.item_id.substring(3)));
-                if (track) {
-                    songs.push({
-                        '@id': item.item_id,
-                        '@title': track.title,
-                        '@album': track.album_title,
-                        '@artist': track.artist_name,
-                        '@coverArt': `tr_${track.id}`,
-                        '@duration': Math.floor(track.duration || 0),
-                        '@starred': item.created_at,
-                        '@albumId': `al_${track.album_id}`,
-                        '@artistId': `ar_${track.artist_id}`
-                    });
-                }
+            if (item.item_type === 'artist') {
+                const artistId = parseInt(item.item_id.startsWith('ar_') ? item.item_id.substring(3) : item.item_id);
+                const artist = db.getArtist(artistId);
+                if (artist) artists.push(formatArtist(artist, username));
+            } else if (item.item_type === 'album') {
+                const albumId = parseInt(item.item_id.startsWith('al_') ? item.item_id.substring(3) : item.item_id);
+                const album = db.getAlbum(albumId);
+                if (album) albums.push(formatAlbum(album, username));
+            } else if (item.item_type === 'track') {
+                const trackId = parseInt(item.item_id.startsWith('tr_') ? item.item_id.substring(3) : item.item_id);
+                const track = db.getTrack(trackId);
+                if (track) songs.push(formatTrack(track, username));
             }
         }
         return { artists, albums, songs };
@@ -610,6 +605,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/getStarred2.view', getStarred2);
 
     const getSong = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
         const { id } = req.query as any;
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
@@ -619,24 +615,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (!track) return sendError(res, req, 70, 'Song not found');
 
         sendResponse(res, req, {
-            song: {
-                '@id': `tr_${track.id}`,
-                '@title': track.title,
-                '@album': track.album_title,
-                '@artist': track.artist_name,
-                '@track': track.track_num,
-                '@year': track.created_at ? new Date(track.created_at).getFullYear() : undefined,
-                '@genre': '',
-                '@coverArt': `al_${track.album_id}`,
-                '@duration': Math.floor(track.duration || 0),
-                '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
-                '@suffix': track.format || 'mp3',
-                '@contentType': 'audio/mpeg',
-                '@path': track.file_path,
-                '@albumId': `al_${track.album_id}`,
-                '@artistId': `ar_${track.artist_id}`,
-                '@type': 'music'
-            }
+            song: formatTrack(track, username)
         });
     };
 
@@ -644,6 +623,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/getSong.view', getSong);
 
     const getArtists = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
         const artists = db.getArtists();
         const indexes: Record<string, any[]> = {};
 
@@ -654,13 +634,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
             const artistAlbums = db.getAlbumsByArtist(artist.id);
 
-            indexes[char].push({
-                '@id': `ar_${artist.id}`,
-                '@name': artist.name,
-                '@coverArt': `ar_${artist.id}`,
-                '@artistImageUrl': `/api/artists/${artist.id}/cover`,
-                '@albumCount': artistAlbums.length
-            });
+            const artistData = formatArtist(artist, username);
+            (artistData as any)['@albumCount'] = artistAlbums.length;
+            indexes[char].push(artistData);
         });
 
         const sortedKeys = Object.keys(indexes).sort();
@@ -719,25 +695,13 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             });
         }
 
+        const username = (req as any).user?.username || 'admin';
         const paginated = albums.slice(skip, skip + limit);
-
-        const albumData = paginated.map(album => ({
-            '@id': `al_${album.id}`,
-            '@name': album.title,
-            '@title': album.title,
-            '@album': album.title,
-            '@artist': album.artist_name,
-            '@artistId': `ar_${album.artist_id}`,
-            '@coverArt': `al_${album.id}`,
-            '@created': album.created_at,
-            '@year': album.date ? new Date(album.date).getFullYear() : undefined,
-            '@genre': album.genre
-        }));
 
         const wrapperKey = isV2 ? 'albumList2' : 'albumList';
         sendResponse(res, req, {
             [wrapperKey]: {
-                album: albumData
+                album: paginated.map(album => formatAlbum(album, username))
             }
         });
     };
@@ -748,6 +712,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/getAlbumList2.view', getAlbumList);
 
     const getRandomSongs = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
         const { size } = req.query as any;
         const limit = parseInt(size) || 10;
 
@@ -756,21 +721,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         sendResponse(res, req, {
             randomSongs: {
-                song: randomTracks.map(track => ({
-                    '@id': `tr_${track.id}`,
-                    '@title': track.title,
-                    '@album': track.album_title,
-                    '@artist': track.artist_name,
-                    '@track': track.track_num,
-                    '@coverArt': `tr_${track.id}`,
-                    '@duration': Math.floor(track.duration || 0),
-                    '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
-                    '@suffix': track.format || 'mp3',
-                    '@contentType': getContentType(track.format),
-                    '@path': track.file_path,
-                    '@albumId': `al_${track.album_id}`,
-                    '@artistId': `ar_${track.artist_id}`
-                }))
+                song: randomTracks.map(track => formatTrack(track, username))
             }
         });
     };
@@ -779,6 +730,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/getRandomSongs.view', getRandomSongs);
 
     const search = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
         const { query, artistCount, albumCount, songCount } = req.query as any;
         if (!query) return sendError(res, req, 10, 'Missing query parameter');
 
@@ -790,28 +742,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         const responseData: any = {
             searchResult2: {
-                artist: results.artists.slice(0, aLimit).map(a => ({
-                    '@id': `ar_${a.id}`,
-                    '@name': a.name,
-                    '@coverArt': `ar_${a.id}`
-                })),
-                album: results.albums.slice(0, alLimit).map(a => ({
-                    '@id': `al_${a.id}`,
-                    '@name': a.title,
-                    '@artist': a.artist_name,
-                    '@artistId': `ar_${a.artist_id}`,
-                    '@coverArt': `al_${a.id}`
-                })),
-                song: results.tracks.slice(0, sLimit).map(t => ({
-                    '@id': `tr_${t.id}`,
-                    '@title': t.title,
-                    '@album': t.album_title,
-                    '@artist': t.artist_name,
-                    '@duration': Math.floor(t.duration || 0),
-                    '@coverArt': `tr_${t.id}`,
-                    '@albumId': `al_${t.album_id}`,
-                    '@artistId': `ar_${t.artist_id}`
-                }))
+                artist: results.artists.slice(0, aLimit).map(a => formatArtist(a, username)),
+                album: results.albums.slice(0, alLimit).map(a => formatAlbum(a, username)),
+                song: results.tracks.slice(0, sLimit).map(t => formatTrack(t, username))
             }
         };
 
@@ -851,6 +784,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/getPlaylists.view', getPlaylists);
 
     const getPlaylist = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
         const { id } = req.query as any;
         if (!id) return sendError(res, req, 10, 'Missing id parameter');
 
@@ -868,16 +802,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 '@public': playlist.isPublic ? 'true' : 'false',
                 '@created': playlist.created_at,
                 '@songCount': tracks.length,
-                entry: tracks.map(t => ({
-                    '@id': `tr_${t.id}`,
-                    '@title': t.title,
-                    '@album': t.album_title,
-                    '@artist': t.artist_name,
-                    '@duration': Math.floor(t.duration || 0),
-                    '@coverArt': `al_${t.album_id}`,
-                    '@albumId': `al_${t.album_id}`,
-                    '@artistId': `ar_${t.artist_id}`
-                }))
+                entry: tracks.map(t => formatTrack(t, username))
             }
         });
     };
@@ -924,18 +849,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.get('/getTopSongs.view', getRandomSongs);
     router.post('/getTopSongs.view', getRandomSongs);
 
-    // Dummy endpoints for unsupported features
-    const getPodcasts = (req: any, res: any) => sendResponse(res, req, { podcasts: { channel: [] } });
-    router.get('/getPodcasts.view', getPodcasts);
-    router.post('/getPodcasts.view', getPodcasts);
 
-    const getInternetRadioStations = (req: any, res: any) => sendResponse(res, req, { internetRadioStations: { internetRadioStation: [] } });
-    router.get('/getInternetRadioStations.view', getInternetRadioStations);
-    router.post('/getInternetRadioStations.view', getInternetRadioStations);
-
-    const getBookmarks = (req: any, res: any) => sendResponse(res, req, { bookmarks: { bookmark: [] } });
-    router.get('/getBookmarks.view', getBookmarks);
-    router.post('/getBookmarks.view', getBookmarks);
 
     const getPlayQueue = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
@@ -945,20 +859,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         for (const trackId of pq.trackIds) {
             const track = db.getTrack(parseInt(trackId));
             if (track) {
-                entry.push({
-                    '@id': `tr_${track.id}`,
-                    '@title': track.title,
-                    '@album': track.album_title,
-                    '@artist': track.artist_name,
-                    '@track': track.track_num,
-                    '@duration': Math.floor(track.duration || 0),
-                    '@coverArt': `al_${track.album_id}`,
-                    '@albumId': `al_${track.album_id}`,
-                    '@artistId': `ar_${track.artist_id}`,
-                    '@suffix': track.format || 'mp3',
-                    '@contentType': getContentType(track.format),
-                    '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128
-                });
+                entry.push(formatTrack(track, username));
             }
         }
         
@@ -1013,6 +914,25 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/star.view', star);
     router.get('/unstar.view', unstar);
     router.post('/unstar.view', unstar);
+
+    const setRating = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        const { id, rating } = req.query as any;
+        if (!id) return sendError(res, req, 10, 'Missing id');
+        
+        const r = parseInt(rating);
+        if (isNaN(r) || r < 0 || r > 5) return sendError(res, req, 10, 'Invalid rating (0-5)');
+
+        let type = 'track';
+        if (id.startsWith('al_')) type = 'album';
+        if (id.startsWith('ar_')) type = 'artist';
+
+        db.setItemRating(username, type, id, r);
+        sendResponse(res, req, {});
+    };
+
+    router.get('/setRating.view', setRating);
+    router.post('/setRating.view', setRating);
 
     // --- Playlist Management ---
 
@@ -1446,6 +1366,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.get('/startScan.view', startScan);
     router.post('/startScan.view', startScan);
 
+
+
     // --- Get Users (Navidrome) ---
     const getUsers = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
@@ -1473,14 +1395,49 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.get('/getUsers.view', getUsers);
     router.post('/getUsers.view', getUsers);
 
-    // --- Create/Update Bookmarks (stubs) ---
-    const createBookmark = (req: any, res: any) => sendResponse(res, req, {});
-    router.get('/createBookmark.view', createBookmark);
-    router.post('/createBookmark.view', createBookmark);
+    const getBookmarksEndpoint = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        const bookmarks = db.getBookmarks(username);
+        
+        sendResponse(res, req, {
+            bookmarks: {
+                bookmark: bookmarks.map(b => {
+                    const track = db.getTrack(parseInt(b.track_id.startsWith('tr_') ? b.track_id.substring(3) : b.track_id));
+                    return {
+                        entry: track ? formatTrack(track, username) : undefined,
+                        '@position': b.position_ms,
+                        '@comment': b.comment,
+                        '@created': b.created_at,
+                        '@changed': b.updated_at
+                    };
+                }).filter(b => b.entry !== undefined)
+            }
+        });
+    };
+    router.get('/getBookmarks.view', getBookmarksEndpoint);
+    router.post('/getBookmarks.view', getBookmarksEndpoint);
 
-    const deleteBookmark = (req: any, res: any) => sendResponse(res, req, {});
-    router.get('/deleteBookmark.view', deleteBookmark);
-    router.post('/deleteBookmark.view', deleteBookmark);
+    const createBookmarkEndpoint = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        const { id, position, comment } = req.query as any;
+        if (!id || !position) return sendError(res, req, 10, 'Missing id or position');
+
+        db.createBookmark(username, id, parseInt(position), comment);
+        sendResponse(res, req, {});
+    };
+    router.get('/createBookmark.view', createBookmarkEndpoint);
+    router.post('/createBookmark.view', createBookmarkEndpoint);
+
+    const deleteBookmarkEndpoint = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        const { id } = req.query as any;
+        if (!id) return sendError(res, req, 10, 'Missing id');
+
+        db.deleteBookmark(username, id);
+        sendResponse(res, req, {});
+    };
+    router.get('/deleteBookmark.view', deleteBookmarkEndpoint);
+    router.post('/deleteBookmark.view', deleteBookmarkEndpoint);
 
     // --- Jukebox Control (stub) ---
     const jukeboxControl = (req: any, res: any) => {

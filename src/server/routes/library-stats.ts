@@ -84,7 +84,7 @@ export function createLibraryStatsRoutes(database: DatabaseService): Router {
         try {
             const stats = database.getListeningStats();
             // Also include basic library stats
-            const libraryStats = database.getStats();
+            const libraryStats = await database.getStats();
             res.json({
                 ...stats,
                 library: libraryStats,
