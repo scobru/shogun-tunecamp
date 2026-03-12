@@ -25,6 +25,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
     const [editId, setEditId] = useState<string | null>(null);
     const [allTracks, setAllTracks] = useState<any[]>([]);
     const [selectedTrackIds, setSelectedTrackIds] = useState<number[]>([]);
+    const [license, setLicense] = useState<string>('copyright');
 
     useEffect(() => {
         const handleOpen = async (e: CustomEvent) => {
@@ -39,6 +40,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                 setYear(e.detail.year ? parseInt(e.detail.year) : new Date().getFullYear()); // Ensure year is a number
                 // Handle visibility: check new field, then fallback to is_public (boolean)
                 setVisibility(e.detail.visibility || (e.detail.is_public ? 'public' : 'private'));
+                setLicense(e.detail.license || 'copyright');
                 
                 // Fetch release tracks and set selected IDs
                 // Fetch release tracks and set selected IDs
@@ -57,6 +59,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                 setType('album');
                 setYear(new Date().getFullYear());
                 setVisibility('private');
+                setLicense('copyright');
                 setSelectedTrackIds([]);
             }
             
@@ -132,6 +135,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                     type,
                     year,
                     visibility,
+                    license,
                     track_ids: selectedTrackIds,
                 });
             } else {
@@ -141,6 +145,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                     type, 
                     year,
                     visibility,
+                    license,
                     track_ids: selectedTrackIds,
                 });
             }
@@ -265,9 +270,29 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                             accept="image/*"
                             onChange={e => setCoverFile(e.target.files ? e.target.files[0] : null)}
                         />
-                         <label className="label">
+                        <label className="label">
                             <span className="label-text-alt opacity-70">JPG or PNG, max 5MB.</span>
                         </label>
+                    </div>
+
+                    <div className="form-control">
+                        <label className="label">
+                            <span className="label-text">License</span>
+                        </label>
+                        <select 
+                            className="select select-bordered w-full"
+                            value={license}
+                            onChange={e => setLicense(e.target.value)}
+                        >
+                            <option value="copyright">All Rights Reserved (Copyright)</option>
+                            <option value="cc-by">Creative Commons BY (Attribution)</option>
+                            <option value="cc-by-sa">Creative Commons BY-SA (ShareAlike)</option>
+                            <option value="cc-by-nc">Creative Commons BY-NC (Non-Commercial)</option>
+                            <option value="cc-by-nc-sa">Creative Commons BY-NC-SA (Non-Commercial ShareAlike)</option>
+                            <option value="cc-by-nd">Creative Commons BY-ND (NoDerivs)</option>
+                            <option value="cc-by-nc-nd">Creative Commons BY-NC-ND (Non-Commercial NoDerivs)</option>
+                            <option value="public-domain">Public Domain / CC0</option>
+                        </select>
                     </div>
                     
                     <div className="form-control">

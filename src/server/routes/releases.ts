@@ -11,6 +11,7 @@ interface CreateReleaseBody {
     date?: string;
     description?: string;
     genres?: string[];
+    license?: string;
     download?: "free" | "paycurtain" | "codes" | "none";
     price?: number;
     currency?: "ETH" | "USD";
@@ -78,6 +79,7 @@ export function createReleaseRoutes(
                 description: body.description || null,
                 type: body.type || 'album',
                 year: body.year || new Date().getFullYear(),
+                license: body.license || null,
                 is_release: true,
                 visibility: body.visibility || 'private',
                 is_public: body.visibility === 'public' || body.visibility === 'unlisted',
@@ -239,6 +241,14 @@ export function createReleaseRoutes(
                     database.updateAlbumGenre(id, genreStr);
                 } catch (e) {
                     console.error("Failed to update album genre in DB:", e);
+                }
+            }
+
+            if (body.license !== undefined) {
+                try {
+                    database.db.prepare("UPDATE albums SET license = ? WHERE id = ?").run(body.license, id);
+                } catch (e) {
+                    console.error("Failed to update album license in DB:", e);
                 }
             }
 

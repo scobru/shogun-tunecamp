@@ -67,6 +67,7 @@ export interface Album {
     external_links: string | null; // JSON string of ExternalLink[]
     is_public: boolean;
     visibility: 'public' | 'private' | 'unlisted'; // Added
+    license: string | null; // Added: e.g. 'cc-by'
     is_release: boolean; // true = published release, false = library album
     published_to_gundb: boolean; // specific toggle for GunDB
     published_to_ap: boolean; // specific toggle for ActivityPub
@@ -443,6 +444,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       external_links TEXT,
       is_public INTEGER DEFAULT 0,
       visibility TEXT DEFAULT 'private',
+      license TEXT,
       is_release INTEGER DEFAULT 0,
       published_to_gundb INTEGER DEFAULT 0,
       published_to_ap INTEGER DEFAULT 0,
@@ -796,6 +798,14 @@ export function createDatabase(dbPath: string): DatabaseService {
     try {
         db.exec(`ALTER TABLE artists ADD COLUMN wallet_address TEXT`);
         console.log("📦 Migrated database: added wallet_address to artists");
+    } catch (e) {
+        // Column already exists
+    }
+
+    // Migration: Add license to albums
+    try {
+        db.exec(`ALTER TABLE albums ADD COLUMN license TEXT`);
+        console.log("📦 Migrated database: added license column to albums");
     } catch (e) {
         // Column already exists
     }
@@ -1631,11 +1641,14 @@ export function createDatabase(dbPath: string): DatabaseService {
         getPlaylistTracks(playlistId: number): Track[] {
             return db
                 .prepare(
-                    `SELECT t.*, a.title as album_title, ar.name as artist_name 
+                    `SELECT t.*, a.title as album_title, 
+                    COALESCE(ar_t.name, ar_a.name) as artist_name,
+                    COALESCE(ar_t.id, ar_a.id) as artist_id
            FROM tracks t
            JOIN playlist_tracks pt ON t.id = pt.track_id
            LEFT JOIN albums a ON t.album_id = a.id
-           LEFT JOIN artists ar ON t.artist_id = ar.id
+           LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+           LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
            WHERE pt.playlist_id = ?
            ORDER BY pt.position`
                 )
@@ -1818,17 +1831,19 @@ export function createDatabase(dbPath: string): DatabaseService {
             const albums = db.prepare(albumsSql).all(likeQuery, likeQuery) as Album[];
 
             const tracksSql = publicOnly
-                ? `SELECT t.*, a.title as album_title, ar.name as artist_name 
+                ? `SELECT t.*, a.title as album_title, COALESCE(ar_t.name, ar_a.name) as artist_name, COALESCE(ar_t.id, ar_a.id) as artist_id
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
-           LEFT JOIN artists ar ON t.artist_id = ar.id
-           WHERE a.visibility IN ('public', 'unlisted') AND (t.title LIKE ? OR ar.name LIKE ?)`
-                : `SELECT t.*, a.title as album_title, ar.name as artist_name 
+           LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+           LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+           WHERE a.visibility IN ('public', 'unlisted') AND (t.title LIKE ? OR ar_t.name LIKE ? OR ar_a.name LIKE ?)`
+                : `SELECT t.*, a.title as album_title, COALESCE(ar_t.name, ar_a.name) as artist_name, COALESCE(ar_t.id, ar_a.id) as artist_id
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
-           LEFT JOIN artists ar ON t.artist_id = ar.id
-           WHERE t.title LIKE ? OR ar.name LIKE ?`;
-            const tracks = db.prepare(tracksSql).all(likeQuery, likeQuery) as Track[];
+           LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+           LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+           WHERE t.title LIKE ? OR ar_t.name LIKE ? OR ar_a.name LIKE ?`;
+            const tracks = db.prepare(tracksSql).all(likeQuery, likeQuery, likeQuery) as Track[];
 
             return { artists, albums, tracks };
         },
@@ -1867,13 +1882,14 @@ export function createDatabase(dbPath: string): DatabaseService {
                     ph.id,
                     ph.track_id,
                     t.title as track_title,
-                    ar.name as artist_name,
+                    COALESCE(ar_t.name, ar_a.name) as artist_name,
                     al.title as album_title,
                     ph.played_at
                 FROM play_history ph
                 LEFT JOIN tracks t ON ph.track_id = t.id
-                LEFT JOIN artists ar ON t.artist_id = ar.id
+                LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
                 LEFT JOIN albums al ON t.album_id = al.id
+                LEFT JOIN artists ar_a ON al.artist_id = ar_a.id
                 ORDER BY ph.played_at DESC
                 LIMIT ?
             `).all(limit) as PlayHistoryEntry[];
@@ -1896,12 +1912,14 @@ export function createDatabase(dbPath: string): DatabaseService {
                 SELECT 
                     t.*,
                     al.title as album_title,
-                    ar.name as artist_name,
+                    COALESCE(ar_t.name, ar_a.name) as artist_name,
+                    COALESCE(ar_t.id, ar_a.id) as artist_id,
                     rp.play_count
                 FROM RecentPlays rp
                 JOIN tracks t ON t.id = rp.track_id
                 LEFT JOIN albums al ON t.album_id = al.id
-                LEFT JOIN artists ar ON t.artist_id = ar.id
+                LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                LEFT JOIN artists ar_a ON al.artist_id = ar_a.id
                 ORDER BY rp.play_count DESC
                 LIMIT ?
             `).all(dateStr, limit) as TrackWithPlayCount[];

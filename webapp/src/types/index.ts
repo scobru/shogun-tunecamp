@@ -59,6 +59,7 @@ export interface Album {
     type: 'album' | 'single' | 'ep';
     slug?: string;
     description?: string;
+    license?: string;
     is_release?: boolean;
     download?: 'free' | 'paid' | 'codes';
     external_links?: string; // JSON string

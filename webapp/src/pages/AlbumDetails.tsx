@@ -12,6 +12,7 @@ import {
   Music,
   Wallet,
   CheckCircle2,
+  Copyright
 } from "lucide-react";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
@@ -75,6 +76,22 @@ export const AlbumDetails = () => {
     } catch {
       return [];
     }
+  })();
+
+  const licenseInfo = (() => {
+    if (!album?.license || album.license === 'copyright') return { name: 'All Rights Reserved', url: null };
+    
+    const mapping: Record<string, { name: string, url: string }> = {
+        'cc-by': { name: 'CC BY 4.0 (Attribution)', url: 'https://creativecommons.org/licenses/by/4.0/' },
+        'cc-by-sa': { name: 'CC BY-SA 4.0 (ShareAlike)', url: 'https://creativecommons.org/licenses/by-sa/4.0/' },
+        'cc-by-nc': { name: 'CC BY-NC 4.0 (NonCommercial)', url: 'https://creativecommons.org/licenses/by-nc/4.0/' },
+        'cc-by-nc-sa': { name: 'CC BY-NC-SA 4.0 (NonCommercial ShareAlike)', url: 'https://creativecommons.org/licenses/by-nc-sa/4.0/' },
+        'cc-by-nd': { name: 'CC BY-ND 4.0 (NoDerivs)', url: 'https://creativecommons.org/licenses/by-nd/4.0/' },
+        'cc-by-nc-nd': { name: 'CC BY-NC-ND 4.0 (NonCommercial NoDerivs)', url: 'https://creativecommons.org/licenses/by-nc-nd/4.0/' },
+        'public-domain': { name: 'Public Domain / CC0 1.0', url: 'https://creativecommons.org/publicdomain/zero/1.0/' }
+    };
+
+    return mapping[album.license] || { name: album.license, url: null };
   })();
 
   if (loading)
@@ -381,6 +398,25 @@ export const AlbumDetails = () => {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* License and Footer Info */}
+      <div className="bg-white/5 p-6 rounded-xl border border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-sm opacity-70">
+        <div className="flex items-center gap-2">
+            <Copyright size={16} />
+            <span>
+                {licenseInfo.url ? (
+                    <a href={licenseInfo.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                        {licenseInfo.name}
+                    </a>
+                ) : (
+                    licenseInfo.name
+                )}
+            </span>
+        </div>
+        <div className="font-mono text-xs">
+            Published on Tunecamp • {album.year}
+        </div>
       </div>
 
       {/* Comments */}
