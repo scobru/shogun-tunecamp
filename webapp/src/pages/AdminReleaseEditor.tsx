@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuthStore } from "../stores/useAuthStore";
 import API from "../services/api";
 import { TrackPickerModal } from "../components/modals/TrackPickerModal";
 import { UnlockCodeManager } from "../components/modals/UnlockCodeManager";
@@ -62,6 +63,7 @@ interface LocalRelease {
 export default function AdminReleaseEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const isNew = !id;
 
 
@@ -114,7 +116,9 @@ export default function AdminReleaseEditor() {
       setArtists(data);
       // Default to first artist if new
       if (isNew && data.length > 0) {
-        setMetadata((prev) => ({ ...prev, artist_id: parseInt(data[0].id) }));
+        // If user is a specific artist, pre-set it
+        const targetArtistId = user?.isRootAdmin ? data[0].id : (user?.artistId || data[0].id);
+        setMetadata((prev) => ({ ...prev, artist_id: parseInt(targetArtistId) }));
       }
     } catch (e) {
       console.error(e);
@@ -854,22 +858,28 @@ export default function AdminReleaseEditor() {
             {/* Artist */}
             <div className="form-control">
               <label className="label">Artist</label>
-              <select
-                className="select select-bordered w-full"
-                value={metadata.artist_id}
-                onChange={(e) =>
-                  setMetadata((prev) => ({
-                    ...prev,
-                    artist_id: parseInt(e.target.value),
-                  }))
-                }
-              >
-                {artists.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
+              {user?.isRootAdmin ? (
+                <select
+                  className="select select-bordered w-full"
+                  value={metadata.artist_id}
+                  onChange={(e) =>
+                    setMetadata((prev) => ({
+                      ...prev,
+                      artist_id: parseInt(e.target.value),
+                    }))
+                  }
+                >
+                  {artists.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="input input-bordered w-full flex items-center bg-base-100/50 cursor-not-allowed">
+                   {artists.find(a => a.id.toString() === metadata.artist_id?.toString())?.name || "Loading..."}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

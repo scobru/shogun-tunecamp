@@ -344,6 +344,7 @@ export const AlbumDetails = () => {
                                                 Number(album.price) > 0
                                               ? String(album.price)
                                               : "0.005",
+                                        walletAddress: (album as any).walletAddress,
                                       },
                                     },
                                   }),

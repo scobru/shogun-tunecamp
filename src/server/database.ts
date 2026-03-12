@@ -71,6 +71,7 @@ export interface Album {
     published_to_gundb: boolean; // specific toggle for GunDB
     published_to_ap: boolean; // specific toggle for ActivityPub
     published_at: string | null;
+    walletAddress?: string;
     created_at: string;
 }
 
@@ -1208,7 +1209,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         getAlbumBySlug(slug: string): Album | undefined {
             const row = db
                 .prepare(
-                    `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                    `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.slug = ?`
                 )
