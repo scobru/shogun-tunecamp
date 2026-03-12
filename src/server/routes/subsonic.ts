@@ -168,8 +168,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         return {
             '@id': id,
             '@name': album.title,
-            '@artist': album.artist_name,
+            '@artist': album.artist_name || 'Unknown Artist',
             '@artistId': artistId,
+            '@isDir': 'true',
             '@coverArt': id,
             '@songCount': undefined as number | undefined,
             '@duration': undefined as number | undefined,
@@ -330,7 +331,6 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             return sendResponse(res, req, { directory });
         }
 
-        // Handle Album -> Return Tracks
         if (id.startsWith('al_')) {
             const albumId = parseInt(id.substring(3));
             const album = db.getAlbum(albumId);
@@ -341,7 +341,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             const directory = {
                 '@id': id,
                 '@name': album.title,
-                '@parent': `ar_${album.artist_id}`,
+                '@parent': album.artist_id ? `ar_${album.artist_id}` : '1',
                 child: tracks.map((track: any) => formatTrack(track, username))
             };
             return sendResponse(res, req, { directory });
@@ -501,7 +501,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
-        const artistId = parseInt(id.startsWith('ar_') ? id.substring(3) : id);
+        const artistIdStr = id.startsWith('ar_') ? id.substring(3) : id;
+        const artistId = parseInt(artistIdStr);
         if (!isNaN(artistId)) {
             const artist = db.getArtist(artistId);
             if (artist) {
