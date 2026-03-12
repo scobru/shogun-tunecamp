@@ -1013,44 +1013,73 @@ export function createDatabase(dbPath: string): DatabaseService {
     const getAlbumStmt = db.prepare(`SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
            LEFT JOIN artists ar ON a.artist_id = ar.id
            WHERE a.id = ?`);
-    const getTrackStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
+    const getTrackStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
+            COALESCE(ar_t.id, ar_a.id) as artist_id,
+            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
-           LEFT JOIN artists ar ON t.artist_id = ar.id
+           LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+           LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
            WHERE t.id = ?`);
-    const getTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
+    const getTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
+              COALESCE(ar_t.id, ar_a.id) as artist_id,
+              COALESCE(ar_t.name, ar_a.name) as artist_name, 
+              COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
              FROM tracks t
              LEFT JOIN albums a ON t.album_id = a.id
-             LEFT JOIN artists ar ON t.artist_id = ar.id
+             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
              WHERE t.album_id = ? ORDER BY t.track_num`);
-    const getPublicTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
+    const getPublicTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
+            COALESCE(ar_t.id, ar_a.id) as artist_id,
+            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
             FROM tracks t
             JOIN albums a ON t.album_id = a.id
-            LEFT JOIN artists ar ON t.artist_id = ar.id
+            LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+            LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
             WHERE t.album_id = ? AND a.is_public = 1
             ORDER BY t.track_num`);
-    const getAllTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
+    const getAllTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
+            COALESCE(ar_t.id, ar_a.id) as artist_id,
+            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
-           LEFT JOIN artists ar ON t.artist_id = ar.id
-           ORDER BY ar.name, a.title, t.track_num`);
-    const getAllPublicTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
+           LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+           LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+           ORDER BY artist_name, a.title, t.track_num`);
+    const getAllPublicTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
+            COALESCE(ar_t.id, ar_a.id) as artist_id,
+            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
-           LEFT JOIN artists ar ON t.artist_id = ar.id
-           WHERE a.is_public = 1 OR (t.album_id IS NULL AND ar.id IS NOT NULL)
-           ORDER BY ar.name, a.title, t.track_num`);
-    const getTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
+           LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+           LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+           WHERE a.is_public = 1 OR (t.album_id IS NULL AND ar_t.id IS NOT NULL)
+           ORDER BY artist_name, a.title, t.track_num`);
+    const getTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
+            COALESCE(ar_t.id, ar_a.id) as artist_id,
+            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
-            LEFT JOIN artists ar ON t.artist_id = ar.id
-            WHERE t.artist_id = ?
+            LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+            LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+            WHERE t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?)
             ORDER BY a.title, t.track_num`);
-    const getPublicTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, ar.name as artist_name, ar.wallet_address as walletAddress
+    const getPublicTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
+            COALESCE(ar_t.id, ar_a.id) as artist_id,
+            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
-            LEFT JOIN artists ar ON t.artist_id = ar.id
-            WHERE t.artist_id = ? AND (a.is_public = 1 OR t.album_id IS NULL)
+            LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+            LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+            WHERE (t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?)) 
+            AND (a.is_public = 1 OR t.album_id IS NULL)
             ORDER BY a.title, t.track_num`);
 
     return {
@@ -1403,10 +1432,14 @@ export function createDatabase(dbPath: string): DatabaseService {
                 const placeholders = chunk.map(() => '?').join(',');
                 const tracks = db
                     .prepare(
-                        `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, ar.name as artist_name, ar.wallet_address as walletAddress
+                        `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, 
+                     COALESCE(ar_t.id, ar_a.id) as artist_id,
+                     COALESCE(ar_t.name, ar_a.name) as artist_name, 
+                     COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
              FROM tracks t
              LEFT JOIN albums a ON t.album_id = a.id
-             LEFT JOIN artists ar ON t.artist_id = ar.id
+             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
              WHERE t.album_id IN (${placeholders})
              ORDER BY t.album_id, t.track_num`
                     )
@@ -1542,11 +1575,15 @@ export function createDatabase(dbPath: string): DatabaseService {
         getTracksByReleaseId(releaseId: number): Track[] {
             return db
                 .prepare(
-                    `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, ar.name as artist_name, ar.wallet_address as walletAddress 
+                    `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, 
+                    COALESCE(ar_t.id, ar_a.id) as artist_id,
+                    COALESCE(ar_t.name, ar_a.name) as artist_name, 
+                    COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
             FROM tracks t
            JOIN release_tracks rt ON t.id = rt.track_id
            LEFT JOIN albums a ON t.album_id = a.id
-           LEFT JOIN artists ar ON t.artist_id = ar.id
+           LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+           LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
            WHERE rt.release_id = ?`
                 )
                 .all(releaseId) as Track[];
