@@ -110,8 +110,8 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 return res.status(404).json({ error: "Artist not found" });
             }
 
-            // Permission Check: Restricted admin can only update their own artist
-            if (req.artistId && req.artistId !== id) {
+            // Permission Check: Restricted admin can only update their own artist, UNLESS they are a site admin
+            if (req.artistId && !req.isAdmin && req.artistId !== id) {
                 return res.status(403).json({ error: "Access denied: You can only manage your assigned artist" });
             }
 
@@ -140,20 +140,18 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
 
 
             // Update wallet address if provided, otherwise keep existing
-            // Security: Managed artists can update their own wallet. Root admins cannot change it.
+            // Security: Artists can update their own wallet. Site admins can set it if it was missing (e.g. for autodiscovered artists).
             let finalWalletAddress = artist.wallet_address;
             if (walletAddress !== undefined) {
                 if (req.artistId && req.artistId === id) {
+                    // Artist updating their own profile
                     finalWalletAddress = walletAddress;
-                } else if (req.isRootAdmin) {
-                    // Root admin can only set it if it was null, or if we decide to block it entirely.
-                    // The user said "ADMIN non puo cambiare questo wallet".
-                    // Assuming this means even root admin cannot change it once set, or at all.
-                    // Let's allow setting if null, but not changing if already set.
+                } else if (req.isAdmin) {
+                    // Site admin can set it if it was null (autodiscovered artist), but cannot change a previously set wallet
                     if (!artist.wallet_address) {
                         finalWalletAddress = walletAddress;
                     } else {
-                        console.warn(`Attempt by root admin to change wallet for artist ${id} blocked.`);
+                        console.warn(`Attempt by admin to change existing wallet for artist ${id} blocked.`);
                     }
                 }
             }
