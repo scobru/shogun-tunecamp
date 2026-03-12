@@ -58,6 +58,7 @@ interface LocalRelease {
   price?: number | string;
   currency?: "ETH" | "USD";
   download?: string;
+  license?: string;
 }
 
 export default function AdminReleaseEditor() {
@@ -84,6 +85,7 @@ export default function AdminReleaseEditor() {
     price: 0,
     currency: "ETH",
     download: "none",
+    license: "copyright",
   });
 
   // Tracks State
@@ -132,7 +134,7 @@ export default function AdminReleaseEditor() {
       setMetadata({
         id: parseInt(data.id),
         title: data.title,
-        artist_id: parseInt(data.artistId),
+        artist_id: parseInt(data.artist_id || data.artistId),
         type: data.type,
         year: data.year,
         slug: data.slug,
@@ -149,6 +151,7 @@ export default function AdminReleaseEditor() {
         currency: data.currency || "ETH",
         download: data.download || "none",
         tags: data.genre || "",
+        license: data.license || "copyright",
       });
 
       if (data.slug || releaseId) {
@@ -390,23 +393,25 @@ export default function AdminReleaseEditor() {
 
   return (
     <div className="flex flex-col h-full bg-transparent">
-      {/* Header / Toolbar */}
-      <div className="navbar bg-base-100/40 backdrop-blur-md border-b border-base-content/10 px-6 min-h-[4rem]">
-        <div className="flex-1 gap-4">
+      {/* Header / Toolbar - Sticky and Responsive */}
+      <div className="sticky top-0 z-50 navbar bg-base-100/60 backdrop-blur-xl border-b border-white/5 px-4 lg:px-6 min-h-[4rem]">
+        <div className="flex-1 gap-2 lg:gap-4 overflow-hidden">
           <button
             onClick={() => navigate("/admin")}
-            className="btn btn-ghost btn-sm"
+            className="btn btn-ghost btn-circle lg:btn-sm lg:btn-ghost"
+            title="Back"
           >
-            &larr; Back
+            <span className="lg:hidden">&larr;</span>
+            <span className="hidden lg:inline">&larr; Back</span>
           </button>
-          <h1 className="text-xl font-bold">
-            {isNew ? "New Release" : `Edit: ${metadata.title}`}
+          <h1 className="text-base lg:text-xl font-bold truncate">
+            {isNew ? "New Release" : metadata.title}
           </h1>
         </div>
         <div className="flex-none gap-2">
           {!isNew && (
             <button
-              className="btn btn-ghost text-error"
+              className="btn btn-ghost btn-sm text-error hidden sm:flex"
               onClick={handleDelete}
               disabled={saving}
             >
@@ -415,48 +420,48 @@ export default function AdminReleaseEditor() {
             </button>
           )}
           <button
-            className="btn btn-ghost"
+            className="btn btn-ghost btn-sm"
             onClick={() => handleSave(false)}
             disabled={saving}
           >
             Save
           </button>
           <button
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
             onClick={() => handleSave(true)}
             disabled={saving}
           >
             {saving
-              ? "Saving..."
+              ? "..."
               : metadata.visibility === "public"
-                ? "Publish"
-                : "Save & Close"}
+                ? (window.innerWidth < 640 ? "Pub" : "Publish")
+                : (window.innerWidth < 640 ? "Done" : "Save & Close")}
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden flex flex-row">
-        {/* LEFT COLUMN: TRAKCS */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* LEFT COLUMN: TRACKS */}
         <div
-          className="flex-1 overflow-y-auto p-8 border-r border-base-content/10 relative"
+          className="flex-1 overflow-y-auto p-4 lg:p-8 relative scrollbar-thin"
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDropAudio}
         >
-          <div className="max-w-3xl mx-auto space-y-6">
-            <div className="flex justify-between items-center">
+          <div className="max-w-3xl mx-auto space-y-6 pb-20 lg:pb-0">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <Music className="w-5 h-5" /> Tracks
               </h2>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                 <button
-                  className="btn btn-sm btn-outline"
+                  className="btn btn-xs sm:btn-sm btn-outline flex-1 sm:flex-none"
                   onClick={() => setShowTrackPicker(true)}
                 >
-                  <Library className="w-4 h-4" /> Add from Library
+                  <Library className="w-4 h-4 mr-1" /> <span className="hidden xs:inline">Add from Library</span><span className="xs:hidden">Library</span>
                 </button>
-                <div className="join">
-                  <label className="btn btn-sm btn-primary join-item">
-                    <Plus className="w-4 h-4" /> Upload Audio
+                <div className="join flex-1 sm:flex-none">
+                  <label className="btn btn-xs sm:btn-sm btn-primary join-item flex-1">
+                    <Plus className="w-4 h-4 mr-1" /> <span className="hidden xs:inline">Upload</span><span className="xs:hidden">Files</span>
                     <input
                       type="file"
                       multiple
@@ -472,10 +477,10 @@ export default function AdminReleaseEditor() {
                     />
                   </label>
                   <button
-                    className="btn btn-sm btn-primary btn-outline join-item"
+                    className="btn btn-xs sm:btn-sm btn-primary btn-outline join-item flex-1"
                     onClick={handleAddExternalLink}
                   >
-                    <LinkIcon className="w-4 h-4" /> Add External Link
+                    <LinkIcon className="w-4 h-4 mr-1" /> External
                   </button>
                 </div>
               </div>
@@ -495,12 +500,14 @@ export default function AdminReleaseEditor() {
                   key={track.id}
                   className="card card-compact bg-base-100 shadow-sm border border-base-content/5 group"
                 >
-                  <div className="card-body flex-row items-center gap-4 py-2">
-                    <div className="cursor-grab text-base-content/30 hover:text-base-content">
-                      <GripVertical className="w-5 h-5" />
-                    </div>
-                    <div className="font-mono text-sm opacity-50 w-6 text-right">
-                      {idx + 1}
+                  <div className="card-body flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="cursor-grab text-base-content/30 hover:text-base-content">
+                        <GripVertical className="w-5 h-5" />
+                      </div>
+                      <div className="font-mono text-sm opacity-50 w-6 text-right">
+                        {idx + 1}
+                      </div>
                     </div>
                     <div className="flex-1 flex flex-col gap-1">
                       <input
@@ -575,69 +582,67 @@ export default function AdminReleaseEditor() {
                         {track.format || "MP3"}
                       </span>
                     )}
-                    <div className="text-sm opacity-50 font-mono w-16 text-right shrink-0">
-                      {track.duration
-                        ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, "0")}`
-                        : "-"}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <select
-                        className="select select-ghost select-xs px-1 opacity-50 focus:opacity-100"
-                        value={track.currency || "ETH"}
-                        onChange={(e) => {
-                          const newTracks = [...tracks];
-                          newTracks[idx].currency = e.target.value as any;
-                          newTracks[idx].isDirty = true;
-                          setTracks(newTracks);
-                        }}
-                      >
-                        <option value="ETH">ETH</option>
-                        <option value="USD">USD</option>
-                      </select>
-                      <label className="input input-xs input-bordered flex items-center gap-1 group-focus-within:border-primary w-24">
-                        <span className="opacity-50 text-[10px]">
-                          {track.currency === "USD" ? "$" : "Ξ"}
-                        </span>
-                        <input
-                          type="number"
-                          step="any"
-                          min="0"
-                          className="w-full bg-transparent"
-                          placeholder="0.00"
-                          value={track.price ?? ""}
+                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                      <div className="text-sm opacity-50 font-mono">
+                        {track.duration
+                          ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, "0")}`
+                          : "-"}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <select
+                          className="select select-ghost select-xs px-1 opacity-50 focus:opacity-100"
+                          value={track.currency || "ETH"}
                           onChange={(e) => {
                             const newTracks = [...tracks];
-                            newTracks[idx].price =
-                              e.target.value === "" ? "" : e.target.value;
+                            newTracks[idx].currency = e.target.value as any;
                             newTracks[idx].isDirty = true;
                             setTracks(newTracks);
                           }}
-                        />
-                      </label>
+                        >
+                          <option value="ETH">ETH</option>
+                          <option value="USD">USD</option>
+                        </select>
+                        <label className="input input-xs input-bordered flex items-center gap-1 group-focus-within:border-primary w-20">
+                          <span className="opacity-50 text-[10px]">
+                            {track.currency === "USD" ? "$" : "Ξ"}
+                          </span>
+                          <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            className="w-full bg-transparent"
+                            placeholder="0.00"
+                            value={track.price ?? ""}
+                            onChange={(e) => {
+                              const newTracks = [...tracks];
+                              newTracks[idx].price =
+                                e.target.value === "" ? "" : e.target.value;
+                              newTracks[idx].isDirty = true;
+                              setTracks(newTracks);
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          className={`btn btn-xs ${track.lyrics ? "btn-primary" : "btn-ghost"}`}
+                          onClick={() => {
+                            const newTracks = [...tracks];
+                            newTracks[idx].showLyrics = !newTracks[idx].showLyrics;
+                            setTracks(newTracks);
+                          }}
+                          title="Toggle Lyrics Editor"
+                        >
+                          <AlignLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-xs text-error"
+                          onClick={() => handleRemoveTrack(idx)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      className={`btn btn-xs ${track.lyrics ? "btn-primary" : "btn-ghost"}`}
-                      onClick={() => {
-                        const newTracks = [...tracks];
-                        newTracks[idx].showLyrics = !newTracks[idx].showLyrics;
-                        setTracks(newTracks);
-                      }}
-                      title="Toggle Lyrics Editor"
-                    >
-                      <AlignLeft className="w-4 h-4" />
-                      {track.lyrics && !track.showLyrics && (
-                        <span
-                          className="badge badge-primary badge-xs ml-1 p-0 h-1.5 w-1.5 rounded-full"
-                          title="Has lyrics"
-                        ></span>
-                      )}
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-xs text-error"
-                      onClick={() => handleRemoveTrack(idx)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
 
                   {/* Inline Lyrics Editor */}
@@ -739,8 +744,9 @@ export default function AdminReleaseEditor() {
         />
 
         {/* RIGHT COLUMN: METADATA */}
-        <div className="w-96 bg-base-200 p-6 overflow-y-auto border-l border-base-content/10">
-          <div className="space-y-6">
+        <div className="w-full lg:w-96 bg-base-200/50 backdrop-blur-md p-6 overflow-y-auto border-t lg:border-t-0 lg:border-l border-white/5 scrollbar-thin">
+          <div className="space-y-8 pb-12">
+            <h3 className="text-sm font-bold uppercase tracking-widest opacity-50 mb-2">Album Metadata</h3>
 
             {/* Auto-Fill Button */}
             <div className="form-control">
@@ -843,10 +849,10 @@ export default function AdminReleaseEditor() {
 
             {/* Title */}
             <div className="form-control">
-              <label className="label">Album Title</label>
+              <label className="label font-bold text-xs uppercase opacity-70">Album Title</label>
               <input
                 type="text"
-                className="input input-bordered w-full"
+                className="input input-m3-filled w-full"
                 value={metadata.title}
                 onChange={(e) =>
                   setMetadata((prev) => ({ ...prev, title: e.target.value }))
@@ -1212,6 +1218,27 @@ export default function AdminReleaseEditor() {
               )}
             </div>
 
+            {/* License */}
+            <div className="form-control">
+              <label className="label">License</label>
+              <select
+                className="select select-bordered w-full"
+                value={metadata.license || "copyright"}
+                onChange={(e) =>
+                  setMetadata((prev) => ({ ...prev, license: e.target.value }))
+                }
+              >
+                <option value="copyright">All Rights Reserved (Copyright)</option>
+                <option value="cc-by">Creative Commons BY (Attribution)</option>
+                <option value="cc-by-sa">Creative Commons BY-SA (ShareAlike)</option>
+                <option value="cc-by-nc">Creative Commons BY-NC (Non-Commercial)</option>
+                <option value="cc-by-nc-sa">Creative Commons BY-NC-SA (Non-Commercial ShareAlike)</option>
+                <option value="cc-by-nd">Creative Commons BY-ND (NoDerivs)</option>
+                <option value="cc-by-nc-nd">Creative Commons BY-NC-ND (Non-Commercial NoDerivs)</option>
+                <option value="public-domain">Public Domain / CC0</option>
+              </select>
+            </div>
+
             {/* Description */}
             <div className="form-control">
               <label className="label">Description</label>
@@ -1229,10 +1256,10 @@ export default function AdminReleaseEditor() {
 
             {/* Tags */}
             <div className="form-control">
-              <label className="label">Tags</label>
+              <label className="label font-bold text-xs uppercase opacity-70">Tags</label>
               <input
                 type="text"
-                className="input input-bordered w-full text-sm"
+                className="input input-m3-filled w-full"
                 placeholder="electronic, pop, ambient..."
                 value={metadata.tags || ""}
                 onChange={(e) =>
@@ -1243,6 +1270,24 @@ export default function AdminReleaseEditor() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Sticky Footer - Only visible on small screens */}
+      {!saving && (
+        <div className="lg:hidden fixed bottom-4 left-4 right-4 z-[60] flex gap-2">
+            <button
+                className="btn btn-circle glass-effect flex-1 shadow-lg"
+                onClick={() => handleSave(false)}
+            >
+                Save Draft
+            </button>
+            <button
+                className="btn btn-circle btn-primary flex-1 shadow-lg font-bold"
+                onClick={() => handleSave(true)}
+            >
+                {metadata.visibility === "public" ? "Publish" : "Done"}
+            </button>
+        </div>
+      )}
     </div>
   );
 }
