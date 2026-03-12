@@ -1271,8 +1271,12 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         getAlbumsByArtist(artistId: number, publicOnly = false): Album[] {
             const sql = publicOnly
-                ? "SELECT * FROM albums WHERE artist_id = ? AND visibility = 'public' ORDER BY date DESC"
-                : "SELECT * FROM albums WHERE artist_id = ? ORDER BY date DESC";
+                ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                   LEFT JOIN artists ar ON a.artist_id = ar.id 
+                   WHERE a.artist_id = ? AND a.visibility = 'public' ORDER BY a.date DESC`
+                : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                   LEFT JOIN artists ar ON a.artist_id = ar.id 
+                   WHERE a.artist_id = ? ORDER BY a.date DESC`;
             const rows = db.prepare(sql).all(artistId);
             return mapAlbums(rows);
         },
