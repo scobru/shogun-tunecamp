@@ -179,6 +179,7 @@ export class Scanner implements ScannerService {
             published_at: null,
             published_to_gundb: false,
             published_to_ap: false,
+            license: null,
         });
 
         console.log(`  [Scanner] Created implicit library album: ${folderName} (ID ${albumId})`);
@@ -383,6 +384,7 @@ export class Scanner implements ScannerService {
                     published_at: null,
                     published_to_gundb: false,
                     published_to_ap: false,
+                    license: null,
                 });
                 console.log(`  Created release from config: ${config.title}`);
             }

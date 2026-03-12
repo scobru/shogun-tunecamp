@@ -67,7 +67,7 @@ export interface Album {
     external_links: string | null; // JSON string of ExternalLink[]
     is_public: boolean;
     visibility: 'public' | 'private' | 'unlisted'; // Added
-    license: string | null; // Added: e.g. 'cc-by'
+    license?: string | null; // Added: e.g. 'cc-by'
     is_release: boolean; // true = published release, false = library album
     published_to_gundb: boolean; // specific toggle for GunDB
     published_to_ap: boolean; // specific toggle for ActivityPub

@@ -47,7 +47,8 @@ describe('Orphan Release Fix Verification', () => {
             external_links: null,
             published_at: null,
             type: 'album',
-            year: 2023
+            year: 2023,
+            license: null
         });
 
         // 3. Create a track associated with the artist

@@ -331,6 +331,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                         published_at: null,
                         published_to_gundb: false,
                         published_to_ap: false,
+                        license: null,
                     });
                     album = database.getAlbum(albumId);
                 }
