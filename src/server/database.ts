@@ -1430,9 +1430,9 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         getTracksByArtist(artistId: number, publicOnly = false): Track[] {
             if (publicOnly) {
-                return getPublicTracksByArtistStmt.all(artistId) as Track[];
+                return getPublicTracksByArtistStmt.all(artistId, artistId) as Track[];
             }
-            return getTracksByArtistStmt.all(artistId) as Track[];
+            return getTracksByArtistStmt.all(artistId, artistId) as Track[];
         },
 
         getTracksByAlbumIds(albumIds: number[]): Track[] {

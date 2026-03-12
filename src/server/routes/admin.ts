@@ -67,7 +67,7 @@ export function createAdminRoutes(
             }
 
             // Permission Check
-            if (req.artistId && album.artist_id !== req.artistId) {
+            if (req.artistId && !req.isAdmin && album.artist_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied: You can only manage your own releases" });
             }
 
@@ -529,7 +529,7 @@ export function createAdminRoutes(
             }
 
             // Permission Check
-            if (req.artistId && post.artist_id !== req.artistId) {
+            if (req.artistId && !req.isAdmin && post.artist_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied" });
             }
 
@@ -561,7 +561,7 @@ export function createAdminRoutes(
             }
 
             // Permission Check
-            if (req.artistId && req.artistId !== parseInt(artistId)) {
+            if (req.artistId && !req.isAdmin && req.artistId !== parseInt(artistId)) {
                 return res.status(403).json({ error: "You can only post for your assign artist" });
             }
 
@@ -593,7 +593,7 @@ export function createAdminRoutes(
             }
 
             // Permission Check
-            if (req.artistId && post.artist_id !== req.artistId) {
+            if (req.artistId && !req.isAdmin && post.artist_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied" });
             }
 

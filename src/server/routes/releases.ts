@@ -131,7 +131,7 @@ export function createReleaseRoutes(
             }
 
             // Permission Check
-            if (req.artistId) {
+            if (req.artistId && !req.isAdmin) {
                 if (album.artist_id !== req.artistId) {
                     return res.status(403).json({ error: "Access denied: You can only edit your own releases" });
                 }
@@ -285,7 +285,7 @@ export function createReleaseRoutes(
             if (!album) return res.status(404).json({ error: "Release not found" });
 
             // Permission Check
-            if (req.artistId && album.artist_id !== req.artistId) {
+            if (req.artistId && !req.isAdmin && album.artist_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied" });
             }
 
