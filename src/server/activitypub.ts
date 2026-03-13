@@ -799,12 +799,22 @@ export class ActivityPubService {
             headers["Content-Type"] = "application/activity+json";
         }
         let actor = signingArtist;
-        if (!actor) {
-            actor = {
-                slug: "site",
-                private_key: this.db.getSetting("site_private_key"),
-                public_key: this.db.getSetting("site_public_key")
-            } as any;
+        // If no actor provided OR it's the site actor lacking keys, try to load site keys
+        if (!actor || (actor.slug === "site" && !actor.private_key)) {
+            const sitePriv = this.db.getSetting("site_private_key");
+            const sitePub = this.db.getSetting("site_public_key");
+            
+            if (!actor) {
+                actor = {
+                    slug: "site",
+                    private_key: sitePriv,
+                    public_key: sitePub
+                } as any;
+            } else {
+                // Fill missing keys for site actor
+                (actor as any).private_key = sitePriv;
+                (actor as any).public_key = sitePub;
+            }
         }
         if (actor?.private_key) {
             try {
