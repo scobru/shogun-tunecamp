@@ -25,8 +25,10 @@ export const Profile = () => {
   const { playTrack } = usePlayerStore();
 
   const [activeTab, setActiveTab] = useState<
-    "settings" | "favorites" | "collection"
+    "settings" | "favorites" | "collection" | "artist"
   >("settings");
+  const [artistData, setArtistData] = useState<any>(null);
+  const [artistLoading, setArtistLoading] = useState(false);
   const [alias, setAlias] = useState(user?.gunProfile?.alias || "");
   const [avatar, setAvatar] = useState<string | null>(user?.gunProfile?.profile?.avatar || null);
   const [isSaving, setIsSaving] = useState(false);
@@ -52,8 +54,17 @@ export const Profile = () => {
       API.getTracks()
         .then(setAllTracks)
         .finally(() => setLoadingTracks(false));
+
+      // Load artist data if user is linked to an artist
+      if (user?.artistId) {
+        setArtistLoading(true);
+        API.getArtist(user.artistId)
+          .then(setArtistData)
+          .catch(console.error)
+          .finally(() => setArtistLoading(false));
+      }
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.artistId]);
 
   const purchasedTracks = useMemo(() => {
     return allTracks.filter((t) => isPurchased(t.id));
@@ -203,6 +214,17 @@ export const Profile = () => {
         >
           <Download size={18} /> Collection
         </button>
+        {user?.artistId && (
+          <button
+            className={clsx(
+              "tab tab-lg px-8 gap-2",
+              activeTab === "artist" && "tab-active",
+            )}
+            onClick={() => setActiveTab("artist")}
+          >
+            <User size={18} className="text-secondary" /> Artist Profile
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -329,9 +351,247 @@ export const Profile = () => {
             )}
           </div>
         )}
+
+        {activeTab === "artist" && user?.artistId && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                {artistLoading ? (
+                    <div className="p-12 text-center opacity-50">Loading artist profile...</div>
+                ) : (
+                    <ArtistProfileEditor initialData={artistData} onSaved={(data) => setArtistData(data)} />
+                )}
+            </div>
+        )}
       </div>
     </div>
   );
+};
+
+const ArtistProfileEditor = ({ initialData, onSaved }: { initialData: any, onSaved: (data: any) => void }) => {
+    const [name, setName] = useState(initialData?.name || '');
+    // const [slug, setSlug] = useState(initialData?.slug || '');
+    const [bio, setBio] = useState(initialData?.bio || '');
+    const [donationUrl, setDonationUrl] = useState('');
+    const [socialLinks, setSocialLinks] = useState<{ platform: string, url: string }[]>([]);
+    const [walletAddress, setWalletAddress] = useState(initialData?.walletAddress || '');
+    const [mastodonInstance, setMastodonInstance] = useState('');
+    const [mastodonToken, setMastodonToken] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [message, setMessage] = useState('');
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (initialData) {
+            setName(initialData.name || '');
+            setBio(initialData.bio || '');
+            setWalletAddress(initialData.walletAddress || '');
+            
+            // Parse links
+            if (initialData.links) {
+                const links = initialData.links;
+                const donation = links.find((l: any) => l.type === 'support' || l.platform?.toLowerCase() === 'donation');
+                setDonationUrl(donation ? donation.url : '');
+                setSocialLinks(links.filter((l: any) => l.type !== 'support' && l.platform?.toLowerCase() !== 'donation'));
+            }
+
+            // Parse Mastodon config
+            if (initialData.postParams) {
+                setMastodonInstance(initialData.postParams.instance || '');
+                setMastodonToken(initialData.postParams.token || '');
+            }
+        }
+    }, [initialData]);
+
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setAvatarFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => setAvatarPreview(reader.result as string);
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        setMessage('');
+
+        try {
+            const allLinks: any[] = [...socialLinks];
+            if (donationUrl) {
+                allLinks.unshift({ platform: 'Donation', url: donationUrl, type: 'support' });
+            }
+
+            const postParams = (mastodonInstance || mastodonToken) ? {
+                instance: mastodonInstance,
+                token: mastodonToken
+            } : null;
+
+            const updated = await API.updateArtist(initialData.id, {
+                // name, // Usually name is fixed but biological part is bio
+                bio,
+                links: allLinks,
+                walletAddress: walletAddress || undefined,
+                postParams
+            });
+
+            if (avatarFile) {
+                await API.uploadArtistAvatar(initialData.id, avatarFile);
+            }
+
+            setMessage('Artist profile updated successfully!');
+            onSaved({ ...initialData, ...updated });
+            setAvatarFile(null);
+            setAvatarPreview(null);
+        } catch (err: any) {
+            console.error('Failed to update artist profile:', err);
+            setMessage(`Update failed: ${err.message}`);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="space-y-6">
+                <div className="card bg-base-100/50 border border-white/5 p-6 space-y-4">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                        <User size={20} className="text-primary" /> Basic Information
+                    </h3>
+
+                    <div className="form-control">
+                        <label className="label"><span className="label-text opacity-60">Artist Name</span></label>
+                        <input type="text" className="input input-bordered opacity-50" value={name} readOnly />
+                        <label className="label"><span className="label-text-alt opacity-40">Name changes must be requested to admins.</span></label>
+                    </div>
+
+                    <div className="form-control">
+                        <label className="label"><span className="label-text opacity-60">Bio / Description</span></label>
+                        <textarea 
+                            className="textarea textarea-bordered h-32" 
+                            value={bio} 
+                            onChange={e => setBio(e.target.value)}
+                            placeholder="Tell your story..."
+                        />
+                    </div>
+                    
+                    <div className="form-control">
+                        <label className="label"><span className="label-text font-bold text-accent">Payment Wallet Address</span></label>
+                        <input 
+                            type="text" 
+                            className="input input-bordered border-accent/20 font-mono text-sm" 
+                            value={walletAddress} 
+                            onChange={e => setWalletAddress(e.target.value)}
+                            placeholder="0x..."
+                        />
+                        <label className="label"><span className="label-text-alt opacity-50">Direct payments for your releases will go here.</span></label>
+                    </div>
+                </div>
+
+                <div className="card bg-base-100/50 border border-white/5 p-6 space-y-4">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                        <Camera size={20} className="text-secondary" /> Artist Avatar
+                    </h3>
+                    <div className="flex items-center gap-6">
+                        <div className="w-24 h-24 rounded-2xl overflow-hidden bg-neutral border border-white/10 ring-4 ring-secondary/5">
+                            {avatarPreview ? (
+                                <img src={avatarPreview} className="w-full h-full object-cover" />
+                            ) : initialData?.id ? (
+                                <img src={API.getArtistCoverUrl(initialData.id, Date.now())} className="w-full h-full object-cover" />
+                            ) : null}
+                        </div>
+                        <label className="btn btn-outline btn-sm gap-2">
+                            <Camera size={16} /> Upload New
+                            <input type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div className="space-y-6">
+                <div className="card bg-base-100/50 border border-white/5 p-6 space-y-4">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                        <Globe size={20} className="text-success" /> Links & Socials
+                    </h3>
+
+                    <div className="form-control">
+                        <label className="label"><span className="label-text font-bold text-success">Donation / Support URL</span></label>
+                        <input 
+                            type="url" 
+                            className="input input-bordered border-success/20" 
+                            value={donationUrl} 
+                            onChange={e => setDonationUrl(e.target.value)}
+                            placeholder="https://ko-fi.com/..."
+                        />
+                    </div>
+
+                    <div className="form-control">
+                        <label className="label"><span className="label-text">Social Links (comma separated)</span></label>
+                        <input 
+                            type="text" 
+                            className="input input-bordered" 
+                            value={socialLinks.map(l => l.url).join(', ')} 
+                            onChange={e => {
+                                const urls = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                setSocialLinks(urls.map(url => {
+                                    let platform = 'Social';
+                                    if (url.includes('twitter')) platform = 'Twitter';
+                                    if (url.includes('x.com')) platform = 'X';
+                                    if (url.includes('instagram')) platform = 'Instagram';
+                                    if (url.includes('facebook')) platform = 'Facebook';
+                                    if (url.includes('youtube')) platform = 'YouTube';
+                                    return { platform, url };
+                                }));
+                            }}
+                            placeholder="twitter.com/..., instagram.com/..."
+                        />
+                    </div>
+                </div>
+
+                <div className="card bg-base-100/50 border border-white/5 p-6 space-y-4">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                        <Settings size={20} className="text-info" /> Mastodon Auto-Post
+                    </h3>
+                    <p className="text-xs opacity-50">Cross-post your releases to an external Mastodon account.</p>
+                    
+                    <div className="form-control">
+                        <label className="label"><span className="label-text text-xs">Instance URL</span></label>
+                        <input 
+                            type="url" 
+                            className="input input-sm input-bordered" 
+                            value={mastodonInstance} 
+                            onChange={e => setMastodonInstance(e.target.value)}
+                            placeholder="https://mastodon.social"
+                        />
+                    </div>
+                    
+                    <div className="form-control">
+                        <label className="label"><span className="label-text text-xs">Access Token</span></label>
+                        <input 
+                            type="password" 
+                            className="input input-sm input-bordered" 
+                            value={mastodonToken} 
+                            onChange={e => setMastodonToken(e.target.value)}
+                            placeholder="Bearer Token"
+                        />
+                    </div>
+                </div>
+
+                <div className="pt-4 space-y-4">
+                    {message && (
+                        <div className={clsx("alert text-sm", message.includes('failed') ? "alert-error bg-error/10 border-error/20" : "alert-success bg-success/10 border-success/20")}>
+                            {message}
+                        </div>
+                    )}
+                    <button type="submit" className="btn btn-primary btn-block gap-2" disabled={isSaving}>
+                        {isSaving ? <span className="loading loading-spinner" /> : <Check size={20} />}
+                        Save Artist Profile
+                    </button>
+                </div>
+            </div>
+        </form>
+    );
 };
 
 const TrackList = ({

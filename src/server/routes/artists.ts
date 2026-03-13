@@ -97,7 +97,11 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
      * Update an existing artist (admin only)
      */
     router.put("/:id", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) {
+        const id = parseInt(req.params.id as string, 10);
+        
+        // Allow if site admin OR if it's the artist themselves
+        const isSelfUpdate = req.artistId && req.artistId === id;
+        if (!req.isAdmin && !isSelfUpdate) {
             return res.status(401).json({ error: "Unauthorized" });
         }
 
@@ -110,10 +114,9 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 return res.status(404).json({ error: "Artist not found" });
             }
 
-            // Permission Check: Restricted admin can only update their own artist, UNLESS they are a site admin
-            if (req.artistId && !req.isAdmin && req.artistId !== id) {
-                return res.status(403).json({ error: "Access denied: You can only manage your assigned artist" });
-            }
+            // Permission already checked at route level: 
+            // - isAdmin (site admin) can update any artist
+            // - isSelfUpdate (artistId matches) can update their own
 
             // Parse links if it's a string or array
             let parsedLinks = links;
