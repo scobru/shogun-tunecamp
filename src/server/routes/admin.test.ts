@@ -87,7 +87,8 @@ describe('Admin Routes Vulnerability Check', () => {
             mockGunDBService,
             mockConfig,
             mockAuthService,
-            mockPublishingService
+            mockPublishingService as any,
+            {} as any
         );
         app.use('/admin', router);
     });

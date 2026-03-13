@@ -30,7 +30,7 @@ const app = express();
 app.use(express.json());
 
 // Auth routes
-app.use('/api/auth', createAuthRoutes(mockAuthService));
+app.use('/api/auth', createAuthRoutes(mockAuthService, { requireAdmin: (req: any, res: any, next: any) => next() }));
 
 // Admin routes
 const adminMiddleware = (req: any, res: any, next: any) => {
@@ -38,7 +38,7 @@ const adminMiddleware = (req: any, res: any, next: any) => {
     next();
 };
 
-app.use('/api/admin', adminMiddleware, createAdminRoutes(mockDatabase, mockScanner, '/tmp', mockGunDB, mockConfig, mockAuthService, mockApService));
+app.use('/api/admin', adminMiddleware, createAdminRoutes(mockDatabase, mockScanner, '/tmp', mockGunDB, mockConfig, mockAuthService, {} as any, mockApService as any));
 
 
 describe('Password Security', () => {

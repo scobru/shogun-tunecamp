@@ -4,7 +4,7 @@ import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { validatePassword } from "../validators.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 
-export function createAuthRoutes(authService: AuthService): Router {
+export function createAuthRoutes(authService: AuthService, authMiddleware: any): Router {
     const router = Router();
 
     /**
@@ -36,10 +36,10 @@ export function createAuthRoutes(authService: AuthService): Router {
             }
 
             const token = authService.generateToken({
-                isAdmin: result.isAdmin,
+                isAdmin: result.isAdmin || false,
                 username: userToAuth,
-                artistId: result.artistId,
-                role: result.role
+                artistId: result.artistId || null,
+                role: result.role || 'user'
             });
 
             res.json({
@@ -47,9 +47,9 @@ export function createAuthRoutes(authService: AuthService): Router {
                 expiresIn: "7d",
                 username: userToAuth,
                 isRootAdmin: authService.isRootAdmin(userToAuth),
-                artistId: result.artistId,
-                role: result.role,
-                pair: result.pair, // Return GunDB identity pair
+                artistId: result.artistId || null,
+                role: result.role || 'user',
+                pair: result.pair || null, // Return GunDB identity pair
                 mustChangePassword: await authService.isDefaultPassword(userToAuth)
             });
         } catch (error) {
@@ -103,14 +103,14 @@ export function createAuthRoutes(authService: AuthService): Router {
      * POST /api/auth/password
      * Change admin password (requires auth)
      */
-    router.post("/password", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), async (req: AuthenticatedRequest, res) => {
+    router.post("/password", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), authMiddleware.requireAdmin, async (req: AuthenticatedRequest, res) => {
         try {
             // This route should be protected by requireAdmin middleware
             const { currentPassword, newPassword } = req.body;
             // Get username from the token (injected by middleware)
-            const username = (req as any).username;
+            const username = req.username;
             // We should also preserve the artistId in the new token
-            const artistId = (req as any).artistId || null;
+            const artistId = req.artistId || null;
 
             if (!username) {
                 return res.status(401).json({ error: "User context not found" });
@@ -137,7 +137,7 @@ export function createAuthRoutes(authService: AuthService): Router {
                 isAdmin: true,
                 username,
                 artistId,
-                role: 'admin'
+                role: req.role || 'admin'
             });
 
             res.json({
