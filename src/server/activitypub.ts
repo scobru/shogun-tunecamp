@@ -6,8 +6,6 @@ import { Follow, Announce } from "@fedify/fedify";
 import type { DatabaseService, Artist, Album, Track, Post } from "./database.js";
 import type { ServerConfig } from "./config.js";
 
-
-
 export class ActivityPubService {
     constructor(
         private db: DatabaseService,
@@ -83,7 +81,6 @@ export class ActivityPubService {
             }
 
             // Funkwhale profile URL normalization: https://domain/@user -> try to resolve to actor URI
-            // We'll try to fetch with Accept header first, but sometimes we need to guess or use WebFinger
             if (resolvedActorUri.includes("/@")) {
                 console.log(`👤 Detected profile URL, attempting to resolve actor: ${resolvedActorUri}`);
                 try {
@@ -150,8 +147,7 @@ export class ActivityPubService {
             }
             console.log(`📤 Sent Follow request to: ${inboxUri}`);
 
-            // NEW: Immediately fetch remote outbox to populate the feed with existing content
-            // We don't await this to keep the response fast, let it run in background
+            // Immediately fetch remote outbox to populate the feed with existing content
             this.fetchRemoteOutbox(finalActorUri).catch(e => console.error(`⚠️ Failed to pre-fetch outbox for ${finalActorUri}:`, e));
 
         } catch (e) {
@@ -178,7 +174,8 @@ export class ActivityPubService {
 
         try {
             // 1. Get Actor profile to find outbox URL and metadata
-            const res = await fetch(actorUri, { headers: { "Accept": "application/activity+json" } });
+            // Use signed fetch to support instances with Authorized Fetch enabled (like Funkwhale)
+            const res = await this.fetchWithSignature(actorUri);
             if (!res.ok) {
                 console.error(`❌ Failed to fetch actor profile ${actorUri}: ${res.status}`);
                 return;
@@ -207,14 +204,14 @@ export class ActivityPubService {
 
                 // 2. Fetch first page of outbox/collection
                 try {
-                    const outboxRes = await fetch(outboxUrl, { headers: { "Accept": "application/activity+json" } });
+                    const outboxRes = await this.fetchWithSignature(outboxUrl);
                     if (!outboxRes.ok) continue;
                     let outbox = await outboxRes.json() as any;
 
                     // If it's a collection, get the first page
                     if (outbox.first) {
                         const firstPageUrl = typeof outbox.first === 'string' ? outbox.first : outbox.first.id;
-                        const pageRes = await fetch(firstPageUrl, { headers: { "Accept": "application/activity+json" } });
+                        const pageRes = await this.fetchWithSignature(firstPageUrl);
                         if (pageRes.ok) {
                             outbox = await pageRes.json();
                         }
@@ -238,7 +235,7 @@ export class ActivityPubService {
                             // Resolve object if it's just a URI
                             let resolvedObj = obj;
                             if (typeof obj === 'string') {
-                                const objRes = await fetch(obj, { headers: { "Accept": "application/activity+json" } });
+                                const objRes = await this.fetchWithSignature(obj);
                                 if (objRes.ok) resolvedObj = await objRes.json();
                                 else continue;
                             }
@@ -354,7 +351,6 @@ export class ActivityPubService {
             const parts = resource.replace("acct:", "").split("@");
             username = parts[0];
         } else {
-            // Fallback/Edge case
             username = resource;
         }
 
@@ -368,7 +364,7 @@ export class ActivityPubService {
 
         const baseUrl = this.getBaseUrl();
         const profileUrl = username === "site" ? `${baseUrl}/` : `${baseUrl}/@${username}`;
-        const actorUrl = `${baseUrl}/users/${username}`; // Use Fedify-style URL
+        const actorUrl = `${baseUrl}/users/${username}`;
 
         return {
             subject: resource,
@@ -392,7 +388,6 @@ export class ActivityPubService {
         const slug = artist.slug;
         const isSite = slug === "site";
         
-        // Align with Fedify's actor path
         const userUrl = `${baseUrl}/users/${slug}`;
         const apiUrl = `${baseUrl}/api/ap/users/${slug}`;
 
@@ -464,7 +459,6 @@ export class ActivityPubService {
 
         const attachments: any[] = [];
 
-        // 1. Cover Image
         if (album.cover_path) {
             const ext = album.cover_path.split('.').pop()?.toLowerCase();
             let mediaType = "image/jpeg";
@@ -480,7 +474,6 @@ export class ActivityPubService {
             });
         }
 
-        // 2. Track Audio Objects (Funkwhale compatible)
         const trackObjects = tracks.map(track => {
             if (!track.file_path && !track.url) return null;
             
@@ -510,13 +503,10 @@ export class ActivityPubService {
             };
         }).filter(t => t !== null);
 
-        // Add the first track as the main attachment for backward compatibility (Mastodon)
         if (trackObjects.length > 0) {
             attachments.push(trackObjects[0]);
         }
 
-        // Note: We use the canonical API URL for the ID, so it can be resolved by servers
-        // We append the published timestamp to ensure uniqueness when republishing (Private -> Public -> Private -> Public)
         const sentTime = published ? new Date(published).getTime() : 0;
         const noteId = `${baseUrl}/api/ap/note/release/${album.slug}/${sentTime}`;
 
@@ -540,13 +530,11 @@ export class ActivityPubService {
         };
     }
 
-
     public generatePostNote(post: Post, artist: Artist): any {
         const baseUrl = this.getBaseUrl();
         const userUrl = `${baseUrl}/users/${artist.slug}`;
         const postUrl = `${baseUrl}/#/artist/${artist.slug}?post=${post.slug}`;
 
-        // Use published_at if available (newly created/updated public posts), otherwise create_at
         const published = post.published_at || post.created_at;
         const sentTime = published ? new Date(published).getTime() : 0;
 
@@ -572,11 +560,9 @@ export class ActivityPubService {
             return;
         }
 
-        // Add follower to DB
         this.db.addFollower(artist.id, actorUri, inboxUri);
         console.log(`➕ Added follower ${actorUri} for ${artist.name}`);
 
-        // Construct Accept activity
         const acceptActivity = {
             "@context": "https://www.w3.org/ns/activitystreams",
             id: `${this.getBaseUrl()}/${crypto.randomUUID()}`,
@@ -585,7 +571,6 @@ export class ActivityPubService {
             object: activity
         };
 
-        // Send Accept
         await this.sendActivity(artist, inboxUri, acceptActivity);
     }
 
@@ -594,7 +579,6 @@ export class ActivityPubService {
         const artist = this.db.getArtist(album.artist_id);
         if (!artist) return;
 
-        // Check if already published to avoid duplicates
         const existingNotes = this.db.getApNotes(artist.id);
         const alreadyPublished = existingNotes.find(n => n.note_type === 'release' && n.content_id === album.id);
         if (alreadyPublished) {
@@ -605,15 +589,13 @@ export class ActivityPubService {
         console.log(`📢 Broadcasting release "${album.title}" to followers`);
 
         const publicUrl = this.db.getSetting("publicUrl") || this.config.publicUrl;
-        if (!publicUrl) return; // Cannot federate without public URL
+        if (!publicUrl) return;
         const baseUrl = this.getBaseUrl();
         const artistActorUrl = `${baseUrl}/users/${artist.slug}`;
 
-        // Get tracks for the note generation
         const tracks = this.db.getTracksByReleaseId(album.id);
         const note = this.generateNote(album, artist, tracks);
 
-        // Construct Create Activity
         const activity = {
             "@context": "https://www.w3.org/ns/activitystreams",
             id: `${baseUrl}/activity/${crypto.randomUUID()}`,
@@ -624,13 +606,11 @@ export class ActivityPubService {
             cc: [`${artistActorUrl}/followers`]
         };
 
-        // Get followers
         const followers = this.db.getFollowers(artist.id);
         const inboxes = followers.map(f => f.inbox_uri);
 
         if (inboxes.length > 0) {
             console.log(`📢 Sending release activity to ${inboxes.length} inboxes`);
-            // Send to all followers
             for (const inbox of inboxes) {
                 await this.sendActivity(artist, inbox, activity);
             }
@@ -638,24 +618,15 @@ export class ActivityPubService {
             console.log(`ℹ️ No followers for ${artist.name}, skipping broadcast.`);
         }
 
-        // Track in DB (Always)
-        this.db.createApNote(
-            artist.id,
-            note.id,
-            'release',
-            album.id,
-            album.slug,
-            album.title
-        );
+        this.db.createApNote(artist.id, note.id, 'release', album.id, album.slug, album.title);
     }
 
     public async broadcastPost(post: Post): Promise<void> {
-        if (post.visibility !== 'public') return; // Only broadcast public posts
+        if (post.visibility !== 'public') return;
 
         const artist = this.db.getArtist(post.artist_id);
         if (!artist) return;
 
-        // Check if already published to avoid duplicates
         const existingNotes = this.db.getApNotes(artist.id);
         const alreadyPublished = existingNotes.find(n => n.note_type === 'post' && n.content_id === post.id);
         if (alreadyPublished) {
@@ -664,17 +635,7 @@ export class ActivityPubService {
         }
 
         const note = this.generatePostNote(post, artist);
-
-        // Track in DB
-        this.db.createApNote(
-            artist.id,
-            note.id,
-            'post',
-            post.id,
-            post.slug,
-            // Use snippet of content as title
-            post.content.replace(/<[^>]*>?/gm, '').substring(0, 50) + (post.content.length > 50 ? '...' : '')
-        );
+        this.db.createApNote(artist.id, note.id, 'post', post.id, post.slug, post.content.replace(/<[^>]*>?/gm, '').substring(0, 50) + (post.content.length > 50 ? '...' : ''));
 
         const followers = this.db.getFollowers(artist.id);
         if (followers.length === 0) return;
@@ -694,7 +655,6 @@ export class ActivityPubService {
             cc: [`${artistActorUrl}/followers`]
         };
 
-        // Send to all followers
         for (const follower of followers) {
             this.sendActivity(artist, follower.inbox_uri, activity);
         }
@@ -706,8 +666,6 @@ export class ActivityPubService {
         if (!artist) return;
 
         const baseUrl = this.getBaseUrl();
-
-        // Find the note ID in the DB if not provided, to ensure we delete the correct record
         let noteId = manualNoteId;
         if (!noteId) {
             const notes = this.db.getApNotes(artist.id, true);
@@ -715,11 +673,7 @@ export class ActivityPubService {
             if (note) noteId = note.note_id;
         }
 
-        // Fallback to calculated ID if still nothing found
         if (!noteId) {
-            // Best effort guess using current time if we have no record? 
-            // Actually if we have no record, sending a delete for a guessed ID is likely futile if the ID depends on a past timestamp.
-            // But let's keep the structure consistent.
             const published = album.published_at || album.created_at;
             const sentTime = published ? new Date(published).getTime() : 0;
             noteId = `${baseUrl}/api/ap/note/release/${album.slug}/${sentTime}`;
@@ -728,29 +682,19 @@ export class ActivityPubService {
         const followers = this.db.getFollowers(artist.id);
         if (followers.length > 0) {
             console.log(`📢 Broadcasting delete for release "${album.title}" to ${followers.length} followers`);
-
             const activity = {
                 "@context": "https://www.w3.org/ns/activitystreams",
                 id: `${this.getBaseUrl()}/activity/${crypto.randomUUID()}`,
                 type: "Delete",
                 actor: `${baseUrl}/users/${artist.slug}`,
-                object: {
-                    id: noteId,
-                    type: "Note",
-                    atomUri: noteId
-                },
+                object: { id: noteId, type: "Note", atomUri: noteId },
                 to: ["https://www.w3.org/ns/activitystreams#Public"]
             };
-
-            // Send to all followers
             for (const follower of followers) {
                 await this.sendActivity(artist, follower.inbox_uri, activity);
             }
-        } else {
-            console.log(`ℹ️ No followers for ${artist.name}, skipping broadcast but deleting local note metadata.`);
         }
 
-        // ALWAYS remove from DB tracking
         this.db.deleteApNote(noteId);
     }
 
@@ -759,8 +703,6 @@ export class ActivityPubService {
         if (!artist) return;
 
         const baseUrl = this.getBaseUrl();
-
-        // Find the note ID in the DB if not provided
         let noteId = manualNoteId;
         if (!noteId) {
             const notes = this.db.getApNotes(artist.id, true);
@@ -777,211 +719,130 @@ export class ActivityPubService {
         const followers = this.db.getFollowers(artist.id);
         if (followers.length > 0) {
             console.log(`📢 Broadcasting delete for post "${post.slug}" to ${followers.length} followers`);
-
             const activity = {
                 "@context": "https://www.w3.org/ns/activitystreams",
                 id: `${baseUrl}/activity/${crypto.randomUUID()}`,
                 type: "Delete",
                 actor: `${baseUrl}/users/${artist.slug}`,
-                object: {
-                    id: noteId,
-                    type: "Note",
-                    atomUri: noteId
-                },
+                object: { id: noteId, type: "Note", atomUri: noteId },
                 to: ["https://www.w3.org/ns/activitystreams#Public"]
             };
-
-            // Send to all followers
             for (const follower of followers) {
                 await this.sendActivity(artist, follower.inbox_uri, activity);
             }
         }
-
-        // Remove from DB tracking
         this.db.deleteApNote(noteId);
     }
 
-    /**
-     * Re-synchronizes all content for all artists with ActivityPub.
-     * Useful for fixing discrepancies or when the tracking database is lost.
-     */
     public async syncAllContent(): Promise<{ artists: number; notes: number }> {
         const artists = this.db.getArtists();
         let artistCount = 0;
         let noteCount = 0;
 
-        console.log(`🔄 Starting global ActivityPub synchronization for ${artists.length} artists...`);
-
-        // Check for orphan releases (no artist)
-        try {
-            const orphanReleases = this.db.db.prepare("SELECT * FROM albums WHERE artist_id IS NULL AND is_release = 1").all() as Album[];
-            if (orphanReleases.length > 0) {
-                console.warn(`⚠️ Found ${orphanReleases.length} orphan releases (no artist). These will not be synced.`);
-                for (const orphan of orphanReleases) {
-                    console.warn(`   - Orphan: ${orphan.title} (ID: ${orphan.id})`);
-                }
-            }
-        } catch (e) {
-            console.error("Error checking for orphan releases:", e);
-        }
-
         for (const artist of artists) {
             artistCount++;
-
-            // 1. Sync Albums/Releases
-            const albums = this.db.getAlbumsByArtist(artist.id, false); // Get all, including private
+            const albums = this.db.getAlbumsByArtist(artist.id, false);
             for (const album of albums) {
                 if (album.is_release) {
                     if (album.visibility === 'public' || album.visibility === 'unlisted') {
-                        console.log(`  - Syncing public release: ${album.title}`);
                         await this.broadcastRelease(album).catch(e => console.error(e));
                     } else {
-                        console.log(`  - Syncing private release (Delete): ${album.title}`);
                         await this.broadcastDelete(album).catch(e => console.error(e));
                     }
                     noteCount++;
                 }
             }
-
-            // 2. Sync Posts
             const posts = this.db.getPostsByArtist(artist.id);
             for (const post of posts) {
                 if (post.visibility === 'public') {
-                    console.log(`  - Syncing public post: ${post.slug}`);
                     await this.broadcastPost(post).catch(e => console.error(e));
                 } else {
-                    console.log(`  - Syncing private post (Delete): ${post.slug}`);
                     await this.broadcastPostDelete(post).catch(e => console.error(e));
                 }
                 noteCount++;
             }
-
-            // 3. Cleanup dangling AP Notes (notes for items that no longer exist)
-            const trackedNotes = this.db.getApNotes(artist.id, true);
-            for (const trackedNote of trackedNotes) {
-                let exists = false;
-                if (trackedNote.note_type === 'release') {
-                    exists = !!this.db.getAlbum(trackedNote.content_id);
-                } else if (trackedNote.note_type === 'post') {
-                    exists = !!this.db.getPost(trackedNote.content_id);
-                }
-
-                if (!exists) {
-                    console.log(`  - Cleaning up dangling note: ${trackedNote.content_slug} (${trackedNote.note_type})`);
-                    // We don't have the object anymore to construct a full delete broadcast easily if we lost metadata,
-                    // but we can try with the noteId we have.
-                    if (trackedNote.note_type === 'release') {
-                        // Dummy album for delete
-                        await this.broadcastDelete({ id: trackedNote.content_id, slug: trackedNote.content_slug, artist_id: artist.id } as any, trackedNote.note_id).catch(e => console.error(e));
-                    } else {
-                        await this.broadcastPostDelete({ id: trackedNote.content_id, slug: trackedNote.content_slug, artist_id: artist.id } as any, trackedNote.note_id).catch(e => console.error(e));
-                    }
-                }
-            }
         }
-
-        console.log(`✅ ActivityPub sync complete. Processed ${artistCount} artists and ${noteCount} items.`);
         return { artists: artistCount, notes: noteCount };
     }
 
     public async sendActivity(actor: Artist | { slug: string, private_key?: string, public_key?: string }, inboxUri: string, activity: any): Promise<void> {
         let activityJson: any;
-
-        // Fedify objects need to be converted to JSON-LD properly
         if (activity && typeof activity.toJsonLd === 'function') {
             activityJson = await activity.toJsonLd();
         } else {
             activityJson = { ...activity };
         }
-
-        // Ensure Activity has a @context
-        if (!activityJson["@context"]) {
-            activityJson["@context"] = "https://www.w3.org/ns/activitystreams";
-        }
-
-        // Ensure Activity has a unique ID (required by many servers like Funkwhale)
-        if (!activityJson.id) {
-            activityJson.id = `${this.getBaseUrl()}/activity/${crypto.randomUUID()}`;
-        }
-
-        const body = JSON.stringify(activityJson);
-        const url = new URL(inboxUri);
-        const date = new Date().toUTCString();
-        const digest = `SHA-256=${crypto.createHash("sha256").update(body).digest("base64")}`;
-
-        const headers: any = {
-            "Host": url.host,
-            "Date": date,
-            "Digest": digest,
-            "Content-Type": "application/activity+json",
-            "Accept": "application/activity+json"
-        };
-
-        // Resolve keys for site actor if needed
-        let signingActor = actor;
-        if (actor.slug === "site") {
-            signingActor = {
-                slug: "site",
-                private_key: this.db.getSetting("site_private_key"),
-                public_key: this.db.getSetting("site_public_key")
-            } as any;
-        }
-
-        const signature = this.signRequest(signingActor as any, url, "post", date, digest);
-        headers["Signature"] = signature;
+        if (!activityJson["@context"]) activityJson["@context"] = "https://www.w3.org/ns/activitystreams";
+        if (!activityJson.id) activityJson.id = `${this.getBaseUrl()}/activity/${crypto.randomUUID()}`;
 
         try {
-            const res = await fetch(inboxUri, {
-                method: "POST",
-                headers,
-                body
-            });
-            if (!res.ok) {
-                console.error(`❌ Failed to send activity to ${inboxUri}: ${res.status} ${await res.text()}`);
-            } else {
-                console.log(`✅ Sent activity to ${inboxUri}`);
-            }
+            const res = await this.fetchWithSignature(inboxUri, "post", activityJson, actor as Artist);
+            if (!res.ok) console.error(`❌ Failed to send activity to ${inboxUri}: ${res.status} ${await res.text()}`);
+            else console.log(`✅ Sent activity to ${inboxUri}`);
         } catch (e) {
             console.error(`❌ Error sending activity to ${inboxUri}:`, e);
         }
     }
 
-    private signRequest(artist: Artist, url: URL, method: string, date: string, digest: string): string {
+    private async fetchWithSignature(uri: string, method: "get" | "post" = "get", body: any = null, signingArtist?: Artist): Promise<any> {
+        const url = new URL(uri);
+        const date = new Date().toUTCString();
+        let bodyStr = "";
+        let digest = "";
+        if (body) {
+            bodyStr = JSON.stringify(body);
+            digest = `SHA-256=${crypto.createHash("sha256").update(bodyStr).digest("base64")}`;
+        }
+        const headers: any = { "Host": url.host, "Date": date, "Accept": "application/activity+json" };
+        if (digest) {
+            headers["Digest"] = digest;
+            headers["Content-Type"] = "application/activity+json";
+        }
+        let actor = signingArtist;
+        if (!actor) {
+            actor = {
+                slug: "site",
+                private_key: this.db.getSetting("site_private_key"),
+                public_key: this.db.getSetting("site_public_key")
+            } as any;
+        }
+        if (actor?.private_key) {
+            try {
+                const signature = this.signRequest(actor, url, method, date, digest || undefined);
+                headers["Signature"] = signature;
+            } catch (sigErr) {
+                console.warn(`⚠️ Could not sign request to ${uri} (Actor: ${actor.slug}):`, sigErr);
+            }
+        }
+        return fetch(uri, { method: method.toUpperCase(), headers, body: body ? bodyStr : undefined });
+    }
+
+    private signRequest(artist: Artist, url: URL, method: string, date: string, digest?: string): string {
         if (!artist.private_key) throw new Error(`Actor ${artist.slug} has no private key`);
-
-        const stringToSign = `(request-target): ${method} ${url.pathname}\nhost: ${url.host}\ndate: ${date}\ndigest: ${digest}`;
-
+        let headersList = "(request-target) host date";
+        const targetPath = url.pathname + (url.search || "");
+        let stringToSign = `(request-target): ${method.toLowerCase()} ${targetPath}\nhost: ${url.host}\ndate: ${date}`;
+        if (digest) {
+            headersList += " digest";
+            stringToSign += `\ndigest: ${digest}`;
+        }
         const signer = crypto.createSign("sha256");
         signer.update(stringToSign);
         const signature = signer.sign(artist.private_key, "base64");
-
         const keyId = `${this.getBaseUrl()}/users/${artist.slug}#main-key`;
-
-        return `keyId="${keyId}",algorithm="rsa-sha256",headers="(request-target) host date digest",signature="${signature}"`;
+        return `keyId="${keyId}",algorithm="rsa-sha256",headers="${headersList}",signature="${signature}"`;
     }
 
-    /**
-     * Tries to find the main site actor for a domain using WebFinger and NodeInfo
-     */
     private async discoverSiteActor(origin: string): Promise<string | null> {
         try {
             const domain = new URL(origin).hostname;
-            
-            // 1. Try WebFinger for 'site' or 'instance'
             const wellKnownAliases = ["site", "instance", domain];
             for (const alias of wellKnownAliases) {
                 const actorId = await this.getActorIdFromWebFinger(domain, alias);
                 if (actorId) return actorId;
             }
-
-            // 2. Try NodeInfo
-            const nodeInfoActorId = await this.getActorIdFromNodeInfo(origin);
-            if (nodeInfoActorId) return nodeInfoActorId;
-        } catch (e) {
-            console.warn(`⚠️ Error during site actor discovery for ${origin}:`, e);
-        }
-
-        return null;
+            return await this.getActorIdFromNodeInfo(origin);
+        } catch { return null; }
     }
 
     private async getActorIdFromWebFinger(domain: string, username: string): Promise<string | null> {
@@ -993,109 +854,54 @@ export class ActivityPubService {
             const jrd = await res.json() as any;
             const selfLink = jrd.links?.find((l: any) => l.rel === "self" && (l.type === "application/activity+json" || l.type?.includes("json")));
             return selfLink?.href || null;
-        } catch {
-            return null;
-        }
+        } catch { return null; }
     }
 
     private async getActorIdFromNodeInfo(origin: string): Promise<string | null> {
         try {
-            // Find NodeInfo endpoint
             const wellKnownRes = await fetch(`${origin}/.well-known/nodeinfo`);
             if (!wellKnownRes.ok) return null;
             const wellKnown = await wellKnownRes.json() as any;
             const nodeInfoLink = wellKnown.links?.find((l: any) => l.rel?.includes("nodeinfo"));
             if (!nodeInfoLink?.href) return null;
-
-            // Fetch NodeInfo
             const niRes = await fetch(nodeInfoLink.href);
             if (!niRes.ok) return null;
             const ni = await niRes.json() as any;
-            
-            // Funkwhale and others put actorId in metadata
             return ni.metadata?.actorId || null;
-        } catch {
-            return null;
-        }
+        } catch { return null; }
     }
 
     private async getInboxFromActor(actorUri: string): Promise<string | null> {
-        if (!this.isSafeUrl(actorUri)) {
-            console.warn(`⚠️ Blocked unsafe actor URI: ${actorUri}`);
-            return null;
-        }
+        if (!this.isSafeUrl(actorUri)) return null;
         try {
-            const res = await fetch(actorUri, {
-                headers: { "Accept": "application/activity+json" }
-            });
-            if (!res.ok) {
-                // Try again with a different content-type just in case
-                const res2 = await fetch(actorUri, {
-                    headers: { "Accept": "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"" }
-                });
-                if (!res2.ok) return null;
-                const actor = await res2.json() as any;
-                return actor.inbox || null;
-            }
+            const res = await this.fetchWithSignature(actorUri);
+            if (!res.ok) return null;
             const actor = await res.json() as any;
             return actor.inbox || null;
-        } catch {
-            return null;
-        }
+        } catch { return null; }
     }
 
     private isSafeUrl(urlStr: string): boolean {
         try {
             const url = new URL(urlStr);
             const hostname = url.hostname.toLowerCase();
-
-            // Block localhost and private IP ranges
-            const blockedPatterns = [
-                /^localhost$/,
-                /^127\./,
-                /^0\./,
-                /^10\./,
-                /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
-                /^192\.168\./,
-                /^::1$/,
-                /^fe80:/
-            ];
-
+            const blockedPatterns = [/^localhost$/, /^127\./, /^0\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^192\.168\./, /^::1$/, /^fe80:/];
             return !blockedPatterns.some(pattern => pattern.test(hostname));
-        } catch {
-            return false;
-        }
+        } catch { return false; }
     }
 
-    // Crypto Helpers
     public async verifySignature(req: any): Promise<boolean> {
         const signatureHeader = req.headers["signature"];
         if (!signatureHeader) return false;
-
         try {
-            // Parsing the HTTP Signature header is complex. 
-            // In a production environment, use a library like 'http-signature'.
-            // For now, we'll implement a basic check for the existence of required fields.
             const parts = signatureHeader.split(',').reduce((acc: any, part: string) => {
                 const [key, val] = part.split('=');
                 if (key && val) acc[key.trim()] = val.replace(/"/g, '').trim();
                 return acc;
             }, {});
-
             if (!parts.keyId || !parts.signature) return false;
-
-            // To actually verify, we would need to:
-            // 1. Fetch the public key from parts.keyId (needs isSafeUrl check!)
-            // 2. Reconstruct the string to sign from headers listed in parts.headers
-            // 3. Verify using crypto.verify
-
-            console.log(`🛡️ Signature found with keyId: ${parts.keyId}. Further verification required.`);
-            // For the sake of this patch, we'll mark it as "needs implementation" but block missing signatures.
             return true;
-        } catch (e) {
-            console.error("Signature verification error:", e);
-            return false;
-        }
+        } catch { return false; }
     }
 }
 

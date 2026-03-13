@@ -3,7 +3,6 @@ import API from "../services/api";
 import { useAuthStore } from "../stores/useAuthStore";
 import { useNavigate } from "react-router-dom";
 import {
-  BarChart2,
   Settings,
   RefreshCw,
   Save,
@@ -13,10 +12,6 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 import { AdminUserModal } from "../components/modals/AdminUserModal";
-import { AdminReleaseModal } from "../components/modals/AdminReleaseModal";
-import { AdminArtistModal } from "../components/modals/AdminArtistModal";
-import { UploadTracksModal } from "../components/modals/UploadTracksModal";
-import { CreatePostModal } from "../components/modals/CreatePostModal";
 
 import { IdentityPanel } from "../components/admin/IdentityPanel";
 import { ActivityPubPanel } from "../components/admin/ActivityPubPanel";
@@ -27,15 +22,13 @@ export const Admin = () => {
   const { adminUser, isAdminAuthenticated, isAdminLoading } = useAuthStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    | "overview"
     | "users"
-    | "artists"
     | "settings"
     | "system"
     | "identity"
     | "activitypub"
     | "backup"
-  >("overview");
+  >("users");
   const [stats, setStats] = useState<any>(null);
 
   // const [loading, setLoading] = useState(false);
@@ -88,7 +81,7 @@ export const Admin = () => {
     }
   };
 
-  if (!adminUser?.isAdmin) return null;
+  if (!isAdminAuthenticated || !adminUser?.isAdmin) return null;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -124,24 +117,10 @@ export const Admin = () => {
       <div role="tablist" className="tabs tabs-lifted">
         <a
           role="tab"
-          className={`tab ${activeTab === "overview" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("overview")}
-        >
-          Overview
-        </a>
-        <a
-          role="tab"
           className={`tab ${activeTab === "users" ? "tab-active" : ""}`}
           onClick={() => setActiveTab("users")}
         >
           Users
-        </a>
-        <a
-          role="tab"
-          className={`tab ${activeTab === "artists" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("artists")}
-        >
-          Artists
         </a>
         <a
           role="tab"
@@ -227,38 +206,6 @@ export const Admin = () => {
           </div>
         )}
 
-        {activeTab === "overview" && (
-          <div className="space-y-6">
-            <h3 className="font-bold text-lg">Quick Actions</h3>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <button
-                className="btn btn-outline gap-2"
-                onClick={() =>
-                  document.dispatchEvent(
-                    new CustomEvent("open-admin-artist-modal"),
-                  )
-                }
-              >
-                👤 New Artist
-              </button>
-              <button
-                className="btn btn-outline gap-2"
-                onClick={() =>
-                  document.dispatchEvent(
-                    new CustomEvent("open-create-post-modal"),
-                  )
-                }
-              >
-                📝 New Post
-              </button>
-            </div>
-            <div className="divider"></div>
-            <div className="text-center opacity-50 py-8">
-              <BarChart2 size={48} className="mx-auto mb-4" />
-              <p>More detailed analytics coming soon.</p>
-            </div>
-          </div>
-        )}
 
         {activeTab === "users" && (
           <div className="space-y-4">
@@ -279,24 +226,6 @@ export const Admin = () => {
           </div>
         )}
 
-        {activeTab === "artists" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold text-lg">Artist Management</h3>
-              <button
-                className="btn btn-sm btn-primary"
-                onClick={() =>
-                  document.dispatchEvent(
-                    new CustomEvent("open-admin-artist-modal"),
-                  )
-                }
-              >
-                Add Artist
-              </button>
-            </div>
-            <AdminArtistsList />
-          </div>
-        )}
 
 
         {activeTab === "settings" && <AdminSettingsPanel />}
@@ -308,26 +237,6 @@ export const Admin = () => {
       <AdminUserModal
         onUserUpdated={() =>
           window.dispatchEvent(new CustomEvent("refresh-admin-users"))
-        }
-      />
-      <AdminArtistModal
-        onArtistUpdated={() =>
-          window.dispatchEvent(new CustomEvent("refresh-admin-artists"))
-        }
-      />
-      <AdminReleaseModal
-        onReleaseUpdated={() =>
-          window.dispatchEvent(new CustomEvent("refresh-admin-releases"))
-        }
-      />
-      <UploadTracksModal
-        onUploadComplete={() =>
-          window.dispatchEvent(new CustomEvent("refresh-admin-releases"))
-        }
-      />
-      <CreatePostModal
-        onPostCreated={() =>
-          window.dispatchEvent(new CustomEvent("refresh-admin-releases"))
         }
       />
       {/* AdminTrackModal removed - handled globally in MainLayout */}
@@ -606,110 +515,6 @@ const AdminUsersList = () => {
   );
 };
 
-const AdminArtistsList = () => {
-  const [artists, setArtists] = useState<any[]>([]);
-
-  const loadArtists = () =>
-    API.getArtists().then(setArtists).catch(console.error);
-
-  useEffect(() => {
-    loadArtists();
-    window.addEventListener("refresh-admin-artists", loadArtists);
-    return () =>
-      window.removeEventListener("refresh-admin-artists", loadArtists);
-  }, []);
-
-  const handleDelete = async (id: string, name: string) => {
-    if (
-      !confirm(
-        `Are you sure you want to delete artist ${name}? This cannot be undone.`,
-      )
-    )
-      return;
-    try {
-      await API.deleteArtist(id);
-      loadArtists();
-    } catch (e) {
-      console.error(e);
-      alert("Failed to delete artist");
-    }
-  };
-
-  if (artists.length === 0)
-    return <div className="opacity-50 text-center py-4">No artists found.</div>;
-
-  return (
-    <table className="table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Slug</th>
-          <th>Links</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {artists.map((a) => (
-          <tr key={a.id}>
-            <td className="font-bold flex items-center gap-2">
-              {a.photo_path && (
-                <div className="avatar w-8 h-8 rounded-full overflow-hidden">
-                  <img src={API.getArtistCoverUrl(a.id)} />
-                </div>
-              )}
-              {a.name}
-            </td>
-            <td className="opacity-70">{a.slug}</td>
-            <td className="opacity-50 text-xs">
-              <div className="flex gap-1">
-                {a.links &&
-                  (typeof a.links === "string"
-                    ? JSON.parse(a.links)
-                    : a.links
-                  )?.map((l: any, i: number) => (
-                    <span key={i} className="badge badge-xs">
-                      {l.platform}
-                    </span>
-                  ))}
-              </div>
-            </td>
-            <td className="flex gap-2">
-              <button
-                className="btn btn-xs btn-ghost"
-                onClick={() =>
-                  document.dispatchEvent(
-                    new CustomEvent("open-artist-keys-modal", {
-                      detail: { artistId: String(a.id), artistName: a.name },
-                    }),
-                  )
-                }
-                title="Chiavi ActivityPub"
-              >
-                Keys
-              </button>
-              <button
-                className="btn btn-xs btn-ghost"
-                onClick={() =>
-                  document.dispatchEvent(
-                    new CustomEvent("open-admin-artist-modal", { detail: a }),
-                  )
-                }
-              >
-                Edit
-              </button>
-              <button
-                className="btn btn-xs btn-ghost text-error"
-                onClick={() => handleDelete(a.id, a.name)}
-              >
-                Delete
-              </button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-};
 
 export const AdminReleasesList = ({ mine }: { mine?: boolean }) => {
   const navigate = useNavigate();

@@ -59,7 +59,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: true });
         try {
             const status = await API.getAuthStatus();
-            const isAdmin = status.authenticated && (status.role === 'admin' || status.role === 'user');
+            const isAdmin = status.authenticated && status.role === 'admin';
             
             let gunProfile: GunProfile | null = null;
             if (status.pair) {
@@ -90,7 +90,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 adminUser: transformedUser, // compat
                 isFirstRun: !!status.firstRun,
                 mustChangePassword: !!status.mustChangePassword,
-                role: (status as any).role || (status.authenticated ? 'admin' : null),
+                role: (status.role as any) || null,
                 isLoading: false,
                 isAdminLoading: false, // compat
                 isInitializing: false // compat

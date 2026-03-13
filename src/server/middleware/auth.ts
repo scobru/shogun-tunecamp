@@ -44,7 +44,7 @@ export function createAuthMiddleware(authService: AuthService) {
             const payload = extractPayload(req);
 
             if (!payload || !payload.isAdmin) {
-                return res.status(401).json({ error: "No token provided" });
+                return res.status(403).json({ error: "Access denied: Admin only" });
             }
 
             req.isAdmin = true;
