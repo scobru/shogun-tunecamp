@@ -95,7 +95,12 @@ export const GunAuth = {
 
     register: (username: string, pass: string): Promise<void> => {
         return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error("GunDB Registration Timeout: Could not reach peers"));
+            }, 10000);
+
             user.create(username, pass, (ack: any) => {
+                clearTimeout(timeout);
                 if (ack.err) {
                     reject(new Error(ack.err));
                 } else {
@@ -108,7 +113,12 @@ export const GunAuth = {
 
     login: (username: string, pass: string): Promise<GunProfile> => {
         return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error("GunDB Login Timeout: Could not reach peers"));
+            }, 10000);
+
             user.auth(username, pass, (ack: any) => {
+                clearTimeout(timeout);
                 if (ack.err) {
                     reject(new Error(ack.err));
                 } else {
@@ -127,7 +137,12 @@ export const GunAuth = {
 
     loginWithPair: (pair: any): Promise<GunProfile> => {
         return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error("GunDB Re-authentication Timeout: Could not reach peers"));
+            }, 10000);
+
             user.auth(pair, (ack: any) => {
+                clearTimeout(timeout);
                 if (ack.err) {
                     reject(new Error(ack.err));
                 } else {

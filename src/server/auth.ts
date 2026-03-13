@@ -229,7 +229,7 @@ export function createAuthService(
                     // Create local user with random password (they'll use GunDB/Roaming to login anyway, 
                     // or they can change it later if they want local-only login)
                     const tempPass = crypto.randomBytes(32).toString('hex');
-                    const { id } = await this.createUser(username, tempPass, -1); // -1 triggers artist creation below
+                    const { id } = await this.createUser(username, tempPass, null as any); // null triggers artist creation below
                     
                     // Link the pubKey now to avoid re-generating
                     db.prepare("UPDATE admin SET gun_pub = ? WHERE id = ?").run(pubKey, id);
