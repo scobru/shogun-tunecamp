@@ -117,6 +117,37 @@ export function getRelativePath(from: string, to: string): string {
 }
 
 /**
+ * Robustly resolves a relative path against a root directory, ensuring no traversal.
+ * Returns null if the path is invalid, tries to traverse out of root, or contains null bytes.
+ */
+export function resolveSafePath(rootDir: string, userPath: string): string | null {
+  // Prevent null byte injection
+  if (userPath.indexOf('\0') !== -1) {
+    return null;
+  }
+
+  const resolvedRoot = path.resolve(rootDir);
+
+  // Normalize user path by removing leading slashes to treat it as relative
+  let relativePath = userPath;
+  while (relativePath.startsWith('/') || relativePath.startsWith('\\')) {
+    relativePath = relativePath.substring(1);
+  }
+
+  const absPath = path.resolve(resolvedRoot, relativePath);
+
+  // Check if path is within root
+  const relative = path.relative(resolvedRoot, absPath);
+
+  // path.relative returns strings like '..' if outside, or absolute path if different drive
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    return null;
+  }
+
+  return absPath;
+}
+
+/**
  * Executes an array of tasks in parallel with a concurrency limit
  */
 export async function parallel<T>(

@@ -72,4 +72,37 @@ describe('Subsonic Security', () => {
 
         expect(response.status).toBe(200);
     });
+
+    it('should prevent path traversal in getCoverArt.view', async () => {
+        // Create an album with a traversal path
+        const albumId = database.createAlbum({
+            title: 'Malicious Album',
+            artist_id: 1,
+            cover_path: '../package.json'
+        });
+
+        const authQuery = 'u=user&p=password&v=1.16.1&c=test';
+        const response = await request(app)
+            .get(`/rest/getCoverArt.view?${authQuery}&id=al_${albumId}`);
+
+        // If vulnerable, it might return 200 and the content of package.json
+        // If fixed, it should return 404 or an error
+        expect(response.status).not.toBe(200);
+    });
+
+    it('should prevent path traversal in stream.view', async () => {
+        // Create a track with a traversal path
+        const trackId = database.createTrack({
+            title: 'Malicious Track',
+            album_id: 1,
+            artist_id: 1,
+            file_path: '../package.json'
+        });
+
+        const authQuery = 'u=user&p=password&v=1.16.1&c=test';
+        const response = await request(app)
+            .get(`/rest/stream.view?${authQuery}&id=tr_${trackId}`);
+
+        expect(response.status).not.toBe(200);
+    });
 });

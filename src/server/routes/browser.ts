@@ -2,40 +2,10 @@ import { Router } from "express";
 import fs from "fs-extra";
 import path from "path";
 import type { DatabaseService } from "../database.js";
+import { resolveSafePath } from "../../utils/fileUtils.js";
 
 const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
-
-/**
- * Robustly resolves a relative path against a root directory, ensuring no traversal.
- * Returns null if the path is invalid, tries to traverse out of root, or contains null bytes.
- */
-function resolveSafePath(rootDir: string, userPath: string): string | null {
-    // Prevent null byte injection
-    if (userPath.indexOf('\0') !== -1) {
-        return null;
-    }
-
-    const resolvedRoot = path.resolve(rootDir);
-
-    // Normalize user path by removing leading slashes to treat it as relative
-    let relativePath = userPath;
-    while (relativePath.startsWith('/') || relativePath.startsWith('\\')) {
-        relativePath = relativePath.substring(1);
-    }
-
-    const absPath = path.resolve(resolvedRoot, relativePath);
-
-    // Check if path is within root
-    const relative = path.relative(resolvedRoot, absPath);
-
-    // path.relative returns strings like '..' if outside, or absolute path if different drive
-    if (relative.startsWith('..') || path.isAbsolute(relative)) {
-        return null;
-    }
-
-    return absPath;
-}
 
 export function createBrowserRoutes(musicDir: string, database: DatabaseService): Router {
     const router = Router();

@@ -87,18 +87,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     next: () => {
         const { queue, queueIndex, repeatMode } = get();
 
-        // Handle Repeat One
-        if (repeatMode === 'one' && queueIndex !== -1) {
-            // const track = queue[queueIndex];
-            // Just restart functionality is usually handled by audio element, 
-            // but if called explicitly via button, we might want to skip anyway?
-            // Standard behavior: Next button skips even in repeat one.
-            // But 'ended' event triggering next() should respect repeat one?
-            // For now, let's assume 'next()' is explicit or natural end.
-            // If natural end (from ended event), component should check repeat mode?
-            // Let's keep it simple: next() goes to next track.
-        }
-
         if (queueIndex < queue.length - 1) {
             const nextIndex = queueIndex + 1;
             set({
