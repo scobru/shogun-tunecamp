@@ -1,9 +1,8 @@
 import crypto from "crypto";
 import { promisify } from "util";
 import fetch from "node-fetch";
-import type { ActorKeyPair, Federation } from "@fedify/fedify";
-import { createFederation, Note, Create, PUBLIC_COLLECTION, Person, Mention, Follow, Announce } from "@fedify/fedify";
-import { Temporal } from "@js-temporal/polyfill";
+import type { Federation } from "@fedify/fedify";
+import { Follow, Announce } from "@fedify/fedify";
 import type { DatabaseService, Artist, Album, Track, Post } from "./database.js";
 import type { ServerConfig } from "./config.js";
 
