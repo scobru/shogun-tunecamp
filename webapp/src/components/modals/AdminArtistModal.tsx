@@ -27,8 +27,14 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [currentUser, setCurrentUser] = useState<any>(null);
+
+    const isSelf = currentUser && editId && String(currentUser.artistId) === String(editId);
+    const canEditSensitive = !isEditing || isSelf; // Can edit sensitive fields on create or if it's self
 
     useEffect(() => {
+        API.getCurrentUser().then(setCurrentUser).catch(console.error);
+
         const handleOpen = (e: CustomEvent) => {
             if (e.detail && e.detail.id) {
                 // Edit Mode
@@ -247,9 +253,15 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                             value={walletAddress}
                             onChange={e => setWalletAddress(e.target.value)}
                             placeholder="0x..."
+                            disabled={!canEditSensitive && walletAddress !== ''}
                         />
                          <label className="label">
-                            <span className="label-text-alt opacity-70">If provided, payments for this artist's releases will be sent directly to this address.</span>
+                            <span className="label-text-alt opacity-70">
+                                {(!canEditSensitive && walletAddress !== '') ? 
+                                    "Only the artist can change their wallet once set." : 
+                                    "If provided, payments for this artist's releases will be sent directly to this address."
+                                }
+                            </span>
                         </label>
                     </div>
                     
@@ -273,6 +285,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                                 value={mastodonInstance}
                                 onChange={e => setMastodonInstance(e.target.value)}
                                 placeholder="https://mastodon.social"
+                                disabled={!canEditSensitive}
                             />
                         </div>
                         <div className="form-control">
@@ -285,8 +298,12 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                                 value={mastodonToken}
                                 onChange={e => setMastodonToken(e.target.value)}
                                 placeholder="Bearer Token"
+                                disabled={!canEditSensitive}
                             />
                         </div>
+                        {!canEditSensitive && (
+                            <p className="text-[10px] opacity-40 px-1 italic">Note: Only the artist can manage their Mastodon cross-posting credentials.</p>
+                        )}
                     </div>
 
                     <div className="form-control">

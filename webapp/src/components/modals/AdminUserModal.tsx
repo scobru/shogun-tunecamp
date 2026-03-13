@@ -17,18 +17,24 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
     const [artists, setArtists] = useState<any[]>([]); // List of artists
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isRoot, setIsRoot] = useState(false);
+    const [isActive, setIsActive] = useState(true);
+    const [initialIsActive, setInitialIsActive] = useState(true);
 
     useEffect(() => {
-        // Fetch artists for dropdown
-        const loadArtists = async () => {
+        const loadData = async () => {
              try {
-                const data = await API.getArtists();
-                setArtists(data);
+                const [artistsData, meData] = await Promise.all([
+                    API.getArtists(),
+                    API.getCurrentUser()
+                ]);
+                setArtists(artistsData);
+                setIsRoot(meData.isRootAdmin);
              } catch (e) {
-                 console.error('Failed to load artists', e);
+                 console.error('Failed to load data', e);
              }
         };
-        loadArtists();
+        loadData();
     }, []);
 
     useEffect(() => {
@@ -46,6 +52,8 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
                 setPassword('');
                 setIsAdmin(userToEdit.isAdmin);
                 setArtistId(userToEdit.artistId || userToEdit.artist_id || '');
+                setIsActive(userToEdit.is_active !== 0);
+                setInitialIsActive(userToEdit.is_active !== 0);
                 
                 dialogRef.current.dataset.userId = userToEdit.id;
                 dialogRef.current.dataset.mode = 'edit';
@@ -55,6 +63,8 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
                 setPassword('');
                 setIsAdmin(false);
                 setArtistId('');
+                setIsActive(true);
+                setInitialIsActive(true);
                 dialogRef.current.dataset.mode = 'create';
              }
              setError('');
@@ -81,6 +91,11 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
 
             if (mode === 'edit' && targetUserId) {
                 await API.updateUser(targetUserId, payload);
+                
+                // Update status if changed (only root admin can do this)
+                if (isRoot && isActive !== initialIsActive) {
+                    await API.updateUserStatus(targetUserId, isActive);
+                }
             } else {
                 await API.createUser({ ...payload, password }); // Password required for create
             }
@@ -159,16 +174,33 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
                         </label>
                     </div>
 
-                    <div className="form-control">
-                        <label className="label cursor-pointer justify-start gap-4">
-                            <span className="label-text">Admin Access</span>
-                            <input 
-                                type="checkbox" 
-                                className="toggle toggle-primary"
-                                checked={isAdmin}
-                                onChange={e => setIsAdmin(e.target.checked)}
-                            />
-                        </label>
+                    <div className="flex gap-4">
+                        <div className="form-control">
+                            <label className="label cursor-pointer justify-start gap-4">
+                                <span className="label-text">Admin Access</span>
+                                <input 
+                                    type="checkbox" 
+                                    className="toggle toggle-primary"
+                                    checked={isAdmin}
+                                    onChange={e => setIsAdmin(e.target.checked)}
+                                />
+                            </label>
+                        </div>
+
+                        {isRoot && dialogRef.current?.dataset.mode === 'edit' && (
+                             <div className="form-control">
+                                <label className="label cursor-pointer justify-start gap-4">
+                                    <span className="label-text">Active Status</span>
+                                    <input 
+                                        type="checkbox" 
+                                        className="toggle toggle-success"
+                                        checked={isActive}
+                                        onChange={e => setIsActive(e.target.checked)}
+                                        disabled={dialogRef.current?.dataset.userId === '1'} // Cannot disable root
+                                    />
+                                </label>
+                            </div>
+                        )}
                     </div>
                     
                     {error && <div className="text-error text-sm text-center">{error}</div>}

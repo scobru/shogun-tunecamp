@@ -26,8 +26,9 @@ export interface AuthService {
     updateAdmin(id: number, artistId: number | null): void;
     updateStorageUsed(userId: number, bytesUsed: number): void;
     getStorageInfo(userId: number): { storage_quota: number; storage_used: number } | null;
-    listAdmins(): { id: number; username: string; artist_id: number | null; role: UserRole; storage_quota: number; created_at: string }[];
+    listAdmins(): { id: number; username: string; artist_id: number | null; role: UserRole; storage_quota: number; is_active: number; created_at: string }[];
     deleteAdmin(id: number): void;
+    toggleUserStatus(id: number, active: boolean): void;
     changePassword(username: string, newPassword: string): Promise<void>;
     isFirstRun(): boolean;
     /** Returns true if the username belongs to the root admin (id=1, first created). */
@@ -79,6 +80,7 @@ export function createAuthService(
                     subsonic_password TEXT,
                     gun_pub TEXT,
                     gun_priv TEXT,
+                    is_active INTEGER DEFAULT 1,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
@@ -91,9 +93,10 @@ export function createAuthService(
             const hasRole = columns.some(c => c.name === 'role');
             const hasGunPub = columns.some(c => c.name === 'gun_pub');
             const hasSubsonic = columns.some(c => c.name === 'subsonic_token');
+            const hasIsActive = columns.some(c => c.name === 'is_active');
 
-            if (!hasUsername || !hasArtistId || !hasRole || !hasGunPub || !hasSubsonic) {
-                console.log("📦 Migrating admin table to multi-user support (with roles, storage quotas, GunDB keys & Subsonic support)...");
+            if (!hasUsername || !hasArtistId || !hasRole || !hasGunPub || !hasSubsonic || !hasIsActive) {
+                console.log("📦 Migrating admin table to multi-user support (with roles, quotas, keys, and status)...");
                 // We need to recreate the table
                 // 1. Rename existing table
                 db.exec("ALTER TABLE admin RENAME TO admin_old");
@@ -112,6 +115,7 @@ export function createAuthService(
                         subsonic_password TEXT,
                         gun_pub TEXT,
                         gun_priv TEXT,
+                        is_active INTEGER DEFAULT 1,
                         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                     )
@@ -119,7 +123,7 @@ export function createAuthService(
 
                 // 3. Migrate data - existing users keep role='admin' and unlimited quota (0)
                 const oldAdmins = db.prepare("SELECT * FROM admin_old").all() as any[];
-                const insertStmt = db.prepare("INSERT INTO admin (id, username, password_hash, created_at, updated_at, artist_id, role, storage_quota, storage_used, gun_pub, gun_priv, subsonic_token, subsonic_password) VALUES (?, ?, ?, ?, ?, ?, 'admin', 0, 0, ?, ?, ?, ?)");
+                const insertStmt = db.prepare("INSERT INTO admin (id, username, password_hash, created_at, updated_at, artist_id, role, storage_quota, storage_used, gun_pub, gun_priv, subsonic_token, subsonic_password, is_active) VALUES (?, ?, ?, ?, ?, ?, 'admin', 0, 0, ?, ?, ?, ?, ?)");
 
                 for (const old of oldAdmins) {
                     let username = old.username;
@@ -134,7 +138,8 @@ export function createAuthService(
                         old.gun_pub || null, 
                         old.gun_priv || null,
                         old.subsonic_token || null,
-                        old.subsonic_password || null
+                        old.subsonic_password || null,
+                        old.is_active !== undefined ? old.is_active : 1
                     );
                 }
 
@@ -212,8 +217,14 @@ export function createAuthService(
         },
 
         async authenticateUser(username: string, password: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; pair?: any } | false> {
-            const user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv FROM admin WHERE username = ?").get(username) as { id: number; password_hash: string; artist_id: number | null; role: UserRole; gun_pub: string | null; gun_priv: string | null } | undefined;
+            const user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv, is_active FROM admin WHERE username = ?").get(username) as { id: number; password_hash: string; artist_id: number | null; role: UserRole; gun_pub: string | null; gun_priv: string | null; is_active: number } | undefined;
             if (!user) return false;
+
+            if (user.is_active === 0) {
+                console.log(`🔐 Blocked login attempt for disabled user: ${username}`);
+                return false;
+            }
+
             const valid = await this.verifyPassword(password, user.password_hash);
             if (!valid) return false;
 
@@ -332,9 +343,9 @@ export function createAuthService(
             return db.prepare("SELECT storage_quota, storage_used FROM admin WHERE id = ?").get(userId) as { storage_quota: number; storage_used: number } | null;
         },
 
-        listAdmins(): { id: number; username: string; artist_id: number | null; artist_name: string | null; role: UserRole; storage_quota: number; created_at: string; is_root: boolean }[] {
+        listAdmins(): { id: number; username: string; artist_id: number | null; artist_name: string | null; role: UserRole; storage_quota: number; is_active: number; created_at: string; is_root: boolean }[] {
             const rows = db.prepare(`
-                SELECT a.id, a.username, a.artist_id, a.role, a.storage_quota, a.created_at, ar.name as artist_name 
+                SELECT a.id, a.username, a.artist_id, a.role, a.storage_quota, a.is_active, a.created_at, ar.name as artist_name 
                 FROM admin a
                 LEFT JOIN artists ar ON a.artist_id = ar.id
                 ORDER BY a.username
@@ -359,6 +370,14 @@ export function createAuthService(
                 throw new Error("Cannot delete the last admin user");
             }
             db.prepare("DELETE FROM admin WHERE id = ?").run(id);
+        },
+
+        toggleUserStatus(id: number, active: boolean): void {
+            // Cannot disable root admin
+            if (id === 1 && !active) {
+                throw new Error("Cannot disable the primary admin");
+            }
+            db.prepare("UPDATE admin SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(active ? 1 : 0, id);
         },
 
         async changePassword(username: string, newPassword: string): Promise<void> {

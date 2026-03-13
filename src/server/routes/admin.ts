@@ -373,12 +373,9 @@ export function createAdminRoutes(
             }
 
             // Permission Check
-            const isRoot = authService.isRootAdmin(req.username || "");
-            if (!isRoot) {
-                // If not root, must be assigned to this artist
-                if (!req.artistId || req.artistId !== artistId) {
-                    return res.status(403).json({ error: "Access denied" });
-                }
+            // ONLY the artist themselves can see their own keys. Root admin is blocked for security.
+            if (!req.artistId || req.artistId !== artistId) {
+                return res.status(403).json({ error: "Access denied: Only the artist can access their identity keys" });
             }
 
             const artist = database.getArtist(artistId);
@@ -497,6 +494,26 @@ export function createAdminRoutes(
                 return res.status(400).json({ error: error.message });
             }
             res.status(500).json({ error: "Failed to delete admin" });
+        }
+    });
+    
+    /**
+     * PUT /api/admin/system/users/:id/status
+     * Enable/disable admin user (root admin only)
+     */
+    router.put("/system/users/:id/status", async (req: any, res) => {
+        try {
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only the primary admin can manage user status" });
+            }
+            const id = parseInt(req.params.id, 10);
+            const { active } = req.body;
+            
+            authService.toggleUserStatus(id, active);
+            res.json({ message: `User ${active ? 'enabled' : 'disabled'} successfully` });
+        } catch (error: any) {
+            console.error("Error toggling user status:", error);
+            res.status(500).json({ error: error.message || "Failed to toggle user status" });
         }
     });
 

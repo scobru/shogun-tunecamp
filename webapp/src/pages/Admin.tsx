@@ -565,6 +565,9 @@ const AdminUsersList = () => {
               ) : (
                 <span className="badge badge-ghost">User</span>
               )}
+              {u.is_active === 0 && (
+                <span className="badge badge-error ml-2">Disabled</span>
+              )}
             </td>
             <td className="opacity-70">
               {u.artist_id ? (

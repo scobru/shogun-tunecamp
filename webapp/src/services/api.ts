@@ -294,6 +294,7 @@ export const API = {
     getCurrentUser: () => handleResponse(api.get<User>('/admin/system/me')),
     createUser: (data: Partial<User> & { password: string }) => handleResponse(api.post<User>('/admin/system/users', data)),
     updateUser: (id: string, data: Partial<User>) => handleResponse(api.put<User>(`/admin/system/users/${id}`, data)),
+    updateUserStatus: (id: string, active: boolean) => handleResponse(api.put(`/admin/system/users/${id}/status`, { active })),
     deleteUser: (id: string) => handleResponse(api.delete(`/admin/system/users/${id}`)),
     resetUserPassword: (id: string, password: string) => handleResponse(api.put(`/admin/system/users/${id}/password`, { password })),
 

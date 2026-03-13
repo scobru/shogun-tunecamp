@@ -142,24 +142,40 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             }
 
 
-            // Update wallet address if provided, otherwise keep existing
-            // Security: Artists can update their own wallet. Site admins can set it if it was missing (e.g. for autodiscovered artists).
+            // Security: Artists can update their own wallet and postParams. 
+            // Site admins can set wallet if missing, but cannot change existing wallet or any postParams for others.
             let finalWalletAddress = artist.wallet_address;
+            let finalPostParams = parsedPostParams;
+
+            const isSelf = req.artistId && req.artistId === id;
+
             if (walletAddress !== undefined) {
-                if (req.artistId && req.artistId === id) {
-                    // Artist updating their own profile
+                if (isSelf) {
                     finalWalletAddress = walletAddress;
                 } else if (req.isAdmin) {
-                    // Site admin can set it if it was null (autodiscovered artist), but cannot change a previously set wallet
                     if (!artist.wallet_address) {
                         finalWalletAddress = walletAddress;
                     } else {
                         console.warn(`Attempt by admin to change existing wallet for artist ${id} blocked.`);
+                        finalWalletAddress = artist.wallet_address;
                     }
                 }
             }
 
-            database.updateArtist(id, bio || artist.bio || undefined, artist.photo_path || undefined, parsedLinks, parsedPostParams, finalWalletAddress || undefined);
+            if (!isSelf && req.isAdmin) {
+                // Admin updating another artist: never allow changing postParams
+                if (artist.post_params) {
+                    try {
+                        finalPostParams = JSON.parse(artist.post_params);
+                    } catch (e) {
+                        finalPostParams = null;
+                    }
+                } else {
+                    finalPostParams = null;
+                }
+            }
+
+            database.updateArtist(id, bio || artist.bio || undefined, artist.photo_path || undefined, parsedLinks, finalPostParams, finalWalletAddress || undefined);
 
             const updatedArtist = database.getArtist(id);
             console.log(`🎤 Updated artist: ${artist.name}`);
