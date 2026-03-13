@@ -4,6 +4,7 @@ import { create } from 'xmlbuilder2';
 import md5 from 'md5';
 import path from 'path';
 import fs from 'fs-extra';
+import { resolveSafePath } from '../../utils/fileUtils.js';
 import type { DatabaseService } from '../database';
 import type { AuthService } from '../auth';
 import type { GunDBService } from '../gundb';
@@ -401,8 +402,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         }
 
         if (imagePath) {
-            const fullPath = path.resolve(context.musicDir, imagePath);
-            if (await fs.pathExists(fullPath)) {
+            const fullPath = resolveSafePath(context.musicDir, imagePath);
+            if (fullPath && await fs.pathExists(fullPath)) {
                 return res.sendFile(fullPath);
             }
         }
@@ -420,8 +421,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (id.startsWith('tr_')) {
             const track = db.getTrack(parseInt(id.substring(3)));
             if (track && track.file_path) {
-                const fullPath = path.resolve(context.musicDir, track.file_path);
-                if (await fs.pathExists(fullPath)) {
+                const fullPath = resolveSafePath(context.musicDir, track.file_path);
+                if (fullPath && await fs.pathExists(fullPath)) {
                     // res.sendFile handles Range headers automatically
                     return res.sendFile(fullPath);
                 }
@@ -1105,8 +1106,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (id.startsWith('tr_')) {
             const track = db.getTrack(parseInt(id.substring(3)));
             if (track && track.file_path) {
-                const fullPath = path.resolve(context.musicDir, track.file_path);
-                if (await fs.pathExists(fullPath)) {
+                const fullPath = resolveSafePath(context.musicDir, track.file_path);
+                if (fullPath && await fs.pathExists(fullPath)) {
                     const filename = path.basename(track.file_path);
                     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
                     return res.sendFile(fullPath);
