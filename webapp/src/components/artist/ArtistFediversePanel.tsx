@@ -1,0 +1,192 @@
+import { useState, useEffect } from 'react';
+import { RefreshCw, Trash2, MessageSquare, Disc, AlertTriangle, Users, PenTool } from 'lucide-react';
+import API from '../../services/api';
+import { useAuthStore } from '../../stores/useAuthStore';
+
+interface ApNote {
+    id: number;
+    artist_id: number;
+    note_id: string;
+    note_type: 'post' | 'release';
+    content_id: number;
+    content_slug: string;
+    content_title: string;
+    published_at: string;
+    deleted_at: string | null;
+}
+
+interface Follower {
+    uri: string;
+    created_at: string;
+    actor: {
+        name: string;
+        username: string;
+        icon_url: string | null;
+        uri: string;
+    } | null;
+}
+
+export const ArtistFediversePanel = () => {
+    const { adminUser } = useAuthStore();
+    const [notes, setNotes] = useState<ApNote[]>([]);
+    const [followers, setFollowers] = useState<Follower[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [processingId, setProcessingId] = useState<number | null>(null);
+
+    const artistId = adminUser?.artistId?.toString();
+
+    useEffect(() => {
+        if (artistId) {
+            loadData(artistId);
+        }
+    }, [artistId]);
+
+    const loadData = async (id: string) => {
+        setLoading(true);
+        try {
+            const [notesData, followersData] = await Promise.all([
+                API.getPublishedContent(id),
+                API.getArtistFollowers(id)
+            ]);
+            setNotes(notesData);
+            setFollowers(followersData);
+        } catch (e) {
+            console.error("Failed to load Fediverse data", e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (note: ApNote) => {
+        if (!confirm(`Are you sure you want to delete this ${note.note_type} from ActivityPub? This will send a Delete activity to all followers.`)) return;
+
+        setProcessingId(note.id);
+        try {
+            await API.deletePublishedContent(note.note_id);
+            setNotes(prev => prev.filter(n => n.id !== note.id));
+        } catch (e) {
+            console.error("Failed to delete note", e);
+            alert("Failed to delete note");
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    if (!artistId) {
+        return <div className="p-8 text-center opacity-50">No artist associated with this account.</div>;
+    }
+
+    return (
+        <div className="space-y-8">
+            <div className="flex justify-between items-center">
+                <div>
+                     <h2 className="text-2xl font-bold flex items-center gap-2">Fediverse Community</h2>
+                     <p className="opacity-70 text-sm">Manage your followers and content published to the Fediverse (Mastodon, etc)</p>
+                </div>
+                <button
+                    className="btn btn-square btn-ghost"
+                    onClick={() => loadData(artistId)}
+                    disabled={loading}
+                    title="Refresh list"
+                >
+                    <RefreshCw size={20} className={loading && !processingId ? 'animate-spin' : ''}/>
+                </button>
+            </div>
+
+            {/* Followers Section */}
+            <div className="card bg-base-200 border border-white/5">
+                <div className="card-body p-6">
+                    <h3 className="font-bold flex items-center gap-2 mb-4">
+                        <Users size={20} className="text-primary"/> Followers ({followers.length})
+                    </h3>
+
+                    {followers.length === 0 && !loading ? (
+                        <div className="text-center py-8 opacity-50">
+                            No followers yet.
+                        </div>
+                    ) : (
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {followers.map(follower => (
+                                <div key={follower.uri} className="flex items-center gap-3 p-3 bg-base-100 rounded-box border border-white/5">
+                                    <div className="avatar placeholder">
+                                        <div className="w-10 rounded-full bg-neutral-focus text-neutral-content">
+                                            {follower.actor?.icon_url ? (
+                                                <img src={follower.actor.icon_url} alt={follower.actor.name} />
+                                            ) : (
+                                                <span>{follower.actor?.name?.[0] || '?'}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 overflow-hidden">
+                                        <div className="font-bold text-sm truncate">{follower.actor?.name || 'Unknown User'}</div>
+                                        <div className="text-xs opacity-50 truncate font-mono" title={follower.uri}>
+                                            @{follower.actor?.username || 'unknown'}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Posts Section */}
+            <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                    <h3 className="font-bold flex items-center gap-2">
+                        <MessageSquare size={20} className="text-secondary"/> Published Content
+                    </h3>
+                    <button
+                        className="btn btn-sm btn-secondary gap-2"
+                        onClick={() => document.dispatchEvent(new CustomEvent('open-create-post-modal'))}
+                    >
+                        <PenTool size={16}/> Create Post
+                    </button>
+                </div>
+
+                {notes.length === 0 && !loading ? (
+                    <div className="text-center py-12 opacity-50 border-2 border-dashed border-base-300 rounded-box">
+                        <AlertTriangle className="mx-auto mb-2 opacity-50"/>
+                        <p>No content published to the Fediverse yet.</p>
+                    </div>
+                ) : (
+                    <div className="grid gap-4">
+                        {notes.map(note => (
+                            <div key={note.id} className="card bg-base-100 shadow-xl border border-white/5">
+                                <div className="card-body p-4 sm:p-6">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex gap-4">
+                                            <div className={`p-3 rounded-full h-fit ${note.note_type === 'release' ? 'bg-secondary/10 text-secondary' : 'bg-accent/10 text-accent'}`}>
+                                                {note.note_type === 'release' ? <Disc size={24}/> : <MessageSquare size={24}/>}
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-lg">{note.content_title || 'Untitled'}</h3>
+                                                <div className="badge badge-outline gap-2 mt-1">
+                                                    {note.note_type === 'release' ? 'Release' : 'Post'}
+                                                </div>
+                                                <div className="text-xs opacity-50 mt-2">
+                                                    {new Date(note.published_at).toLocaleString()}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <button
+                                                className="btn btn-error btn-outline btn-sm"
+                                                onClick={() => handleDelete(note)}
+                                                disabled={!!processingId}
+                                            >
+                                                {processingId === note.id ? <span className="loading loading-spinner loading-xs"/> : <Trash2 size={18}/>}
+                                                <span className="hidden sm:inline ml-1">Delete</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};

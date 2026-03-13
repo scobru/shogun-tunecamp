@@ -12,13 +12,14 @@ import { AdminReleaseModal } from "../components/modals/AdminReleaseModal";
 import { UploadTracksModal } from "../components/modals/UploadTracksModal";
 import { CreatePostModal } from "../components/modals/CreatePostModal";
 import { IdentityPanel } from "../components/admin/IdentityPanel";
+import { ArtistFediversePanel } from "../components/artist/ArtistFediversePanel";
 import { AdminReleasesList, AdminTracksList } from "./Admin";
 
 export const MyMusic = () => {
   const { adminUser, isAdminAuthenticated, isAdminLoading } = useAuthStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "overview" | "albums" | "tracks" | "identity"
+    "overview" | "albums" | "tracks" | "identity" | "fediverse"
   >("overview");
   const [stats, setStats] = useState<any>(null);
 
@@ -115,7 +116,14 @@ export const MyMusic = () => {
           className={`tab ${activeTab === "identity" ? "tab-active" : ""}`}
           onClick={() => setActiveTab("identity")}
         >
-          ActivityPub Profile
+          Fediverse Settings
+        </a>
+        <a
+          role="tab"
+          className={`tab ${activeTab === "fediverse" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("fediverse")}
+        >
+          Community
         </a>
       </div>
 
@@ -196,6 +204,10 @@ export const MyMusic = () => {
              </div>
              <IdentityPanel isAdmin={adminUser?.isAdmin} />
            </div>
+        )}
+
+        {activeTab === "fediverse" && (
+           <ArtistFediversePanel />
         )}
       </div>
 
