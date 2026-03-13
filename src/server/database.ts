@@ -2214,8 +2214,14 @@ export function createDatabase(dbPath: string): DatabaseService {
             return db.prepare("SELECT pub, epub, alias, avatar FROM gun_users WHERE pub = ?").get(pub) as any;
         },
 
-        // Remote Federation (ActivityPub)
+        // ActivityPub Remote Items
         upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen">): void {
+            const b = (val: any) => {
+                if (val === null || val === undefined) return null;
+                if (typeof val === 'string' || typeof val === 'number' || typeof val === 'bigint' || Buffer.isBuffer(val)) return val;
+                return String(val);
+            };
+
             db.prepare(`
                 INSERT INTO remote_actors (uri, type, username, name, summary, icon_url, inbox_url, outbox_url, last_seen)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -2227,7 +2233,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                     inbox_url=excluded.inbox_url,
                     outbox_url=excluded.outbox_url,
                     last_seen=CURRENT_TIMESTAMP
-            `).run(actor.uri, actor.type, actor.username, actor.name, actor.summary, actor.icon_url, actor.inbox_url, actor.outbox_url);
+            `).run(b(actor.uri), b(actor.type), b(actor.username), b(actor.name), b(actor.summary), b(actor.icon_url), b(actor.inbox_url), b(actor.outbox_url));
         },
 
         getRemoteActor(uri: string): RemoteActor | undefined {
@@ -2239,6 +2245,12 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         upsertRemoteContent(content: Omit<RemoteContent, "id" | "received_at">): void {
+            const b = (val: any) => {
+                if (val === null || val === undefined) return null;
+                if (typeof val === 'string' || typeof val === 'number' || typeof val === 'bigint' || Buffer.isBuffer(val)) return val;
+                return String(val);
+            };
+
             db.prepare(`
                 INSERT INTO remote_content (ap_id, actor_uri, type, title, content, url, cover_url, stream_url, artist_name, album_name, duration, published_at, received_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -2253,7 +2265,11 @@ export function createDatabase(dbPath: string): DatabaseService {
                     duration=excluded.duration,
                     published_at=excluded.published_at,
                     received_at=CURRENT_TIMESTAMP
-            `).run(content.ap_id, content.actor_uri, content.type, content.title, content.content, content.url, content.cover_url, content.stream_url, content.artist_name, content.album_name, content.duration, content.published_at);
+            `).run(
+                b(content.ap_id), b(content.actor_uri), b(content.type), b(content.title), 
+                b(content.content), b(b(content.url)), b(content.cover_url), b(content.stream_url), 
+                b(content.artist_name), b(content.album_name), b(content.duration), b(content.published_at)
+            );
         },
 
         getRemoteContent(apId: string): RemoteContent | undefined {

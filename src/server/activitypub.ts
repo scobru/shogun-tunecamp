@@ -255,25 +255,25 @@ export class ActivityPubService {
                                 const attachments = Array.isArray(resolvedObj.attachment) ? resolvedObj.attachment : (resolvedObj.attachment ? [resolvedObj.attachment] : []);
                                 const audioAttachment = attachments.find((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/"));
                                 
-                                const remoteContent = {
-                                    ap_id: resolvedObj.id,
-                                    actor_uri: actorUri,
-                                    type: type,
-                                    title: resolvedObj.name || resolvedObj.title || resolvedObj.content?.replace(/<[^>]*>?/gm, '').substring(0, 50) || "Untitled",
-                                    content: resolvedObj.content || resolvedObj.summary || "",
-                                    url: resolvedObj.url || (Array.isArray(resolvedObj.url) ? resolvedObj.url[0]?.href : resolvedObj.url?.href),
-                                    cover_url: resolvedObj.image?.url || resolvedObj.icon?.url || (attachments.find((a: any) => hasType(a.type, "Image") || a.mediaType?.startsWith("image/"))?.url),
-                                    stream_url: hasType(resolvedObj.type, "Audio") ? resolvedObj.url : audioAttachment?.url || audioAttachment?.href,
-                                    artist_name: resolvedObj.attributedTo?.name || actor.name || actor.preferredUsername || "Remote Artist",
-                                    album_name: resolvedObj.album?.name || resolvedObj.name || resolvedObj.title || null,
-                                    duration: resolvedObj.duration || audioAttachment?.duration || null,
-                                    published_at: resolvedObj.published || activity.published || new Date().toISOString()
-                                };
+                                    const remoteContent = {
+                                        ap_id: this.getString(resolvedObj.id),
+                                        actor_uri: this.getString(actorUri),
+                                        type: type,
+                                        title: this.getString(resolvedObj.name || resolvedObj.title || resolvedObj.content?.replace(/<[^>]*>?/gm, '').substring(0, 50) || "Untitled"),
+                                        content: this.getString(resolvedObj.content || resolvedObj.summary || ""),
+                                        url: this.getString(resolvedObj.url || (Array.isArray(resolvedObj.url) ? resolvedObj.url[0]?.href : resolvedObj.url?.href)),
+                                        cover_url: this.getString(resolvedObj.image?.url || resolvedObj.icon?.url || (attachments.find((a: any) => hasType(a.type, "Image") || a.mediaType?.startsWith("image/"))?.url)),
+                                        stream_url: this.getString(hasType(resolvedObj.type, "Audio") ? resolvedObj.url : audioAttachment?.url || audioAttachment?.href),
+                                        artist_name: this.getString(resolvedObj.attributedTo?.name || actor.name || actor.preferredUsername || "Remote Artist"),
+                                        album_name: this.getString(resolvedObj.album?.name || resolvedObj.name || resolvedObj.title || null),
+                                        duration: this.getString(resolvedObj.duration || audioAttachment?.duration || null),
+                                        published_at: this.getString(resolvedObj.published || activity.published || new Date().toISOString())
+                                    };
 
-                                if (remoteContent.ap_id) {
-                                    this.db.upsertRemoteContent(remoteContent as any);
-                                    console.log(`  ✅ Stored remote ${type}: ${remoteContent.title}`);
-                                }
+                                    if (remoteContent.ap_id) {
+                                        this.db.upsertRemoteContent(remoteContent as any);
+                                        console.log(`  ✅ Stored remote ${type}: ${remoteContent.title}`);
+                                    }
                             }
                         } catch (itemErr) {
                             console.warn("⚠️ Failed to parse collection item:", itemErr);
@@ -898,6 +898,29 @@ export class ActivityPubService {
             const blockedPatterns = [/^localhost$/, /^127\./, /^0\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^192\.168\./, /^::1$/, /^fe80:/];
             return !blockedPatterns.some(pattern => pattern.test(hostname));
         } catch { return false; }
+    }
+
+    private getString(value: any): string | null {
+        if (value === null || value === undefined) return null;
+        if (typeof value === 'string') return value;
+        if (Array.isArray(value)) {
+            if (value.length === 0) return null;
+            return this.getString(value[0]);
+        }
+        if (typeof value === 'object') {
+            // Handle Link/Object with href
+            if (value.href) return String(value.href);
+            if (value.url) return this.getString(value.url);
+            // Handle Language Map (common in ActivityPub)
+            if (value.name) return this.getString(value.name);
+            if (value.content) return this.getString(value.content);
+            const keys = Object.keys(value);
+            if (keys.length > 0) {
+                // Return first language entry if it looks like a language map
+                return String(value[keys[0]]);
+            }
+        }
+        return String(value);
     }
 
     public async verifySignature(req: any): Promise<boolean> {

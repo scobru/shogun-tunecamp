@@ -13,7 +13,7 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
      */
     router.post("/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), async (req, res) => {
         try {
-            const { username, password } = req.body;
+            const { username, password, pubKey, proof } = req.body;
 
             if (!password) {
                 return res.status(400).json({ error: "Password required" });
@@ -30,7 +30,7 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
             // Default to 'admin' if no username provided (legacy/default support)
             const userToAuth = username || 'admin';
 
-            const result = await authService.authenticateUser(userToAuth, password);
+            const result = await authService.authenticateUser(userToAuth, password, pubKey, proof);
             if (!result || !result.success) {
                 return res.status(401).json({ error: "Invalid username or password" });
             }

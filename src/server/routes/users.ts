@@ -55,8 +55,14 @@ export function createUsersRoutes(
                 return res.status(409).json({ error: "Username already taken" });
             }
 
-            // 1. Register GunDB user (if pubKey provided - for community features)
-            if (pubKey) {
+            // 1. Verify GunDB signature if provided (GunDB-first proof)
+            if (pubKey && signature) {
+                const isValid = await authService.verifyGunSignature(username, pubKey, signature);
+                if (!isValid) {
+                    return res.status(401).json({ error: "Invalid GunDB signature" });
+                }
+                
+                // Also ensure GunDB metadata is populated
                 const existingUser = await gundbService.getUser(pubKey);
                 if (!existingUser || !existingUser.username) {
                     await gundbService.registerUser(pubKey, username);
@@ -75,9 +81,9 @@ export function createUsersRoutes(
                 // Non-fatal - AP can still work without pre-generated keys
             }
 
-            // 4. Create DB user with artist link + storage quota (1GB)
+            // 4. Create DB user with artist link + storage quota (1GB) + GunDB pubKey
             const DEFAULT_QUOTA = 1024 * 1024 * 1024; // 1GB
-            const { id: userId } = await authService.createUser(username, password, artistId, DEFAULT_QUOTA);
+            const { id: userId } = await authService.createUser(username, password, artistId, DEFAULT_QUOTA, pubKey);
 
             // 5. Generate JWT token for auto-login
             const token = authService.generateToken({
@@ -87,7 +93,7 @@ export function createUsersRoutes(
                 role: 'user'
             });
 
-            console.log(`🆕 New user registered: ${username} (artist: ${artistId}, user: ${userId})`);
+            console.log(`🆕 New user registered: ${username} (artist: ${artistId}, user: ${userId}, pubKey: ${pubKey ? 'linked' : 'none'})`);
 
             res.json({
                 success: true,
@@ -96,7 +102,8 @@ export function createUsersRoutes(
                 username,
                 artistId,
                 role: 'user',
-                storageQuota: DEFAULT_QUOTA
+                storageQuota: DEFAULT_QUOTA,
+                pubKey: pubKey || null
             });
         } catch (error: any) {
             console.error("User registration error:", error);

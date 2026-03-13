@@ -29,12 +29,26 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
     let jwtSecret = process.env.TUNECAMP_JWT_SECRET || overrides?.jwtSecret;
 
     if (!jwtSecret) {
-        const secretFilePath = path.join(process.cwd(), '.jwt-secret');
+        // Bolt ⚡: Store the secret in the same directory as the database for stability
+        const dbDir = path.dirname(process.env.TUNECAMP_DB_PATH || defaultDbPath);
+        const secretFilePath = path.join(dbDir, '.jwt-secret');
+        const legacySecretPath = path.join(process.cwd(), '.jwt-secret');
+
         if (fs.existsSync(secretFilePath)) {
             jwtSecret = fs.readFileSync(secretFilePath, 'utf-8').trim();
+        } else if (fs.existsSync(legacySecretPath)) {
+            // Migration: Move legacy secret to new stable location
+            jwtSecret = fs.readFileSync(legacySecretPath, 'utf-8').trim();
+            try {
+                fs.writeFileSync(secretFilePath, jwtSecret);
+                console.log(`🔒 Migrated JWT secret to stable location: ${secretFilePath}`);
+            } catch (e) {
+                console.warn("⚠️ Could not migrate JWT secret:", e);
+            }
         } else {
             jwtSecret = crypto.randomBytes(32).toString("hex");
             try {
+                if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
                 fs.writeFileSync(secretFilePath, jwtSecret);
                 console.log(`🔒 Generated new JWT secret and saved to ${secretFilePath}`);
             } catch (err) {

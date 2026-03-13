@@ -19,10 +19,11 @@ export interface AuthService {
     generateToken(payload: { isAdmin: boolean; username: string; artistId: number | null; role: UserRole }): string;
     verifyToken(token: string): { isAdmin: boolean; username: string; artistId: number | null; role: UserRole } | null;
     // Multi-user management
-    authenticateUser(username: string, password: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; pair?: any } | false>;
+    authenticateUser(username: string, password: string, pubKey?: string, proof?: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; pair?: any } | false>;
+    verifyGunSignature(message: any, pubKey: string, proof: string): Promise<boolean>;
     verifySubsonicToken(username: string, token: string, salt: string): Promise<boolean>;
     createAdmin(username: string, password: string, artistId?: number | null): Promise<void>;
-    createUser(username: string, password: string, artistId: number, storageQuota?: number): Promise<{ id: number }>;
+    createUser(username: string, password: string, artistId: number, storageQuota?: number, pubKey?: string): Promise<{ id: number }>;
     updateAdmin(id: number, artistId: number | null): void;
     updateStorageUsed(userId: number, bytesUsed: number): void;
     getStorageInfo(userId: number): { storage_quota: number; storage_used: number } | null;
@@ -216,8 +217,28 @@ export function createAuthService(
             }
         },
 
-        async authenticateUser(username: string, password: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; pair?: any } | false> {
-            const user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv, is_active FROM admin WHERE username = ?").get(username) as { id: number; password_hash: string; artist_id: number | null; role: UserRole; gun_pub: string | null; gun_priv: string | null; is_active: number } | undefined;
+        async authenticateUser(username: string, password: string, pubKey?: string, proof?: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; pair?: any } | false> {
+            let user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv, is_active FROM admin WHERE username = ?").get(username) as { id: number; password_hash: string; artist_id: number | null; role: UserRole; gun_pub: string | null; gun_priv: string | null; is_active: number } | undefined;
+            
+            // ROAMING LOGIC: If user doesn't exist locally, try to verify GunDB proof for lazy-creation
+            if (!user && pubKey && proof) {
+                console.log(`📡 Roaming attempt for ${username} (pub: ${pubKey.slice(0, 8)}...)`);
+                const isValid = await this.verifyGunSignature(username, pubKey, proof);
+                if (isValid) {
+                    console.log(`✨ GunDB proof verified for ${username}. Lazily creating local account...`);
+                    // Create local user with random password (they'll use GunDB/Roaming to login anyway, 
+                    // or they can change it later if they want local-only login)
+                    const tempPass = crypto.randomBytes(32).toString('hex');
+                    const { id } = await this.createUser(username, tempPass, -1); // -1 triggers artist creation below
+                    
+                    // Link the pubKey now to avoid re-generating
+                    db.prepare("UPDATE admin SET gun_pub = ? WHERE id = ?").run(pubKey, id);
+                    
+                    // Reload user record
+                    user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv, is_active FROM admin WHERE id = ?").get(id) as any;
+                }
+            }
+
             if (!user) return false;
 
             if (user.is_active === 0) {
@@ -236,10 +257,13 @@ export function createAuthService(
                 try {
                     gunPair = this.decryptGunPriv(user.gun_priv);
                 } catch (e) {
-                    console.error("Failed to decrypt GunDB keys for user", username);
+                    console.error(`⚠️ Failed to decrypt GunDB keys for ${username}. This likely means the server's encryption secret changed.`);
+                    console.log(`🔄 Attempting auto-recovery for ${username}...`);
                 }
-            } else {
-                // Lazy-generate GunDB identity for any user who doesn't have one yet
+            }
+
+            if (!gunPair) {
+                // Lazy-generate or RE-generate GunDB identity for any user who doesn't have a readable one yet
                 console.log(`🔐 Generating new GunDB Identity for ${userRole} ${username}...`);
                 gunPair = await Gun.SEA.pair();
                 const encryptedPriv = this.encryptGunPriv(gunPair);
@@ -320,14 +344,25 @@ export function createAuthService(
             return false;
         },
 
+        async verifyGunSignature(message: any, pubKey: string, proof: string): Promise<boolean> {
+            try {
+                const verified = await Gun.SEA.verify(proof, pubKey);
+                // The proof should be the signed message (the username in our case)
+                return verified === message;
+            } catch (e) {
+                console.error("❌ GunDB signature verification failed:", e);
+                return false;
+            }
+        },
+
         async createAdmin(username: string, password: string, artistId: number | null = null): Promise<void> {
             const hash = await this.hashPassword(password);
             db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota) VALUES (?, ?, ?, 'admin', 0)").run(username, hash, artistId);
         },
 
-        async createUser(username: string, password: string, artistId: number, storageQuota: number = 1024 * 1024 * 1024): Promise<{ id: number }> {
+        async createUser(username: string, password: string, artistId: number, storageQuota: number = 1024 * 1024 * 1024, pubKey?: string): Promise<{ id: number }> {
             const hash = await this.hashPassword(password);
-            const result = db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota, storage_used) VALUES (?, ?, ?, 'user', ?, 0)").run(username, hash, artistId, storageQuota);
+            const result = db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota, storage_used, gun_pub) VALUES (?, ?, ?, 'user', ?, 0, ?)").run(username, hash, artistId, storageQuota, pubKey || null);
             return { id: Number(result.lastInsertRowid) };
         },
 
@@ -401,7 +436,7 @@ export function createAuthService(
             try {
                 return this.decryptGunPriv(user.gun_priv);
             } catch (e) {
-                console.error("Failed to decrypt GunDB keys for user", username);
+                console.error(`⚠️ Failed to decrypt GunDB keys for ${username}. (Secret mismatch?)`);
                 return null;
             }
         },

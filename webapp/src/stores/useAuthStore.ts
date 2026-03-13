@@ -113,7 +113,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     login: async (username, password) => {
         set({ error: null, isLoading: true });
         try {
-            const result = await API.login(username, password);
+            let pubKey: string | undefined;
+            let proof: string | undefined;
+
+            if (password) {
+                try {
+                    console.log("🔐 GunDB-First Login: Verifying identity on peer network...");
+                    const gunProfile = await GunAuth.login(username, password);
+                    pubKey = gunProfile.pub;
+                    
+                    // Generate proof-of-possession for the backend
+                    // We sign the username to prove we own the pubKey
+                    proof = await GunAuth.sign(username);
+                    console.log("✨ Proof of identity generated.");
+                } catch (gunErr) {
+                    console.warn("⚠️ GunDB authentication failed (maybe offline or wrong pass), falling back to local-only proof:", gunErr);
+                }
+            }
+
+            const result = await API.login(username, password, pubKey, proof);
             API.setToken(result.token);
 
             let gunProfile: GunProfile | null = null;
@@ -122,33 +140,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     gunProfile = await GunAuth.loginWithPair(result.pair);
                 } catch (gunErr) {
                     console.error("Failed to auto-login to GunDB with pair:", gunErr);
-                }
-            } else if (password) {
-                // Fallback: Use password to derive identity if pair is missing from server
-                console.log("🔐 No SEA credentials found. Attempting to derive from password...");
-                try {
-                    // Try to login with password
-                    gunProfile = await GunAuth.login(username, password);
-                } catch (loginErr) {
-                    // If login fails, user might not exist in GunDB yet
-                    console.log("🆕 Identity not found in GunDB. Registering...");
-                    try {
-                        await GunAuth.register(username, password);
-                        gunProfile = GunAuth.getProfile();
-                    } catch (regErr) {
-                        console.error("GunDB registration failed:", regErr);
-                    }
-                }
-
-                // If we now have a profile (and thus a pair), sync it back to the server
-                if (gunProfile && (gunProfile as any).user?._?.sea) {
-                    try {
-                        const pair = (gunProfile as any).user._.sea;
-                        await API.syncGunPair(pair);
-                        console.log("✅ GunDB identity synced to server.");
-                    } catch (syncErr) {
-                        console.error("Failed to sync GunDB pair to server:", syncErr);
-                    }
                 }
             }
 
@@ -223,13 +214,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     register: async (username, password) => {
         set({ error: null, isLoading: true });
         try {
-            // 1. Register on backend (creates DB user + artist + AP actor)
-            const result = await API.registerUser(username, password);
+            // 1. Register on GunDB first (Decentralized Identity)
+            console.log("🆕 GunDB-First Registration: Creating identity on peer network...");
+            await GunAuth.register(username, password);
+            const gunProfile = GunAuth.getProfile();
             
-            // 2. Auto-login with the JWT token
+            if (!gunProfile) throw new Error("Failed to create GunDB identity");
+
+            // 2. Generate proof for backend
+            const proof = await GunAuth.sign(username);
+
+            // 3. Register on backend with proof
+            const result = await API.registerUser(username, password, gunProfile.pub, proof);
+            
+            // 4. Auto-login with the JWT token
             API.setToken(result.token);
 
-            // 3. Since we're logged in, perform a check to get the pair and full user object
+            // 5. Success - updates the store state
             await get().checkAuth();
 
             set({ isLoading: false });
