@@ -112,7 +112,7 @@ export function createUploadRoutes(
         }
     ) {
         try {
-            if (req.artistId) {
+            if (!req.isAdmin) {
                 if (req.file) await fs.remove(req.file.path);
                 return res.status(403).json({ error: `Restricted admins cannot change ${options.errorLabel}` });
             }
@@ -196,8 +196,8 @@ export function createUploadRoutes(
                 console.warn(`⚠️ Target release not found: ${releaseSlug}`);
             }
 
-            // SECURITY FIX: Prevent uploading to another artist's release
-            if (release && (req as any).artistId && release.artist_id !== (req as any).artistId) {
+            // SECURITY FIX: Prevent uploading to another artist's release (unless root admin)
+            if (release && !req.isAdmin && req.artistId && release.artist_id !== req.artistId) {
                 console.warn(`⛔ Access Denied: User ${(req as any).username} (Artist ${(req as any).artistId}) tried to upload to release ${release.slug} (Artist ${release.artist_id})`);
                 // Cleanup temp files
                 for (const file of files) {
@@ -322,7 +322,7 @@ export function createUploadRoutes(
                     return res.status(404).json({ error: "Release not found" });
                 }
 
-                if ((req as any).artistId && targetAlbum.artist_id !== (req as any).artistId) {
+                if (!req.isAdmin && req.artistId && targetAlbum.artist_id !== req.artistId) {
                     await fs.remove(file.path);
                     return res.status(403).json({ error: "Access denied: Cannot upload cover for another artist's release" });
                 }
@@ -420,7 +420,7 @@ export function createUploadRoutes(
             }
 
             // Permission Check
-            if ((req as any).artistId && (req as any).artistId !== artistId) {
+            if (!req.isAdmin && req.artistId && req.artistId !== artistId) {
                 await fs.remove(file.path);
                 return res.status(403).json({ error: "Access denied: You can only upload avatars for your own artist" });
             }

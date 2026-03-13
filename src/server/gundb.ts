@@ -1192,13 +1192,24 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                                 return;
                             }
 
-                            // Basic reachability check
+                            // 1. Basic reachability check
                             const isReachable = await checkSiteReachability(siteData.url);
 
                             if (!isReachable) {
                                 console.log(`🗑️ Site unreachable, removing: ${siteData.url} (${siteId})`);
                                 sitesRef.get(siteId).put(null);
                                 removed++;
+                            } else {
+                                // 2. Site is reachable, verify it's the SAME instance
+                                // We check if the remote siteId matches the one in GunDB
+                                const remoteSettings = await getRemoteSiteSettings(siteData.url);
+                                if (remoteSettings && remoteSettings.siteId) {
+                                    if (remoteSettings.siteId !== siteId) {
+                                        console.log(`🗑️ Site ID mismatch, removing stale entry: ${siteData.url} (Old: ${siteId}, New: ${remoteSettings.siteId})`);
+                                        sitesRef.get(siteId).put(null);
+                                        removed++;
+                                    }
+                                }
                             }
                         } catch (err) {
                             console.error(`Error checking site ${siteId}:`, err);
@@ -1234,7 +1245,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             }
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout for HEAD
 
             const response = await fetch(url, {
                 method: 'HEAD',
@@ -1245,9 +1256,31 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             clearTimeout(timeoutId);
             return response.ok;
         } catch (error) {
-            // Log failure reason if helpful
-            // console.log(`Check failed for ${url}: ${error instanceof Error ? error.message : String(error)}`);
             return false;
+        }
+    }
+
+    async function getRemoteSiteSettings(url: string): Promise<any> {
+        try {
+            const baseUrl = url.endsWith('/') ? url : `${url}/`;
+            const settingsUrl = `${baseUrl}api/catalog/settings`;
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+            const response = await fetch(settingsUrl, {
+                signal: controller.signal,
+                headers: { 
+                    'Accept': 'application/json',
+                    'User-Agent': 'TuneCamp-HealthCheck/2.0'
+                }
+            });
+
+            clearTimeout(timeoutId);
+            if (!response.ok) return null;
+            return await response.json();
+        } catch (error) {
+            return null;
         }
     }
 }
