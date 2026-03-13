@@ -1,12 +1,28 @@
-<img src="./logo.svg" alt="Tunecamp" width="200" height="200" style="display: block; margin-bottom: 20px; margin-top: 20px; align-items: center; justify-content: center; margin-left: auto; margin-right: auto;">
+<div align="center">
+  <img src="./logo.svg" alt="Tunecamp Logo" width="150" height="150">
+  <h1>Tunecamp</h1>
+  <p><strong>A decentralized music platform for independent artists and labels.</strong></p>
+</div>
 
-# Tunecamp
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A decentralized music platform for independent artists and labels.
+## Why This Exists
 
-Tunecamp is a self-hosted music streaming server with federation, user management, and full Subsonic/OpenSubsonic API support. It allows artists to host their own music while connecting with the broader Fediverse and Funkwhale network.
+Streaming platforms take significant cuts from artists and lock their communities into walled gardens. Tunecamp allows you to host your own music with a beautiful web interface, fully compatible with existing Subsonic mobile apps. It connects you to the Fediverse (via ActivityPub) and creates a global, decentralized music discovery network (via GunDB)—giving artists ownership of their distribution without sacrificing reach.
 
-Inspired by [Faircamp](https://simonrepp.com/faircamp/).
+## Quick Start
+
+The fastest way to run Tunecamp is using Docker Compose.
+
+```bash
+# 1. Start the server in the background
+docker-compose up -d
+
+# 2. Access the dashboard
+# Open http://localhost:1970 in your browser
+```
+
+> **Note**: Edit `docker-compose.yml` to set your desired music and data volume paths before running.
 
 ## Features
 
@@ -16,237 +32,70 @@ Inspired by [Faircamp](https://simonrepp.com/faircamp/).
 - 🔐 **Decentralized**: GunDB integration for comments, stats, and unlock codes.
 - 📡 **Federation**: ActivityPub support to connect with the Fediverse (Mastodon, Funkwhale, etc.).
 - 🔊 **Subsonic/OpenSubsonic API**: Full compatibility with mobile apps (DSub, Symfonium, Tempo, Substreamer, Amuse, etc.).
-- 🎸 **Funkwhale Compatible**: Federation with Funkwhale instances via ActivityPub and compatible API endpoints.
 - 📦 **Docker Ready**: Easy deployment with Docker and Docker Compose.
 
-## Quick Start
+## Installation & Setup
 
-The easiest way to run Tunecamp is using Docker.
+### Using Node.js (Development)
 
-1.  **Run with Docker Compose (Recommended):**
+**Prerequisites**: Node.js 18+, npm 9+
 
-    ```bash
-    docker-compose up -d
-    ```
+```bash
+# Clone the repository
+git clone https://github.com/your-username/tunecamp.git
+cd tunecamp
 
-    _Make sure to edit `docker-compose.yml` to set your music and data volumes._
+# Install dependencies and build backend
+npm install
+npm run build
 
-2.  **Access the Dashboard:**
-    Open `http://localhost:1970` in your browser.
+# Install frontend dependencies
+cd webapp
+npm install
+cd ..
 
-## Server Configuration
-
-Tunecamp can be configured using environment variables. When using Docker, these can be set in the `environment` section of your `docker-compose.yml`.
-
-### Core Settings
-
-| Variable              | Description                                                        | Default              |
-| :-------------------- | :----------------------------------------------------------------- | :------------------- |
-| `PORT`                | The port the server will listen on.                                | `1970`               |
-| `TUNECAMP_SITE_NAME`  | The name of your Tunecamp instance.                                | `My TuneCamp Server` |
-| `TUNECAMP_PUBLIC_URL` | The public-facing URL of your server (required for ActivityPub).   | -                    |
-| `JWT_SECRET`          | Secret key for signing JSON Web Tokens. Auto-generated if not set. | -                    |
-
-### DeFi & Payments (Base Network)
-
-Tunecamp integrates with the Base network for artist payments and currency management.
-
-| Variable                     | Description                                               | Default                                      |
-| :--------------------------- | :-------------------------------------------------------- | :------------------------------------------- |
-| `TUNECAMP_OWNER_ADDRESS`     | Ethereum address of the server owner/artist.              | -                                            |
-| `TUNECAMP_RPC_URL`           | RPC URL for the Base network.                             | `https://mainnet.base.org`                   |
-| `TUNECAMP_CURRENCY_CONTRACT` | Contract address for the preferred currency (e.g., USDC). | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
-
-### GunDB & Federation
-
-| Variable             | Description                                |
-| :------------------- | :----------------------------------------- |
-| `TUNECAMP_GUN_PEERS` | Comma-separated list of GunDB relay peers. |
-| `VITE_GUN_PEERS`     | (Frontend) Same as `TUNECAMP_GUN_PEERS`.   |
-| `TUNECAMP_RELAY_URL` | ActivityPub relay URL for broadcasting.    |
-
-## Subsonic / OpenSubsonic API
-
-Tunecamp exposes a full **Subsonic API** at `/rest`, compatible with Subsonic API version **1.16.1**. This makes it compatible with all major Subsonic clients.
-
-### Tested Clients
-
-| Client      | Platform | Status |
-| :---------- | :------- | :----- |
-| DSub        | Android  | ✅     |
-| Symfonium   | Android  | ✅     |
-| Tempo       | iOS      | ✅     |
-| Substreamer | Multi    | ✅     |
-| Amuse       | Android  | ✅     |
-| play:Sub    | iOS      | ✅     |
-
-### Connection Settings
-
-- **Server URL**: `https://your-server.com/rest`
-- **Username**: Your admin username
-- **Password**: Your admin password (supports clear-text, hex-encoded `enc:`, and token+salt authentication)
-
-### Supported Endpoints
-
-#### System
-
-| Endpoint                         | Description                  |
-| :------------------------------- | :--------------------------- |
-| `ping.view`                      | Check server connectivity    |
-| `getLicense.view`                | Returns valid license        |
-| `getOpenSubsonicExtensions.view` | OpenSubsonic extensions list |
-
-#### Browsing
-
-| Endpoint                                         | Description                                 |
-| :----------------------------------------------- | :------------------------------------------ |
-| `getMusicFolders.view`                           | List music folders                          |
-| `getIndexes.view`                                | List artists alphabetically indexed         |
-| `getMusicDirectory.view`                         | Browse directory (artist → albums → tracks) |
-| `getArtists.view`                                | List all artists (ID3)                      |
-| `getArtist.view`                                 | Get artist details with albums              |
-| `getAlbum.view`                                  | Get album details with tracks               |
-| `getSong.view`                                   | Get single track details                    |
-| `getGenres.view`                                 | List all genres                             |
-| `getArtistInfo.view` / `getArtistInfo2.view`     | Artist biography and images                 |
-| `getAlbumInfo.view` / `getAlbumInfo2.view`       | Album notes and images                      |
-| `getSimilarSongs.view` / `getSimilarSongs2.view` | Discover similar songs                      |
-| `getTopSongs.view`                               | Top/popular songs                           |
-
-#### Album/Song Lists
-
-| Endpoint                                   | Description                                                                            |
-| :----------------------------------------- | :------------------------------------------------------------------------------------- |
-| `getAlbumList.view` / `getAlbumList2.view` | Album lists (random, newest, alphabetical, frequent, recent, starred, byGenre, byYear) |
-| `getRandomSongs.view`                      | Random track selection                                                                 |
-| `getSongsByGenre.view`                     | Filter songs by genre                                                                  |
-| `getStarred.view` / `getStarred2.view`     | Get starred (favorited) items                                                          |
-
-#### Media
-
-| Endpoint           | Description          |
-| :----------------- | :------------------- |
-| `stream.view`      | Stream audio files   |
-| `download.view`    | Download audio files |
-| `getCoverArt.view` | Get cover art images |
-| `getLyrics.view`   | Get track lyrics     |
-
-#### Search
-
-| Endpoint                                        | Description                                     |
-| :---------------------------------------------- | :---------------------------------------------- |
-| `search.view` / `search2.view` / `search3.view` | Full-text search across artists, albums, tracks |
-
-#### Playlists
-
-| Endpoint              | Description                 |
-| :-------------------- | :-------------------------- |
-| `getPlaylists.view`   | List all playlists          |
-| `getPlaylist.view`    | Get playlist with tracks    |
-| `createPlaylist.view` | Create or update a playlist |
-| `updatePlaylist.view` | Add/remove songs, rename    |
-| `deletePlaylist.view` | Delete a playlist           |
-
-#### Stars & Favorites
-
-| Endpoint      | Description                            |
-| :------------ | :------------------------------------- |
-| `star.view`   | Star (favorite) artists, albums, songs |
-| `unstar.view` | Remove star from items                 |
-
-#### User & Scrobbling
-
-| Endpoint             | Description                          |
-| :------------------- | :----------------------------------- |
-| `getUser.view`       | Get user details and permissions     |
-| `getUsers.view`      | List all users                       |
-| `scrobble.view`      | Record track plays (with GunDB sync) |
-| `getNowPlaying.view` | Currently playing tracks             |
-
-#### Play Queue & Bookmarks
-
-| Endpoint              | Description           |
-| :-------------------- | :-------------------- |
-| `getPlayQueue.view`   | Get saved play queue  |
-| `savePlayQueue.view`  | Save play queue state |
-| `getBookmarks.view`   | Get bookmarks         |
-| `createBookmark.view` | Create a bookmark     |
-| `deleteBookmark.view` | Delete a bookmark     |
-
-#### System & Misc
-
-| Endpoint                        | Description               |
-| :------------------------------ | :------------------------ |
-| `getScanStatus.view`            | Media library scan status |
-| `startScan.view`                | Trigger library scan      |
-| `getAvatar.view`                | Get user avatar           |
-| `getPodcasts.view`              | Podcast channels (stub)   |
-| `getInternetRadioStations.view` | Radio stations (stub)     |
-| `getShares.view`                | Shared items (stub)       |
-| `jukeboxControl.view`           | Jukebox control (stub)    |
-
-## Funkwhale Compatibility
-
-Tunecamp is compatible with **Funkwhale** for music federation via ActivityPub.
-
-### How It Works
-
-- **NodeInfo**: Tunecamp exposes Funkwhale-compatible NodeInfo at `/.well-known/nodeinfo` with library metadata, supported upload extensions, and federation settings.
-- **Federation Libraries**: The endpoint `GET /api/v1/federation/libraries` allows Funkwhale instances to discover Tunecamp's music catalog.
-- **NodeInfo 2.0**: Available at `GET /api/v1/instance/nodeinfo/2.0` for Funkwhale-style discovery.
-- **ActivityPub Notes**: Release broadcasts include Funkwhale-compatible `Audio` attachments with namespace metadata (`funkwhale:bitrate`, `funkwhale:duration`).
-- **Actor Types**: Artists are exposed as `Person` + `Artist` + `MusicArtist` types, compatible with Funkwhale's actor model.
-
-## Federation & Decentralization
-
-Tunecamp is built on a decentralized foundation:
-
-- **ActivityPub**: Connects artists with the Fediverse (Mastodon, Funkwhale, etc.). Supports followers, likes/favorites, broadcasts for new releases, and standard actor models.
-- **GunDB**: Enables decentralized music discovery, global stats, and social interactions without a central server.
-
-For a deep dive into how Tunecamp handles federation, see [FEDERATION.md](./docs/FEDERATION.md).
-
-## CLI Commands
-
-If running via Node.js, you can use the `tunecamp` CLI:
-
-- `tunecamp server [music-dir]`: Start the music server instance.
-- `tunecamp backup [target-dir]`: Backup the database.
-- `tunecamp restore <backup-file>`: Restore the database from a backup.
-
-## Development Setup
-
-If you want to run Tunecamp from source:
-
-1.  **Backend:**
-
-    ```bash
-    npm install
-    npm run build
-    npm run dev  # Starts with auto-reload
-    ```
-
-2.  **Frontend:**
-    ```bash
-    cd webapp
-    npm install
-    npm run dev
-    ```
-
-### Environment File (.env)
-
-For local development, you can create a `.env` file in the root directory:
-
-```env
-PORT=1970
-TUNECAMP_SITE_NAME=My Dev Server
-TUNECAMP_GUN_PEERS=https://shogun-relay.scobrudot.dev/gun
-VITE_GUN_PEERS=https://shogun-relay.scobrudot.dev/gun
+# Start the development server
+npm run dev &
 ```
+
+### Configuration
+
+Configuration is managed via environment variables (or an `.env` file).
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | The port the server will listen on. | `1970` |
+| `TUNECAMP_SITE_NAME` | The name of your Tunecamp instance. | `My TuneCamp Server` |
+| `TUNECAMP_PUBLIC_URL` | The public-facing URL of your server (required for ActivityPub). | - |
+| `TUNECAMP_GUN_PEERS` | Comma-separated list of GunDB relay peers. | - |
+| `VITE_GUN_PEERS` | (Frontend) Same as `TUNECAMP_GUN_PEERS`. | - |
+| `TUNECAMP_RELAY_URL` | ActivityPub relay URL for broadcasting. | - |
+
+> For DeFi and Payments configuration (Base Network), see the full Configuration Guide.
+
+## API & Integrations
+
+### Subsonic API
+
+Tunecamp exposes a full Subsonic API (version 1.16.1) at `/rest`. This allows you to use your Tunecamp library with major mobile clients like DSub, Symfonium, and Tempo.
+
+See the [Subsonic API Reference →](./docs/SUBSONIC_API.md)
+
+### REST API
+
+The platform is driven by a REST JSON API under `/api/v1/`.
+
+See the [OpenAPI Reference →](./docs/openapi.yml)
+
+### Federation
+
+Tunecamp is compatible with Funkwhale and Mastodon via ActivityPub.
+
+See the [Federation Guide →](./docs/FEDERATION.md)
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
 
 ## License
 
