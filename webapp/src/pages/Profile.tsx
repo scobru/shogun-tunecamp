@@ -13,7 +13,6 @@ import {
   Play,
   Clock,
   Globe,
-  Share2,
 } from "lucide-react";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import API from "../services/api";
