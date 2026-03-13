@@ -1,0 +1,156 @@
+openapi: 3.1.0
+info:
+  title: Tunecamp REST API
+  version: 1.0.0
+  description: |
+    The Tunecamp API provides programmatic access to the platform's music library, artists, albums, and tracks.
+    It supports querying the catalog, fetching metadata, and interacting with the decentralized ecosystem.
+
+    ## Authentication
+    Many endpoints are public (e.g., browsing the catalog). Administrative endpoints require a Bearer token in the `Authorization` header.
+
+    ## Subsonic API
+    This specification covers the native Tunecamp REST API (typically mapped under `/api/v1/`).
+    For Subsonic compatibility, use the `/rest` endpoint. See [SUBSONIC_API.md](./SUBSONIC_API.md) for details.
+
+paths:
+  /api/v1/artists:
+    get:
+      summary: List Artists
+      description: Retrieves a list of all public artists in the Tunecamp catalog.
+      operationId: getArtists
+      responses:
+        '200':
+          description: A list of artists.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Artist'
+
+  /api/v1/artists/{slug}:
+    get:
+      summary: Get Artist Details
+      description: Retrieves detailed information for a specific artist, including their profile and description.
+      operationId: getArtistBySlug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The URL-friendly slug of the artist.
+      responses:
+        '200':
+          description: The artist details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Artist'
+        '404':
+          description: Artist not found.
+
+  /api/v1/albums:
+    get:
+      summary: List Albums
+      description: Retrieves a list of all public albums across all artists.
+      operationId: getAlbums
+      responses:
+        '200':
+          description: A list of albums.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Album'
+
+  /api/v1/tracks:
+    get:
+      summary: List Tracks
+      description: Retrieves a list of all public tracks.
+      operationId: getTracks
+      responses:
+        '200':
+          description: A list of tracks.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Track'
+
+components:
+  schemas:
+    Artist:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the artist.
+        name:
+          type: string
+          description: The display name of the artist.
+        slug:
+          type: string
+          description: URL-friendly identifier.
+        description:
+          type: string
+          description: Markdown-formatted biography or description.
+        coverImage:
+          type: string
+          description: URL to the artist's profile image.
+        walletAddress:
+          type: string
+          description: Blockchain wallet address for tips or purchases.
+
+    Album:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        artistId:
+          type: string
+        artistName:
+          type: string
+        releaseDate:
+          type: string
+          format: date
+        coverImage:
+          type: string
+        price:
+          type: number
+          format: float
+
+    Track:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        artistId:
+          type: string
+        albumId:
+          type: string
+        duration:
+          type: number
+          description: Duration in seconds.
+        playCount:
+          type: integer
+        streamUrl:
+          type: string
+          description: The URL to stream the audio file.
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: A brief error code or description.
+        message:
+          type: string
+          description: Detailed error explanation.
