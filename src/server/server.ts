@@ -164,7 +164,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 
     app.use("/rest", createSubsonicRouter({ db: database, auth: authService, musicDir: config.musicDir, gundbService }));
-    app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService));
+    app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService, authMiddleware));
     app.use("/api/admin", authMiddleware.requireUser, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService, publishingService, apService));
     // Backup routes moved earlier
     app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(database));
