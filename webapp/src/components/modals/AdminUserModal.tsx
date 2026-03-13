@@ -29,7 +29,7 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
                     API.getCurrentUser()
                 ]);
                 setArtists(artistsData);
-                setIsRoot(meData.isRootAdmin);
+                setIsRoot(!!meData.isRootAdmin);
              } catch (e) {
                  console.error('Failed to load data', e);
              }
