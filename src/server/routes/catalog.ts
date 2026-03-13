@@ -53,8 +53,6 @@ export function createCatalogRoutes(database: DatabaseService): Router {
             if (!query) {
                 return res.json([]);
             }
-            // Allow single character searches
-            // if (query.length < 2) ...
 
             const results = database.search(query, req.isAdmin !== true);
             res.json(results);
