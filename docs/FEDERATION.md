@@ -11,7 +11,8 @@ GunDB is used for features that require real-time, decentralized synchronization
 - **Community Registry**: Servers can register themselves in a global decentralized directory.
 - **Music Discovery**: The "Network" page scans GunDB peers to discover other Tunecamp instances and their public tracks.
 - **Social Features**: Comments, track play/download stats, and user playlists are stored in GunDB.
-- **Identity (SEA)**: Each server and user has a cryptographic keypair (SEA) for signing and verifying data.
+- **Identity (SEA)**: Each server and user has a cryptographic keypair (SEA) for signing data, verifying social interactions, and authenticating across instances.
+- **Cross-Instance Roaming**: Users can log in to any sibling instance using their GunDB identity. The instance verifies their cryptographic proof and lazily creates a local profile.
 
 ### Secure Graph Strategy
 
@@ -20,6 +21,14 @@ Tunecamp uses a "Secure Graph" approach:
 1.  **Authoritative Data**: Data signed by a server's public key is stored in its specific namespace.
 2.  **Public Directory**: A reference (link) is placed in a public directory namespace (`tunecamp-community`).
 3.  **Verification**: When discovery scans the network, it validates the data against the sender's public key.
+
+### Decentralized Identity & Auth Flow
+
+Tunecamp implements a **GunDB-first authentication** flow:
+
+1.  **Registration**: A GunDB SEA keypair is generated on the client. The backend verifies the cryptographic signature of the username before creating the local account, linking the public key.
+2.  **Login**: The client authenticates against GunDB peers first. It then generates a proof-of-possession (signature) sent to the backend.
+3.  **Roaming**: If a user hits a new Tunecamp instance where they don't have an account, they provide their GunDB proof. The backend verifies this against the peer network and lazily creates a local SQLite entry and Artist profile, allowing "session roaming."
 
 ### Configuration
 
@@ -94,9 +103,6 @@ When a Subsonic client scrobbles a track (`scrobble.view`), Tunecamp records the
 | Likes / Favorites    | ActivityPub  | External (Mastodon, etc)  |
 | Release Notification | ActivityPub  | External (Mastodon, etc)  |
 | Funkwhale Federation | ActivityPub  | External (Funkwhale)      |
-| Global Track Search  | GunDB        | Internal (Tunecamp Nodes) |
-| Comments & Likes     | GunDB        | Internal (Tunecamp Nodes) |
-| Playcounts           | GunDB        | Internal (Tunecamp Nodes) |
-| User Playlists       | GunDB        | Internal (Tunecamp Nodes) |
+| User Identity / Roaming | GunDB        | Internal (Tunecamp Nodes) |
 | Mobile Streaming     | Subsonic API | External (Any client)     |
-| Starred/Favorites    | Subsonic API | Local (per user)          |
+| Starred / Favorites  | Subsonic API | Local (per user)          |

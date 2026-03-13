@@ -16,8 +16,11 @@ Tunecamp exposes a full **Subsonic API** at `/rest`, compatible with Subsonic AP
 ## Connection Settings
 
 - **Server URL**: `https://your-server.com/rest`
-- **Username**: Your admin username
-- **Password**: Your admin password (supports clear-text, hex-encoded `enc:`, and token+salt authentication)
+- **Username**: Your Tunecamp username (administrator or artist)
+- **Password**: Your account password
+
+> [!NOTE]
+> **Roaming Users**: To use Subsonic on a new instance, you must first log in to that instance via the web interface at least once. This triggers the **Lazy Account Creation** (roaming) which sets up your local profile and credentials required for Subsonic authentication.
 
 ## Supported Endpoints
 

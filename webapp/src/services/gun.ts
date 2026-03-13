@@ -50,6 +50,20 @@ export const GunAuth = {
 
     // Initialize/Recall session
     init: async (): Promise<GunProfile | null> => {
+        // Fetch and add additional peers from settings
+        try {
+            const settings = await API.getSiteSettings();
+            if (settings.gunPeers) {
+                const settingPeers = settings.gunPeers.split(',').map(p => p.trim()).filter(p => p.length > 0);
+                if (settingPeers.length > 0) {
+                    console.log(`🌐 Adding ${settingPeers.length} GunDB peers from site settings`);
+                    gun.opt({ peers: settingPeers });
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to fetch GunDB peers from settings:", e);
+        }
+
         return new Promise((resolve) => {
             // Attempt to recall session
             user.recall({ sessionStorage: true }, (_ack: any) => {

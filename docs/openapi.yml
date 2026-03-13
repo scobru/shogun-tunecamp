@@ -14,7 +14,68 @@ info:
     For Subsonic compatibility, use the `/rest` endpoint. See [SUBSONIC_API.md](./SUBSONIC_API.md) for details.
 
 paths:
-  /api/v1/artists:
+  /api/auth/login:
+    post:
+      summary: User Login
+      description: |
+        Authenticates a user. Supports decentralized proof-of-possession (roaming) via GunDB.
+        If the user is known on the GunDB peer network but not locally, the backend lazily creates a local profile.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                pubKey:
+                  type: string
+                  description: Optional GunDB public key for decentralized roaming.
+                proof:
+                  type: string
+                  description: Cryptographic signature of the username proving ownership of the pubKey.
+      responses:
+        '200':
+          description: Successful authentication. Returns JWT and GunDB pair.
+        '401':
+          description: Invalid credentials or signature.
+
+  /api/users/register:
+    post:
+      summary: User Registration
+      description: |
+        Registers a new user on the platform. Prioritizes GunDB identity linking.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                pubKey:
+                  type: string
+                  description: The user's GunDB SEA public key.
+                signature:
+                  type: string
+                  description: A proof-of-possession signature to verify the identity link.
+      responses:
+        '200':
+          description: Registration successful.
+        '409':
+          description: Username already taken.
+
+  /api/artists:
     get:
       summary: List Artists
       description: Retrieves a list of all public artists in the Tunecamp catalog.
@@ -29,7 +90,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Artist'
 
-  /api/v1/artists/{slug}:
+  /api/artists/{slug}:
     get:
       summary: Get Artist Details
       description: Retrieves detailed information for a specific artist, including their profile and description.
@@ -51,7 +112,7 @@ paths:
         '404':
           description: Artist not found.
 
-  /api/v1/albums:
+  /api/albums:
     get:
       summary: List Albums
       description: Retrieves a list of all public albums across all artists.
@@ -66,7 +127,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Album'
 
-  /api/v1/tracks:
+  /api/tracks:
     get:
       summary: List Tracks
       description: Retrieves a list of all public tracks.

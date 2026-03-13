@@ -79,8 +79,9 @@ export function createCatalogRoutes(database: DatabaseService): Router {
             const coverImage = database.getSetting("coverImage") || undefined;
             const mode = database.getSetting("mode") || 'label';
             const siteId = database.getSetting("siteId") || "";
+            const gunPeers = database.getSetting("gunPeers") || "";
 
-            res.json({ siteName, siteDescription, donationLinks, backgroundImage, coverImage, mode, siteId });
+            res.json({ siteName, siteDescription, donationLinks, backgroundImage, coverImage, mode, siteId, gunPeers });
         } catch (error) {
             console.error("Error getting settings:", error);
             res.status(500).json({ error: "Failed to get settings" });

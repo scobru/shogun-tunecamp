@@ -101,8 +101,24 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
     async function init(): Promise<boolean> {
         try {
+            // Load peers from settings if not provided in constructor
+            let initializationPeers = activePeers;
+            const storedPeers = database.getSetting("gunPeers");
+            if (!peers || peers.length === 0) {
+                if (storedPeers) {
+                    try {
+                        initializationPeers = storedPeers.split(",").map(p => p.trim()).filter(p => p.length > 0);
+                        console.log(`🌐 Using ${initializationPeers.length} GunDB peers from database settings`);
+                    } catch (e) {
+                        console.warn("⚠️ Invalid GunDB peers in settings, falling back to defaults");
+                    }
+                } else {
+                    console.log(`🌐 Using ${initializationPeers.length} default GunDB peers`);
+                }
+            }
+
             gun = Gun({
-                peers: activePeers,
+                peers: initializationPeers,
                 localStorage: false,
                 radisk: true,
                 file: "./radata",

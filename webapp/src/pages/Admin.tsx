@@ -339,6 +339,25 @@ const AdminSettingsPanel = () => {
           placeholder="https://your-site.com"
         />
       </div>
+      
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text">
+            GunDB Peers (Comma separated)
+          </span>
+          <span className="label-text-alt opacity-50">
+            Leave empty for defaults
+          </span>
+        </label>
+        <textarea
+          className="textarea textarea-bordered h-20"
+          value={settings.gunPeers || ""}
+          onChange={(e) =>
+            setSettings({ ...settings, gunPeers: e.target.value })
+          }
+          placeholder="https://peer1.com/gun, https://peer2.com/gun"
+        />
+      </div>
 
       <div className="form-control">
         <label className="label">

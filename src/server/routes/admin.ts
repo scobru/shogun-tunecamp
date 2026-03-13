@@ -129,7 +129,7 @@ export function createAdminRoutes(
                 return res.status(403).json({ error: "Only root admin can change site settings" });
             }
 
-            const { siteName, siteDescription, publicUrl, artistName, coverImage, mode } = req.body;
+            const { siteName, siteDescription, publicUrl, artistName, coverImage, mode, gunPeers } = req.body;
             let settingsChanged = false;
 
             if (siteName !== undefined) {
@@ -158,6 +158,10 @@ export function createAdminRoutes(
             }
             if (req.body.backgroundImage !== undefined) {
                 database.setSetting("backgroundImage", req.body.backgroundImage);
+            }
+            if (gunPeers !== undefined) {
+                database.setSetting("gunPeers", gunPeers);
+                settingsChanged = true;
             }
 
             // Re-register on GunDB if settings changed and publicUrl is available

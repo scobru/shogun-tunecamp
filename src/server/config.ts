@@ -65,12 +65,7 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
         corsOrigins: process.env.TUNECAMP_CORS_ORIGINS?.split(",") || [],
         publicUrl: process.env.TUNECAMP_PUBLIC_URL || overrides?.publicUrl,
         siteName: process.env.TUNECAMP_SITE_NAME || overrides?.siteName,
-        gunPeers: process.env.TUNECAMP_GUN_PEERS?.split(",") || overrides?.gunPeers || [
-            "https://shogun-relay.scobrudot.dev/gun",
-            "https://gun.defucc.me/gun",
-            "https://gun.o8.is/gun",
-            "https://relay.peer.ooo/gun",
-        ],
+        gunPeers: process.env.TUNECAMP_GUN_PEERS?.split(",") || overrides?.gunPeers,
         adminUser: process.env.TUNECAMP_ADMIN_USER || overrides?.adminUser || "admin",
         adminPass: process.env.TUNECAMP_ADMIN_PASS || overrides?.adminPass || "admin",
         ...overrides,

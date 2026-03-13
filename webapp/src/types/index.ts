@@ -109,6 +109,7 @@ export interface SiteSettings {
     allowPublicRegistration?: boolean;
     backgroundImage?: string;
     donationLinks?: ArtistLink[];
+    gunPeers?: string;
 }
 
 export interface Release extends Album {

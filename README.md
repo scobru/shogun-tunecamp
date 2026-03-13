@@ -29,7 +29,7 @@ docker-compose up -d
 - 🎵 **Audio-first**: Automatically reads metadata and generates waveforms from your audio files.
 - 🖥️ **Streaming Server**: Personal streaming server with a modern web interface.
 - 🎨 **Customizable**: Responsive UI with theme support.
-- 🔐 **Decentralized**: GunDB integration for comments, stats, and unlock codes.
+- 🔐 **Decentralized**: GunDB integration for comments, stats, and identity roaming (cross-instance login).
 - 📡 **Federation**: ActivityPub support to connect with the Fediverse (Mastodon, Funkwhale, etc.).
 - 🔊 **Subsonic/OpenSubsonic API**: Full compatibility with mobile apps (DSub, Symfonium, Tempo, Substreamer, Amuse, etc.).
 - 📦 **Docker Ready**: Easy deployment with Docker and Docker Compose.
@@ -83,7 +83,7 @@ See the [Subsonic API Reference →](./docs/SUBSONIC_API.md)
 
 ### REST API
 
-The platform is driven by a REST JSON API under `/api/v1/`.
+The platform is driven by a REST JSON API under `/api/`.
 
 See the [OpenAPI Reference →](./docs/openapi.yml)
 
