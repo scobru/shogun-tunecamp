@@ -296,6 +296,28 @@ export function createAdminRoutes(
     });
 
     /**
+     * POST /api/admin/system/consolidate
+     * Consolidate files in the filesystem based on DB tags
+     */
+    router.post("/system/consolidate", async (req: any, res) => {
+        try {
+            // Only root admin can trigger consolidation
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can trigger file consolidation" });
+            }
+
+            const result = await scanner.consolidateFiles(musicDir);
+            res.json({ 
+                message: "File consolidation completed",
+                ...result
+            });
+        } catch (error) {
+            console.error("Error consolidating files:", error);
+            res.status(500).json({ error: "Failed to consolidate files" });
+        }
+    });
+
+    /**
      * POST /api/admin/network/cleanup
      * Force global cleanup of unreachable sites in GunDB network
      */

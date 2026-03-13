@@ -223,6 +223,7 @@ export const API = {
     // --- Admin: System ---
     getListeningStats: () => handleResponse(api.get<any>('/stats/library/overview')),
     cleanupNetwork: () => handleResponse(api.post('/admin/network/cleanup')),
+    consolidateFiles: () => handleResponse(api.post<{ message: string, success: number, failed: number, skipped: number }>('/admin/system/consolidate')),
     getAdminStats: (options: { mine?: boolean } = {}) => handleResponse(api.get<AdminStats>(`/admin/stats${options.mine ? '?mine=true' : ''}`)),
     getBrowser: (path = '') => handleResponse(api.get<any>(`/browser?path=${encodeURIComponent(path)}`)),
     deleteBrowserPath: (path: string) => handleResponse(api.delete(`/browser?path=${encodeURIComponent(path)}`)),

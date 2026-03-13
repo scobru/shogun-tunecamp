@@ -66,16 +66,22 @@ export const Admin = () => {
     }
   };
 
-  const handleSystemAction = async (action: "cleanup") => {
+  const handleSystemAction = async (action: "cleanup" | "consolidate") => {
+    const isCleanup = action === "cleanup";
     if (
       !confirm(
-        `Are you sure you want to cleanup the network? This may take a while.`,
+        `Are you sure you want to ${isCleanup ? "cleanup the network" : "consolidate files"}? This may take a while.`,
       )
     )
       return;
     try {
-      if (action === "cleanup") await API.cleanupNetwork();
-      alert(`Network cleanup finished successfully.`);
+      if (isCleanup) {
+        await API.cleanupNetwork();
+        alert(`Network cleanup finished successfully.`);
+      } else {
+        const res = await API.consolidateFiles();
+        alert(`File consolidation finished. Success: ${res.success}, Failed: ${res.failed}, Skipped: ${res.skipped}`);
+      }
     } catch (e) {
       console.error(e);
       alert("Failed to start action");
@@ -194,6 +200,25 @@ export const Admin = () => {
                       onClick={() => handleSystemAction("cleanup")}
                     >
                       Network Cleanup
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card bg-base-200 border border-white/5">
+                <div className="card-body">
+                  <h2 className="card-title text-primary">
+                    <Save /> Consolidate
+                  </h2>
+                  <p className="opacity-70 text-sm">
+                    Rename physical files to "Artist - Title" format based on database tags.
+                  </p>
+                  <div className="card-actions justify-end mt-4">
+                    <button
+                      className="btn btn-primary btn-outline"
+                      onClick={() => handleSystemAction("consolidate")}
+                    >
+                      Consolidate Files
                     </button>
                   </div>
                 </div>

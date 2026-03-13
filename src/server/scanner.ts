@@ -117,6 +117,7 @@ export interface ScannerService {
     startWatching(dir: string): void;
     stopWatching(): void;
     processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
+    consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number }>;
 }
 
 export class Scanner implements ScannerService {
@@ -1006,5 +1007,109 @@ export class Scanner implements ScannerService {
             this.watcher.close();
             this.watcher = null;
         }
+    }
+
+    public async consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number }> {
+        console.log("[Scanner] Starting file consolidation...");
+        const tracks = this.database.getTracks();
+        let success = 0;
+        let failed = 0;
+        let skipped = 0;
+
+        for (const track of tracks) {
+            // Only process local tracks with files
+            if (!track.file_path) {
+                skipped++;
+                continue;
+            }
+
+            try {
+                const artist = track.artist_id ? this.database.getArtist(track.artist_id) : null;
+                const artistName = artist?.name || "Unknown Artist";
+                const cleanTitle = track.title.trim() || "Untitled";
+                const cleanArtist = artistName.trim() || "Unknown Artist";
+                
+                // Construct new filename base: "Artist - Title"
+                // Using a safe sanitization for filenames
+                const safeName = (name: string) => name.replace(/[^a-zA-Z0-9\s._-]/g, "_").trim();
+                const newBaseName = `${safeName(cleanArtist)} - ${safeName(cleanTitle)}`;
+                
+                // Process primary file (usually .mp3)
+                const oldPath = track.file_path;
+                const ext = path.extname(oldPath).toLowerCase();
+                const newPath = path.join(path.dirname(oldPath), `${newBaseName}${ext}`).replace(/\\/g, "/");
+
+                // Process lossless if exists
+                const oldLossless = track.lossless_path;
+                let newLossless = null;
+                if (oldLossless) {
+                    const lExt = path.extname(oldLossless).toLowerCase();
+                    newLossless = path.join(path.dirname(oldLossless), `${newBaseName}${lExt}`).replace(/\\/g, "/");
+                }
+
+                // Check if already correctly named
+                if (oldPath === newPath && (!oldLossless || oldLossless === newLossless)) {
+                    skipped++;
+                    continue;
+                }
+
+                // Perform move operations
+                let movedAny = false;
+
+                // Move primary
+                const fullOldPath = path.join(musicDir, oldPath);
+                const fullNewPath = path.join(musicDir, newPath);
+
+                if (fullOldPath !== fullNewPath && await fs.pathExists(fullOldPath)) {
+                    // Handle collision if file already exists at target
+                    let finalNewPath = fullNewPath;
+                    let finalDBPath = newPath;
+                    if (await fs.pathExists(fullNewPath)) {
+                        const uniqueId = Date.now().toString().slice(-4);
+                        finalNewPath = path.join(path.dirname(fullNewPath), `${newBaseName}_${uniqueId}${ext}`);
+                        finalDBPath = path.join(path.dirname(newPath), `${newBaseName}_${uniqueId}${ext}`).replace(/\\/g, "/");
+                    }
+
+                    await fs.move(fullOldPath, finalNewPath, { overwrite: true });
+                    this.database.updateTrackPath(track.id, finalDBPath, track.album_id);
+                    movedAny = true;
+                }
+
+                // Move lossless
+                if (oldLossless && newLossless && oldLossless !== newLossless) {
+                    const fullOldLossless = path.join(musicDir, oldLossless);
+                    const fullNewLossless = path.join(musicDir, newLossless);
+                    if (await fs.pathExists(fullOldLossless)) {
+                        let finalNewLossless = fullNewLossless;
+                        let finalDBLossless = newLossless;
+                        const lExt = path.extname(oldLossless).toLowerCase();
+                        
+                        if (await fs.pathExists(fullNewLossless)) {
+                            const uniqueId = Date.now().toString().slice(-4);
+                            finalNewLossless = path.join(path.dirname(fullNewLossless), `${newBaseName}_${uniqueId}${lExt}`);
+                            finalDBLossless = path.join(path.dirname(newLossless), `${newBaseName}_${uniqueId}${lExt}`).replace(/\\/g, "/");
+                        }
+
+                        await fs.move(fullOldLossless, finalNewLossless, { overwrite: true });
+                        this.database.updateTrackLosslessPath(track.id, finalDBLossless);
+                        movedAny = true;
+                    }
+                }
+
+                if (movedAny) {
+                    success++;
+                    console.log(`  [Consolidate] Renamed ID ${track.id} to: ${newBaseName}`);
+                } else {
+                    skipped++;
+                }
+
+            } catch (err) {
+                console.error(`  [Consolidate] Failed to consolidate track ${track.id}:`, err);
+                failed++;
+            }
+        }
+
+        console.log(`[Consolidate] Done. Success: ${success}, Failed: ${failed}, Skipped: ${skipped}`);
+        return { success, failed, skipped };
     }
 }
