@@ -98,10 +98,16 @@ COPY --from=builder /app/webapp/public ./webapp/public
 # Create directories for data persistence
 RUN mkdir -p /music /data /radata
 
+# Re-declare ARGs for production stage
+ARG TUNECAMP_ADMIN_USER
+ARG TUNECAMP_ADMIN_PASS
+
 # Environment variables
 ENV NODE_ENV=production
 ENV TUNECAMP_DB_PATH=/data/tunecamp.db
 ENV RADATA_PATH=/radata
+ENV TUNECAMP_ADMIN_USER=$TUNECAMP_ADMIN_USER
+ENV TUNECAMP_ADMIN_PASS=$TUNECAMP_ADMIN_PASS
 
 # Expose default port
 EXPOSE 1970

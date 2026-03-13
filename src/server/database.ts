@@ -684,20 +684,6 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.log("📦 Migrated database: added hash column to tracks");
     } catch (e) { }
 
-    // Migration: Backfill ownership tables from owner_id columns
-    try {
-        db.exec(`
-            INSERT OR IGNORE INTO album_ownership (album_id, owner_id)
-            SELECT id, owner_id FROM albums WHERE owner_id IS NOT NULL;
-        `);
-        db.exec(`
-            INSERT OR IGNORE INTO track_ownership (track_id, owner_id)
-            SELECT id, owner_id FROM tracks WHERE owner_id IS NOT NULL;
-        `);
-        console.log("📦 Migrated database: backfilled ownership tables");
-    } catch (e) {
-        console.error("Migration error (ownership backfill):", e);
-    }
 
     // Migration: Add is_release column if it doesn't exist
     try {
@@ -1080,6 +1066,21 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.log("📦 Migrated database: added owner_id column to tracks");
         db.prepare("UPDATE tracks SET owner_id = artist_id WHERE owner_id IS NULL").run();
     } catch (e) { }
+
+    // Migration: Backfill ownership tables from owner_id columns
+    try {
+        db.exec(`
+            INSERT OR IGNORE INTO album_ownership (album_id, owner_id)
+            SELECT id, owner_id FROM albums WHERE owner_id IS NOT NULL;
+        `);
+        db.exec(`
+            INSERT OR IGNORE INTO track_ownership (track_id, owner_id)
+            SELECT id, owner_id FROM tracks WHERE owner_id IS NOT NULL;
+        `);
+        console.log("📦 Migrated database: backfilled ownership tables");
+    } catch (e) {
+        console.error("Migration error (ownership backfill):", e);
+    }
 
     // Optimized: Pre-compile frequent queries
     const getArtistStmt = db.prepare("SELECT * FROM artists WHERE id = ?");
