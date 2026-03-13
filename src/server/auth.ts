@@ -56,7 +56,9 @@ export interface AuthService {
 
 export function createAuthService(
     db: Database,
-    jwtSecret: string
+    jwtSecret: string,
+    adminUser: string = "admin",
+    adminPass: string = "admin"
 ): AuthService {
     // Ensure admin table exists with new schema
     try {
@@ -151,9 +153,29 @@ export function createAuthService(
 
     return {
         async init(): Promise<void> {
+            const user = db.prepare("SELECT id, password_hash, role FROM admin WHERE username = ?").get(adminUser) as { id: number; password_hash: string; role: UserRole } | undefined;
+            
+            if (!user) {
+                console.log(`🔐 Admin user '${adminUser}' not found. Creating from configuration...`);
+                await this.createAdmin(adminUser, adminPass);
+            } else {
+                // Ensure password matches the configuration (Source of Truth)
+                const passwordMatches = await this.verifyPassword(adminPass, user.password_hash);
+                if (!passwordMatches) {
+                    console.log(`🔐 Updating password for admin user '${adminUser}' to match configuration...`);
+                    await this.changePassword(adminUser, adminPass);
+                }
+                
+                // Ensure role is admin
+                if (user.role !== 'admin') {
+                    console.log(`🔐 Updating role for user '${adminUser}' to 'admin'...`);
+                    db.prepare("UPDATE admin SET role = 'admin' WHERE id = ?").run(user.id);
+                }
+            }
+
             const count = (db.prepare("SELECT COUNT(*) as count FROM admin").get() as any).count;
             if (count === 0) {
-                console.log("🆕 First run detected: Waiting for setup to create admin account");
+                console.log("🆕 First run detected: No users found in database.");
             }
         },
 

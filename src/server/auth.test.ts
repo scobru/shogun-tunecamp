@@ -1,7 +1,9 @@
 import { createAuthService } from "./auth.js";
-import Database from "better-sqlite3";
+import sqlite3 from "better-sqlite3";
 import { jest } from '@jest/globals';
 import jwt from "jsonwebtoken";
+
+const Database = sqlite3;
 
 describe("AuthService", () => {
     let db: any;
@@ -17,11 +19,11 @@ describe("AuthService", () => {
         if (db) db.close();
     });
 
-    test("init does not create default admin", async () => {
+    test("init creates default admin if configured", async () => {
         const admin = db.prepare("SELECT * FROM admin WHERE username = ?").get("admin");
-        expect(admin).toBeUndefined();
-
-
+        expect(admin).toBeDefined();
+        expect(admin.username).toBe("admin");
+        expect(admin.role).toBe("admin");
     });
 
     test("isDefaultPassword returns true for default password tunecamp", async () => {

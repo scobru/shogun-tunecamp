@@ -57,7 +57,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const database = createDatabase(config.dbPath);
 
     // Initialize auth
-    const authService = createAuthService(database.db, config.jwtSecret);
+    const authService = createAuthService(database.db, config.jwtSecret, config.adminUser, config.adminPass);
     await authService.init();
     const authMiddleware = createAuthMiddleware(authService);
 

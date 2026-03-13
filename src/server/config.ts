@@ -13,6 +13,8 @@ export interface ServerConfig {
     siteDescription?: string;
     relayUrl?: string;
     gunPeers?: string[];
+    adminUser?: string;
+    adminPass?: string;
 }
 
 /**
@@ -55,6 +57,8 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
             "https://gun.o8.is/gun",
             "https://relay.peer.ooo/gun",
         ],
+        adminUser: process.env.TUNECAMP_ADMIN_USER || overrides?.adminUser || "admin",
+        adminPass: process.env.TUNECAMP_ADMIN_PASS || overrides?.adminPass || "admin",
         ...overrides,
     };
 }

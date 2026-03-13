@@ -28,8 +28,6 @@ export const Admin = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
     | "overview"
-    | "albums"
-    | "tracks"
     | "users"
     | "artists"
     | "settings"
@@ -127,20 +125,6 @@ export const Admin = () => {
         </a>
         <a
           role="tab"
-          className={`tab ${activeTab === "albums" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("albums")}
-        >
-          Albums
-        </a>
-        <a
-          role="tab"
-          className={`tab ${activeTab === "tracks" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("tracks")}
-        >
-          Tracks
-        </a>
-        <a
-          role="tab"
           className={`tab ${activeTab === "users" ? "tab-active" : ""}`}
           onClick={() => setActiveTab("users")}
         >
@@ -223,22 +207,6 @@ export const Admin = () => {
             <h3 className="font-bold text-lg">Quick Actions</h3>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <button
-                className="btn btn-primary gap-2"
-                onClick={() =>
-                  document.dispatchEvent(
-                    new CustomEvent("open-upload-tracks-modal"),
-                  )
-                }
-              >
-                📤 Upload Tracks
-              </button>
-              <button
-                className="btn btn-secondary gap-2"
-                onClick={() => navigate("/admin/release/new")}
-              >
-                💿 New Release
-              </button>
-              <button
                 className="btn btn-outline gap-2"
                 onClick={() =>
                   document.dispatchEvent(
@@ -305,34 +273,6 @@ export const Admin = () => {
           </div>
         )}
 
-        {activeTab === "albums" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold text-lg">Releases</h3>
-              <div className="flex gap-2">
-                <button
-                  className="btn btn-sm btn-outline"
-                  onClick={() =>
-                    document.dispatchEvent(
-                      new CustomEvent("open-create-post-modal"),
-                    )
-                  }
-                >
-                  Create Post
-                </button>
-                <button
-                  className="btn btn-sm btn-primary"
-                  onClick={() => navigate("/admin/release/new")}
-                >
-                  Create Release
-                </button>
-              </div>
-            </div>
-            <AdminReleasesList />
-          </div>
-        )}
-
-        {activeTab === "tracks" && <AdminTracksList />}
 
         {activeTab === "settings" && <AdminSettingsPanel />}
         {activeTab === "identity" && <IdentityPanel isAdmin={adminUser?.isAdmin} />}
