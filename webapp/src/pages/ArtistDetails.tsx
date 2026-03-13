@@ -85,6 +85,9 @@ export const ArtistDetails = () => {
                      </figure>
                      <div className="flex-1 space-y-2">
                          <h1 className="text-5xl md:text-7xl font-black tracking-tight">{artist.name}</h1>
+                         {artist.bio && (
+                             <p className="text-lg opacity-80 max-w-2xl line-clamp-2" title={artist.bio}>{artist.bio}</p>
+                         )}
                          <div className="flex items-center gap-4 text-sm font-bold opacity-70">
                             <span>{albums.length} Releases</span>
                          </div>

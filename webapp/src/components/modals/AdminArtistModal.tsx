@@ -10,7 +10,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
     const dialogRef = useRef<HTMLDialogElement>(null);
     const [name, setName] = useState('');
     const [slug, setSlug] = useState('');
-    const [description, setDescription] = useState('');
+    const [bio, setBio] = useState('');
     
     // ActivityPub / Mastodon Conf
     const [mastodonInstance, setMastodonInstance] = useState('');
@@ -37,7 +37,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 setEditId(artist.id);
                 setName(artist.name || '');
                 setSlug(artist.slug || '');
-                setDescription(artist.description || '');
+                setBio(artist.bio || artist.description || '');
                 
                 // Parse postParams for Mastodon
                 if (artist.postParams) {
@@ -79,7 +79,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 setEditId(null);
                 setName('');
                 setSlug('');
-                setDescription('');
+                setBio('');
                 setMastodonInstance('');
                 setMastodonToken('');
                 setDonationUrl('');
@@ -118,7 +118,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 artist = await API.updateArtist(editId, {
                     name,
                     slug: slug || undefined,
-                    description,
+                    bio,
                     links: allLinks,
                     postParams: postParamsValue,
                     walletAddress: walletAddress || undefined
@@ -127,7 +127,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 artist = await API.createArtist({ 
                     name, 
                     slug: slug || undefined, 
-                    description,
+                    bio,
                     links: allLinks,
                     postParams: postParamsValue,
                     walletAddress: walletAddress || undefined
@@ -194,8 +194,8 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                         </label>
                         <textarea 
                             className="textarea textarea-bordered h-24" 
-                            value={description}
-                            onChange={e => setDescription(e.target.value)}
+                            value={bio}
+                            onChange={e => setBio(e.target.value)}
                         />
                     </div>
 

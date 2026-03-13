@@ -158,7 +158,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
      */
     router.get("/full", async (req: any, res) => {
         try {
-            if (req.artistId) {
+            if (!req.isRootAdmin) {
                 return res.status(403).send("Unauthorized: Backups restricted to Root Admin");
             }
 
@@ -237,7 +237,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
      */
     router.get("/audio", async (req: any, res) => {
         try {
-            if (req.artistId) {
+            if (!req.isRootAdmin) {
                 return res.status(403).send("Unauthorized: Backups restricted to Root Admin");
             }
             const archive = archiver("zip", { zlib: { level: 0 } }); // Store only, faster for audio
@@ -261,7 +261,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
      * Upload and restore backup (Legacy/Single File)
      */
     router.post("/restore", upload.single("backup") as any, (req: any, res) => {
-        if (req.artistId) {
+        if (!req.isRootAdmin) {
             return res.status(403).send("Unauthorized: Restore restricted to Root Admin");
         }
         if (!req.file) {
@@ -283,7 +283,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
      */
     router.post("/chunk", upload.single("chunk") as any, async (req: any, res) => {
         try {
-            if (req.artistId) return res.status(403).send("Unauthorized");
+            if (!req.isRootAdmin) return res.status(403).send("Unauthorized");
 
             let uploadId = req.body.uploadId;
             if (!uploadId || typeof uploadId !== 'string') {
@@ -328,7 +328,7 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
      */
     router.post("/restore-chunked", express.json(), async (req: any, res) => {
         try {
-            if (req.artistId) return res.status(403).send("Unauthorized");
+            if (!req.isRootAdmin) return res.status(403).send("Unauthorized");
 
             let uploadId = req.body.uploadId;
             if (!uploadId || typeof uploadId !== 'string') return res.status(400).send("Missing or invalid uploadId");

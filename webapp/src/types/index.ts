@@ -31,6 +31,7 @@ export interface Artist {
     name: string;
     slug?: string;
     description?: string;
+    bio?: string;
     coverImage?: string;
     postParams?: any; // ActivityPub actor
     links?: ArtistLink[];
