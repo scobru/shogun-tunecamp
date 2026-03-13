@@ -131,6 +131,7 @@ export const API = {
 
     // --- ActivityPub Notes ---
     getPublishedContent: (artistId: string | number) => handleResponse(api.get<any[]>(`/ap/published/${artistId}`)),
+    getArtistFollowers: (artistId: string | number) => handleResponse(api.get<any[]>(`/ap/followers/${artistId}`)),
     deletePublishedContent: (noteId: string) => handleResponse(api.delete(`/ap/note?id=${encodeURIComponent(noteId)}`)),
 
     // --- Network ---

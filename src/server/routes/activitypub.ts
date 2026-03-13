@@ -392,6 +392,27 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
         res.json(notes);
     });
 
+    // Get followers for artist with actor details
+    router.get("/followers/:artistId", (req, res) => {
+        const { artistId } = req.params;
+        const followers = db.getFollowers(Number(artistId));
+
+        const enrichedFollowers = followers.map(f => {
+            const actor = db.getRemoteActor(f.actor_uri);
+            return {
+                uri: f.actor_uri,
+                created_at: f.created_at,
+                actor: actor ? {
+                    name: actor.name || actor.username || 'Unknown',
+                    username: actor.username || 'unknown',
+                    icon_url: actor.icon_url,
+                    uri: actor.uri
+                } : null
+            };
+        });
+        res.json(enrichedFollowers);
+    });
+
     // Delete published note
     router.delete("/note", authMiddleware.requireAdmin, async (req: any, res) => {
         const noteId = req.query.id as string;
