@@ -67,7 +67,7 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
                 const margin = expectedEth * 0.05;
                 if (paidEth < expectedEth - margin) {
                     console.warn(`Insufficient payment: paid ${paidEth} ETH, expected ~${expectedEth} ETH`);
-                    // return res.status(400).json({ error: "Insufficient payment amount" });
+
                 }
             }
 
