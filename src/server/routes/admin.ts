@@ -652,5 +652,70 @@ export function createAdminRoutes(
         }
     });
 
+    /**
+     * GET /api/admin/network/ap/peers
+     * List followed ActivityPub actors
+     */
+    router.get("/network/ap/peers", async (req: any, res) => {
+        try {
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can view peers" });
+            }
+            const peers = database.getFollowedActors();
+            res.json(peers);
+        } catch (error) {
+            console.error("Error listing peers:", error);
+            res.status(500).json({ error: "Failed to list peers" });
+        }
+    });
+
+    /**
+     * POST /api/admin/network/ap/unfollow
+     * Unfollow a remote ActivityPub actor
+     */
+    router.post("/network/ap/unfollow", async (req: any, res) => {
+        try {
+            if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can unfollow peers" });
+            }
+            const { url } = req.body;
+            if (!url) {
+                return res.status(400).json({ error: "URL is required" });
+            }
+
+            await apService.unfollowRemoteActor(url, "site");
+            res.json({ message: `Successfully sent unfollow request to ${url}` });
+        } catch (error: any) {
+            console.error("Error unfollowing AP actor:", error);
+            res.status(500).json({ error: error.message || "Failed to unfollow remote actor" });
+        }
+    });
+
+    /**
+     * POST /api/admin/network/ap/sync
+     * Force sync remote actors content
+     */
+    router.post("/network/ap/sync", async (req: any, res) => {
+        try {
+             if (!authService.isRootAdmin(req.username || "")) {
+                return res.status(403).json({ error: "Only root admin can sync peers" });
+            }
+            const { url } = req.body;
+            if (url) {
+                await apService.fetchRemoteOutbox(url);
+                res.json({ message: `Sync triggered for ${url}` });
+            } else {
+                const peers = database.getFollowedActors();
+                for (const peer of peers) {
+                    apService.fetchRemoteOutbox(peer.uri).catch(e => console.error(`Failed to sync ${peer.uri}:`, e));
+                }
+                res.json({ message: `Sync triggered for ${peers.length} peers` });
+            }
+        } catch (error: any) {
+            console.error("Error syncing AP actors:", error);
+            res.status(500).json({ error: error.message || "Failed to sync remote actors" });
+        }
+    });
+
     return router;
 }

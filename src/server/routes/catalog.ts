@@ -88,5 +88,33 @@ export function createCatalogRoutes(database: DatabaseService): Router {
         }
     });
 
+    /**
+     * GET /api/catalog/remote/tracks
+     * List federated tracks
+     */
+    router.get("/remote/tracks", (req, res) => {
+        try {
+            const tracks = database.getRemoteTracks();
+            res.json(tracks);
+        } catch (error) {
+            console.error("Error getting remote tracks:", error);
+            res.status(500).json({ error: "Failed to get remote tracks" });
+        }
+    });
+
+    /**
+     * GET /api/catalog/remote/posts
+     * List federated posts
+     */
+    router.get("/remote/posts", (req, res) => {
+        try {
+            const posts = database.getRemotePosts();
+            res.json(posts);
+        } catch (error) {
+            console.error("Error getting remote posts:", error);
+            res.status(500).json({ error: "Failed to get remote posts" });
+        }
+    });
+
     return router;
 }

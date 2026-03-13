@@ -19,13 +19,16 @@ export const ActivityPubPanel = () => {
     const [artists, setArtists] = useState<Artist[]>([]);
     const [selectedArtistId, setSelectedArtistId] = useState<string>('');
     const [notes, setNotes] = useState<ApNote[]>([]);
+    const [peers, setPeers] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [processingId, setProcessingId] = useState<number | null>(null);
     const [peerUrl, setPeerUrl] = useState('');
     const [peerLoading, setPeerLoading] = useState(false);
+    const [peersLoading, setPeersLoading] = useState(false);
 
     useEffect(() => {
         loadArtists();
+        loadPeers();
     }, []);
 
     useEffect(() => {
@@ -48,6 +51,18 @@ export const ActivityPubPanel = () => {
         }
     };
 
+    const loadPeers = async () => {
+        setPeersLoading(true);
+        try {
+            const data = await API.getFollowedPeers();
+            setPeers(data);
+        } catch (e) {
+            console.error("Failed to load peers", e);
+        } finally {
+            setPeersLoading(false);
+        }
+    };
+
     const handleFollowPeer = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!peerUrl) return;
@@ -57,11 +72,34 @@ export const ActivityPubPanel = () => {
             await API.followRemoteActor(peerUrl);
             alert(`Follow request sent to ${peerUrl}. If it's a TuneCamp instance, discovery will start automatically.`);
             setPeerUrl('');
+            loadPeers();
         } catch (e: any) {
             console.error(e);
             alert(`Failed to follow peer: ${e.message}`);
         } finally {
             setPeerLoading(false);
+        }
+    };
+
+    const handleUnfollowPeer = async (url: string) => {
+        if (!confirm(`Are you sure you want to unfollow ${url}? This will send an Undo(Follow) activity.`)) return;
+        
+        try {
+            await API.unfollowRemoteActor(url);
+            setPeers(prev => prev.filter(p => p.uri !== url));
+        } catch (e: any) {
+            console.error(e);
+            alert(`Failed to unfollow: ${e.message}`);
+        }
+    };
+
+    const handleSyncPeer = async (url?: string) => {
+        try {
+            await API.syncPeer(url);
+            alert(url ? `Sync triggered for ${url}` : 'Global sync triggered');
+        } catch (e: any) {
+            console.error(e);
+            alert(`Failed to sync: ${e.message}`);
         }
     };
 
@@ -170,7 +208,7 @@ export const ActivityPubPanel = () => {
                 <div className="card-body p-4">
                     <h3 className="font-bold mb-2">Federation & Peers</h3>
                     <p className="text-sm opacity-70 mb-4">Connect to other TuneCamp instances or ActivityPub Relays to discover music in your Community tab.</p>
-                    <form onSubmit={handleFollowPeer} className="flex gap-2">
+                    <form onSubmit={handleFollowPeer} className="flex gap-2 mb-6">
                         <input 
                             type="url" 
                             className="input input-bordered flex-1" 
@@ -186,6 +224,56 @@ export const ActivityPubPanel = () => {
                             {peerLoading ? <span className="loading loading-spinner loading-xs"/> : 'Follow Peer'}
                         </button>
                     </form>
+
+                    {peers.length > 0 && (
+                        <div className="space-y-2 mt-4">
+                            <h4 className="text-xs uppercase font-bold opacity-50 mb-2">Followed Peers</h4>
+                            <div className="grid gap-2">
+                                {peers.map(peer => (
+                                    <div key={peer.uri} className="flex items-center justify-between p-3 bg-base-300/50 rounded-lg border border-white/5 group">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="avatar placeholder">
+                                                <div className="w-8 h-8 rounded-full bg-neutral text-neutral-content">
+                                                    <span className="text-xs">{peer.username?.[0] || peer.uri.split('/').pop()?.[0] || 'P'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="font-bold text-sm truncate">{peer.name || peer.username}</div>
+                                                <div className="text-xs opacity-50 truncate flex items-center gap-1">
+                                                    <span className="truncate">{peer.uri}</span>
+                                                    <a href={peer.uri} target="_blank" rel="noopener noreferrer" className="opacity-0 group-hover:opacity-100 hover:text-primary">
+                                                        <ExternalLink size={10}/>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button 
+                                                className="btn btn-ghost btn-xs btn-square"
+                                                onClick={() => handleSyncPeer(peer.uri)}
+                                                title="Sync Peer"
+                                            >
+                                                <RefreshCw size={14}/>
+                                            </button>
+                                            <button 
+                                                className="btn btn-ghost btn-xs btn-square text-error"
+                                                onClick={() => handleUnfollowPeer(peer.uri)}
+                                                title="Unfollow Peer"
+                                            >
+                                                <Trash2 size={14}/>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {peersLoading && peers.length === 0 && (
+                        <div className="flex justify-center py-4">
+                            <span className="loading loading-spinner loading-md opacity-50"/>
+                        </div>
+                    )}
                 </div>
             </div>
 

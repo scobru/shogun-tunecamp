@@ -150,8 +150,81 @@ export class ActivityPubService {
             // Immediately fetch remote outbox to populate the feed with existing content
             this.fetchRemoteOutbox(finalActorUri).catch(e => console.error(`⚠️ Failed to pre-fetch outbox for ${finalActorUri}:`, e));
 
+            // Record in DB as followed
+            try {
+                const res = await this.fetchWithSignature(finalActorUri);
+                if (res.ok) {
+                    const actorData = await res.json() as any;
+                    this.db.upsertRemoteActor({
+                        uri: finalActorUri,
+                        type: typeof actorData.type === 'string' ? actorData.type : (Array.isArray(actorData.type) ? actorData.type[0] : 'Person'),
+                        username: this.getString(actorData.preferredUsername),
+                        name: this.getString(actorData.name),
+                        summary: this.getString(actorData.summary),
+                        icon_url: this.getString(actorData.icon),
+                        inbox_url: this.getString(actorData.inbox),
+                        outbox_url: this.getString(actorData.outbox),
+                        is_followed: true
+                    } as any);
+                } else {
+                    this.db.upsertRemoteActor({
+                        uri: finalActorUri,
+                        type: 'Person',
+                        is_followed: true
+                    } as any);
+                }
+            } catch (dbErr) {
+                console.warn(`⚠️ Could not update following status in DB for ${finalActorUri}`, dbErr);
+            }
+
         } catch (e) {
             console.error(`❌ Failed to follow actor ${actorUri}:`, e);
+            throw e;
+        }
+    }
+
+    /**
+     * Unfollow a remote ActivityPub Actor
+     */
+    public async unfollowRemoteActor(actorUri: string, followerHandle: string = "site") {
+        try {
+            console.log(`📡 Attempting to unfollow remote actor: ${actorUri} as ${followerHandle}`);
+            const baseUrl = this.getBaseUrl();
+            const followerId = new URL(`/users/${followerHandle}`, baseUrl);
+
+            // Resolve inbox 
+            const inboxUri = await this.getInboxFromActor(actorUri);
+            if (!inboxUri) {
+                console.warn(`⚠️ Could not resolve inbox for actor: ${actorUri}, updating local DB only`);
+                this.db.unfollowActor(actorUri);
+                return;
+            }
+
+            // In ActivityPub, Unfollow is an Undo of the Follow activity
+            const undo = {
+                "@context": "https://www.w3.org/ns/activitystreams",
+                type: "Undo",
+                actor: followerId.toString(),
+                object: {
+                    type: "Follow",
+                    actor: followerId.toString(),
+                    object: actorUri
+                }
+            };
+
+            if (followerHandle === "site") {
+                await this.sendActivity({ id: -1, slug: "site" } as any, inboxUri, undo);
+            } else {
+                const artist = this.db.getArtistBySlug(followerHandle);
+                if (artist) {
+                    await this.sendActivity(artist, inboxUri, undo);
+                }
+            }
+
+            this.db.unfollowActor(actorUri);
+            console.log(`📤 Sent Unfollow request to: ${inboxUri}`);
+        } catch (e) {
+            console.error(`❌ Failed to unfollow actor ${actorUri}:`, e);
             throw e;
         }
     }

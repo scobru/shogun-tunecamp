@@ -92,8 +92,9 @@ export const PlayerBar = () => {
         !currentTrack.streamUrl && (isLosslessFormat || isLosslessExt);
 
       let newSrc =
-        currentTrack.streamUrl ||
-        API.getStreamUrl(currentTrack.id, forceMp3 ? "mp3" : undefined);
+        currentTrack.streamUrl
+          ? `/api/proxy/stream?url=${encodeURIComponent(currentTrack.streamUrl)}`
+          : API.getStreamUrl(currentTrack.id, forceMp3 ? "mp3" : undefined);
 
       if (
         audio.src !== newSrc &&

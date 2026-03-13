@@ -35,6 +35,7 @@ import { createFedify } from "./fedify.js";
 import { createBackupRoutes } from "./routes/backup.js";
 import { createPostsRoutes } from "./routes/posts.js";
 import { createSubsonicRouter } from "./routes/subsonic.js";
+import { createProxyRoutes } from "./routes/proxy.js";
 import { WaveformService } from "./modules/waveform/waveform.service.js";
 import { securityHeaders } from "./middleware/security.js";
 import { rateLimit } from "./middleware/rateLimit.js";
@@ -143,20 +144,29 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // API Routes
     app.get("/api/waveform/:id", async (req, res) => {
         try {
-            const trackId = parseInt(req.params.id);
-            if (isNaN(trackId)) return res.status(400).send("Invalid track ID");
+            const idParam = req.params.id;
+            const trackId = parseInt(idParam);
+            
+            if (!isNaN(trackId)) {
+                const track = database.getTrack(trackId);
+                if (track && track.file_path) {
+                    const filePath = path.join(config.musicDir, track.file_path);
+                    const svg = await waveformService.getWaveformSVG(trackId, filePath);
+                    res.setHeader("Content-Type", "image/svg+xml");
+                    res.setHeader("Cache-Control", "public, max-age=31536000");
+                    return res.send(svg);
+                }
+            }
 
-            const track = database.getTrack(trackId);
-            if (!track) return res.status(404).send("Track not found");
+            // Fallback: check for remote track
+            const remoteTrack = database.getRemoteTrack(idParam);
+            if (remoteTrack && remoteTrack.cover_url) {
+                 // For remote tracks, we don't have a waveform locally.
+                 // We could potentially return a generic one or redirect to remote if known.
+                 // For now, return 404 but with a clear message or just empty SVG.
+            }
 
-            if (!track.file_path) return res.status(400).send("Waveform not available for external tracks");
-            const filePath = path.join(config.musicDir, track.file_path);
-            const svg = await waveformService.getWaveformSVG(trackId, filePath);
-
-            res.setHeader("Content-Type", "image/svg+xml");
-            // Cache for 1 year
-            res.setHeader("Cache-Control", "public, max-age=31536000");
-            res.send(svg);
+            res.status(404).send("Waveform not available");
         } catch (e) {
             console.error(e);
             res.status(500).send("Error generating waveform");
@@ -183,6 +193,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/unlock", createUnlockRoutes(database));
     app.use("/api/payments", createPaymentsRoutes(database, config.musicDir));
     app.use("/api/ap", createActivityPubRoutes(apService, database, authMiddleware));
+    app.use("/api/proxy", createProxyRoutes());
     // app.use("/.well-known", createWebFingerRoute(apService)); // Legacy, handled by Fedify
 
     // Funkwhale-compatible federation libraries endpoint
@@ -334,10 +345,11 @@ export async function startServer(config: ServerConfig): Promise<void> {
         }
         try {
             let html = fs.readFileSync(indexHtmlPath, 'utf8');
-            const configInject = `<script>window.TUNECAMP_CONFIG = {
-                ownerAddress: "${process.env.TUNECAMP_OWNER_ADDRESS || process.env.VITE_TUNECAMP_OWNER_ADDRESS || ''}",
+            const dbGunPeers = database.getSetting("gunPeers");
+            const configInject = `<script>window.TUNECAMP_CONFIG = { 
+                apiUrl: "/api", 
                 rpcUrl: "${process.env.TUNECAMP_RPC_URL || process.env.VITE_TUNECAMP_RPC_URL || ''}",
-                gunPeers: "${process.env.TUNECAMP_GUN_PEERS || process.env.VITE_GUN_PEERS || ''}"
+                gunPeers: "${dbGunPeers || process.env.TUNECAMP_GUN_PEERS || process.env.VITE_GUN_PEERS || ''}"
             };</script>`;
             html = html.replace('<head>', '<head>' + configInject);
             res.send(html);

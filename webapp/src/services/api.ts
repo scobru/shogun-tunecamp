@@ -137,7 +137,10 @@ export const API = {
     // --- Network ---
     getNetworkSites: () => handleResponse(api.get<NetworkSite[]>('/stats/network/sites')),
     getNetworkTracks: () => handleResponse(api.get<NetworkTrack[]>('/stats/network/tracks')),
+    getFollowedPeers: () => handleResponse(api.get<any[]>('/admin/network/ap/peers')),
     followRemoteActor: (url: string) => handleResponse(api.post('/admin/network/ap/follow', { url })),
+    unfollowRemoteActor: (url: string) => handleResponse(api.post('/admin/network/ap/unfollow', { url })),
+    syncPeer: (url?: string) => handleResponse(api.post('/admin/network/ap/sync', { url })),
 
     // --- Admin: Releases & Content ---
     getAdminReleases: (options: { mine?: boolean } = {}) => handleResponse(api.get<Release[]>(`/admin/releases${options.mine ? '?mine=true' : ''}`)),

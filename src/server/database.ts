@@ -177,6 +177,7 @@ export interface RemoteActor {
     icon_url: string | null;
     inbox_url: string | null;
     outbox_url: string | null;
+    is_followed: boolean;
     last_seen: string;
 }
 
@@ -338,12 +339,19 @@ export interface DatabaseService {
 
     // Remote Federation (ActivityPub)
     upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen">): void;
+    saveRemoteActor(actor: any): void; // More flexible version
     getRemoteActor(uri: string): RemoteActor | undefined;
     getRemoteActors(): RemoteActor[];
+    getFollowedActors(): RemoteActor[];
+    unfollowActor(uri: string): void;
+    
     upsertRemoteContent(content: Omit<RemoteContent, "id" | "received_at">): void;
     getRemoteContent(apId: string): RemoteContent | undefined;
     getRemoteTracks(): RemoteContent[];
     getRemotePosts(): RemoteContent[];
+    getRemoteTrack(apIdOrSlug: string): RemoteContent | undefined;
+    saveRemotePost(post: any): void;
+    deleteRemotePost(apId: string): void;
     deleteRemoteContent(apId: string): void;
 
     // Likes
@@ -600,6 +608,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       icon_url TEXT,
       inbox_url TEXT,
       outbox_url TEXT,
+      is_followed INTEGER DEFAULT 0,
       last_seen TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -1014,6 +1023,12 @@ export function createDatabase(dbPath: string): DatabaseService {
     } catch (e) {
         console.warn("⚠️  Migration warning (remote_actors):", e);
     }
+
+    // Migration: Add is_followed column to remote_actors
+    try {
+        db.exec(`ALTER TABLE remote_actors ADD COLUMN is_followed INTEGER DEFAULT 0`);
+        console.log("📦 Migrated database: added is_followed column to remote_actors");
+    } catch (e) { }
 
     // Migration: Add remote_content table
     try {
@@ -2215,16 +2230,19 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         // ActivityPub Remote Items
-        upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen">): void {
+        upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen" | "is_followed"> & { is_followed?: boolean }): void {
             const b = (val: any) => {
                 if (val === null || val === undefined) return null;
                 if (typeof val === 'string' || typeof val === 'number' || typeof val === 'bigint' || Buffer.isBuffer(val)) return val;
                 return String(val);
             };
 
+            const existing = this.getRemoteActor(actor.uri);
+            const isFollowed = actor.is_followed !== undefined ? (actor.is_followed ? 1 : 0) : (existing?.is_followed ? 1 : 0);
+
             db.prepare(`
-                INSERT INTO remote_actors (uri, type, username, name, summary, icon_url, inbox_url, outbox_url, last_seen)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                INSERT INTO remote_actors (uri, type, username, name, summary, icon_url, inbox_url, outbox_url, is_followed, last_seen)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(uri) DO UPDATE SET
                     username=excluded.username,
                     name=excluded.name,
@@ -2232,8 +2250,13 @@ export function createDatabase(dbPath: string): DatabaseService {
                     icon_url=excluded.icon_url,
                     inbox_url=excluded.inbox_url,
                     outbox_url=excluded.outbox_url,
+                    is_followed=excluded.is_followed,
                     last_seen=CURRENT_TIMESTAMP
-            `).run(b(actor.uri), b(actor.type), b(actor.username), b(actor.name), b(actor.summary), b(actor.icon_url), b(actor.inbox_url), b(actor.outbox_url));
+            `).run(
+                b(actor.uri), b(actor.type), b(actor.username), b(actor.name), 
+                b(actor.summary), b(actor.icon_url), b(actor.inbox_url), b(actor.outbox_url), 
+                isFollowed
+            );
         },
 
         getRemoteActor(uri: string): RemoteActor | undefined {
@@ -2241,7 +2264,17 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         getRemoteActors(): RemoteActor[] {
-            return db.prepare("SELECT * FROM remote_actors ORDER BY last_seen DESC").all() as RemoteActor[];
+            const rows = db.prepare("SELECT * FROM remote_actors ORDER BY last_seen DESC").all() as any[];
+            return rows.map(r => ({ ...r, is_followed: !!r.is_followed }));
+        },
+
+        getFollowedActors(): RemoteActor[] {
+            const rows = db.prepare("SELECT * FROM remote_actors WHERE is_followed = 1 ORDER BY last_seen DESC").all() as any[];
+            return rows.map(r => ({ ...r, is_followed: !!r.is_followed }));
+        },
+
+        unfollowActor(uri: string): void {
+            db.prepare("UPDATE remote_actors SET is_followed = 0 WHERE uri = ?").run(uri);
         },
 
         upsertRemoteContent(content: Omit<RemoteContent, "id" | "received_at">): void {
@@ -2270,22 +2303,6 @@ export function createDatabase(dbPath: string): DatabaseService {
                 b(content.content), b(b(content.url)), b(content.cover_url), b(content.stream_url), 
                 b(content.artist_name), b(content.album_name), b(content.duration), b(content.published_at)
             );
-        },
-
-        getRemoteContent(apId: string): RemoteContent | undefined {
-            return db.prepare("SELECT * FROM remote_content WHERE ap_id = ?").get(apId) as RemoteContent | undefined;
-        },
-
-        getRemoteTracks(): RemoteContent[] {
-            return db.prepare("SELECT * FROM remote_content WHERE type = 'release' ORDER BY published_at DESC, received_at DESC").all() as RemoteContent[];
-        },
-
-        getRemotePosts(): RemoteContent[] {
-            return db.prepare("SELECT * FROM remote_content WHERE type = 'post' ORDER BY published_at DESC, received_at DESC").all() as RemoteContent[];
-        },
-
-        deleteRemoteContent(apId: string): void {
-            db.prepare("DELETE FROM remote_content WHERE ap_id = ?").run(apId);
         },
 
         // Starred Items (Subsonic)
@@ -2433,6 +2450,151 @@ export function createDatabase(dbPath: string): DatabaseService {
         getAlbumOwners(albumId: number): number[] {
             const rows = db.prepare("SELECT owner_id FROM album_ownership WHERE album_id = ?").all(albumId) as { owner_id: number }[];
             return rows.map(r => r.owner_id);
+        },
+
+        // ActivityPub: Remote Actors
+        getRemoteActor(uri: string): RemoteActor | undefined {
+            const row = db.prepare("SELECT * FROM remote_actors WHERE uri = ?").get(uri) as any;
+            if (!row) return undefined;
+            return {
+                ...row,
+                is_followed: Boolean(row.is_followed)
+            } as RemoteActor;
+        },
+
+        getRemoteActors(): RemoteActor[] {
+            const rows = db.prepare("SELECT * FROM remote_actors ORDER BY last_seen DESC").all() as any[];
+            return rows.map(row => ({
+                ...row,
+                is_followed: Boolean(row.is_followed)
+            })) as RemoteActor[];
+        },
+
+        getFollowedActors(): RemoteActor[] {
+            const rows = db.prepare("SELECT * FROM remote_actors WHERE is_followed = 1").all() as any[];
+            return rows.map(row => ({
+                ...row,
+                is_followed: true
+            })) as RemoteActor[];
+        },
+
+        unfollowActor(uri: string): void {
+            db.prepare("UPDATE remote_actors SET is_followed = 0 WHERE uri = ?").run(uri);
+        },
+
+        saveRemoteActor(actor: any): void {
+            db.prepare(`
+                INSERT INTO remote_actors (uri, type, username, name, summary, icon_url, inbox_url, outbox_url, is_followed, last_seen)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(uri) DO UPDATE SET
+                    type=excluded.type,
+                    username=excluded.username,
+                    name=excluded.name,
+                    summary=excluded.summary,
+                    icon_url=excluded.icon_url,
+                    inbox_url=excluded.inbox_url,
+                    outbox_url=excluded.outbox_url,
+                    last_seen=CURRENT_TIMESTAMP
+            `).run(
+                actor.uri,
+                actor.type || 'Person',
+                actor.username || null,
+                actor.name || null,
+                actor.summary || null,
+                actor.icon_url || null,
+                actor.inbox_url || null,
+                actor.outbox_url || null,
+                actor.is_followed ? 1 : 0
+            );
+        },
+
+        upsertRemoteActor(actor: any): void {
+            this.saveRemoteActor(actor);
+        },
+
+        // ActivityPub: Remote Content
+        getRemoteTracks(): RemoteContent[] {
+            const rows = db.prepare("SELECT * FROM remote_content WHERE type = 'release' ORDER BY published_at DESC").all() as RemoteContent[];
+            return rows;
+        },
+
+        getRemotePosts(): RemoteContent[] {
+            const rows = db.prepare("SELECT * FROM remote_content WHERE type = 'post' ORDER BY published_at DESC").all() as RemoteContent[];
+            return rows;
+        },
+
+        getRemoteTrack(apIdOrSlug: string): RemoteContent | undefined {
+            return db.prepare("SELECT * FROM remote_content WHERE ap_id = ? OR url LIKE ?").get(apIdOrSlug, `%${apIdOrSlug}`) as RemoteContent | undefined;
+        },
+
+        getRemoteContent(apId: string): RemoteContent | undefined {
+            return db.prepare("SELECT * FROM remote_content WHERE ap_id = ?").get(apId) as RemoteContent | undefined;
+        },
+
+        saveRemotePost(post: any): void {
+            db.prepare(`
+                INSERT INTO remote_content (ap_id, actor_uri, type, title, content, url, cover_url, stream_url, artist_name, album_name, duration, published_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(ap_id) DO UPDATE SET
+                    title=excluded.title,
+                    content=excluded.content,
+                    url=excluded.url,
+                    cover_url=excluded.cover_url,
+                    stream_url=excluded.stream_url,
+                    artist_name=excluded.artist_name,
+                    album_name=excluded.album_name,
+                    duration=excluded.duration
+            `).run(
+                post.ap_id,
+                post.actor_uri,
+                post.type,
+                post.title || null,
+                post.content || null,
+                post.url || null,
+                post.cover_url || null,
+                post.stream_url || null,
+                post.artist_name || null,
+                post.album_name || null,
+                post.duration || null,
+                post.published_at || null
+            );
+        },
+
+        deleteRemotePost(apId: string): void {
+            db.prepare("DELETE FROM remote_content WHERE ap_id = ?").run(apId);
+        },
+
+        deleteRemoteContent(apId: string): void {
+            db.prepare("DELETE FROM remote_content WHERE ap_id = ?").run(apId);
+        },
+
+        upsertRemoteContent(content: any): void {
+             db.prepare(`
+                INSERT INTO remote_content (ap_id, actor_uri, type, title, content, url, cover_url, stream_url, artist_name, album_name, duration, published_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(ap_id) DO UPDATE SET
+                    title=excluded.title,
+                    content=excluded.content,
+                    url=excluded.url,
+                    cover_url=excluded.cover_url,
+                    stream_url=excluded.stream_url,
+                    artist_name=excluded.artist_name,
+                    album_name=excluded.album_name,
+                    duration=excluded.duration
+            `).run(
+                content.ap_id,
+                content.actor_uri,
+                content.type,
+                content.title || null,
+                content.content || null,
+                content.url || null,
+                content.cover_url || null,
+                content.stream_url || null,
+                content.artist_name || null,
+                content.album_name || null,
+                content.duration || null,
+                content.published_at || null
+            );
         }
     };
 }
