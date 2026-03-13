@@ -674,6 +674,8 @@ export function createDatabase(dbPath: string): DatabaseService {
       owner_id INTEGER REFERENCES artists(id) ON DELETE CASCADE,
       PRIMARY KEY (track_id, owner_id)
     );
+    CREATE INDEX IF NOT EXISTS idx_track_ownership_owner ON track_ownership(owner_id);
+    CREATE INDEX IF NOT EXISTS idx_album_ownership_owner ON album_ownership(owner_id);
   `);
 
     // Migration: Add hash column to tracks

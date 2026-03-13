@@ -1,14 +1,14 @@
-import path from \"path\";
-import fs from \"fs-extra\";
-import chokidar, { type FSWatcher } from \"chokidar\";
-import { parseFile } from \"music-metadata\";
-import { parse } from \"yaml\";
+import path from "path";
+import fs from "fs-extra";
+import chokidar, { type FSWatcher } from "chokidar";
+import { parseFile } from "music-metadata";
+import { parse } from "yaml";
 
-import type { DatabaseService, Artist, Album, Track } from \"./database.js\";
-import { WaveformService } from \"./waveform.js\";
-import { slugify, getStandardCoverFilename } from \"../utils/audioUtils.js\";
-import { convertWavToMp3, getDurationFromFfmpeg } from \"./ffmpeg.js\";
-import { getFileHash } from \"../utils/fileUtils.js\";
+import type { DatabaseService, Artist, Album, Track } from "./database.js";
+import { WaveformService } from "./waveform.js";
+import { slugify, getStandardCoverFilename } from "../utils/audioUtils.js";
+import { convertWavToMp3, getDurationFromFfmpeg } from "./ffmpeg.js";
+import { getFileHash } from "../utils/fileUtils.js";
 
 /**
  * Simple sequential processing queue to avoid over-parallelizing heavy tasks (ffmpeg, conversion)
@@ -478,7 +478,7 @@ export class Scanner implements ScannerService {
         const dir = path.dirname(currentFilePath);
         let albumId = this.folderToAlbumMap.get(dir) || null;
 
-        // If track is in the \"library\" or \"tracks\" folder and map has no info, protect the existing link
+        // If track is in the "library" or "tracks" folder and map has no info, protect the existing link
         // This prevents the scanner from unlinking tracks that were manually uploaded/linked via API
         if (albumId === null && existing && existing.album_id &&
             (normalizedPath.startsWith('library') || normalizedPath.startsWith('tracks'))) {
@@ -534,7 +534,7 @@ export class Scanner implements ScannerService {
         if (existing) {
             // Update hash if missing
             if (hash && !existing.hash) {
-                this.database.db.prepare(\"UPDATE tracks SET hash = ? WHERE id = ?\").run(hash, existing.id);
+                this.database.db.prepare("UPDATE tracks SET hash = ? WHERE id = ?").run(hash, existing.id);
             }
 
             // Ensure current user is an owner
@@ -585,7 +585,7 @@ export class Scanner implements ScannerService {
         }
 
         try {
-            console.log(\"  Processing track: \" + path.basename(currentFilePath));
+            console.log("  Processing track: " + path.basename(currentFilePath));
             const metadata = await parseFileWithRetry(currentFilePath);
             const common = metadata.common;
             const format = metadata.format;
@@ -596,8 +596,8 @@ export class Scanner implements ScannerService {
                     const existingArtist = this.database.getArtistByName(common.artist);
                     artistId = existingArtist ? existingArtist.id : this.database.createArtist(common.artist);
                 } else {
-                    const unknownArtist = this.database.getArtistByName(\"Unknown Artist\");
-                    artistId = unknownArtist ? unknownArtist.id : this.database.createArtist(\"Unknown Artist\");
+                    const unknownArtist = this.database.getArtistByName("Unknown Artist");
+                    artistId = unknownArtist ? unknownArtist.id : this.database.createArtist("Unknown Artist");
                 }
             }
 
