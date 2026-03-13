@@ -373,16 +373,21 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 return res.status(404).json({ error: `Track ${id} not found locally. Please re-scan your library in the Admin panel.` });
             }
 
-            // Security Check: Ensure track is public or user is admin
-            if (!req.isAdmin && track.album_id) {
-                const album = database.getAlbum(track.album_id);
-                if (album && album.visibility === 'private') {
-                    // Check if track is in a public playlist
-                    const isInPublicPlaylist = database.isTrackInPublicPlaylist(id);
-                    if (!isInPublicPlaylist) {
-                        return res.status(403).json({ error: "Access denied" });
+            // Security Check: Ensure track is public, user is admin, or user is owner
+            if (!req.isAdmin && track.owner_id !== req.artistId) {
+                if (track.album_id) {
+                    const album = database.getAlbum(track.album_id);
+                    if (album && album.visibility === 'private') {
+                        // Check if track is in a public playlist
+                        const isInPublicPlaylist = database.isTrackInPublicPlaylist(id);
+                        if (!isInPublicPlaylist) {
+                            return res.status(403).json({ error: "Access denied" });
+                        }
+                        console.log(`🔓 [Stream] Allowing private track ${id} because it is in a public playlist`);
                     }
-                    console.log(`🔓 [Stream] Allowing private track ${id} because it is in a public playlist`);
+                } else if (track.artist_id !== req.artistId) {
+                    // Orphan track not owned by user
+                    return res.status(403).json({ error: "Access denied" });
                 }
             }
 

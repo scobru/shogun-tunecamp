@@ -101,6 +101,7 @@ export interface Track {
     service: string | null;
     external_artwork: string | null;
     lyrics?: string | null;
+    hash?: string | null; // Added for deduplication
     created_at: string;
 }
 
@@ -275,6 +276,16 @@ export interface DatabaseService {
     removeTrackFromRelease(releaseId: number, trackId: number): void;
     updateReleaseTracks(releaseId: number, toAdd: number[], toRemove: number[]): void;
     getReleaseTrackIds(releaseId: number): number[];
+
+    // Ownership & Deduplication
+    addTrackOwner(trackId: number, ownerId: number): void;
+    removeTrackOwner(trackId: number, ownerId: number): void;
+    addAlbumOwner(albumId: number, ownerId: number): void;
+    removeAlbumOwner(albumId: number, ownerId: number): void;
+    getTrackByHash(hash: string): Track | undefined;
+    getTrackOwners(trackId: number): number[];
+    getAlbumOwners(albumId: number): number[];
+
     // Playlists
     getPlaylists(username?: string, publicOnly?: boolean): Playlist[];
     getPlaylist(id: number): Playlist | undefined;
@@ -651,7 +662,40 @@ export function createDatabase(dbPath: string): DatabaseService {
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(username);
+
+    CREATE TABLE IF NOT EXISTS album_ownership (
+      album_id INTEGER REFERENCES albums(id) ON DELETE CASCADE,
+      owner_id INTEGER REFERENCES artists(id) ON DELETE CASCADE,
+      PRIMARY KEY (album_id, owner_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS track_ownership (
+      track_id INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
+      owner_id INTEGER REFERENCES artists(id) ON DELETE CASCADE,
+      PRIMARY KEY (track_id, owner_id)
+    );
   `);
+
+    // Migration: Add hash column to tracks
+    try {
+        db.exec(`ALTER TABLE tracks ADD COLUMN hash TEXT`);
+        console.log("📦 Migrated database: added hash column to tracks");
+    } catch (e) { }
+
+    // Migration: Backfill ownership tables from owner_id columns
+    try {
+        db.exec(`
+            INSERT OR IGNORE INTO album_ownership (album_id, owner_id)
+            SELECT id, owner_id FROM albums WHERE owner_id IS NOT NULL;
+        `);
+        db.exec(`
+            INSERT OR IGNORE INTO track_ownership (track_id, owner_id)
+            SELECT id, owner_id FROM tracks WHERE owner_id IS NOT NULL;
+        `);
+        console.log("📦 Migrated database: backfilled ownership tables");
+    } catch (e) {
+        console.error("Migration error (ownership backfill):", e);
+    }
 
     // Migration: Add is_release column if it doesn't exist
     try {
@@ -1308,11 +1352,13 @@ export function createDatabase(dbPath: string): DatabaseService {
         getAlbumsByOwner(ownerId: number, publicOnly = false): Album[] {
             const sql = publicOnly
                 ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                   JOIN album_ownership ao ON a.id = ao.album_id
                    LEFT JOIN artists ar ON a.artist_id = ar.id 
-                   WHERE a.owner_id = ? AND a.visibility = 'public' ORDER BY a.date DESC`
+                   WHERE ao.owner_id = ? AND a.visibility = 'public' ORDER BY a.date DESC`
                 : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                   JOIN album_ownership ao ON a.id = ao.album_id
                    LEFT JOIN artists ar ON a.artist_id = ar.id 
-                   WHERE a.owner_id = ? ORDER BY a.date DESC`;
+                   WHERE ao.owner_id = ? ORDER BY a.date DESC`;
             const rows = db.prepare(sql).all(ownerId);
             return mapAlbums(rows);
         },
@@ -1334,7 +1380,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                             album.title,
                             finalSlug,
                             album.artist_id,
-                            album.owner_id || album.artist_id, // Default owner to artist if not provided
+                            album.owner_id || album.artist_id, // Backwards compatibility for single column
                             album.date,
                             album.cover_path,
                             album.genre,
@@ -1352,7 +1398,14 @@ export function createDatabase(dbPath: string): DatabaseService {
                             album.published_to_gundb ? 1 : 0,
                             album.published_to_ap ? 1 : 0
                         );
-                    return result.lastInsertRowid as number;
+                    
+                    const albumId = result.lastInsertRowid as number;
+                    const ownerId = album.owner_id || album.artist_id;
+                    if (ownerId) {
+                        this.addAlbumOwner(albumId, ownerId);
+                    }
+                    
+                    return albumId;
                 } catch (e: any) {
                     if (e.code === "SQLITE_CONSTRAINT_UNIQUE" && e.message.includes("slug")) {
                         attempt++;
@@ -1483,7 +1536,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                     LEFT JOIN albums a ON t.album_id = a.id
                     LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
                     LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-                    WHERE (COALESCE(t.owner_id, a.owner_id) = ?) AND (a.is_public = 1 OR t.album_id IS NULL)
+                    WHERE (t.owner_id = ? OR (t.owner_id IS NULL AND a.owner_id = ?)) AND (a.is_public = 1 OR t.album_id IS NULL)
                     ORDER BY a.title, t.track_num`
                 : `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
                     COALESCE(ar_t.id, ar_a.id) as artist_id,
@@ -1494,9 +1547,10 @@ export function createDatabase(dbPath: string): DatabaseService {
                     LEFT JOIN albums a ON t.album_id = a.id
                     LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
                     LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-                    WHERE COALESCE(t.owner_id, a.owner_id) = ?
+                    WHERE (t.owner_id = ? OR (t.owner_id IS NULL AND a.owner_id = ?))
                     ORDER BY a.title, t.track_num`;
-            return db.prepare(sql).all(ownerId) as Track[];
+            
+            return publicOnly ? db.prepare(sql).all(ownerId, ownerId) as Track[] : db.prepare(sql).all(ownerId, ownerId) as Track[];
         },
 
         getTracksByAlbumIds(albumIds: number[]): Track[] {
@@ -1550,14 +1604,14 @@ export function createDatabase(dbPath: string): DatabaseService {
         createTrack(track: Omit<Track, "id" | "created_at" | "album_title" | "artist_name">): number {
             const result = db
                 .prepare(
-                    `INSERT INTO tracks (title, album_id, artist_id, owner_id, track_num, duration, file_path, format, bitrate, sample_rate, price, currency, lossless_path, url, service, external_artwork, lyrics)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                    `INSERT INTO tracks (title, album_id, artist_id, owner_id, track_num, duration, file_path, format, bitrate, sample_rate, price, currency, lossless_path, url, service, external_artwork, lyrics, hash)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                 )
                 .run(
                     track.title,
                     track.album_id,
                     track.artist_id,
-                    track.owner_id || track.artist_id, // Default owner to artist if not provided
+                    track.owner_id || track.artist_id, // Backwards compatibility for single column
                     track.track_num,
                     track.duration,
                     track.file_path,
@@ -1570,9 +1624,17 @@ export function createDatabase(dbPath: string): DatabaseService {
                     track.url || null,
                     track.service || null,
                     track.external_artwork || null,
-                    track.lyrics || null
+                    track.lyrics || null,
+                    track.hash || null
                 );
-            return result.lastInsertRowid as number;
+            
+            const trackId = result.lastInsertRowid as number;
+            const ownerId = track.owner_id || track.artist_id;
+            if (ownerId) {
+                this.addTrackOwner(trackId, ownerId);
+            }
+            
+            return trackId;
         },
 
         updateTrackAlbum(id: number, albumId: number | null): void {
@@ -1634,7 +1696,18 @@ export function createDatabase(dbPath: string): DatabaseService {
             `).run(newPrefix, oldPrefix, oldPrefix, oldPrefix);
         },
 
-        deleteTrack(id: number): void {
+        deleteTrack(id: number, ownerId?: number): void {
+            if (ownerId) {
+                // If ownerId provided, only remove that owner's link
+                this.removeTrackOwner(id, ownerId);
+                
+                // If owners still remain, don't delete the track record
+                const remainingOwners = this.getTrackOwners(id);
+                if (remainingOwners.length > 0) return;
+            }
+
+            // Otherwise (no ownerId, or no remaining owners), delete everything
+            db.prepare("DELETE FROM track_ownership WHERE track_id = ?").run(id);
             db.prepare("DELETE FROM release_tracks WHERE track_id = ?").run(id);
             db.prepare("DELETE FROM tracks WHERE id = ?").run(id);
         },
@@ -2310,6 +2383,37 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         getBookmark(username: string, trackId: string): any | undefined {
             return db.prepare("SELECT * FROM bookmarks WHERE username = ? AND track_id = ?").get(username, trackId);
+        },
+
+        // Ownership & Deduplication
+        addTrackOwner(trackId: number, ownerId: number): void {
+            db.prepare("INSERT OR IGNORE INTO track_ownership (track_id, owner_id) VALUES (?, ?)").run(trackId, ownerId);
+        },
+
+        removeTrackOwner(trackId: number, ownerId: number): void {
+            db.prepare("DELETE FROM track_ownership WHERE track_id = ? AND owner_id = ?").run(trackId, ownerId);
+        },
+
+        addAlbumOwner(albumId: number, ownerId: number): void {
+            db.prepare("INSERT OR IGNORE INTO album_ownership (album_id, owner_id) VALUES (?, ?)").run(albumId, ownerId);
+        },
+
+        removeAlbumOwner(albumId: number, ownerId: number): void {
+            db.prepare("DELETE FROM album_ownership WHERE album_id = ? AND owner_id = ?").run(albumId, ownerId);
+        },
+
+        getTrackByHash(hash: string): Track | undefined {
+            return db.prepare("SELECT * FROM tracks WHERE hash = ?").get(hash) as Track | undefined;
+        },
+
+        getTrackOwners(trackId: number): number[] {
+            const rows = db.prepare("SELECT owner_id FROM track_ownership WHERE track_id = ?").all(trackId) as { owner_id: number }[];
+            return rows.map(r => r.owner_id);
+        },
+
+        getAlbumOwners(albumId: number): number[] {
+            const rows = db.prepare("SELECT owner_id FROM album_ownership WHERE album_id = ?").all(albumId) as { owner_id: number }[];
+            return rows.map(r => r.owner_id);
         }
     };
 }

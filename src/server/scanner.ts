@@ -1,13 +1,14 @@
-import path from "path";
-import fs from "fs-extra";
-import chokidar, { type FSWatcher } from "chokidar";
-import { parseFile } from "music-metadata";
-import { parse } from "yaml";
+import path from \"path\";
+import fs from \"fs-extra\";
+import chokidar, { type FSWatcher } from \"chokidar\";
+import { parseFile } from \"music-metadata\";
+import { parse } from \"yaml\";
 
-import type { DatabaseService, Artist, Album, Track } from "./database.js";
-import { WaveformService } from "./waveform.js";
-import { slugify, getStandardCoverFilename } from "../utils/audioUtils.js";
-import { convertWavToMp3, getDurationFromFfmpeg } from "./ffmpeg.js";
+import type { DatabaseService, Artist, Album, Track } from \"./database.js\";
+import { WaveformService } from \"./waveform.js\";
+import { slugify, getStandardCoverFilename } from \"../utils/audioUtils.js\";
+import { convertWavToMp3, getDurationFromFfmpeg } from \"./ffmpeg.js\";
+import { getFileHash } from \"../utils/fileUtils.js\";
 
 /**
  * Simple sequential processing queue to avoid over-parallelizing heavy tasks (ffmpeg, conversion)
@@ -441,6 +442,34 @@ export class Scanner implements ScannerService {
             return null;
         }
 
+        // 0. Calculate hash for deduplication
+        let hash: string | null = null;
+        try {
+            hash = await getFileHash(currentFilePath);
+            const existingByHash = this.database.getTrackByHash(hash);
+
+            if (existingByHash && ownerId) {
+                console.log(`    [Scanner] Deduplication: file hash matched existing track '${existingByHash.title}' (ID ${existingByHash.id})`);
+                
+                // Add ownership link
+                this.database.addTrackOwner(existingByHash.id, ownerId);
+                
+                // Also link the owner to the album if it exists
+                if (existingByHash.album_id) {
+                    this.database.addAlbumOwner(existingByHash.album_id, ownerId);
+                }
+
+                // If the uploaded file is a temp file (from upload), we can safely remove it now
+                if (currentFilePath.includes(path.sep + 'tmp' + path.sep) || currentFilePath.includes('/tmp/')) {
+                    await fs.remove(currentFilePath);
+                }
+
+                return { originalPath: filePath, success: true, message: "Duplicate content matched and linked to your library.", trackId: existingByHash.id };
+            }
+        } catch (e) {
+            console.warn(`    [Scanner] Failed to calculate hash for ${currentFilePath}:`, e);
+        }
+
         const LOSSLESS_EXTENSIONS = ['.wav', '.flac'];
         const normalizedPath = this.normalizePath(currentFilePath, musicDir);
         let existing = this.database.getTrackByPath(normalizedPath);
@@ -449,7 +478,7 @@ export class Scanner implements ScannerService {
         const dir = path.dirname(currentFilePath);
         let albumId = this.folderToAlbumMap.get(dir) || null;
 
-        // If track is in the "library" or "tracks" folder and map has no info, protect the existing link
+        // If track is in the \"library\" or \"tracks\" folder and map has no info, protect the existing link
         // This prevents the scanner from unlinking tracks that were manually uploaded/linked via API
         if (albumId === null && existing && existing.album_id &&
             (normalizedPath.startsWith('library') || normalizedPath.startsWith('tracks'))) {
@@ -503,6 +532,19 @@ export class Scanner implements ScannerService {
 
         // 2. Handle pairing if record exists
         if (existing) {
+            // Update hash if missing
+            if (hash && !existing.hash) {
+                this.database.db.prepare(\"UPDATE tracks SET hash = ? WHERE id = ?\").run(hash, existing.id);
+            }
+
+            // Ensure current user is an owner
+            if (ownerId) {
+                this.database.addTrackOwner(existing.id, ownerId);
+                if (existing.album_id) {
+                    this.database.addAlbumOwner(existing.album_id, ownerId);
+                }
+            }
+
             const isLossless = LOSSLESS_EXTENSIONS.includes(ext);
             const mp3Path = isLossless ? normalizedPath.replace(new RegExp(`\\${ext}$`, 'i'), '.mp3') : normalizedPath;
 
@@ -543,7 +585,7 @@ export class Scanner implements ScannerService {
         }
 
         try {
-            console.log("  Processing track: " + path.basename(currentFilePath));
+            console.log(\"  Processing track: \" + path.basename(currentFilePath));
             const metadata = await parseFileWithRetry(currentFilePath);
             const common = metadata.common;
             const format = metadata.format;
@@ -554,8 +596,8 @@ export class Scanner implements ScannerService {
                     const existingArtist = this.database.getArtistByName(common.artist);
                     artistId = existingArtist ? existingArtist.id : this.database.createArtist(common.artist);
                 } else {
-                    const unknownArtist = this.database.getArtistByName("Unknown Artist");
-                    artistId = unknownArtist ? unknownArtist.id : this.database.createArtist("Unknown Artist");
+                    const unknownArtist = this.database.getArtistByName(\"Unknown Artist\");
+                    artistId = unknownArtist ? unknownArtist.id : this.database.createArtist(\"Unknown Artist\");
                 }
             }
 
@@ -587,7 +629,8 @@ export class Scanner implements ScannerService {
                 service: null,
                 external_artwork: null,
                 price: 0,
-                currency: 'ETH'
+                currency: 'ETH',
+                hash: hash // Store the hash
             });
 
             this.processQueue.add(() => WaveformService.generateWaveform(currentFilePath))

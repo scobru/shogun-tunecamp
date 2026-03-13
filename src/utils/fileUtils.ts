@@ -1,11 +1,22 @@
 import fs from 'fs-extra';
 import path from 'path';
+import crypto from 'crypto';
 import { glob } from 'glob';
 import { getStandardCoverFilename } from './audioUtils.js';
 
 /**
  * File utility functions
  */
+
+export async function getFileHash(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('md5');
+    const stream = fs.createReadStream(filePath);
+    stream.on('error', err => reject(err));
+    stream.on('data', chunk => hash.update(chunk));
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
+}
 
 export async function findAudioFiles(directory: string): Promise<string[]> {
   const audioExtensions = ['mp3', 'flac', 'ogg', 'wav', 'm4a', 'aac', 'opus'];
