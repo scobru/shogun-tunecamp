@@ -38,7 +38,7 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
             if (!album) return res.status(404).json({ error: "Album not found" });
 
             // Permission Check: Artist can only apply metadata to their own albums
-            if (!req.isAdmin && album.artist_id !== req.artistId) {
+            if (!req.isAdmin && album.owner_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied" });
             }
 

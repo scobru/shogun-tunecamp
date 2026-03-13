@@ -268,7 +268,7 @@ export function createUploadRoutes(
                             scannerResults.push({ success: true, trackId: existingTrack.id, isDuplicate: true });
                         } else {
                             // File exists but not in DB? Force a scan with the current artistId
-                            const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId);
+                            const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId, artistId);
                             if (scanResult && scanResult.success && scanResult.trackId) {
                                 database.addTrackToRelease(release.id, scanResult.trackId);
                                 processedCount++;
@@ -282,7 +282,7 @@ export function createUploadRoutes(
                         const existingTrack = database.getTrackByPath(dbPath);
                         if (!existingTrack) {
                             // Disk exists, but no DB record? Create it.
-                            const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId);
+                            const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId, artistId);
                             if (scanResult && scanResult.success) {
                                 processedCount++;
                                 scannerResults.push(scanResult);
@@ -301,7 +301,7 @@ export function createUploadRoutes(
                     movedCount++;
 
                     // Process immediately to get Track ID, pass artistId
-                    const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId);
+                    const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId, artistId);
 
                     if (scanResult && scanResult.success && scanResult.trackId) {
                         scannerResults.push(scanResult);

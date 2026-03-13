@@ -10,13 +10,44 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
 
     /**
      * GET /api/albums
-     * List all library albums (is_release=0) - for personal library view
+     * List all albums
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
-            // Show all albums (releases + library)
-            // Filter by visibility for non-admins
-            const albums = database.getAlbums(!req.isAdmin).map(a => ({
+            // Show all albums if admin
+            if (req.isAdmin) {
+                const albums = database.getAlbums().map(a => ({
+                    ...a,
+                    coverImage: a.cover_path
+                }));
+                return res.json(albums);
+            }
+
+            // If a non-admin artist, return their own albums + all public albums
+            if (req.artistId) {
+                const myAlbums = database.getAlbumsByOwner(req.artistId).map(a => ({
+                    ...a,
+                    coverImage: a.cover_path
+                }));
+
+                const publicAlbums = database.getAlbums(true).map(a => ({
+                    ...a,
+                    coverImage: a.cover_path
+                }));
+
+                // Deduplicate (album could be mine AND public)
+                const seen = new Set(myAlbums.map(a => a.id));
+                const combined = [...myAlbums];
+                for (const a of publicAlbums) {
+                    if (!seen.has(a.id)) {
+                        combined.push(a);
+                    }
+                }
+                return res.json(combined);
+            }
+
+            // Otherwise, only public albums
+            const albums = database.getAlbums(true).map(a => ({
                 ...a,
                 coverImage: a.cover_path
             }));
@@ -61,7 +92,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             }
 
             // Permission Check: Artist can only promote their own albums
-            if (!req.isAdmin && album.artist_id !== req.artistId) {
+            if (!req.isAdmin && album.owner_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied" });
             }
 
@@ -94,7 +125,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             }
 
             // Non-admin can only see public/unlisted albums, unless they are the owner
-            if (album.visibility === 'private' && !req.isAdmin && album.artist_id !== req.artistId) {
+            if (album.visibility === 'private' && !req.isAdmin && album.owner_id !== req.artistId) {
                 return res.status(404).json({ error: "Album not found" });
             }
 

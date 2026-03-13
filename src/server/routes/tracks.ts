@@ -52,7 +52,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
 
             // If a non-admin artist, or admin filtering for 'mine', return their own tracks (+ all public tracks if not filtering)
             if (req.artistId) {
-                const myTracks = database.getTracksByArtist(req.artistId).map(mapTrack);
+                const myTracks = database.getTracksByOwner(req.artistId).map(mapTrack);
                 
                 if (showMine) {
                     return res.json(myTracks);
@@ -108,6 +108,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 title,
                 album_id: albumId || null,
                 artist_id: finalArtistId || null,
+                owner_id: finalArtistId || null,
                 track_num: trackNum || null,
                 duration: duration || 0,
                 file_path: null,
@@ -191,7 +192,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             // Permission Check: Artist can only see metadata for their own tracks
-            if (!req.isAdmin && track.artist_id !== req.artistId) {
+            if (!req.isAdmin && track.owner_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied" });
             }
 
@@ -294,7 +295,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             if (!track) return res.status(404).json({ error: "Track not found" });
 
             // Permission Check: Artist can only match metadata for their own tracks
-            if (!req.isAdmin && track.artist_id !== req.artistId) {
+            if (!req.isAdmin && track.owner_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied" });
             }
 
@@ -315,6 +316,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                         title: albumTitle,
                         slug: slug,
                         artist_id: artistId,
+                        owner_id: req.artistId || artistId,
                         date: null,
                         cover_path: null,
                         genre: "Matched",
@@ -538,7 +540,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             // Permission Check: Restricted admin can only update their own tracks
-            if (req.artistId && track.artist_id && track.artist_id !== req.artistId) {
+            if (req.artistId && track.owner_id && track.owner_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied: You can only edit your own tracks" });
             }
 
@@ -731,7 +733,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             // Permission Check: Restricted admin can only delete their own tracks
-            if (req.artistId && track.artist_id !== req.artistId) {
+            if (req.artistId && track.owner_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied: You can only delete your own tracks" });
             }
 

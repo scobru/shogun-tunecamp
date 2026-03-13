@@ -32,7 +32,7 @@ export function createAdminRoutes(
             if (req.isAdmin && !showMine) {
                 albums = database.getAlbums(false); // Admin sees everything
             } else if (req.artistId) {
-                albums = database.getAlbumsByArtist(req.artistId, false); // Artist sees their own
+                albums = database.getAlbumsByOwner(req.artistId, false); // Artist sees their own
             } else {
                 albums = []; // No access
             }
@@ -67,7 +67,7 @@ export function createAdminRoutes(
             }
 
             // Permission Check
-            if (req.artistId && !req.isAdmin && album.artist_id !== req.artistId) {
+            if (req.artistId && !req.isAdmin && album.owner_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied: You can only manage your own releases" });
             }
 

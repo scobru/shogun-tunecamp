@@ -53,6 +53,7 @@ export interface Album {
     title: string;
     slug: string;
     artist_id: number | null;
+    owner_id: number | null; // Added
     artist_name?: string;
     artist_slug?: string;
     date: string | null;
@@ -84,6 +85,7 @@ export interface Track {
     album_download?: string;
     album_visibility?: string;
     artist_id: number | null;
+    owner_id: number | null; // Added
     artist_name?: string;
     track_num: number | null;
     duration: number | null;
@@ -235,6 +237,7 @@ export interface DatabaseService {
     getAlbumBySlug(slug: string): Album | undefined;
     getAlbumByTitle(title: string, artistId?: number): Album | undefined;
     getAlbumsByArtist(artistId: number, publicOnly?: boolean): Album[];
+    getAlbumsByOwner(ownerId: number, publicOnly?: boolean): Album[];
     createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number;
     updateAlbumVisibility(id: number, visibility: 'public' | 'private' | 'unlisted'): void;
     updateAlbumFederationSettings(id: number, publishedToGunDB: boolean, publishedToAP: boolean): void;
@@ -250,6 +253,7 @@ export interface DatabaseService {
     // Tracks
     getTracks(albumId?: number, publicOnly?: boolean): Track[];
     getTracksByArtist(artistId: number, publicOnly?: boolean): Track[];
+    getTracksByOwner(ownerId: number, publicOnly?: boolean): Track[];
     getTracksByAlbumIds(albumIds: number[]): Track[];
     getTracksByReleaseId(releaseId: number): Track[];
     getTrack(id: number): Track | undefined;
@@ -1018,6 +1022,19 @@ export function createDatabase(dbPath: string): DatabaseService {
         }
     });
 
+    // Migration: Add owner_id to albums and tracks if missing
+    try {
+        db.exec(`ALTER TABLE albums ADD COLUMN owner_id INTEGER REFERENCES artists(id)`);
+        console.log("📦 Migrated database: added owner_id column to albums");
+        db.prepare("UPDATE albums SET owner_id = artist_id WHERE owner_id IS NULL").run();
+    } catch (e) { }
+
+    try {
+        db.exec(`ALTER TABLE tracks ADD COLUMN owner_id INTEGER REFERENCES artists(id)`);
+        console.log("📦 Migrated database: added owner_id column to tracks");
+        db.prepare("UPDATE tracks SET owner_id = artist_id WHERE owner_id IS NULL").run();
+    } catch (e) { }
+
     // Optimized: Pre-compile frequent queries
     const getArtistStmt = db.prepare("SELECT * FROM artists WHERE id = ?");
     const getAlbumStmt = db.prepare(`SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
@@ -1026,7 +1043,8 @@ export function createDatabase(dbPath: string): DatabaseService {
     const getTrackStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
-            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+            COALESCE(t.owner_id, a.owner_id) as owner_id
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -1035,7 +1053,8 @@ export function createDatabase(dbPath: string): DatabaseService {
     const getTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
               COALESCE(ar_t.id, ar_a.id) as artist_id,
               COALESCE(ar_t.name, ar_a.name) as artist_name, 
-              COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
+              COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+              COALESCE(t.owner_id, a.owner_id) as owner_id
              FROM tracks t
              LEFT JOIN albums a ON t.album_id = a.id
              LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -1044,7 +1063,8 @@ export function createDatabase(dbPath: string): DatabaseService {
     const getPublicTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
-            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+            COALESCE(t.owner_id, a.owner_id) as owner_id
             FROM tracks t
             JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -1054,7 +1074,8 @@ export function createDatabase(dbPath: string): DatabaseService {
     const getAllTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
-            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+            COALESCE(t.owner_id, a.owner_id) as owner_id
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -1063,7 +1084,8 @@ export function createDatabase(dbPath: string): DatabaseService {
     const getAllPublicTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
-            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+            COALESCE(t.owner_id, a.owner_id) as owner_id
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -1073,7 +1095,8 @@ export function createDatabase(dbPath: string): DatabaseService {
     const getTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
-            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+            COALESCE(t.owner_id, a.owner_id) as owner_id
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -1083,7 +1106,8 @@ export function createDatabase(dbPath: string): DatabaseService {
     const getPublicTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
-            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+            COALESCE(t.owner_id, a.owner_id) as owner_id
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -1281,6 +1305,18 @@ export function createDatabase(dbPath: string): DatabaseService {
             return mapAlbums(rows);
         },
 
+        getAlbumsByOwner(ownerId: number, publicOnly = false): Album[] {
+            const sql = publicOnly
+                ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                   LEFT JOIN artists ar ON a.artist_id = ar.id 
+                   WHERE a.owner_id = ? AND a.visibility = 'public' ORDER BY a.date DESC`
+                : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                   LEFT JOIN artists ar ON a.artist_id = ar.id 
+                   WHERE a.owner_id = ? ORDER BY a.date DESC`;
+            const rows = db.prepare(sql).all(ownerId);
+            return mapAlbums(rows);
+        },
+
         createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number {
             const slug = album.slug || album.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
@@ -1291,13 +1327,14 @@ export function createDatabase(dbPath: string): DatabaseService {
                 try {
                     const result = db
                         .prepare(
-                            `INSERT INTO albums (title, slug, artist_id, date, cover_path, genre, description, type, year, download, price, currency, external_links, is_public, visibility, is_release, published_at, published_to_gundb, published_to_ap)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                            `INSERT INTO albums (title, slug, artist_id, owner_id, date, cover_path, genre, description, type, year, download, price, currency, external_links, is_public, visibility, is_release, published_at, published_to_gundb, published_to_ap)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                         )
                         .run(
                             album.title,
                             finalSlug,
                             album.artist_id,
+                            album.owner_id || album.artist_id, // Default owner to artist if not provided
                             album.date,
                             album.cover_path,
                             album.genre,
@@ -1435,6 +1472,33 @@ export function createDatabase(dbPath: string): DatabaseService {
             return getTracksByArtistStmt.all(artistId, artistId) as Track[];
         },
 
+        getTracksByOwner(ownerId: number, publicOnly = false): Track[] {
+            const sql = publicOnly
+                ? `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
+                    COALESCE(ar_t.id, ar_a.id) as artist_id,
+                    COALESCE(ar_t.name, ar_a.name) as artist_name, 
+                    COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+                    COALESCE(t.owner_id, a.owner_id) as owner_id
+                    FROM tracks t
+                    LEFT JOIN albums a ON t.album_id = a.id
+                    LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                    LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                    WHERE (COALESCE(t.owner_id, a.owner_id) = ?) AND (a.is_public = 1 OR t.album_id IS NULL)
+                    ORDER BY a.title, t.track_num`
+                : `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
+                    COALESCE(ar_t.id, ar_a.id) as artist_id,
+                    COALESCE(ar_t.name, ar_a.name) as artist_name, 
+                    COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+                    COALESCE(t.owner_id, a.owner_id) as owner_id
+                    FROM tracks t
+                    LEFT JOIN albums a ON t.album_id = a.id
+                    LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                    LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                    WHERE COALESCE(t.owner_id, a.owner_id) = ?
+                    ORDER BY a.title, t.track_num`;
+            return db.prepare(sql).all(ownerId) as Track[];
+        },
+
         getTracksByAlbumIds(albumIds: number[]): Track[] {
             if (albumIds.length === 0) return [];
 
@@ -1449,7 +1513,8 @@ export function createDatabase(dbPath: string): DatabaseService {
                         `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, 
                      COALESCE(ar_t.id, ar_a.id) as artist_id,
                      COALESCE(ar_t.name, ar_a.name) as artist_name, 
-                     COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
+                     COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+                     COALESCE(t.owner_id, a.owner_id) as owner_id
              FROM tracks t
              LEFT JOIN albums a ON t.album_id = a.id
              LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -1470,20 +1535,29 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         getTrackByPath(filePath: string): Track | undefined {
             return db
-                .prepare("SELECT * FROM tracks WHERE file_path = ?")
+                .prepare(`SELECT t.*, a.title as album_title, 
+                    COALESCE(ar_t.id, ar_a.id) as artist_id,
+                    COALESCE(ar_t.name, ar_a.name) as artist_name,
+                    COALESCE(t.owner_id, a.owner_id) as owner_id
+                    FROM tracks t
+                    LEFT JOIN albums a ON t.album_id = a.id
+                    LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                    LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                    WHERE t.file_path = ?`)
                 .get(filePath) as Track | undefined;
         },
 
         createTrack(track: Omit<Track, "id" | "created_at" | "album_title" | "artist_name">): number {
             const result = db
                 .prepare(
-                    `INSERT INTO tracks (title, album_id, artist_id, track_num, duration, file_path, format, bitrate, sample_rate, price, currency, lossless_path, url, service, external_artwork, lyrics)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                    `INSERT INTO tracks (title, album_id, artist_id, owner_id, track_num, duration, file_path, format, bitrate, sample_rate, price, currency, lossless_path, url, service, external_artwork, lyrics)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                 )
                 .run(
                     track.title,
                     track.album_id,
                     track.artist_id,
+                    track.owner_id || track.artist_id, // Default owner to artist if not provided
                     track.track_num,
                     track.duration,
                     track.file_path,

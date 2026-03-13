@@ -115,7 +115,7 @@ export interface ScannerService {
     scanDirectory(dir: string): Promise<ScanResult>;
     startWatching(dir: string): void;
     stopWatching(): void;
-    processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
+    processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
 }
 
 export class Scanner implements ScannerService {
@@ -163,6 +163,7 @@ export class Scanner implements ScannerService {
             title: folderName,
             slug: slug,
             artist_id: null, // Will be fixed by fixOrphanAlbums later
+            owner_id: null,
             date: null,
             cover_path: null,
             genre: "Library",
@@ -368,6 +369,7 @@ export class Scanner implements ScannerService {
                     title: config.title,
                     slug: slug,
                     artist_id: artistId,
+                    owner_id: artistId, // added
                     date: config.date || null,
                     cover_path: coverPath,
                     genre: config.genres?.join(", ") || null,
@@ -406,6 +408,7 @@ export class Scanner implements ScannerService {
                                 title: trackTitle,
                                 album_id: albumId,
                                 artist_id: artistId,
+                                owner_id: artistId, // added
                                 track_num: tc.trackNum || tc.track || null,
                                 duration: tc.duration || null,
                                 file_path: null,
@@ -430,7 +433,7 @@ export class Scanner implements ScannerService {
         }
     }
 
-    public async processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
+    public async processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
         let currentFilePath = filePath;
         const ext = path.extname(currentFilePath).toLowerCase();
 
@@ -571,6 +574,7 @@ export class Scanner implements ScannerService {
                 title: common.title || path.basename(currentFilePath, ext),
                 album_id: albumId, // Linked to album from release.yaml
                 artist_id: artistId,
+                owner_id: ownerId || artistId, // Added
                 track_num: common.track?.no || null,
                 duration: duration || null,
                 file_path: isLossless ? this.normalizePath(currentFilePath.replace(new RegExp(`\\${ext}$`, 'i'), '.mp3'), musicDir) : this.normalizePath(currentFilePath, musicDir),
