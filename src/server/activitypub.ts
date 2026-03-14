@@ -328,6 +328,17 @@ export class ActivityPubService {
                                 const attachments = Array.isArray(resolvedObj.attachment) ? resolvedObj.attachment : (resolvedObj.attachment ? [resolvedObj.attachment] : []);
                                 const audioAttachment = attachments.find((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/"));
                                 
+                                let streamUrlCandidate = hasType(resolvedObj.type, "Audio") ? resolvedObj.url : (audioAttachment?.url || audioAttachment?.href || audioAttachment);
+                                let finalStreamUrl = this.getString(streamUrlCandidate);
+                                if (Array.isArray(streamUrlCandidate)) {
+                                    const audioLink = streamUrlCandidate.find((u: any) => u?.mediaType?.startsWith("audio/"));
+                                    if (audioLink) {
+                                        finalStreamUrl = this.getString(audioLink.href || audioLink.url);
+                                    }
+                                } else if (streamUrlCandidate && typeof streamUrlCandidate === 'object' && streamUrlCandidate.mediaType?.startsWith("audio/")) {
+                                    finalStreamUrl = this.getString(streamUrlCandidate.href || streamUrlCandidate.url);
+                                }
+
                                     const remoteContent = {
                                         ap_id: this.getString(resolvedObj.id),
                                         actor_uri: this.getString(actorUri),
@@ -336,7 +347,7 @@ export class ActivityPubService {
                                         content: this.getString(resolvedObj.content || resolvedObj.summary || ""),
                                         url: this.getString(resolvedObj.url || (Array.isArray(resolvedObj.url) ? resolvedObj.url[0]?.href : resolvedObj.url?.href)),
                                         cover_url: this.getString(resolvedObj.image?.url || resolvedObj.icon?.url || (attachments.find((a: any) => hasType(a.type, "Image") || a.mediaType?.startsWith("image/"))?.url)),
-                                        stream_url: this.getString(hasType(resolvedObj.type, "Audio") ? resolvedObj.url : audioAttachment?.url || audioAttachment?.href),
+                                        stream_url: finalStreamUrl,
                                         artist_name: this.getString(resolvedObj.attributedTo?.name || actor.name || actor.preferredUsername || "Remote Artist"),
                                         album_name: this.getString(resolvedObj.album?.name || resolvedObj.name || resolvedObj.title || null),
                                         duration: this.getString(resolvedObj.duration || audioAttachment?.duration || null),

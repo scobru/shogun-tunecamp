@@ -119,7 +119,7 @@ export const PlayerBar = () => {
 
     // Fetch Waveform SVG asynchronously if not already present
     if (!currentTrack.waveform && currentTrack.id) {
-      fetch(`/api/waveform/${currentTrack.id}`)
+      fetch(`/api/waveform/${encodeURIComponent(String(currentTrack.id))}`)
         .then((res) => {
           if (res.ok) return res.text();
           return null;

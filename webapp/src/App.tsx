@@ -18,7 +18,6 @@ import {
   Post,
   AuthCallback,
   Wallet,
-  Purchases,
   Profile,
   MyMusic,
 } from "./pages";
@@ -76,7 +75,7 @@ function App() {
           <Route path="/playlists/:id" element={<PlaylistDetails />} />
           <Route path="/my-playlists" element={<MyPlaylists />} />
           <Route path="/my-playlists/:id" element={<MyPlaylistDetails />} />
-          <Route path="/purchases" element={<Purchases />} />
+          {/* Purchased tracks view is now in the User Profile Collection tab */}
           <Route path="/post/:slug" element={<Post />} />
           <Route path="/network" element={<Network />} />
           <Route path="/stats" element={<Stats />} />

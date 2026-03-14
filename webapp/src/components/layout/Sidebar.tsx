@@ -17,7 +17,6 @@ import {
   ListMusic,
   LogOut,
   Heart,
-  Download,
   Upload,
 } from "lucide-react";
 import clsx from "clsx";
@@ -99,10 +98,7 @@ export const Sidebar = () => {
         <NavItem to="/tracks" icon={Music} label="Tracks" />
         <NavItem to="/playlists" icon={ListMusic} label="Playlists" />
         {isAuthenticated && (
-          <>
-            <NavItem to="/my-playlists" icon={Heart} label="My Playlists" />
-            <NavItem to="/purchases" icon={Download} label="Purchases" />
-          </>
+          <NavItem to="/my-playlists" icon={Heart} label="My Playlists" />
         )}
         <NavItem to="/stats" icon={BarChart2} label="Stats" />
         {/* File browser - admin only */}
