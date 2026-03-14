@@ -142,12 +142,12 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 
     // API Routes
-    app.get("/api/waveform/:id", async (req, res) => {
+    app.get("/api/waveform/:id(*)", async (req, res) => {
         try {
             const idParam = req.params.id;
             const trackId = parseInt(idParam);
             
-            if (!isNaN(trackId)) {
+            if (!isNaN(trackId) && trackId.toString() === idParam) {
                 const track = database.getTrack(trackId);
                 if (track && track.file_path) {
                     const filePath = path.join(config.musicDir, track.file_path);
@@ -160,10 +160,11 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
             // Fallback: check for remote track
             const remoteTrack = database.getRemoteTrack(idParam);
-            if (remoteTrack && remoteTrack.cover_url) {
-                 // For remote tracks, we don't have a waveform locally.
-                 // We could potentially return a generic one or redirect to remote if known.
-                 // For now, return 404 but with a clear message or just empty SVG.
+            if (remoteTrack) {
+                 // For remote tracks, return a generic flat line SVG so Player doesn't throw 404
+                 res.setHeader("Content-Type", "image/svg+xml");
+                 res.setHeader("Cache-Control", "public, max-age=31536000");
+                 return res.send('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="100" viewBox="0 0 800 100"><line x1="0" y1="50" x2="800" y2="50" stroke="#888" stroke-width="2"/></svg>');
             }
 
             res.status(404).send("Waveform not available");
