@@ -1,0 +1,48 @@
+{
+  "id": "https://stereo.kenobit.it/federation/music/uploads/f5284287-0a45-40d7-928e-f32056e5387f",
+  "type": "Audio",
+  "name": "Cosa sono i microloop?",
+  "attributedTo": "https://stereo.kenobit.it/federation/actors/spasso",
+  "published": "2024-04-18T09:55:27.586963+00:00",
+  "to": "https://www.w3.org/ns/activitystreams#Public",
+  "url": [
+    {
+      "type": "Link",
+      "mediaType": "text/html",
+      "href": "https://stereo.kenobit.it/library/tracks/1144"
+    },
+    {
+      "type": "Link",
+      "mediaType": "audio/mpeg",
+      "href": "https://stereo.kenobit.it/api/v1/listen/ff957514-543d-41ef-8348-ccbbf1ee98a2/?upload=f5284287-0a45-40d7-928e-f32056e5387f&download=false",
+      "bitrate": 128000,
+      "size": 89029696
+    }
+  ],
+  "license": "http://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "duration": 5563,
+  "position": 1,
+  "content": "<p>La prima puntata di Spasso analizza il concetto di microloop nel game design. Impariamo a riconoscere i microloop per godere più consapevolmente dei nostri giochi!</p>",
+  "mediaType": "text/html",
+  "image": {
+    "type": "Image",
+    "url": "https://stereo.kenobit.it/media/attachments/96/7e/34/coverquadrata.png",
+    "mediaType": "image/png"
+  },
+  "tag": [
+    {
+      "type": "Hashtag",
+      "name": "#Blues"
+    }
+  ],
+  "summary": "#Blues #Blues",
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    "https://funkwhale.audio/ns",
+    {
+      "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+      "Hashtag": "as:Hashtag"
+    }
+  ]
+}

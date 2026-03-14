@@ -1055,18 +1055,6 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.warn("⚠️  Migration warning (remote_content):", e);
     }
 
-    // Migration: Fix old Funkwhale HTML paths in stream_url
-    try {
-        db.exec(`
-            UPDATE remote_content 
-            SET stream_url = REPLACE(stream_url, '/library/tracks/', '/api/v1/listen/') || '/'
-            WHERE stream_url LIKE '%/library/tracks/%'
-        `);
-        console.log("📦 Migrated database: fixed legacy Funkwhale stream URLs");
-    } catch (e) {
-        console.warn("⚠️  Migration warning (funkwhale paths):", e);
-    }
-
     // Prepared statements for release tracks
     const addReleaseTrackStmt = db.prepare("INSERT OR IGNORE INTO release_tracks (release_id, track_id) VALUES (?, ?)");
     const removeReleaseTrackStmt = db.prepare("DELETE FROM release_tracks WHERE release_id = ? AND track_id = ?");
