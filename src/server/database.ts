@@ -2305,6 +2305,87 @@ export function createDatabase(dbPath: string): DatabaseService {
             );
         },
 
+        saveRemoteActor(actor: any): void {
+            db.prepare(`
+                INSERT INTO remote_actors (uri, type, username, name, summary, icon_url, inbox_url, outbox_url, is_followed, last_seen)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(uri) DO UPDATE SET
+                    type=excluded.type,
+                    username=excluded.username,
+                    name=excluded.name,
+                    summary=excluded.summary,
+                    icon_url=excluded.icon_url,
+                    inbox_url=excluded.inbox_url,
+                    outbox_url=excluded.outbox_url,
+                    last_seen=CURRENT_TIMESTAMP
+            `).run(
+                actor.uri,
+                actor.type || 'Person',
+                actor.username || null,
+                actor.name || null,
+                actor.summary || null,
+                actor.icon_url || null,
+                actor.inbox_url || null,
+                actor.outbox_url || null,
+                actor.is_followed ? 1 : 0
+            );
+        },
+
+        getRemoteTracks(): RemoteContent[] {
+            const rows = db.prepare("SELECT * FROM remote_content WHERE type = 'release' ORDER BY published_at DESC").all() as RemoteContent[];
+            return rows;
+        },
+
+        getRemotePosts(): RemoteContent[] {
+            const rows = db.prepare("SELECT * FROM remote_content WHERE type = 'post' ORDER BY published_at DESC").all() as RemoteContent[];
+            return rows;
+        },
+
+        getRemoteTrack(apIdOrSlug: string): RemoteContent | undefined {
+            return db.prepare("SELECT * FROM remote_content WHERE ap_id = ? OR url LIKE ?").get(apIdOrSlug, `%${apIdOrSlug}`) as RemoteContent | undefined;
+        },
+
+        getRemoteContent(apId: string): RemoteContent | undefined {
+            return db.prepare("SELECT * FROM remote_content WHERE ap_id = ?").get(apId) as RemoteContent | undefined;
+        },
+
+        saveRemotePost(post: any): void {
+            db.prepare(`
+                INSERT INTO remote_content (ap_id, actor_uri, type, title, content, url, cover_url, stream_url, artist_name, album_name, duration, published_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(ap_id) DO UPDATE SET
+                    title=excluded.title,
+                    content=excluded.content,
+                    url=excluded.url,
+                    cover_url=excluded.cover_url,
+                    stream_url=excluded.stream_url,
+                    artist_name=excluded.artist_name,
+                    album_name=excluded.album_name,
+                    duration=excluded.duration
+            `).run(
+                post.ap_id,
+                post.actor_uri,
+                post.type,
+                post.title || null,
+                post.content || null,
+                post.url || null,
+                post.cover_url || null,
+                post.stream_url || null,
+                post.artist_name || null,
+                post.album_name || null,
+                post.duration || null,
+                post.published_at || null
+            );
+        },
+
+        deleteRemotePost(apId: string): void {
+            db.prepare("DELETE FROM remote_content WHERE ap_id = ?").run(apId);
+        },
+
+        deleteRemoteContent(apId: string): void {
+            db.prepare("DELETE FROM remote_content WHERE ap_id = ?").run(apId);
+        },
+
         // Starred Items (Subsonic)
         starItem(username: string, itemType: string, itemId: string): void {
             db.prepare(`
