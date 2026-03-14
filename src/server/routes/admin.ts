@@ -439,7 +439,7 @@ export function createAdminRoutes(
             if (!authService.isRootAdmin(req.username || "")) {
                 return res.status(403).json({ error: "Only the primary admin can create new admins" });
             }
-            const { username, password, artistId } = req.body;
+            const { username, password, artistId, isAdmin } = req.body;
             if (!username) {
                 return res.status(400).json({ error: "Username is required" });
             }
@@ -449,7 +449,11 @@ export function createAdminRoutes(
                 return res.status(400).json({ error: passwordValidation.error });
             }
 
-            await authService.createAdmin(username, password, artistId);
+            if (isAdmin) {
+                await authService.createAdmin(username, password, artistId);
+            } else {
+                await authService.createUser(username, password, artistId || null as any, 1024 * 1024 * 1024);
+            }
             res.json({ message: "Admin user created" });
         } catch (error: any) {
             console.error("Error creating admin:", error);
@@ -470,9 +474,10 @@ export function createAdminRoutes(
                 return res.status(403).json({ error: "Only the primary admin can manage users" });
             }
             const id = parseInt(req.params.id, 10);
-            const { artistId } = req.body;
+            const { artistId, isAdmin } = req.body;
 
-            authService.updateAdmin(id, artistId);
+            const role = isAdmin === undefined ? undefined : (isAdmin ? 'admin' : 'user');
+            authService.updateAdmin(id, artistId, role);
             res.json({ message: "Admin user updated" });
         } catch (error) {
             console.error("Error updating admin:", error);

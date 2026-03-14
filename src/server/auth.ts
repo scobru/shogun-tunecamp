@@ -24,7 +24,7 @@ export interface AuthService {
     verifySubsonicToken(username: string, token: string, salt: string): Promise<boolean>;
     createAdmin(username: string, password: string, artistId?: number | null): Promise<void>;
     createUser(username: string, password: string, artistId: number, storageQuota?: number, pubKey?: string): Promise<{ id: number }>;
-    updateAdmin(id: number, artistId: number | null): void;
+    updateAdmin(id: number, artistId: number | null, role?: UserRole): void;
     updateStorageUsed(userId: number, bytesUsed: number): void;
     getStorageInfo(userId: number): { storage_quota: number; storage_used: number } | null;
     listAdmins(): { id: number; username: string; artist_id: number | null; role: UserRole; storage_quota: number; is_active: number; created_at: string }[];
@@ -210,7 +210,7 @@ export function createAuthService(
                     isAdmin: decoded.isAdmin ?? (decoded.role === 'admin'),
                     username: decoded.username,
                     artistId: decoded.artistId ?? null,
-                    role: decoded.role || 'admin' // backward compat: old tokens without role are admin
+                    role: decoded.role || (decoded.isAdmin ? 'admin' : 'user') // backward compat
                 };
             } catch {
                 return null;
@@ -366,8 +366,15 @@ export function createAuthService(
             return { id: Number(result.lastInsertRowid) };
         },
 
-        updateAdmin(id: number, artistId: number | null): void {
-            db.prepare("UPDATE admin SET artist_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(artistId, id);
+        updateAdmin(id: number, artistId: number | null, role?: UserRole): void {
+            if (role) {
+                if (id === 1 && role !== 'admin') {
+                    throw new Error("Cannot demote the primary admin");
+                }
+                db.prepare("UPDATE admin SET artist_id = ?, role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(artistId, role, id);
+            } else {
+                db.prepare("UPDATE admin SET artist_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(artistId, id);
+            }
         },
 
         updateStorageUsed(userId: number, bytesUsed: number): void {

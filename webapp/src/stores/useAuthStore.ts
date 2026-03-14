@@ -169,7 +169,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 user: { ...transformedUser, gunProfile },
                 adminUser: transformedUser, // compat
                 mustChangePassword: !!result.mustChangePassword,
-                role: (result as any).role || 'admin',
+                role: (result as any).role || 'user',
                 isLoading: false,
                 isAdminLoading: false, // compat
                 isInitializing: false // compat
