@@ -1180,6 +1180,31 @@ export function createDatabase(dbPath: string): DatabaseService {
 
     return {
         db,
+        updateReleaseTracks(releaseId: number, toAdd: number[], toRemove: number[]): void {
+            updateReleaseTracksTransaction(releaseId, toAdd, toRemove);
+        },
+
+        getReleaseTrackIds(releaseId: number): number[] {
+            const rows = getReleaseTrackIdsStmt.all(releaseId) as { track_id: number }[];
+            return rows.map(r => r.track_id);
+        },
+
+        getTracksByReleaseId(releaseId: number): Track[] {
+            return db
+                .prepare(
+                    `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, 
+                    COALESCE(ar_t.id, ar_a.id) as artist_id,
+                    COALESCE(ar_t.name, ar_a.name) as artist_name, 
+                    COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
+            FROM tracks t
+           JOIN release_tracks rt ON t.id = rt.track_id
+           LEFT JOIN albums a ON t.album_id = a.id
+           LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+           LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+           WHERE rt.release_id = ?`
+                )
+                .all(releaseId) as Track[];
+        },
 
         // OAuth
         getOAuthClient(instanceUrl: string): OAuthClient | undefined {
@@ -1742,31 +1767,6 @@ export function createDatabase(dbPath: string): DatabaseService {
             ).run(releaseId, trackId);
         },
 
-        updateReleaseTracks(releaseId: number, toAdd: number[], toRemove: number[]): void {
-            updateReleaseTracksTransaction(releaseId, toAdd, toRemove);
-        },
-
-        getReleaseTrackIds(releaseId: number): number[] {
-            const rows = getReleaseTrackIdsStmt.all(releaseId) as { track_id: number }[];
-            return rows.map(r => r.track_id);
-        },
-
-        getTracksByReleaseId(releaseId: number): Track[] {
-            return db
-                .prepare(
-                    `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, 
-                    COALESCE(ar_t.id, ar_a.id) as artist_id,
-                    COALESCE(ar_t.name, ar_a.name) as artist_name, 
-                    COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
-            FROM tracks t
-           JOIN release_tracks rt ON t.id = rt.track_id
-           LEFT JOIN albums a ON t.album_id = a.id
-           LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
-           LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-           WHERE rt.release_id = ?`
-                )
-                .all(releaseId) as Track[];
-        },
 
         // Playlists
 
@@ -2385,6 +2385,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         deleteRemoteContent(apId: string): void {
             db.prepare("DELETE FROM remote_content WHERE ap_id = ?").run(apId);
         },
+
 
         // Starred Items (Subsonic)
         starItem(username: string, itemType: string, itemId: string): void {
