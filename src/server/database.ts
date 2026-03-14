@@ -2532,6 +2532,6 @@ export function createDatabase(dbPath: string): DatabaseService {
             const rows = db.prepare("SELECT owner_id FROM album_ownership WHERE album_id = ?").all(albumId) as { owner_id: number }[];
             return rows.map(r => r.owner_id);
         },
-    };
+    } as DatabaseService;
 }
 
