@@ -488,7 +488,7 @@ const AdminUsersList = () => {
           <tr key={u.id}>
             <td className="font-bold">{u.username}</td>
             <td>
-              {u.isAdmin ? (
+              {u.role === "admin" || u.isAdmin ? (
                 <span className="badge badge-primary badge-outline">Admin</span>
               ) : (
                 <span className="badge badge-ghost">User</span>

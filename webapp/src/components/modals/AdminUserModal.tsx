@@ -50,7 +50,7 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
                 // Edit
                 setUsername(userToEdit.username);
                 setPassword('');
-                setIsAdmin(userToEdit.isAdmin);
+                setIsAdmin(userToEdit.role === 'admin' || userToEdit.isAdmin);
                 setArtistId(userToEdit.artistId || userToEdit.artist_id || '');
                 setIsActive(userToEdit.is_active !== 0);
                 setInitialIsActive(userToEdit.is_active !== 0);
