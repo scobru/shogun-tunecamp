@@ -538,7 +538,7 @@ export class ActivityPubService {
     public generateNote(album: Album, artist: Artist, tracks: Track[]): any {
         const baseUrl = this.getBaseUrl();
         const userUrl = `${baseUrl}/users/${artist.slug}`;
-        const albumUrl = `${baseUrl}/#/album/${album.slug}`;
+        const albumUrl = `${baseUrl}/albums/${album.slug}`;
         const published = album.published_at || album.created_at;
 
         const attachments: any[] = [];
@@ -617,7 +617,7 @@ export class ActivityPubService {
     public generatePostNote(post: Post, artist: Artist): any {
         const baseUrl = this.getBaseUrl();
         const userUrl = `${baseUrl}/users/${artist.slug}`;
-        const postUrl = `${baseUrl}/#/artist/${artist.slug}?post=${post.slug}`;
+        const postUrl = `${baseUrl}/artists/${artist.slug}?post=${post.slug}`;
 
         const published = post.published_at || post.created_at;
         const sentTime = published ? new Date(published).getTime() : 0;

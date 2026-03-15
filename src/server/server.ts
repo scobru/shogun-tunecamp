@@ -248,7 +248,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
         const { slug } = req.params;
         const artist = database.getArtistBySlug(slug);
         if (artist) {
-            res.redirect(`/#/artist/${artist.slug}`);
+            res.redirect(`/artists/${artist.slug}`);
         } else {
             res.redirect("/");
         }
@@ -259,7 +259,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
         const { slug } = req.params;
         const album = database.getAlbumBySlug(slug);
         if (album) {
-            res.redirect(`/#/album/${album.slug}`);
+            res.redirect(`/albums/${album.slug}`);
         } else {
             res.status(404).send("Release not found");
         }
@@ -272,7 +272,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
             // Need artist slug for the URL
             const artist = database.getArtist(post.artist_id);
             if (artist) {
-                res.redirect(`/#/artist/${artist.slug}?post=${post.slug}`);
+                res.redirect(`/artists/${artist.slug}?post=${post.slug}`);
             } else {
                 res.redirect("/");
             }
