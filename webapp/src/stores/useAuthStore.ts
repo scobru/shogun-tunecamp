@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import API from '../services/api';
 import { GunAuth, type GunProfile } from '../services/gun';
 import type { User } from '../types';
+import { useWalletStore } from './useWalletStore';
 
 type UserRole = 'admin' | 'user' | null;
 
@@ -244,6 +245,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     logout: () => {
         GunAuth.logout();
+        useWalletStore.getState().clearWallet();
         API.setToken(null);
         set({ 
             user: null, 
