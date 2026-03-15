@@ -181,7 +181,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
      * Update track metadata and ID3 tags
      */
     router.get("/:id/metadata", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAuthenticated) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
 
         try {
             const id = parseInt(req.params.id as string, 10);
