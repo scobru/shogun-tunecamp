@@ -178,8 +178,28 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             database.updateArtist(id, bio || artist.bio || undefined, artist.photo_path || undefined, parsedLinks, finalPostParams, finalWalletAddress || undefined);
 
             const updatedArtist = database.getArtist(id);
+            if (!updatedArtist) {
+                return res.status(404).json({ error: "Artist not found after update" });
+            }
             console.log(`🎤 Updated artist: ${artist.name}`);
-            res.json(updatedArtist);
+            
+            let responseLinks = null;
+            if (updatedArtist.links) {
+                try { responseLinks = JSON.parse(updatedArtist.links); } catch(e) {}
+            }
+
+            let responsePostParams = undefined;
+            if (updatedArtist.post_params) {
+                try { responsePostParams = JSON.parse(updatedArtist.post_params); } catch(e) {}
+            }
+
+            const { private_key, ...safeArtist } = updatedArtist;
+
+            res.json({
+                ...safeArtist,
+                links: responseLinks,
+                postParams: responsePostParams
+            });
         } catch (error) {
             console.error("Error updating artist:", error);
             res.status(500).json({ error: "Failed to update artist" });
