@@ -19,7 +19,7 @@ import { BackupPanel } from "../components/admin/BackupPanel";
 import type { SiteSettings } from "../types";
 
 export const Admin = () => {
-  const { user, isAuthenticated, isLoading, role } = useAuthStore();
+  const { isAuthenticated, isLoading, role } = useAuthStore();
   const navigate = useNavigate();
   const isAdmin = role === 'admin';
   const [activeTab, setActiveTab] = useState<
