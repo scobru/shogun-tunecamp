@@ -177,11 +177,11 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
     });
 
     /**
-     * GET /api/tracks/:id/metadata
-     * Extract ID3/metadata (including cover art) from the physical file
+     * PUT /api/tracks/:id
+     * Update track metadata and ID3 tags
      */
     router.get("/:id/metadata", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAuthenticated) return res.status(401).json({ error: "Unauthorized" });
 
         try {
             const id = parseInt(req.params.id as string, 10);
@@ -192,7 +192,8 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             // Permission Check: Artist can only see metadata for their own tracks
-            if (!req.isAdmin && track.owner_id !== req.artistId) {
+            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
+            if (!isRoot && track.owner_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied" });
             }
 
@@ -529,7 +530,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
 
     /**
      * PUT /api/tracks/:id
-     * Update track metadata and ID3 tags (admin only)
+     * Update track metadata and ID3 tags (admin or owner only)
      */
     router.put("/:id", async (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin && !req.artistId) {
@@ -544,8 +545,9 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 return res.status(404).json({ error: "Track not found" });
             }
 
-            // Permission Check: Restricted admin can only update their own tracks
-            if (req.artistId && track.owner_id && track.owner_id !== req.artistId) {
+            // Permission Check: Restricted admin or user can only update their own tracks
+            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
+            if (!isRoot && track.owner_id !== req.artistId) {
                 return res.status(403).json({ error: "Access denied: You can only edit your own tracks" });
             }
 

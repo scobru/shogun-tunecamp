@@ -19,30 +19,34 @@ import { BackupPanel } from "../components/admin/BackupPanel";
 import type { SiteSettings } from "../types";
 
 export const Admin = () => {
-  const { adminUser, isAdminAuthenticated, isAdminLoading } = useAuthStore();
+  const { user, isAuthenticated, isLoading, role } = useAuthStore();
   const navigate = useNavigate();
+  const isAdmin = role === 'admin';
   const [activeTab, setActiveTab] = useState<
+    | "releases"
     | "users"
     | "settings"
     | "system"
     | "identity"
     | "activitypub"
     | "backup"
-  >("users");
+  >(isAdmin ? "users" : "releases");
   const [stats, setStats] = useState<any>(null);
 
   // const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isAdminLoading) return;
-    if (!isAdminAuthenticated || !adminUser?.isAdmin) {
+    if (isLoading) return;
+    if (!isAuthenticated || (role !== 'admin' && role !== 'user')) {
       navigate("/");
       return;
     }
-    loadStats();
-  }, [isAdminAuthenticated, adminUser, isAdminLoading]);
+    if (isAdmin) {
+        loadStats();
+    }
+  }, [isAuthenticated, role, isLoading]);
 
-  if (isAdminLoading)
+  if (isLoading)
     return (
       <div className="p-12 text-center opacity-50">Loading dashboard...</div>
     );
@@ -81,16 +85,16 @@ export const Admin = () => {
     }
   };
 
-  if (!isAdminAuthenticated || !adminUser?.isAdmin) return null;
+  if (!isAuthenticated || (role !== 'admin' && role !== 'user')) return null;
 
   return (
     <div className="space-y-8 animate-fade-in">
       <h1 className="text-3xl font-bold flex items-center gap-3">
-        <Settings size={32} className="text-primary" /> Admin Dashboard
+        <Settings size={32} className="text-primary" /> {isAdmin ? "Admin Dashboard" : "Artist Dashboard"}
       </h1>
 
       {/* Stats Cards */}
-      {stats && (
+      {isAdmin && stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="stat bg-base-200 rounded-box border border-white/5">
             <div className="stat-title">Total Users</div>
@@ -117,122 +121,76 @@ export const Admin = () => {
       <div role="tablist" className="tabs tabs-lifted">
         <a
           role="tab"
-          className={`tab ${activeTab === "users" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("users")}
+          className={`tab ${activeTab === "releases" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("releases")}
         >
-          Users
+          {isAdmin ? "All Releases" : "My Releases"}
         </a>
-        <a
-          role="tab"
-          className={`tab ${activeTab === "settings" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("settings")}
-        >
-          Settings
-        </a>
-        <a
-          role="tab"
-          className={`tab ${activeTab === "system" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("system")}
-        >
-          System
-        </a>
-        <a
-          role="tab"
-          className={`tab ${activeTab === "identity" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("identity")}
-        >
-          Identity
-        </a>
-        <a
-          role="tab"
-          className={`tab ${activeTab === "activitypub" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("activitypub")}
-        >
-          ActivityPub
-        </a>
-        <a
-          role="tab"
-          className={`tab ${activeTab === "backup" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("backup")}
-        >
-          Backup
-        </a>
+        {isAdmin && (
+          <>
+            <a
+              role="tab"
+              className={`tab ${activeTab === "users" ? "tab-active" : ""}`}
+              onClick={() => setActiveTab("users")}
+            >
+              Users
+            </a>
+            <a
+              role="tab"
+              className={`tab ${activeTab === "settings" ? "tab-active" : ""}`}
+              onClick={() => setActiveTab("settings")}
+            >
+              Settings
+            </a>
+            <a
+              role="tab"
+              className={`tab ${activeTab === "system" ? "tab-active" : ""}`}
+              onClick={() => setActiveTab("system")}
+            >
+              System
+            </a>
+            <a
+              role="tab"
+              className={`tab ${activeTab === "identity" ? "tab-active" : ""}`}
+              onClick={() => setActiveTab("identity")}
+            >
+              Identity
+            </a>
+            <a
+              role="tab"
+              className={`tab ${activeTab === "activitypub" ? "tab-active" : ""}`}
+              onClick={() => setActiveTab("activitypub")}
+            >
+              ActivityPub
+            </a>
+            <a
+              role="tab"
+              className={`tab ${activeTab === "backup" ? "tab-active" : ""}`}
+              onClick={() => setActiveTab("backup")}
+            >
+              Backup
+            </a>
+          </>
+        )}
       </div>
 
       <div className="bg-base-100 p-6 rounded-b-box border-x border-b border-base-300 min-h-[400px]">
-        {activeTab === "system" && (
-          <div className="space-y-6">
-            <h3 className="font-bold text-lg">System Maintenance</h3>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="card bg-base-200 border border-white/5">
-                <div className="card-body">
-                  <h2 className="card-title text-accent">
-                    <RefreshCw /> Cleanup
-                  </h2>
-                  <p className="opacity-70 text-sm">
-                    Check reachability of all registered sites on GunDB and
-                    remove dead entries.
-                  </p>
-                  <div className="card-actions justify-end mt-4">
-                    <button
-                      className="btn btn-accent btn-outline"
-                      onClick={() => handleSystemAction("cleanup")}
-                    >
-                      Network Cleanup
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="card bg-base-200 border border-white/5">
-                <div className="card-body">
-                  <h2 className="card-title text-primary">
-                    <Save /> Consolidate
-                  </h2>
-                  <p className="opacity-70 text-sm">
-                    Rename physical files to "Artist - Title" format based on database tags.
-                  </p>
-                  <div className="card-actions justify-end mt-4">
-                    <button
-                      className="btn btn-primary btn-outline"
-                      onClick={() => handleSystemAction("consolidate")}
-                    >
-                      Consolidate Files
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        {activeTab === "releases" && (
+           <div className="space-y-4">
+           <div className="flex justify-between items-center">
+             <h3 className="font-bold text-lg">{isAdmin ? "All Releases" : "My Releases"}</h3>
+             <button
+               className="btn btn-sm btn-primary"
+               onClick={() => navigate("/admin/release/new")}
+             >
+               New Release
+             </button>
+           </div>
+           <AdminReleasesList mine={!isAdmin} />
+         </div>
         )}
 
-
-        {activeTab === "users" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold text-lg">User Management</h3>
-              <button
-                className="btn btn-sm btn-primary"
-                onClick={() =>
-                  document.dispatchEvent(
-                    new CustomEvent("open-admin-user-modal"),
-                  )
-                }
-              >
-                Add User
-              </button>
-            </div>
-            <AdminUsersList />
-          </div>
-        )}
-
-
-
-        {activeTab === "settings" && <AdminSettingsPanel />}
-        {activeTab === "identity" && <IdentityPanel isAdmin={adminUser?.isAdmin} />}
-        {activeTab === "activitypub" && <ActivityPubPanel />}
-        {activeTab === "backup" && <BackupPanel />}
-      </div>
+        {activeTab === "system" && isAdmin && (
 
       <AdminUserModal
         onUserUpdated={() =>

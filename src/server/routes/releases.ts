@@ -37,13 +37,16 @@ interface UpdateReleaseBody extends Partial<CreateReleaseBody> {
 // ... imports at top ...
 import type { PublishingService } from "../publishing.js";
 
+import type { AuthService } from "../auth.js";
+
 // ... existing interfaces ...
 
 export function createReleaseRoutes(
     database: DatabaseService,
     scanner: ScannerService,
     musicDir: string,
-    publishingService: PublishingService
+    publishingService: PublishingService,
+    authService?: AuthService
 ): Router {
     const router = Router();
 
@@ -132,9 +135,10 @@ export function createReleaseRoutes(
             }
 
             // Permission Check
-            if (req.artistId && !req.isAdmin) {
-                if (album.owner_id !== req.artistId) {
-                    return res.status(403).json({ error: "Access denied" });
+            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
+            if (!isRoot) {
+                if (!req.artistId || album.owner_id !== req.artistId) {
+                    return res.status(403).json({ error: "Access denied: You can only edit your own releases" });
                 }
                 // Don't allow changing artist name if restricted
                 if (body.artistName) {
@@ -286,8 +290,9 @@ export function createReleaseRoutes(
             if (!album) return res.status(404).json({ error: "Release not found" });
 
             // Permission Check
-            if (req.artistId && !req.isAdmin && album.owner_id !== req.artistId) {
-                return res.status(403).json({ error: "Access denied" });
+            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
+            if (!isRoot && album.owner_id !== req.artistId) {
+                return res.status(403).json({ error: "Access denied: You can only delete your own releases" });
             }
 
             // Cleanup External Networks

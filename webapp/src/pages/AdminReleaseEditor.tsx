@@ -64,8 +64,9 @@ interface LocalRelease {
 export default function AdminReleaseEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, role, isAuthenticated, isLoading } = useAuthStore();
   const isNew = !id;
+  const isAdmin = role === 'admin';
 
 
   // State
@@ -106,11 +107,17 @@ export default function AdminReleaseEditor() {
   const [showUnlockManager, setShowUnlockManager] = useState(false);
 
   useEffect(() => {
-    loadArtists();
-    if (!isNew && id) {
-      loadRelease(parseInt(id));
+    if (!isLoading) {
+      if (!isAuthenticated || (role !== 'admin' && role !== 'user')) {
+        navigate("/");
+        return;
+      }
+      loadArtists();
+      if (!isNew && id) {
+        loadRelease(parseInt(id));
+      }
     }
-  }, [id]);
+  }, [id, isLoading, isAuthenticated, role]);
 
   const loadArtists = async () => {
     try {
@@ -119,7 +126,7 @@ export default function AdminReleaseEditor() {
       // Default to first artist if new
       if (isNew && data.length > 0) {
         // If user is a specific artist, pre-set it
-        const targetArtistId = user?.isRootAdmin ? data[0].id : (user?.artistId || data[0].id);
+        const targetArtistId = isAdmin ? data[0].id : (user?.artistId || data[0].id);
         setMetadata((prev) => ({ ...prev, artist_id: parseInt(targetArtistId) }));
       }
     } catch (e) {
@@ -192,57 +199,6 @@ export default function AdminReleaseEditor() {
     );
 
     setTracks((prev) => [...prev, ...unique]);
-  };
-
-  const handleAddExternalLink = async () => {
-    let url = window.prompt("Enter URL (YouTube, SoundCloud, Spotify):");
-    if (!url) return;
-    url = url.trim();
-
-    setSaving(true);
-    try {
-      // Basic detection
-      let service: "youtube" | "spotify" | "soundcloud" | "local" | "external" =
-        "external";
-      let externalArtwork = undefined;
-
-      if (url.includes("youtube.com") || url.includes("youtu.be")) {
-        service = "youtube";
-        const regExp =
-          /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-        const match = url.match(regExp);
-        const id = match && match[2].length === 11 ? match[2] : null;
-        if (id)
-          externalArtwork = `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
-      } else if (url.includes("spotify.com")) {
-        service = "spotify";
-      } else if (url.includes("soundcloud.com")) {
-        service = "soundcloud";
-      }
-
-      const newTrack: any = await API.createTrack({
-        title: "New External Track",
-        url: url,
-        service: service,
-        externalArtwork: externalArtwork,
-        albumId: metadata.id ? parseInt(String(metadata.id)) : undefined,
-        artistId: metadata.artist_id,
-        trackNum: tracks.length + 1,
-      });
-
-      setTracks((prev) => [
-        ...prev,
-        {
-          ...newTrack,
-          isDirty: false, // It was just created with default "New External Track"
-        },
-      ]);
-    } catch (e) {
-      console.error("Failed to add external track", e);
-      alert("Failed to add external track");
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleRemoveTrack = (index: number) => {
@@ -339,9 +295,6 @@ export default function AdminReleaseEditor() {
 
           if (t.file_path) {
             updateData.fileName = t.file_path.split("/").pop() || "";
-          } else if (t.url) {
-            updateData.url = t.url;
-            updateData.service = t.service;
           }
 
           await API.updateTrack(String(t.id), updateData);
@@ -476,12 +429,6 @@ export default function AdminReleaseEditor() {
                       }}
                     />
                   </label>
-                  <button
-                    className="btn btn-xs sm:btn-sm btn-primary btn-outline join-item flex-1"
-                    onClick={handleAddExternalLink}
-                  >
-                    <LinkIcon className="w-4 h-4 mr-1" /> External
-                  </button>
                 </div>
               </div>
             </div>
@@ -524,39 +471,28 @@ export default function AdminReleaseEditor() {
                       />
                       <div className="flex items-center gap-2 px-2 overflow-hidden">
                         <span className="text-[10px] opacity-40 font-mono uppercase shrink-0">
-                          {track.url ? "URL:" : "File:"}
+                          File:
                         </span>
                         <input
                           type="text"
                           value={
-                            track.url || track.file_path?.split("/").pop() || ""
+                            track.file_path?.split("/").pop() || ""
                           }
                           onChange={(e) => {
                             const newTracks = [...tracks];
-                            if (track.url) {
-                              newTracks[idx].url = e.target.value;
-                            } else {
-                              const dir = (track.file_path || "").includes("/")
-                                ? track.file_path!.substring(
-                                    0,
-                                    track.file_path!.lastIndexOf("/") + 1,
-                                  )
-                                : "";
-                              newTracks[idx].file_path = dir + e.target.value;
-                            }
+                            const dir = (track.file_path || "").includes("/")
+                              ? track.file_path!.substring(
+                                  0,
+                                  track.file_path!.lastIndexOf("/") + 1,
+                                )
+                              : "";
+                            newTracks[idx].file_path = dir + e.target.value;
                             newTracks[idx].isDirty = true;
                             setTracks(newTracks);
                           }}
                           className="input input-ghost input-xs w-full opacity-50 focus:opacity-100 font-mono text-[10px] focus:bg-base-200 px-1"
-                          placeholder={
-                            track.url ? "https://..." : "filename.mp3"
-                          }
+                          placeholder="filename.mp3"
                         />
-                        {track.service && track.service !== "local" && (
-                          <span className="badge badge-secondary badge-xs opacity-70 scale-75 shrink-0">
-                            {track.service}
-                          </span>
-                        )}
                       </div>
                       {track.artistName && (
                         <div className="text-xs opacity-50 px-2">
@@ -590,7 +526,7 @@ export default function AdminReleaseEditor() {
                       </div>
                       <div className="flex items-center gap-1">
                         <select
-                          className="select select-ghost select-xs px-1 opacity-50 focus:opacity-100"
+                          className="select select-ghost select-sm px-1 opacity-50 focus:opacity-100"
                           value={track.currency || "ETH"}
                           onChange={(e) => {
                             const newTracks = [...tracks];
@@ -602,8 +538,8 @@ export default function AdminReleaseEditor() {
                           <option value="ETH">ETH</option>
                           <option value="USD">USD</option>
                         </select>
-                        <label className="input input-xs input-bordered flex items-center gap-1 group-focus-within:border-primary w-20">
-                          <span className="opacity-50 text-[10px]">
+                        <label className="input input-sm input-bordered flex items-center gap-1 group-focus-within:border-primary w-28">
+                          <span className="opacity-50 text-xs">
                             {track.currency === "USD" ? "$" : "Ξ"}
                           </span>
                           <input
@@ -744,7 +680,7 @@ export default function AdminReleaseEditor() {
         />
 
         {/* RIGHT COLUMN: METADATA */}
-        <div className="w-full lg:w-96 bg-base-200/50 backdrop-blur-md p-6 overflow-y-auto border-t lg:border-t-0 lg:border-l border-white/5 scrollbar-thin">
+        <div className="w-full lg:w-[28rem] xl:w-[32rem] bg-base-200/50 backdrop-blur-md p-6 overflow-y-auto border-t lg:border-t-0 lg:border-l border-white/5 scrollbar-thin">
           <div className="space-y-8 pb-12">
             <h3 className="text-sm font-bold uppercase tracking-widest opacity-50 mb-2">Album Metadata</h3>
 

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import API from "../../services/api";
-import { UploadCloud, Music, X, Trash2, Link as LinkIcon } from "lucide-react";
+import { UploadCloud, Music, X, Trash2 } from "lucide-react";
 import type { Track } from "../../types";
 
 export const UploadTracksModal = ({
@@ -90,58 +90,6 @@ export const UploadTracksModal = ({
 
   const removeFile = (index: number) => {
     setFiles(files.filter((_: File, i: number) => i !== index));
-  };
-
-  const handleAddExternalLink = async () => {
-    const url = window.prompt("Enter YouTube URL:");
-    if (!url) return;
-
-    // Only YouTube is supported for now
-    if (!url.includes("youtube.com") && !url.includes("youtu.be")) {
-      setError("Only YouTube links are supported at the moment.");
-      return;
-    }
-
-    setUploading(true);
-    setError("");
-    try {
-      const service: "youtube" | "local" = "youtube";
-      let externalArtwork = undefined;
-
-      const regExp =
-        /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-      const match = url.match(regExp);
-      const id = match && match[2].length === 11 ? match[2] : null;
-      if (id)
-        externalArtwork = `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
-
-      // Get album ID if numeric slug
-      let albumId: number | undefined = undefined;
-      if (releaseSlug && !isNaN(parseInt(releaseSlug))) {
-        albumId = parseInt(releaseSlug);
-      } else if (releaseSlug) {
-        const album = await API.getAlbum(releaseSlug);
-        albumId = parseInt(album.id);
-      }
-
-      await API.createTrack({
-        title: "New External Track",
-        url: url,
-        service: service,
-        externalArtwork: externalArtwork,
-        albumId: albumId,
-        trackNum: existingTracks.length + 1,
-      });
-
-      setSuccess("External track link added successfully.");
-      if (onUploadComplete) onUploadComplete();
-      if (releaseSlug) loadExistingTracks(releaseSlug); // Refresh list
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message || "Failed to add external link");
-    } finally {
-      setUploading(false);
-    }
   };
 
   const handleUpload = async (e: React.FormEvent) => {
@@ -272,15 +220,6 @@ export const UploadTracksModal = ({
                 accept="audio/*"
                 onChange={handleFileChange}
               />
-              <button
-                type="button"
-                className="btn btn-outline btn-bordered join-item"
-                title="Add External Link"
-                onClick={handleAddExternalLink}
-                disabled={uploading}
-              >
-                <LinkIcon size={18} />
-              </button>
             </div>
           </div>
 

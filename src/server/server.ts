@@ -184,7 +184,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database, publishingService, config.musicDir, authService));
     app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database));
 
-    app.use("/api/admin/releases", authMiddleware.requireUser, createReleaseRoutes(database, scanner, config.musicDir, publishingService));
+    app.use("/api/admin/releases", authMiddleware.requireUser, createReleaseRoutes(database, scanner, config.musicDir, publishingService, authService));
     app.use("/api/stats", createStatsRoutes(gundbService, database, config));
     app.use("/api/stats/library", createLibraryStatsRoutes(database));
     app.use("/api/browser", authMiddleware.requireAdmin, createBrowserRoutes(config.musicDir, database));
