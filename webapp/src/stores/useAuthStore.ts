@@ -163,13 +163,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 artistId: String(result.artistId)
             } as User;
 
+            const userRole = (result as any).role || 'user';
             set({
                 isAuthenticated: true,
-                isAdminAuthenticated: true, // compat
+                isAdminAuthenticated: userRole === 'admin', // compat
                 user: { ...transformedUser, gunProfile },
                 adminUser: transformedUser, // compat
                 mustChangePassword: !!result.mustChangePassword,
-                role: (result as any).role || 'user',
+                role: userRole,
                 isLoading: false,
                 isAdminLoading: false, // compat
                 isInitializing: false // compat
@@ -192,7 +193,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set((state) => ({ 
                 user: state.user ? { ...state.user, gunProfile } : { gunProfile } as any,
                 isAuthenticated: true,
-                isAdminAuthenticated: true,
+                // We leave isAdminAuthenticated and role as they are, because loginWithPair 
+                // is used to restore session or augment existing user. 
                 isLoading: false,
                 isAdminLoading: false,
                 isInitializing: false

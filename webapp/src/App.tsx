@@ -34,6 +34,14 @@ import { ForcePasswordChangeModal } from "./components/modals/ForcePasswordChang
  */
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const { role, isAuthenticated } = useAuthStore();
+  if (!isAuthenticated || role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
+function EditorGuard({ children }: { children: React.ReactNode }) {
+  const { role, isAuthenticated } = useAuthStore();
   if (!isAuthenticated || (role !== 'admin' && role !== 'user')) {
     return <Navigate to="/" replace />;
   }
@@ -88,10 +96,10 @@ function App() {
 
           {/* Admin - Protected: only role='admin' can access */}
           <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
-          <Route path="/admin/release/new" element={<AdminGuard><AdminReleaseEditor /></AdminGuard>} />
+          <Route path="/admin/release/new" element={<EditorGuard><AdminReleaseEditor /></EditorGuard>} />
           <Route
             path="/admin/release/:id/edit"
-            element={<AdminGuard><AdminReleaseEditor /></AdminGuard>}
+            element={<EditorGuard><AdminReleaseEditor /></EditorGuard>}
           />
           <Route path="/browser" element={<AdminGuard><Files /></AdminGuard>} />
 
