@@ -191,6 +191,75 @@ export const Admin = () => {
         )}
 
         {activeTab === "system" && isAdmin && (
+          <div className="space-y-6">
+            <h3 className="font-bold text-lg">System Maintenance</h3>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="card bg-base-200 border border-white/5">
+                <div className="card-body">
+                  <h2 className="card-title text-accent">
+                    <RefreshCw /> Cleanup
+                  </h2>
+                  <p className="opacity-70 text-sm">
+                    Check reachability of all registered sites on GunDB and
+                    remove dead entries.
+                  </p>
+                  <div className="card-actions justify-end mt-4">
+                    <button
+                      className="btn btn-accent btn-outline"
+                      onClick={() => handleSystemAction("cleanup")}
+                    >
+                      Network Cleanup
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card bg-base-200 border border-white/5">
+                <div className="card-body">
+                  <h2 className="card-title text-primary">
+                    <Save /> Consolidate
+                  </h2>
+                  <p className="opacity-70 text-sm">
+                    Rename physical files to "Artist - Title" format based on database tags.
+                  </p>
+                  <div className="card-actions justify-end mt-4">
+                    <button
+                      className="btn btn-primary btn-outline"
+                      onClick={() => handleSystemAction("consolidate")}
+                    >
+                      Consolidate Files
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "users" && isAdmin && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-lg">User Management</h3>
+              <button
+                className="btn btn-sm btn-primary"
+                onClick={() =>
+                  document.dispatchEvent(
+                    new CustomEvent("open-admin-user-modal"),
+                  )
+                }
+              >
+                Add User
+              </button>
+            </div>
+            <AdminUsersList />
+          </div>
+        )}
+
+        {activeTab === "settings" && isAdmin && <AdminSettingsPanel />}
+        {activeTab === "identity" && isAdmin && <IdentityPanel isAdmin={isAdmin} />}
+        {activeTab === "activitypub" && isAdmin && <ActivityPubPanel />}
+        {activeTab === "backup" && isAdmin && <BackupPanel />}
+      </div>
 
       <AdminUserModal
         onUserUpdated={() =>
