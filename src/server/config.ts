@@ -40,17 +40,19 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
             // Migration: Move legacy secret to new stable location
             jwtSecret = fs.readFileSync(legacySecretPath, 'utf-8').trim();
             try {
-                fs.writeFileSync(secretFilePath, jwtSecret);
-                console.log(`🔒 Migrated JWT secret to stable location: ${secretFilePath}`);
+                fs.promises.writeFile(secretFilePath, jwtSecret)
+                    .then(() => console.log(`🔒 Migrated JWT secret to stable location: ${secretFilePath}`))
+                    .catch((e) => console.warn("⚠️ Could not migrate JWT secret:", e));
             } catch (e) {
                 console.warn("⚠️ Could not migrate JWT secret:", e);
             }
         } else {
             jwtSecret = crypto.randomBytes(32).toString("hex");
             try {
-                if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
-                fs.writeFileSync(secretFilePath, jwtSecret);
-                console.log(`🔒 Generated new JWT secret and saved to ${secretFilePath}`);
+                (fs.existsSync(dbDir) ? Promise.resolve() : fs.promises.mkdir(dbDir, { recursive: true }))
+                    .then(() => fs.promises.writeFile(secretFilePath, jwtSecret as string))
+                    .then(() => console.log(`🔒 Generated new JWT secret and saved to ${secretFilePath}`))
+                    .catch((err) => console.warn("⚠️  Could not save JWT secret to file, sessions may be lost on restart:", err));
             } catch (err) {
                 console.warn("⚠️  Could not save JWT secret to file, sessions may be lost on restart:", err);
             }
