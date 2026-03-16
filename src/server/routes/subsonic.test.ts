@@ -12,6 +12,8 @@ describe('Subsonic Scrobbling', () => {
     let database: any;
     let authService: any;
     let app: any;
+    let testArtistId: number;
+    let testAlbumId: number;
     let mockGundbService: any;
     const dbPath = './test-subsonic-scrobble.db';
 
