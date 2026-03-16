@@ -77,6 +77,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 } catch (e) {}
             }
 
+            if (gunProfile) {
+                try {
+                    // Subscribe to profile changes
+                    GunAuth.subscribeProfile((profileData) => {
+                        set((state) => ({
+                            user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, profile: profileData } } : null
+                        }));
+                    });
+
+                    // Subscribe to mutable alias changes
+                    GunAuth.subscribeAlias((aliasData) => {
+                        if (aliasData) {
+                            set((state) => ({
+                                user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, alias: aliasData } } : null
+                            }));
+                        }
+                    });
+                } catch (subErr) {
+                    console.error("Failed to subscribe to GunDB info:", subErr);
+                }
+            }
+
             const transformedUser = status.user || (status.username ? { 
                 username: status.username, 
                 isAdmin: status.role === 'admin', 
