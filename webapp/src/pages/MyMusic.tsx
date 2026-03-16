@@ -16,7 +16,7 @@ import { ArtistFediversePanel } from "../components/artist/ArtistFediversePanel"
 import { AdminReleasesList, AdminTracksList } from "./Admin";
 
 export const MyMusic = () => {
-  const { adminUser, isAdminAuthenticated, isAdminLoading } = useAuthStore();
+  const { user, isAuthenticated, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
     "overview" | "albums" | "tracks" | "identity" | "fediverse"
@@ -24,13 +24,13 @@ export const MyMusic = () => {
   const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
-    if (isAdminLoading) return;
-    if (!isAdminAuthenticated) {
+    if (isLoading) return;
+    if (!isAuthenticated) {
       navigate("/");
       return;
     }
     loadStats();
-  }, [isAdminAuthenticated, adminUser, isAdminLoading]);
+  }, [isAuthenticated, user, isLoading]);
 
   const loadStats = async () => {
     try {
@@ -41,12 +41,12 @@ export const MyMusic = () => {
     }
   };
 
-  if (isAdminLoading)
+  if (isLoading)
     return (
       <div className="p-12 text-center opacity-50">Loading dashboard...</div>
     );
 
-  if (!isAdminAuthenticated) return null;
+  if (!isAuthenticated) return null;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -54,7 +54,7 @@ export const MyMusic = () => {
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Music size={32} className="text-primary" /> My Music
         </h1>
-        {adminUser?.isAdmin && (
+        {user?.isAdmin && (
            <button 
              className="btn btn-ghost btn-sm gap-2"
              onClick={() => navigate("/admin")}
@@ -202,7 +202,7 @@ export const MyMusic = () => {
                 <User size={16} />
                 <span>Configure your ActivityPub identity. This is how other users on the Fediverse will see you.</span>
              </div>
-             <IdentityPanel isAdmin={adminUser?.isAdmin} />
+             <IdentityPanel isAdmin={user?.isAdmin} />
            </div>
         )}
 
