@@ -9,6 +9,7 @@ import type { UserPlaylist, UserPlaylistTrack, Track } from '../types';
 
 
 const defaultPeers = [
+    "http://localhost:1970/gun",
     "https://shogun-relay.scobrudot.dev/gun",
     "https://gun.defucc.me/gun",
     "https://gun.o8.is/gun",
@@ -26,7 +27,7 @@ const PEERS = envPeers ? envPeers.split(',') : defaultPeers;
 const gun = Gun({
     peers: PEERS,
     localStorage: false,
-    file: "./app/radata",
+    file: "./radata",
     radisk: true,
     wire: true,
     axe: true

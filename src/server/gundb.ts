@@ -125,7 +125,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 peers: initializationPeers,
                 localStorage: false,
                 radisk: true,
-                file: "./app/radata",
+                file: "./radata",
                 web: server,
                 axe: true,
                 wire: true
@@ -578,9 +578,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         if (!initialized || !gun) return 0;
         return new Promise((resolve) => {
             gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
-               .get("tracks").get(trackId).get("likes").once((data: any) => {
+                .get("tracks").get(trackId).get("likes").once((data: any) => {
                     resolve(data ? parseInt(data, 10) || 0 : 0);
-               });
+                });
             setTimeout(() => resolve(0), 3000);
         });
     }
@@ -591,9 +591,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         const newCount = currentCount + 1;
         return new Promise((resolve) => {
             gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
-               .get("tracks").get(trackId).get("likes").put(newCount, (ack: any) => {
+                .get("tracks").get(trackId).get("likes").put(newCount, (ack: any) => {
                     resolve(ack.err ? currentCount : newCount);
-               });
+                });
             setTimeout(() => resolve(newCount), 2000);
         });
     }
@@ -604,9 +604,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         const newCount = Math.max(0, currentCount - 1);
         return new Promise((resolve) => {
             gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
-               .get("tracks").get(trackId).get("likes").put(newCount, (ack: any) => {
+                .get("tracks").get(trackId).get("likes").put(newCount, (ack: any) => {
                     resolve(ack.err ? currentCount : newCount);
-               });
+                });
             setTimeout(() => resolve(newCount), 2000);
         });
     }
@@ -615,10 +615,10 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         if (!initialized || !gun || !serverPair) return;
         return new Promise((resolve) => {
             gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("ratings").get(serverPair.pub)
-               .get("releases").get(releaseSlug).get("tracks").get(trackId).put(rating, (ack: any) => {
+                .get("releases").get(releaseSlug).get("tracks").get(trackId).put(rating, (ack: any) => {
                     if (ack.err) console.error("Error setting track rating:", ack.err);
                     resolve();
-               });
+                });
             setTimeout(() => resolve(), 2000);
         });
     }
@@ -1347,13 +1347,13 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         try {
             const baseUrl = url.endsWith('/') ? url : `${url}/`;
             const settingsUrl = `${baseUrl}api/catalog/settings`;
-            
+
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
 
             const response = await fetch(settingsUrl, {
                 signal: controller.signal,
-                headers: { 
+                headers: {
                     'Accept': 'application/json',
                     'User-Agent': 'TuneCamp-HealthCheck/2.0'
                 }
