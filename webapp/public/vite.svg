@@ -1,1 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="31.88" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 257"><defs><linearGradient id="IconifyId1813088fe1fbc01fb466" x1="-.828%" x2="57.636%" y1="7.652%" y2="78.411%"><stop offset="0%" stop-color="#41D1FF"></stop><stop offset="100%" stop-color="#BD34FE"></stop></linearGradient><linearGradient id="IconifyId1813088fe1fbc01fb467" x1="43.376%" x2="50.316%" y1="2.242%" y2="89.03%"><stop offset="0%" stop-color="#FFEA83"></stop><stop offset="8.333%" stop-color="#FFDD35"></stop><stop offset="100%" stop-color="#FFA800"></stop></linearGradient></defs><path fill="url(#IconifyId1813088fe1fbc01fb466)" d="M255.153 37.938L134.897 252.976c-2.483 4.44-8.862 4.466-11.382.048L.875 37.958c-2.746-4.814 1.371-10.646 6.827-9.67l120.385 21.517a6.537 6.537 0 0 0 2.322-.004l117.867-21.483c5.438-.991 9.574 4.796 6.877 9.62Z"></path><path fill="url(#IconifyId1813088fe1fbc01fb467)" d="M185.432.063L96.44 17.501a3.268 3.268 0 0 0-2.634 3.014l-5.474 92.456a3.268 3.268 0 0 0 3.997 3.378l24.777-5.718c2.318-.535 4.413 1.507 3.936 3.838l-7.361 36.047c-.495 2.426 1.782 4.5 4.151 3.78l15.304-4.649c2.372-.72 4.652 1.36 4.15 3.788l-11.698 56.621c-.732 3.542 3.979 5.473 5.943 2.437l1.313-2.028l72.516-144.72c1.215-2.423-.88-5.186-3.54-4.672l-25.505 4.922c-2.396.462-4.435-1.77-3.759-4.114l16.646-57.705c.677-2.35-1.37-4.583-3.769-4.113Z"></path></svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg height="400px" width="400px" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+	 viewBox="0 0 400 400" xml:space="preserve">
+<circle style="fill:#2C3E50;" cx="200" cy="200" r="200"/>
+<circle style="fill:#34495E;" cx="200" cy="200" r="180"/>
+
+<!-- Simple tent shape -->
+<path style="fill:#E67E22;" d="M200,80L120,200L280,200L200,80z"/>
+<path style="fill:#D35400;" d="M200,80L120,200L200,200L200,80z"/>
+
+<!-- Simple equalizer bars -->
+<rect x="60" y="200" width="12" height="30" fill="#27AE60"/>
+<rect x="80" y="190" width="12" height="40" fill="#27AE60"/>
+<rect x="100" y="180" width="12" height="50" fill="#27AE60"/>
+<rect x="120" y="170" width="12" height="60" fill="#27AE60"/>
+<rect x="140" y="160" width="12" height="70" fill="#27AE60"/>
+<rect x="160" y="150" width="12" height="80" fill="#27AE60"/>
+<rect x="180" y="140" width="12" height="90" fill="#27AE60"/>
+<rect x="200" y="130" width="12" height="100" fill="#27AE60"/>
+<rect x="220" y="140" width="12" height="90" fill="#27AE60"/>
+<rect x="240" y="150" width="12" height="80" fill="#27AE60"/>
+<rect x="260" y="160" width="12" height="70" fill="#27AE60"/>
+<rect x="280" y="170" width="12" height="60" fill="#27AE60"/>
+<rect x="300" y="180" width="12" height="50" fill="#27AE60"/>
+<rect x="320" y="190" width="12" height="40" fill="#27AE60"/>
+<rect x="340" y="200" width="12" height="30" fill="#27AE60"/>
+
+<!-- Simple treble clef -->
+<path d="M80,120c0,0,8,15,8,30c0,15-8,30-8,30s8-15,8-30C88,135,80,120,80,120z" fill="#ECF0F1"/>
+</svg>
