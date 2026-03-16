@@ -87,6 +87,12 @@ The platform is driven by a REST JSON API under `/api/`.
 
 See the [OpenAPI Reference →](./docs/openapi.yml)
 
+### Nginx Reverse Proxy
+
+For production deployments, using Nginx as a reverse proxy is recommended for SSL and WebSocket support.
+
+See the [Nginx Configuration Guide →](./docs/NGINX.md)
+
 ### Federation
 
 Tunecamp is compatible with Funkwhale and Mastodon via ActivityPub.
@@ -96,6 +102,12 @@ See the [Federation Guide →](./docs/FEDERATION.md)
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
+
+## Roadmap
+
+Tunecamp is evolving towards a full Web3 sovereignty model, including NFT-based ownership and decentralized storage.
+
+See the [Full Project Roadmap →](TODO.md)
 
 ## License
 
