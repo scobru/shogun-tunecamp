@@ -55,30 +55,36 @@ describe('ServerConfig', () => {
         expect(config.jwtSecret).toBe('file-secret');
     });
 
-    test('should generate and save new jwtSecret if it does not exist', () => {
+    test('should generate and save new jwtSecret if it does not exist', async () => {
         jest.spyOn(fs, 'existsSync').mockReturnValue(false);
-        const writeSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+        const writeSpy = jest.spyOn(fs.promises, 'writeFile').mockResolvedValue(undefined);
+        const mkdirSpy = jest.spyOn(fs.promises, 'mkdir').mockResolvedValue('' as any);
         const randomBytesSpy = jest.spyOn(crypto, 'randomBytes').mockReturnValue({
             toString: () => 'generated-secret'
         } as any);
 
         const config = loadConfig();
 
+        // Wait for background promises to settle
+        await new Promise(process.nextTick);
+
         expect(writeSpy).toHaveBeenCalledWith(expect.stringContaining('.jwt-secret'), 'generated-secret');
         expect(config.jwtSecret).toBe('generated-secret');
     });
 
-    test('should still return generated secret if saving to file fails', () => {
+    test('should still return generated secret if saving to file fails', async () => {
         jest.spyOn(fs, 'existsSync').mockReturnValue(false);
-        jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {
-            throw new Error('disk full');
-        });
+        jest.spyOn(fs.promises, 'mkdir').mockResolvedValue('' as any);
+        jest.spyOn(fs.promises, 'writeFile').mockRejectedValue(new Error('disk full'));
         jest.spyOn(crypto, 'randomBytes').mockReturnValue({
             toString: () => 'generated-secret'
         } as any);
         const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
         const config = loadConfig();
+
+        // Wait for background promises to settle
+        await new Promise(process.nextTick);
 
         expect(config.jwtSecret).toBe('generated-secret');
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Could not save JWT secret'), expect.any(Error));
