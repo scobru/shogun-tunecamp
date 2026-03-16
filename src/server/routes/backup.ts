@@ -19,15 +19,18 @@ async function cleanupOldChunks(uploadDir: string, maxAgeMs: number = 24 * 60 * 
     try {
         if (!(await fs.pathExists(uploadDir))) return;
         const files = await fs.readdir(uploadDir);
-        for (const file of files) {
-            if (file.startsWith("temp_") || file.startsWith("backup_")) {
-                const filePath = path.join(uploadDir, file);
+        const candidateFiles = files.filter(f => f.startsWith("temp_") || f.startsWith("backup_"));
+        await Promise.all(candidateFiles.map(async (file) => {
+            const filePath = path.join(uploadDir, file);
+            try {
                 const stats = await fs.stat(filePath);
                 if (Date.now() - stats.mtime.getTime() > maxAgeMs) {
                     await fs.unlink(filePath).catch(() => { });
                 }
+            } catch (err) {
+                // ignore stat/unlink errors for individual files
             }
-        }
+        }));
     } catch (e) {
         console.warn("⚠️ [Backup] Cleanup failed:", e);
     }
