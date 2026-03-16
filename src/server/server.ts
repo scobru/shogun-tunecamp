@@ -347,10 +347,13 @@ export async function startServer(config: ServerConfig): Promise<void> {
         try {
             let html = fs.readFileSync(indexHtmlPath, 'utf8');
             const dbGunPeers = database.getSetting("gunPeers");
+            const rpcUrl = process.env.TUNECAMP_RPC_URL || process.env.VITE_TUNECAMP_RPC_URL || '';
+            const gunPeersStr = dbGunPeers || process.env.TUNECAMP_GUN_PEERS || process.env.VITE_GUN_PEERS || '';
+            
             const configInject = `<script>window.TUNECAMP_CONFIG = { 
                 apiUrl: "/api", 
-                rpcUrl: "${process.env.TUNECAMP_RPC_URL || process.env.VITE_TUNECAMP_RPC_URL || ''}",
-                gunPeers: "${dbGunPeers || process.env.TUNECAMP_GUN_PEERS || process.env.VITE_GUN_PEERS || ''}"
+                rpcUrl: ${JSON.stringify(rpcUrl)},
+                gunPeers: ${JSON.stringify(gunPeersStr)}
             };</script>`;
             html = html.replace('<head>', '<head>' + configInject);
             res.send(html);
