@@ -7,19 +7,24 @@
 - [x] **GunDB**: Decentralized discovery, comments, and stats.
 - [x] **Basic Web3 Payments**: Direct USDC/ETH transfers on Base Network for content unlocking.
 
-## Phase 2: Web3 Sovereignty & NFTs (Status: Planned 🚀)
-- [ ] **NFT Integration (ERC-721/1155)**:
-  - Link releases to smart contracts on Base.
-  - Implement "Proof of Ownership" via wallet signature verification.
-  - Replace/Augment alphanumeric codes with NFT-based access.
-- [ ] **Automated Minting Storefront**:
-  - Integrated contract interaction for seamless "Buy as NFT" flow.
-  - Secondary market royalty support.
-- [ ] **Token-Gated Access**:
-  - Exclusive high-res downloads or tracks for NFT holders.
-  - Fan-only post visibility based on wallet holdings.
+## Phase 2: Wallet & Onramp Integration (Status: Planned 🚀)
+- [ ] **Hybrid Freemium Business Model**:
+  - **Basic Plan (Free)**: Artists can upload music for free (with storage limits, e.g., 2GB). The platform takes a 15% revenue share on sales to cover hosting and infrastructure costs.
+    - *Implementation*: A dedicated Smart Contract (`TuneCampCheckout.sol`) on Base Network will instantly split payments at checkout (85% to artist, 15% to platform).
+  - **Pro Plan (Paid)**: Artists pay a fixed subscription fee or purchase storage packages via Web3/Crypto for unlimited space. Artists keep 100% of their sales revenue (or pay a minimal 2-3% transaction fee).
+    - *Implementation*: Direct transfer of USDC/ETH to the artist, bypassing the split contract.
+- [ ] **Buy Storage Space**:
+  - Implement dynamic storage quotas for artists.
+  - Allow artists to purchase additional upload space (e.g., +1GB, +5GB) using USDC/ETH via the integrated Onramp.
+- [ ] **Native Onramp Service**:
+  - Integrate a fiat-to-crypto provider (e.g., MoonPay, Stripe Crypto, or similar).
+  - Allow users to buy USDC/ETH directly with credit card inside the Tunecamp app.
+- [ ] **Direct Artist Tipping**:
+  - Seamless tipping button on artist profiles and track pages.
+  - Support for multiple tokens (USDC, ETH, DEGEN) on Base Network.
+- [ ] **Smart Wallet Creation**:
+  - Abstract wallet complexity for new users using account abstraction (ERC-4337) or embedded wallets.
 
-## Phase 3: Expansion & Decentralization
-- [ ] **Decentralized Storage**: Optional IPFS/Arweave integration for audio files.
-- [ ] **Governance & Tipping**: On-chain tipping system and DAO-lite features for labels.
+## Phase 3: Expansion & Ecosystem
 - [ ] **Advanced Analytics**: GunDB-powered global trending charts.
+- [ ] **Split Payments**: Automatic revenue sharing between collaborators on a single release.

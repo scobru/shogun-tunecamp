@@ -105,7 +105,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
 
 ## Roadmap
 
-Tunecamp is evolving towards a full Web3 sovereignty model, including NFT-based ownership and decentralized storage.
+Tunecamp is evolving towards a full Web3 sovereignty model, including native Onramp integration to easily fund wallets and direct tipping/payments in USDC, ETH, and other tokens.
 
 See the [Full Project Roadmap →](TODO.md)
 
