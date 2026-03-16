@@ -695,9 +695,7 @@ export class ActivityPubService {
 
         if (inboxes.length > 0) {
             console.log(`📢 Sending release activity to ${inboxes.length} inboxes`);
-            for (const inbox of inboxes) {
-                await this.sendActivity(artist, inbox, activity);
-            }
+            await Promise.all(inboxes.map(inbox => this.sendActivity(artist, inbox, activity)));
         } else {
             console.log(`ℹ️ No followers for ${artist.name}, skipping broadcast.`);
         }
@@ -739,9 +737,7 @@ export class ActivityPubService {
             cc: [`${artistActorUrl}/followers`]
         };
 
-        for (const follower of followers) {
-            this.sendActivity(artist, follower.inbox_uri, activity);
-        }
+        await Promise.all(followers.map(follower => this.sendActivity(artist, follower.inbox_uri, activity)));
     }
 
     public async broadcastDelete(album: Album, manualNoteId?: string): Promise<void> {
@@ -774,9 +770,7 @@ export class ActivityPubService {
                 object: { id: noteId, type: "Note", atomUri: noteId },
                 to: ["https://www.w3.org/ns/activitystreams#Public"]
             };
-            for (const follower of followers) {
-                await this.sendActivity(artist, follower.inbox_uri, activity);
-            }
+            await Promise.all(followers.map(follower => this.sendActivity(artist, follower.inbox_uri, activity)));
         }
 
         this.db.deleteApNote(noteId);
@@ -811,9 +805,7 @@ export class ActivityPubService {
                 object: { id: noteId, type: "Note", atomUri: noteId },
                 to: ["https://www.w3.org/ns/activitystreams#Public"]
             };
-            for (const follower of followers) {
-                await this.sendActivity(artist, follower.inbox_uri, activity);
-            }
+            await Promise.all(followers.map(follower => this.sendActivity(artist, follower.inbox_uri, activity)));
         }
         this.db.deleteApNote(noteId);
     }
