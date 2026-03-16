@@ -4,7 +4,7 @@ import { GunAuth } from "../../services/gun";
 import { Wallet, Loader2, CheckCircle2, Download } from "lucide-react";
 import { ethers } from "ethers";
 // @ts-expect-error
-import { TuneCampCheckout, TokenRole } from "shogun-contracts/sdk";
+import { TuneCampCheckout, TokenRole } from "shogun-contracts-sdk";
 
 // Track type matching minimum required for checkout
 interface CheckoutTrack {

@@ -64,7 +64,7 @@
     "music-metadata": "^8.1.4",
     "node-fetch": "^3.3.2",
     "node-id3": "^0.2.9",
-    "shogun-contracts": "github:scobru/shogun-contracts",
+    "shogun-contracts-sdk": "^1.3.4",
     "ts-pattern": "^5.9.0",
     "vercel": "^50.4.4",
     "waveform-data": "^4.5.2",
