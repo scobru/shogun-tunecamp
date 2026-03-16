@@ -403,8 +403,12 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         if (imagePath) {
             const fullPath = resolveSafePath(context.musicDir, imagePath);
-            if (fullPath && await fs.pathExists(fullPath)) {
-                return res.sendFile(fullPath);
+            if (fullPath) {
+                if (await fs.pathExists(fullPath)) {
+                    return res.sendFile(fullPath);
+                }
+            } else {
+                 return sendError(res, req, 70, 'Cover art not found'); // Prevent fallback logic
             }
         }
 

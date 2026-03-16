@@ -139,8 +139,13 @@ export function resolveSafePath(rootDir: string, userPath: string): string | nul
   // Check if path is within root
   const relative = path.relative(resolvedRoot, absPath);
 
-  // path.relative returns strings like '..' if outside, or absolute path if different drive
+  // Check if it escapes the directory
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    return null;
+  }
+
+  // Double check the absolute path to be absolutely sure
+  if (!absPath.startsWith(resolvedRoot + path.sep) && absPath !== resolvedRoot) {
     return null;
   }
 
