@@ -1003,11 +1003,21 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 .map()
                 .once((data: any, id: string) => {
                     if (data && data.text && id !== "_") {
+                        const pubKey = data.pubKey || "";
+                        let displayUsername = data.username || "Anonymous";
+
+                        if (pubKey) {
+                            const dbUser = database.getGunUser(pubKey);
+                            if (dbUser && dbUser.alias && dbUser.alias.trim() !== '') {
+                                displayUsername = dbUser.alias;
+                            }
+                        }
+
                         comments.push({
                             id: data.id || id,
                             trackId: data.trackId || trackId,
-                            pubKey: data.pubKey || "",
-                            username: data.username || "Anonymous",
+                            pubKey: pubKey,
+                            username: displayUsername,
                             text: data.text,
                             signature: data.signature,
                             createdAt: data.createdAt || 0,

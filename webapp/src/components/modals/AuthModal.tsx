@@ -6,11 +6,12 @@ import { match } from 'ts-pattern';
 
 export const AuthModal = () => {
     const dialogRef = useRef<HTMLDialogElement>(null);
-    const [mode, setMode] = useState<'login' | 'register' | 'setup'>('login');
+    const [mode, setMode] = useState<'login' | 'register' | 'setup' | 'pair'>('login');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPass, setConfirmPass] = useState('');
-    const { login, register, checkAuth, error, clearError, isFirstRun } = useAuthStore();
+    const [pairJson, setPairJson] = useState('');
+    const { login, register, loginWithPair, checkAuth, error, clearError, isFirstRun } = useAuthStore();
     const [localError, setLocalError] = useState('');
     const [showSetupOffer, setShowSetupOffer] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -32,7 +33,7 @@ export const AuthModal = () => {
         return () => document.removeEventListener('open-auth-modal', handleOpen);
     }, [isFirstRun]);
 
-    const switchMode = (newMode: 'login' | 'register' | 'setup') => {
+    const switchMode = (newMode: 'login' | 'register' | 'setup' | 'pair') => {
         setMode(newMode);
         clearError();
         setLocalError('');
@@ -51,6 +52,16 @@ export const AuthModal = () => {
                     throw new Error('Passwords do not match');
                 }
                 await register(username, password);
+            } else if (mode === 'pair') {
+                try {
+                    const parsedPair = JSON.parse(pairJson);
+                    if (!parsedPair.pub || !parsedPair.priv || !parsedPair.epub || !parsedPair.epriv) {
+                        throw new Error('Invalid Pair JSON structure');
+                    }
+                    await loginWithPair(parsedPair);
+                } catch (e: any) {
+                    throw new Error('Invalid JSON Pair: ' + e.message);
+                }
             } else {
                 await login(username, password);
             }
@@ -58,11 +69,12 @@ export const AuthModal = () => {
             // Close on success
             dialogRef.current?.close();
             setUsername('');
-            setPassword('');
-            setConfirmPass('');
+            setPairJson('');
         } catch (err: any) {
             if (err.message === 'Passwords do not match') {
                 setLocalError('Passwords do not match');
+            } else if (err.message.includes('JSON Pair')) {
+                setLocalError(err.message);
             }
             // Error managed by store usually
         } finally {
@@ -81,74 +93,102 @@ export const AuthModal = () => {
                     {match(mode)
                         .with('register', () => <><UserPlus size={20}/> Create Account</>)
                         .with('setup', () => <><Shield size={20}/> Create First Admin</>)
+                        .with('pair', () => <><Shield size={20}/> Pair Login</>)
                         .otherwise(() => <><LogIn size={20}/> Sign In</>)
                     }
                 </h3>
 
-                <div className="tabs tabs-boxed bg-base-200 p-1 mb-6" role="tablist">
+                <div className="tabs tabs-boxed bg-base-200 p-1 mb-6 flex flex-wrap" role="tablist">
                     <button 
-                        className={`tab flex-1 ${mode === 'login' ? 'tab-active' : ''}`}
+                        className={`tab flex-auto ${mode === 'login' ? 'tab-active' : ''}`}
                         onClick={() => switchMode('login')}
                         role="tab"
                         aria-selected={mode === 'login'}
                     >Login</button>
                     <button 
-                        className={`tab flex-1 ${mode === 'register' ? 'tab-active' : ''}`}
+                        className={`tab flex-auto ${mode === 'register' ? 'tab-active' : ''}`}
                         onClick={() => switchMode('register')}
                         role="tab"
                         aria-selected={mode === 'register'}
                     >Register</button>
+                    <button 
+                        className={`tab flex-auto ${mode === 'pair' ? 'tab-active' : ''}`}
+                        onClick={() => switchMode('pair')}
+                        role="tab"
+                        aria-selected={mode === 'pair'}
+                    >Pair</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="form-control">
-                        <label className="label" htmlFor="username">
-                            <span className="label-text">Username</span>
-                        </label>
-                        <input 
-                            id="username"
-                            type="text" 
-                            placeholder="username" 
-                            className="input input-bordered w-full" 
-                            value={username}
-                            onChange={e => setUsername(e.target.value)}
-                            required
-                            autoComplete="username"
-                        />
-                    </div>
-
-                    <div className="form-control">
-                        <label className="label" htmlFor="password">
-                            <span className="label-text">Password</span>
-                        </label>
-                        <input 
-                            id="password"
-                            type="password" 
-                            placeholder="••••••" 
-                            className="input input-bordered w-full" 
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            required
-                            autoComplete={mode === 'register' ? "new-password" : "current-password"}
-                        />
-                    </div>
-                    
-                    {mode === 'register' && (
+                    {mode === 'pair' ? (
                         <div className="form-control">
-                            <label className="label" htmlFor="confirmPass">
-                                <span className="label-text">Confirm Password</span>
+                            <label className="label" htmlFor="pairJson">
+                                <span className="label-text">Gun Pair (JSON)</span>
                             </label>
-                            <input 
-                                id="confirmPass"
-                                type="password" 
-                                placeholder="••••••" 
-                                className="input input-bordered w-full" 
-                                value={confirmPass}
-                                onChange={e => setConfirmPass(e.target.value)}
+                            <textarea 
+                                id="pairJson"
+                                placeholder='{"pub": "...", "priv": "..."}' 
+                                className="textarea textarea-bordered h-32 w-full font-mono text-xs" 
+                                value={pairJson}
+                                onChange={e => setPairJson(e.target.value)}
                                 required
-                                autoComplete="new-password"
                             />
+                            <label className="label">
+                                <span className="label-text-alt opacity-70">Paste your exported account pair here to log in.</span>
+                            </label>
                         </div>
+                    ) : (
+                        <>
+                            <div className="form-control">
+                                <label className="label" htmlFor="username">
+                                    <span className="label-text">Username</span>
+                                </label>
+                                <input 
+                                    id="username"
+                                    type="text" 
+                                    placeholder="username" 
+                                    className="input input-bordered w-full" 
+                                    value={username}
+                                    onChange={e => setUsername(e.target.value)}
+                                    required
+                                    autoComplete="username"
+                                />
+                            </div>
+
+                            <div className="form-control">
+                                <label className="label" htmlFor="password">
+                                    <span className="label-text">Password</span>
+                                </label>
+                                <input 
+                                    id="password"
+                                    type="password" 
+                                    placeholder="••••••" 
+                                    className="input input-bordered w-full" 
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                    required
+                                    autoComplete={mode === 'register' ? "new-password" : "current-password"}
+                                />
+                            </div>
+                            
+                            {mode === 'register' && (
+                                <div className="form-control">
+                                    <label className="label" htmlFor="confirmPass">
+                                        <span className="label-text">Confirm Password</span>
+                                    </label>
+                                    <input 
+                                        id="confirmPass"
+                                        type="password" 
+                                        placeholder="••••••" 
+                                        className="input input-bordered w-full" 
+                                        value={confirmPass}
+                                        onChange={e => setConfirmPass(e.target.value)}
+                                        required
+                                        autoComplete="new-password"
+                                    />
+                                </div>
+                            )}
+                        </>
                     )}
 
                     {(error || localError) && (

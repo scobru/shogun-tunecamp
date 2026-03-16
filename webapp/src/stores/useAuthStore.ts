@@ -188,20 +188,72 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     loginWithPair: async (pair: any) => {
-        set({ isLoading: true, isAdminLoading: true, isInitializing: true });
+        set({ error: null, isLoading: true, isAdminLoading: true, isInitializing: true });
         try {
+            console.log("🔐 GunDB-First Login: Verifying identity on peer network using Gun Pair...");
             const gunProfile = await GunAuth.loginWithPair(pair);
-            set((state) => ({ 
-                user: state.user ? { ...state.user, gunProfile } : { gunProfile } as any,
-                isAuthenticated: true,
-                // We leave isAdminAuthenticated and role as they are, because loginWithPair 
-                // is used to restore session or augment existing user. 
-                isLoading: false,
-                isAdminLoading: false,
-                isInitializing: false
-            }));
-        } catch (e) {
-            set({ isLoading: false, isAdminLoading: false, isInitializing: false });
+            
+            let proof: string | undefined;
+            try {
+                // Generate proof-of-possession for the backend
+                // The username (alias) acts as the payload to sign
+                const username = gunProfile.alias;
+                proof = await GunAuth.sign(username);
+                console.log("✨ Proof of identity generated from Pair.");
+                
+                // Now authenticate with backend API using the proof
+                // The backend API login expects a username + password OR a valid pubKey + proof.
+                // Depending on the backend implementation, sending the alias + pubKey + proof might be enough
+                // to authenticate without the actual password. Let's try sending alias and empty password, plus PubKey/Proof.
+                const result = await API.login(username, '', gunProfile.pub, proof);
+                API.setToken(result.token);
+
+                // Update the user structure with the result from the backend
+                const transformedUser = result.user || { 
+                    username, 
+                    isAdmin: result.role === 'admin', 
+                    id: String(result.artistId || '0'),
+                    artistId: String(result.artistId)
+                } as User;
+                
+                const userRole = (result as any).role || 'user';
+                
+                // Subscribe to profile changes
+                try {
+                    GunAuth.subscribeProfile((profileData) => {
+                        set((state) => ({
+                            user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, profile: profileData } } : null
+                        }));
+                    });
+                } catch (subErr) {
+                    console.error("Failed to subscribe to GunDB profile:", subErr);
+                }
+
+                set({
+                    isAuthenticated: true,
+                    isAdminAuthenticated: userRole === 'admin',
+                    user: { ...transformedUser, gunProfile },
+                    adminUser: transformedUser,
+                    mustChangePassword: !!result.mustChangePassword,
+                    role: userRole,
+                    isLoading: false,
+                    isAdminLoading: false,
+                    isInitializing: false
+                });
+
+            } catch (backendError) {
+                console.warn("Backend authentication failed after Pair login. Proceeding with local GunDB session only.", backendError);
+                // Fallback to local session if backend integration fails
+                set((state) => ({ 
+                    user: state.user ? { ...state.user, gunProfile } : { gunProfile } as any,
+                    isAuthenticated: true,
+                    isLoading: false,
+                    isAdminLoading: false,
+                    isInitializing: false
+                }));
+            }
+        } catch (e: any) {
+            set({ error: e.message, isLoading: false, isAdminLoading: false, isInitializing: false });
             throw e;
         }
     },

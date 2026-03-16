@@ -196,7 +196,13 @@ export const GunAuth = {
             if (!user.is) return reject(new Error('Not logged in'));
             user.get('alias').put(newAlias, (ack: any) => {
                 if (ack.err) reject(new Error(ack.err));
-                else resolve();
+                else {
+                    const profile = GunAuth.getProfile();
+                    if (profile) {
+                        API.syncGunUser(profile.pub, profile.epub, newAlias).catch(console.error);
+                    }
+                    resolve();
+                }
             });
         });
     },

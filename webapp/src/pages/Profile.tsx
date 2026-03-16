@@ -270,6 +270,42 @@ export const Profile = () => {
               </div>
 
               <div className="divider opacity-10"></div>
+              
+              <div className="form-control w-full">
+                  <label className="label">
+                      <span className="label-text opacity-60">Backup Account Pair (GunDB)</span>
+                  </label>
+                  <p className="text-xs opacity-50 mb-2">
+                       This JSON contains your decentralized cryptographic keys. Save it somewhere safe. 
+                       You can use it to log into TuneCamp from another device if you forget your password.
+                  </p>
+                  
+                  {/* Since Gun.user()._.sea might not be typed easily, we access it dynamically */}
+                  { GunAuth.user?.is && (GunAuth.user as any)._?.sea ? (
+                      <div className="flex flex-col gap-2">
+                          <textarea 
+                              readOnly 
+                              className="textarea textarea-bordered font-mono text-xs h-24 w-full bg-base-200"
+                              value={JSON.stringify((GunAuth.user as any)._?.sea, null, 2)}
+                          />
+                          <button 
+                              className="btn btn-sm btn-outline btn-secondary self-start gap-2"
+                              onClick={() => {
+                                  navigator.clipboard.writeText(JSON.stringify((GunAuth.user as any)._?.sea));
+                                  alert('Pair copied to clipboard!');
+                              }}
+                          >
+                              Copy Backup Pair
+                          </button>
+                      </div>
+                  ) : (
+                      <div className="text-sm opacity-50 italic">
+                          Pair not available for this session. Log in again with password to reveal.
+                      </div>
+                  )}
+              </div>
+
+              <div className="divider opacity-10"></div>
 
               <div className="alert alert-info bg-primary/10 border-primary/20 text-sm">
                 <Settings size={18} />
