@@ -10,6 +10,7 @@ import {
   Globe,
   Lock,
   Link as LinkIcon,
+  CheckCircle2,
 } from "lucide-react";
 import { AdminUserModal } from "../components/modals/AdminUserModal";
 
@@ -19,6 +20,10 @@ import { BackupPanel } from "../components/admin/BackupPanel";
 import type { SiteSettings } from "../types";
 import { useWalletStore } from "../stores/useWalletStore";
 import { TuneCampFactory } from "shogun-contracts-sdk";
+
+// Fallback constants for Base Mainnet
+const DEFAULT_CHECKOUT = "0x2DBcce651aeeaF083d208cc8362B4fd7e72E380F";
+const DEFAULT_NFT = "0x532B0fBEe4d2b259a89982753fFf0E79E468fBce";
 
 export const Admin = () => {
   const { isAuthenticated, isLoading, role } = useAuthStore();
@@ -379,6 +384,10 @@ const AdminSettingsPanel = () => {
       <div className="p-8 text-center opacity-50">Loading settings...</div>
     );
 
+  const hasDeployedStore = !!(settings.web3_checkout_address && settings.web3_nft_address);
+  const checkoutAddress = settings.web3_checkout_address || DEFAULT_CHECKOUT;
+  const nftAddress = settings.web3_nft_address || DEFAULT_NFT;
+
   return (
     <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
       <h3 className="font-bold text-lg">Site Settings</h3>
@@ -520,7 +529,7 @@ const AdminSettingsPanel = () => {
           <input
             type="text"
             className="input input-bordered font-mono text-sm"
-            value={settings.web3_checkout_address || ""}
+            value={checkoutAddress}
             onChange={(e) =>
               setSettings({ ...settings, web3_checkout_address: e.target.value })
             }
@@ -535,7 +544,7 @@ const AdminSettingsPanel = () => {
           <input
             type="text"
             className="input input-bordered font-mono text-sm"
-            value={settings.web3_nft_address || ""}
+            value={nftAddress}
             onChange={(e) =>
               setSettings({ ...settings, web3_nft_address: e.target.value })
             }
@@ -543,14 +552,21 @@ const AdminSettingsPanel = () => {
           />
         </div>
 
-        <button
-          type="button"
-          className="btn btn-secondary w-full"
-          onClick={handleDeploy}
-          disabled={loading || !isReady}
-        >
-          {loading ? "Deploying..." : "Deploy New Store Instance"}
-        </button>
+        {hasDeployedStore ? (
+          <div className="alert alert-success bg-success/20 border border-success/30 text-success-content mt-4 rounded-xl">
+            <CheckCircle2 className="shrink-0" />
+            <span>Store is currently active with configured contracts.</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-secondary w-full"
+            onClick={handleDeploy}
+            disabled={loading || !isReady}
+          >
+            {loading ? "Deploying..." : "Deploy New Store Instance"}
+          </button>
+        )}
       </div>
 
       <div className="pt-4">

@@ -5,6 +5,9 @@ import { Wallet, Loader2, CheckCircle2, Download } from "lucide-react";
 import { ethers } from "ethers";
 import { TuneCampCheckout, TokenRole } from "shogun-contracts-sdk";
 
+// Fallback constants for Base Mainnet
+const DEFAULT_CHECKOUT = "0x2DBcce651aeeaF083d208cc8362B4fd7e72E380F";
+
 // Track type matching minimum required for checkout
 interface CheckoutTrack {
   id: string;
@@ -116,13 +119,15 @@ export const CheckoutModal = () => {
     setError(null);
 
     try {
-      const checkoutAddr = (window as any).TUNECAMP_CONFIG?.web3_checkout_address;
-      
-      if (!checkoutAddr) throw new Error("Web3 Checkout contract not configured on this store. Contact the admin.");
-
       const activeSigner = useExternalWallet ? externalWallet! : wallet!;
       const network = await activeSigner.provider!.getNetwork();
-      const checkout = new TuneCampCheckout(activeSigner.provider as any, activeSigner as any, Number(network.chainId)).attach(checkoutAddr);
+      const chainId = Number(network.chainId);
+      
+      const checkoutAddr = (window as any).TUNECAMP_CONFIG?.web3_checkout_address || DEFAULT_CHECKOUT;
+      
+      if (!checkoutAddr) throw new Error("Web3 Checkout contract not configured on this network. Contact the admin.");
+
+      const checkout = new TuneCampCheckout(activeSigner.provider as any, activeSigner as any, chainId).attach(checkoutAddr);
       
       const trackIdBigInt = BigInt(track.id);
       const value = ethers.parseEther(finalPriceEth);
