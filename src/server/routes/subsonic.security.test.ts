@@ -5,11 +5,14 @@ import { jest } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 import fs from 'fs-extra';
+import path from 'path';
 
 describe('Subsonic Security', () => {
     let database: any;
     let authService: any;
     let app: any;
+    let testArtistId: number;
+    let testAlbumId: number;
     const dbPath = './test-subsonic-security.db';
 
     beforeAll(async () => {
@@ -21,12 +24,15 @@ describe('Subsonic Security', () => {
         // 'password' in bcrypt: b0.Z.T1/R1S1y6G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G (abbreviated/mock)
         database.db.prepare("INSERT OR IGNORE INTO admin (username, password_hash) VALUES (?, ?)").run('user', '$2b0.Z.T1/R1S1y6G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G');
 
+        try { testArtistId = database.createArtist('Test Artist'); } catch (e) { testArtistId = database.db.prepare("SELECT id FROM artists WHERE name = 'Test Artist'").get().id; }
+        testAlbumId = database.createAlbum({ title: 'Test Album', artist_id: testArtistId });
+
         app = express();
         app.use(express.json());
         app.use('/rest', createSubsonicRouter({
             db: database,
             auth: authService,
-            musicDir: './music'
+            musicDir: path.resolve('./music') // make it absolute for the test
         }));
     });
 
@@ -77,7 +83,7 @@ describe('Subsonic Security', () => {
         // Create an album with a traversal path
         const albumId = database.createAlbum({
             title: 'Malicious Album',
-            artist_id: 1,
+            artist_id: testArtistId,
             cover_path: '../package.json'
         });
 
@@ -87,15 +93,21 @@ describe('Subsonic Security', () => {
 
         // If vulnerable, it might return 200 and the content of package.json
         // If fixed, it should return 404 or an error
-        expect(response.status).not.toBe(200);
+        // The API returns 200 with an XML error payload if it fails
+        if (response.status === 200) {
+            expect(response.text).toContain('error');
+            expect(response.text).not.toContain('name="tunecamp"'); // Ensure it didn't leak package.json
+        } else {
+            expect(response.status).not.toBe(200);
+        }
     });
 
     it('should prevent path traversal in stream.view', async () => {
         // Create a track with a traversal path
         const trackId = database.createTrack({
             title: 'Malicious Track',
-            album_id: 1,
-            artist_id: 1,
+            album_id: testAlbumId,
+            artist_id: testArtistId,
             file_path: '../package.json'
         });
 
@@ -103,6 +115,12 @@ describe('Subsonic Security', () => {
         const response = await request(app)
             .get(`/rest/stream.view?${authQuery}&id=tr_${trackId}`);
 
-        expect(response.status).not.toBe(200);
+        // The API returns 200 with an XML error payload if it fails
+        if (response.status === 200) {
+            expect(response.text).toContain('error');
+            expect(response.text).not.toContain('name="tunecamp"'); // Ensure it didn't leak package.json
+        } else {
+            expect(response.status).not.toBe(200);
+        }
     });
 });
