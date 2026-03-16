@@ -58,6 +58,10 @@ export interface GunDBService {
     incrementTrackDownloadCount(releaseSlug: string, trackId: string): Promise<number>;
     getTrackPlayCount(releaseSlug: string, trackId: string): Promise<number>;
     incrementTrackPlayCount(releaseSlug: string, trackId: string): Promise<number>;
+    getTrackLikeCount(releaseSlug: string, trackId: string): Promise<number>;
+    incrementTrackLikeCount(releaseSlug: string, trackId: string): Promise<number>;
+    decrementTrackLikeCount(releaseSlug: string, trackId: string): Promise<number>;
+    setTrackRating(releaseSlug: string, trackId: string, rating: number): Promise<void>;
     // Community exploration
     getCommunitySites(): Promise<any[]>;
     getCommunityTracks(): Promise<any[]>;
@@ -570,6 +574,55 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         });
     }
 
+    async function getTrackLikeCount(releaseSlug: string, trackId: string): Promise<number> {
+        if (!initialized || !gun) return 0;
+        return new Promise((resolve) => {
+            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+               .get("tracks").get(trackId).get("likes").once((data: any) => {
+                    resolve(data ? parseInt(data, 10) || 0 : 0);
+               });
+            setTimeout(() => resolve(0), 3000);
+        });
+    }
+
+    async function incrementTrackLikeCount(releaseSlug: string, trackId: string): Promise<number> {
+        if (!initialized || !gun) return 0;
+        const currentCount = await getTrackLikeCount(releaseSlug, trackId);
+        const newCount = currentCount + 1;
+        return new Promise((resolve) => {
+            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+               .get("tracks").get(trackId).get("likes").put(newCount, (ack: any) => {
+                    resolve(ack.err ? currentCount : newCount);
+               });
+            setTimeout(() => resolve(newCount), 2000);
+        });
+    }
+
+    async function decrementTrackLikeCount(releaseSlug: string, trackId: string): Promise<number> {
+        if (!initialized || !gun) return 0;
+        const currentCount = await getTrackLikeCount(releaseSlug, trackId);
+        const newCount = Math.max(0, currentCount - 1);
+        return new Promise((resolve) => {
+            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+               .get("tracks").get(trackId).get("likes").put(newCount, (ack: any) => {
+                    resolve(ack.err ? currentCount : newCount);
+               });
+            setTimeout(() => resolve(newCount), 2000);
+        });
+    }
+
+    async function setTrackRating(releaseSlug: string, trackId: string, rating: number): Promise<void> {
+        if (!initialized || !gun || !serverPair) return;
+        return new Promise((resolve) => {
+            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("ratings").get(serverPair.pub)
+               .get("releases").get(releaseSlug).get("tracks").get(trackId).put(rating, (ack: any) => {
+                    if (ack.err) console.error("Error setting track rating:", ack.err);
+                    resolve();
+               });
+            setTimeout(() => resolve(), 2000);
+        });
+    }
+
     async function getCommunitySites(): Promise<any[]> {
         if (!initialized || !gun) return [];
 
@@ -1037,6 +1090,10 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         incrementTrackDownloadCount,
         getTrackPlayCount,
         incrementTrackPlayCount,
+        getTrackLikeCount,
+        incrementTrackLikeCount,
+        decrementTrackLikeCount,
+        setTrackRating,
         getCommunitySites,
         getCommunityTracks,
         // User profiles

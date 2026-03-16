@@ -918,6 +918,57 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     // --- Star / Unstar ---
 
+    const incrementGunDBLikeCount = (trackIdStr: string) => {
+        if (!context.gundbService) return;
+        try {
+            const trackId = parseInt(trackIdStr.startsWith('tr_') ? trackIdStr.substring(3) : trackIdStr);
+            if (isNaN(trackId)) return;
+            const track = db.getTrack(trackId);
+            if (track && track.album_id) {
+                const album = db.getAlbum(track.album_id);
+                if (album && (album.visibility === 'public' || album.visibility === 'unlisted')) {
+                    context.gundbService.incrementTrackLikeCount(album.slug, String(track.id));
+                }
+            }
+        } catch (e) {
+            console.error('[Subsonic] Failed to increment GunDB like count:', e);
+        }
+    };
+
+    const decrementGunDBLikeCount = (trackIdStr: string) => {
+        if (!context.gundbService) return;
+        try {
+            const trackId = parseInt(trackIdStr.startsWith('tr_') ? trackIdStr.substring(3) : trackIdStr);
+            if (isNaN(trackId)) return;
+            const track = db.getTrack(trackId);
+            if (track && track.album_id) {
+                const album = db.getAlbum(track.album_id);
+                if (album && (album.visibility === 'public' || album.visibility === 'unlisted')) {
+                    context.gundbService.decrementTrackLikeCount(album.slug, String(track.id));
+                }
+            }
+        } catch (e) {
+            console.error('[Subsonic] Failed to decrement GunDB like count:', e);
+        }
+    };
+
+    const setGunDBRating = (trackIdStr: string, rating: number) => {
+        if (!context.gundbService) return;
+        try {
+            const trackId = parseInt(trackIdStr.startsWith('tr_') ? trackIdStr.substring(3) : trackIdStr);
+            if (isNaN(trackId)) return;
+            const track = db.getTrack(trackId);
+            if (track && track.album_id) {
+                const album = db.getAlbum(track.album_id);
+                if (album && (album.visibility === 'public' || album.visibility === 'unlisted')) {
+                    context.gundbService.setTrackRating(album.slug, String(track.id), rating);
+                }
+            }
+        } catch (e) {
+            console.error('[Subsonic] Failed to set GunDB rating:', e);
+        }
+    };
+
     const star = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
         const { id, albumId, artistId } = req.query as any;
@@ -926,7 +977,10 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const albumIds = albumId ? (Array.isArray(albumId) ? albumId : [albumId]) : [];
         const artistIds = artistId ? (Array.isArray(artistId) ? artistId : [artistId]) : [];
 
-        for (const i of ids) db.starItem(username, 'track', i);
+        for (const i of ids) {
+            db.starItem(username, 'track', i);
+            incrementGunDBLikeCount(i);
+        }
         for (const i of albumIds) db.starItem(username, 'album', i);
         for (const i of artistIds) db.starItem(username, 'artist', i);
 
@@ -941,7 +995,10 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const albumIds = albumId ? (Array.isArray(albumId) ? albumId : [albumId]) : [];
         const artistIds = artistId ? (Array.isArray(artistId) ? artistId : [artistId]) : [];
 
-        for (const i of ids) db.unstarItem(username, 'track', i);
+        for (const i of ids) {
+            db.unstarItem(username, 'track', i);
+            decrementGunDBLikeCount(i);
+        }
         for (const i of albumIds) db.unstarItem(username, 'album', i);
         for (const i of artistIds) db.unstarItem(username, 'artist', i);
 
@@ -967,6 +1024,11 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (id.startsWith('ar_')) type = 'artist';
 
         db.setItemRating(username, type, id, r);
+
+        if (type === 'track') {
+            setGunDBRating(id, r);
+        }
+
         sendResponse(res, req, {});
     };
 
