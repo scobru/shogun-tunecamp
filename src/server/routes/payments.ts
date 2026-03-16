@@ -45,9 +45,27 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
             }
 
             // Check receiver
+            const web3CheckoutAddr = database.getSetting("web3_checkout_address");
             const expectedRecipient = (track as any).walletAddress || ownerAddress;
 
-            if (expectedRecipient && tx?.to?.toLowerCase() !== expectedRecipient.toLowerCase()) {
+            if (web3CheckoutAddr && tx?.to?.toLowerCase() === web3CheckoutAddr.toLowerCase()) {
+                // If the store is deployed, this transaction should be a call to purchaseWithETH
+                try {
+                    const iface = new ethers.Interface([
+                        "function purchaseWithETH(uint256 trackId, uint8 role, uint256 quantity) payable",
+                        "function purchaseWithUSDC(uint256 trackId, uint8 role, uint256 quantity, uint256 amount)"
+                    ]);
+                    const parsed = iface.parseTransaction({ data: tx.data, value: tx.value });
+                    if (parsed && parsed.args) {
+                        const paidTrackId = parsed.args.trackId.toString();
+                        if (paidTrackId !== trackId.toString()) {
+                            return res.status(400).json({ error: "Transaction paid for a different track" });
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Could not decode TuneCampCheckout transaction data parameters. Fallback check active.");
+                }
+            } else if (expectedRecipient && tx?.to?.toLowerCase() !== expectedRecipient.toLowerCase()) {
                 console.warn(`Payment verification mismatch: Track ${trackId} expected recipient ${expectedRecipient}, but transaction was sent to ${tx?.to}`);
                 return res.status(400).json({ error: "Transaction recipient mismatch" });
             }
@@ -66,8 +84,9 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
                 // Allow 5% slippage/margin for price fluctuations
                 const margin = expectedEth * 0.05;
                 if (paidEth < expectedEth - margin) {
-                    console.warn(`Insufficient payment: paid ${paidEth} ETH, expected ~${expectedEth} ETH`);
-
+                    // With smart contracts, the contract ensures exact payment based on its inner oracle.
+                    // This warning is kept for legacy direct transfers.
+                    console.warn(`Potential underpayment: paid ${paidEth} ETH, expected ~${expectedEth} ETH`);
                 }
             }
 

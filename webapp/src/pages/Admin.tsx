@@ -17,6 +17,9 @@ import { IdentityPanel } from "../components/admin/IdentityPanel";
 import { ActivityPubPanel } from "../components/admin/ActivityPubPanel";
 import { BackupPanel } from "../components/admin/BackupPanel";
 import type { SiteSettings } from "../types";
+import { useWalletStore } from "../stores/useWalletStore";
+// @ts-expect-error
+import { TuneCampFactory } from "shogun-contracts/sdk";
 
 export const Admin = () => {
   const { isAuthenticated, isLoading, role } = useAuthStore();
@@ -278,6 +281,67 @@ const AdminSettingsPanel = () => {
   const [message, setMessage] = useState("");
   const [bgFile, setBgFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const { wallet, externalWallet, useExternalWallet, isExternalConnected, isWalletReady } = useWalletStore();
+  const activeSigner = useExternalWallet ? externalWallet : wallet;
+  const isReady = useExternalWallet ? isExternalConnected : isWalletReady;
+
+  const handleDeploy = async () => {
+    if (!activeSigner || !isReady) {
+      setMessage("Failed: Wallet not connected or not ready.");
+      return;
+    }
+    setLoading(true);
+    setMessage("Deploying Web3 Store... Please confirm transaction in your wallet.");
+    
+    try {
+      // Find factory address for Base mainnet (chainId: 8453)
+      const network = await activeSigner.provider!.getNetwork();
+      const chainId = Number(network.chainId);
+      
+      const factory = new TuneCampFactory(activeSigner.provider as any, activeSigner as any, chainId);
+      const instanceName = settings?.siteName || "TuneCamp";
+      const baseURI = settings?.publicUrl ? `${settings.publicUrl}/api/nft/` : "https://tunecamp.app/api/nft/";
+      
+      // Treasury is the platform fee collector (could be actual TuneCamp platform wallet or admin for now)
+      const treasury = "0x532B0fBEe4d2b259a89982753fFf0E79E468fBce"; 
+
+      const tx = await factory.deployInstance(instanceName, baseURI, treasury);
+      setMessage("Transaction sent! Waiting for confirmation...");
+      
+      const receipt = await tx.wait();
+      
+      if (!receipt) throw new Error("Transaction failed or no receipt");
+      
+      let checkoutAddr = "";
+      let nftAddr = "";
+      
+      for (const log of receipt.logs) {
+        try {
+          // @ts-ignore
+          const parsed = factory.contract.interface.parseLog(log);
+          if (parsed && parsed.name === "InstanceDeployed") {
+            checkoutAddr = parsed.args.instance;
+            nftAddr = parsed.args.collection;
+          }
+        } catch (e) {
+          // Ignore logs that can't be parsed by this interface
+        }
+      }
+
+      if (checkoutAddr && nftAddr) {
+        setSettings(prev => prev ? ({ ...prev, web3_checkout_address: checkoutAddr, web3_nft_address: nftAddr }) : null);
+        setMessage("Store deployed successfully! Please click Save Changes.");
+      } else {
+        setMessage("Transaction confirmed! Please manually find the contract addresses from the transaction on BaseScan if they aren't shown, then save.");
+      }
+
+    } catch (e: any) {
+      console.error(e);
+      setMessage(`Deployment failed: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     API.getSiteSettings().then(setSettings).catch(console.error);
@@ -445,6 +509,49 @@ const AdminSettingsPanel = () => {
             }
           />
         </label>
+      </div>
+
+      <div className="pt-4 space-y-4">
+        <h4 className="font-bold border-b border-white/10 pb-2">Web3 Store Configuration</h4>
+        <div className="form-control">
+          <label className="label">
+            <span className="label-text">Checkout Contract Address</span>
+            <span className="label-text-alt opacity-50">Deployed TuneCampCheckout address</span>
+          </label>
+          <input
+            type="text"
+            className="input input-bordered font-mono text-sm"
+            value={settings.web3_checkout_address || ""}
+            onChange={(e) =>
+              setSettings({ ...settings, web3_checkout_address: e.target.value })
+            }
+            placeholder="0x..."
+          />
+        </div>
+        <div className="form-control">
+          <label className="label">
+            <span className="label-text">NFT Contract Address</span>
+            <span className="label-text-alt opacity-50">Deployed TuneCampNFT address</span>
+          </label>
+          <input
+            type="text"
+            className="input input-bordered font-mono text-sm"
+            value={settings.web3_nft_address || ""}
+            onChange={(e) =>
+              setSettings({ ...settings, web3_nft_address: e.target.value })
+            }
+            placeholder="0x..."
+          />
+        </div>
+
+        <button
+          type="button"
+          className="btn btn-secondary w-full"
+          onClick={handleDeploy}
+          disabled={loading || !isReady}
+        >
+          {loading ? "Deploying..." : "Deploy New Store Instance"}
+        </button>
       </div>
 
       <div className="pt-4">

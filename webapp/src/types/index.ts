@@ -110,6 +110,8 @@ export interface SiteSettings {
     backgroundImage?: string;
     donationLinks?: ArtistLink[];
     gunPeers?: string;
+    web3_checkout_address?: string;
+    web3_nft_address?: string;
 }
 
 export interface Release extends Album {

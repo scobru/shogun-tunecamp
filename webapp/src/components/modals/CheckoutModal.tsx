@@ -3,6 +3,8 @@ import { useWalletStore } from "../../stores/useWalletStore";
 import { GunAuth } from "../../services/gun";
 import { Wallet, Loader2, CheckCircle2, Download } from "lucide-react";
 import { ethers } from "ethers";
+// @ts-expect-error
+import { TuneCampCheckout, TokenRole } from "shogun-contracts/sdk";
 
 // Track type matching minimum required for checkout
 interface CheckoutTrack {
@@ -115,19 +117,20 @@ export const CheckoutModal = () => {
     setError(null);
 
     try {
-      const defaultOwnerAddress =
-        (window as any).TUNECAMP_CONFIG?.ownerAddress ||
-        import.meta.env.VITE_TUNECAMP_OWNER_ADDRESS;
-        
-      const recipientAddress = track.walletAddress || defaultOwnerAddress;
-
-      if (!recipientAddress) throw new Error("Recipient address not configured. Cannot process payment.");
+      const checkoutAddr = (window as any).TUNECAMP_CONFIG?.web3_checkout_address;
+      
+      if (!checkoutAddr) throw new Error("Web3 Checkout contract not configured on this store. Contact the admin.");
 
       const activeSigner = useExternalWallet ? externalWallet! : wallet!;
-      const tx = await activeSigner.sendTransaction({
-        to: recipientAddress,
-        value: ethers.parseEther(finalPriceEth),
-      });
+      const network = await activeSigner.provider!.getNetwork();
+      const checkout = new TuneCampCheckout(activeSigner.provider as any, activeSigner as any, Number(network.chainId)).attach(checkoutAddr);
+      
+      const trackIdBigInt = BigInt(track.id);
+      const value = ethers.parseEther(finalPriceEth);
+      // Assuming role 0 is LISTENER
+      const role = TokenRole?.LISTENER || 0;
+      
+      const tx = await checkout.purchaseWithETH(trackIdBigInt, role, 1, value);
 
       const receipt = await tx.wait();
 

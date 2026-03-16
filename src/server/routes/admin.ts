@@ -129,7 +129,7 @@ export function createAdminRoutes(
                 return res.status(403).json({ error: "Only root admin can change site settings" });
             }
 
-            const { siteName, siteDescription, publicUrl, artistName, coverImage, mode, gunPeers } = req.body;
+            const { siteName, siteDescription, publicUrl, artistName, coverImage, mode, gunPeers, web3_checkout_address, web3_nft_address } = req.body;
             let settingsChanged = false;
 
             if (siteName !== undefined) {
@@ -162,6 +162,12 @@ export function createAdminRoutes(
             if (gunPeers !== undefined) {
                 database.setSetting("gunPeers", gunPeers);
                 settingsChanged = true;
+            }
+            if (web3_checkout_address !== undefined) {
+                database.setSetting("web3_checkout_address", web3_checkout_address);
+            }
+            if (web3_nft_address !== undefined) {
+                database.setSetting("web3_nft_address", web3_nft_address);
             }
 
             // Re-register on GunDB if settings changed and publicUrl is available
