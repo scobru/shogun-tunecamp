@@ -18,7 +18,6 @@ import { ActivityPubPanel } from "../components/admin/ActivityPubPanel";
 import { BackupPanel } from "../components/admin/BackupPanel";
 import type { SiteSettings } from "../types";
 import { useWalletStore } from "../stores/useWalletStore";
-// @ts-expect-error
 import { TuneCampFactory } from "shogun-contracts-sdk";
 
 export const Admin = () => {

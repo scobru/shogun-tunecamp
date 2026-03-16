@@ -3,7 +3,6 @@ import { useWalletStore } from "../../stores/useWalletStore";
 import { GunAuth } from "../../services/gun";
 import { Wallet, Loader2, CheckCircle2, Download } from "lucide-react";
 import { ethers } from "ethers";
-// @ts-expect-error
 import { TuneCampCheckout, TokenRole } from "shogun-contracts-sdk";
 
 // Track type matching minimum required for checkout
@@ -127,8 +126,8 @@ export const CheckoutModal = () => {
       
       const trackIdBigInt = BigInt(track.id);
       const value = ethers.parseEther(finalPriceEth);
-      // Assuming role 0 is LISTENER
-      const role = TokenRole?.LISTENER || 0;
+      // Assuming role 0 is LICENSE
+      const role = TokenRole?.LICENSE || 0;
       
       const tx = await checkout.purchaseWithETH(trackIdBigInt, role, 1, value);
 
