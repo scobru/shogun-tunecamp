@@ -20,6 +20,7 @@ import {
   Wallet,
   Profile,
   MyMusic,
+  About,
 } from "./pages";
 import Admin from "./pages/Admin";
 import AdminReleaseEditor from "./pages/AdminReleaseEditor";
@@ -69,6 +70,7 @@ function App() {
       <Routes>
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
 
           {/* Library */}
           <Route path="/albums" element={<Albums />} />

@@ -1,4 +1,5 @@
 export { Home } from './Home';
+export { About } from './About';
 export { Albums } from './Albums';
 export { AlbumDetails } from './AlbumDetails';
 export { Artists } from './Artists';
