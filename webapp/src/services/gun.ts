@@ -221,6 +221,21 @@ export const GunAuth = {
     },
 
     /**
+     * Subscribe to mutable alias changes
+     */
+    subscribeAlias: (cb: (alias: string) => void): (() => void) => {
+        if (!user.is) return () => { };
+        const ref = user.get('alias').on((data: any) => {
+            if (typeof data === 'string') {
+                cb(data);
+            }
+        });
+        return () => {
+            if (ref && (ref as any).off) (ref as any).off();
+        };
+    },
+
+    /**
      * Update extra profile data (avatar, bio)
      */
     updateProfile: async (data: { avatar?: string; bio?: string }): Promise<void> => {

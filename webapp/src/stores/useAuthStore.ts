@@ -152,8 +152,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                             user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, profile: profileData } } : null
                         }));
                     });
+
+                    // Subscribe to mutable alias changes
+                    GunAuth.subscribeAlias((aliasData) => {
+                        if (aliasData) {
+                            set((state) => ({
+                                user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, alias: aliasData } } : null
+                            }));
+                        }
+                    });
                 } catch (subErr) {
-                    console.error("Failed to subscribe to GunDB profile:", subErr);
+                    console.error("Failed to subscribe to GunDB info:", subErr);
                 }
             }
 
@@ -224,6 +233,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                         set((state) => ({
                             user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, profile: profileData } } : null
                         }));
+                    });
+
+                    // Subscribe to mutable alias changes
+                    GunAuth.subscribeAlias((aliasData) => {
+                        if (aliasData) {
+                            set((state) => ({
+                                user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, alias: aliasData } } : null
+                            }));
+                        }
                     });
                 } catch (subErr) {
                     console.error("Failed to subscribe to GunDB profile:", subErr);
