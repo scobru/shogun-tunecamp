@@ -360,8 +360,10 @@ const AdminSettingsPanel = () => {
     }
 
     const checkoutAddress = settings?.web3_checkout_address || DEFAULT_CHECKOUT;
-    if (!checkoutAddress) {
-      setMessage("Failed: No checkout contract address configured.");
+    const nftAddress = settings?.web3_nft_address || DEFAULT_NFT;
+
+    if (!checkoutAddress || !nftAddress) {
+      setMessage("Failed: Store instance not fully configured.");
       return;
     }
 
@@ -377,7 +379,36 @@ const AdminSettingsPanel = () => {
         return;
       }
 
-      // Prepare arrays for the contract call
+      // Instantiate contracts directly using ABI bypass
+      const network = await activeSigner.provider!.getNetwork();
+      const chainId = String(network.chainId);
+      
+      const checkoutAbi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
+      const nftAbi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampNFT"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampNFT"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampNFT"]?.abi;
+      
+      if (!checkoutAbi) throw new Error(`TuneCampCheckout ABI not found in SDK`);
+      if (!nftAbi) throw new Error(`TuneCampNFT ABI not found in SDK`);
+
+      const checkoutContract = new ethers.Contract(checkoutAddress, checkoutAbi, activeSigner as any);
+      const nftContract = new ethers.Contract(nftAddress, nftAbi, activeSigner as any);
+      
+      const adminAddress = await activeSigner.getAddress();
+
+      // Check and register tracks sequentially
+      for (let i = 0; i < pricingData.length; i++) {
+         const t = pricingData[i];
+         const currentArtist = await nftContract.trackArtist(t.trackId);
+         
+         if (currentArtist === ethers.ZeroAddress) {
+            setMessage(`Registering track ${i+1}/${pricingData.length} on blockchain... Please confirm.`);
+            const targetArtist = t.walletAddress || adminAddress;
+            // Max supplies: 0 = unlimited
+            const txReg = await nftContract.registerTrack(t.trackId, targetArtist, 0, 0, 0);
+            await txReg.wait();
+         }
+      }
+
+      // Prepare arrays for the batch format
       const trackIds: number[] = [];
       const roles: number[] = [];
       const pricesUSDC: bigint[] = [];
@@ -385,7 +416,7 @@ const AdminSettingsPanel = () => {
 
       for (const t of pricingData) {
         trackIds.push(t.trackId);
-        // Assuming TokenRole 0 is Standard per the smart contract
+        // Assuming TokenRole 0 is Standard/License per the smart contract
         roles.push(0); 
         // USDC is unsupported right now in DB
         pricesUSDC.push(BigInt(t.priceUSDC || 0));
@@ -396,14 +427,6 @@ const AdminSettingsPanel = () => {
 
       setMessage("Please confirm the setPriceBatch transaction in your wallet...");
 
-      // Instantiate checkout contract directly using ABI bypass
-      const network = await activeSigner.provider!.getNetwork();
-      const chainId = String(network.chainId);
-      const abi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
-      
-      if (!abi) throw new Error(`TuneCampCheckout ABI not found in SDK`);
-
-      const checkoutContract = new ethers.Contract(checkoutAddress, abi, activeSigner as any);
       const tx = await checkoutContract.setPriceBatch(trackIds, roles, pricesUSDC, pricesETH);
       
       setMessage("Transaction sent! Waiting for confirmation...");

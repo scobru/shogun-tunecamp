@@ -103,6 +103,14 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             const pricingData = tracksToSync
                 .filter(t => t.price && t.price > 0)
                 .map(t => {
+                   let walletAddress = null;
+                   if (t.artist_id) {
+                       const artist = database.getArtist(t.artist_id);
+                       if (artist) {
+                           walletAddress = artist.wallet_address;
+                       }
+                   }
+                   
                    return {
                        trackId: t.id,
                        // Assuming track.price in DB is stored as ETH (or native token) decimal value (e.g., 0.001)
@@ -110,7 +118,8 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                        price: t.price,
                        currency: t.currency || 'ETH',
                        // USDC price is not currently supported in the DB schema, defaulting to 0
-                       priceUSDC: 0 
+                       priceUSDC: 0,
+                       walletAddress: walletAddress
                    }
                 });
 
