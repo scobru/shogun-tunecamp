@@ -121,24 +121,40 @@ export const CheckoutModal = () => {
       const activeSigner = useExternalWallet ? externalWallet! : wallet!;
       
       const checkoutAddr = (window as any).TUNECAMP_CONFIG?.web3_checkout_address;
-      
-      if (!checkoutAddr) throw new Error("Web3 Checkout contract not configured on this network. Contact the admin.");
-
-      // Bypass SDK constructor chain check by using ethers.Contract directly.
-      // The ABI is identical across chains, so we can pull it from a known deployment.
-      const abi = (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
-      if (!abi) throw new Error("TuneCampCheckout ABI not found in SDK");
-
-      const checkout = new ethers.Contract(checkoutAddr, abi, activeSigner);
-      
-      const trackIdBigInt = BigInt(track.id);
       const value = ethers.parseEther(finalPriceEth);
-      // Assuming role 0 is LICENSE
-      const role = TokenRole?.LICENSE || 0;
-      
-      const tx = await checkout.purchaseWithETH(trackIdBigInt, role, 1, { value });
+      let receipt: any;
 
-      const receipt = await tx.wait();
+      if (checkoutAddr && checkoutAddr !== "" && checkoutAddr !== "null") {
+        // ── Case A: Smart Contract Checkout (NFT Minting) ──────────────────
+        // Bypass SDK constructor chain check by using ethers.Contract directly.
+        // The ABI is identical across chains, so we can pull it from a known deployment.
+        const abi = (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
+        if (!abi) throw new Error("TuneCampCheckout ABI not found in SDK");
+
+        const checkout = new ethers.Contract(checkoutAddr, abi, activeSigner);
+        
+        const trackIdBigInt = BigInt(track.id);
+        // Assuming role 0 is LICENSE
+        const role = TokenRole?.LICENSE || 0;
+        
+        const tx = await checkout.purchaseWithETH(trackIdBigInt, role, 1, { value });
+        receipt = await tx.wait();
+      } else {
+        // ── Case B: Direct ETH Transfer (No NFT, Legacy/Fallback) ──────────
+        const recipient = (track as any).walletAddress || (window as any).TUNECAMP_CONFIG?.ownerAddress;
+        
+        if (!recipient) {
+          throw new Error("No recipient address configured for this track. Contact the artist or admin.");
+        }
+
+        console.log(`Fallback: Sending direct payment of ${finalPriceEth} ETH to ${recipient}`);
+        
+        const tx = await activeSigner.sendTransaction({
+          to: recipient,
+          value: value
+        });
+        receipt = await tx.wait();
+      }
 
       if (!receipt || receipt.status === 0) {
         throw new Error("Transaction failed on-chain.");

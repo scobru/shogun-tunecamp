@@ -31,8 +31,9 @@ export const AlbumDetails = () => {
   const [coverVersion] = useState(Date.now()); // Cache buster
   const { isAdminAuthenticated: isAdmin } = useAuthStore();
   const { isPurchased, verifyAndGetCode } = usePurchases();
-  const { address } = useWalletStore();
-  const { ownedNFTs } = useOwnedNFTs(address);
+  const { address, externalAddress, useExternalWallet, isExternalConnected } = useWalletStore();
+  const activeAddress = useExternalWallet && isExternalConnected ? externalAddress : address;
+  const { ownedNFTs } = useOwnedNFTs(activeAddress);
 
   const isTrackUnlocked = (trackId: string | number) => {
     return isPurchased(trackId) || ownedNFTs.some(n => n.trackId === Number(trackId));

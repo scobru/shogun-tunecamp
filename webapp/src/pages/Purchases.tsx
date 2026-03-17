@@ -35,8 +35,9 @@ export const Purchases = () => {
       });
   }, [isAuthenticated]);
 
-  const { address } = useWalletStore();
-  const { ownedNFTs } = useOwnedNFTs(address);
+  const { address, externalAddress, useExternalWallet, isExternalConnected } = useWalletStore();
+  const activeAddress = useExternalWallet && isExternalConnected ? externalAddress : address;
+  const { ownedNFTs } = useOwnedNFTs(activeAddress);
 
   const purchasedTracks = useMemo(() => {
     return tracks.filter((t) => {

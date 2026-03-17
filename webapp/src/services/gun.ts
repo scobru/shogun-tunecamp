@@ -27,8 +27,7 @@ const PEERS = envPeers ? envPeers.split(',') : defaultPeers;
 const gun = Gun({
     peers: PEERS,
     localStorage: false,
-    file: "./radata",
-    radisk: true,
+    radisk: false,
     wire: true,
     axe: true
 });

@@ -351,13 +351,15 @@ export async function startServer(config: ServerConfig): Promise<void> {
             const gunPeersStr = dbGunPeers || process.env.TUNECAMP_GUN_PEERS || process.env.VITE_GUN_PEERS || '';
             const web3CheckoutAddr = database.getSetting("web3_checkout_address") || "";
             const web3NftAddr = database.getSetting("web3_nft_address") || "";
+            const ownerAddress = process.env.TUNECAMP_OWNER_ADDRESS || "";
             
             const configInject = `<script>window.TUNECAMP_CONFIG = { 
                 apiUrl: "/api", 
                 rpcUrl: ${JSON.stringify(rpcUrl)},
                 gunPeers: ${JSON.stringify(gunPeersStr)},
                 web3_checkout_address: ${JSON.stringify(web3CheckoutAddr)},
-                web3_nft_address: ${JSON.stringify(web3NftAddr)}
+                web3_nft_address: ${JSON.stringify(web3NftAddr)},
+                ownerAddress: ${JSON.stringify(ownerAddress)}
             };</script>`;
             html = html.replace('<head>', '<head>' + configInject);
             res.send(html);

@@ -22,7 +22,8 @@ import clsx from "clsx";
 
 export const Profile = () => {
   const { user, isAuthenticated, isInitializing } = useAuthStore();
-  const { address } = useWalletStore();
+  const { address, externalAddress, useExternalWallet, isExternalConnected } = useWalletStore();
+  const activeAddress = useExternalWallet && isExternalConnected ? externalAddress : address;
   const { loading: purchasesLoading, isPurchased } = usePurchases();
   const { playTrack } = usePlayerStore();
 
@@ -68,7 +69,7 @@ export const Profile = () => {
     }
   }, [isAuthenticated, user?.artistId]);
 
-  const { ownedNFTs } = useOwnedNFTs(address);
+  const { ownedNFTs } = useOwnedNFTs(activeAddress);
 
   const purchasedTracks = useMemo(() => {
     return allTracks.filter((t) => {
