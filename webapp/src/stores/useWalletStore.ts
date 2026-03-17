@@ -20,7 +20,6 @@ interface WalletState {
     externalBalanceUsdc: string | null;
     isExternalConnected: boolean;
     useExternalWallet: boolean;
-    activeAddress: string | null;
 
     initWallet: () => Promise<void>;
     refreshBalances: () => Promise<void>;
