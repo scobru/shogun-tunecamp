@@ -80,8 +80,10 @@ export function createCatalogRoutes(database: DatabaseService): Router {
             const mode = database.getSetting("mode") || 'label';
             const siteId = database.getSetting("siteId") || "";
             const gunPeers = database.getSetting("gunPeers") || "";
+            const web3_checkout_address = database.getSetting("web3_checkout_address") || "";
+            const web3_nft_address = database.getSetting("web3_nft_address") || "";
 
-            res.json({ siteName, siteDescription, donationLinks, backgroundImage, coverImage, mode, siteId, gunPeers });
+            res.json({ siteName, siteDescription, donationLinks, backgroundImage, coverImage, mode, siteId, gunPeers, web3_checkout_address, web3_nft_address });
         } catch (error) {
             console.error("Error getting settings:", error);
             res.status(500).json({ error: "Failed to get settings" });
