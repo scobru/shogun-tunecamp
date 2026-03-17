@@ -52,9 +52,12 @@ export function useOwnedNFTs(address: string | null) {
                 // Currently returning chain 8453 (Base Mainnet) hardcoded for production or via config
                 const chainId = await WalletService.getChainId();
                 
-                // Address comes from our sdk DEPLOYMENTS map
+                // Prioritize server-injected config for NFT address
+                const configNftAddress = (window as any).TUNECAMP_CONFIG?.web3_nft_address;
+                
+                // Fallback to our sdk DEPLOYMENTS map
                 const deploymentData = (DEPLOYMENTS as Record<string, any>)[String(chainId)]?.["TuneCampFactory#TuneCampNFT"];
-                const nftAddress = deploymentData?.address as string;
+                const nftAddress = configNftAddress || deploymentData?.address as string;
                 const nftAbi = deploymentData?.abi;
                 
                 if (!nftAddress || !nftAbi) {
