@@ -26,7 +26,7 @@ export function useOwnedNFTs(address: string | null) {
         // Fetch all tracks once to have metadata handy
         API.getTracks().then(data => {
             const trackMap: Record<number, Track> = {};
-            data.forEach(t => trackMap[t.id] = t);
+            data.forEach(t => trackMap[Number(t.id)] = t);
             setTracks(trackMap);
         }).catch(console.error);
     }, []);
@@ -48,7 +48,7 @@ export function useOwnedNFTs(address: string | null) {
                 const chainId = (window as any).TUNECAMP_CONFIG?.rpcUrl?.includes('sepolia') ? 84532 : 8453;
                 
                 // Address comes from our sdk DEPLOYMENTS map
-                const nftAddress = DEPLOYMENTS[chainId as keyof typeof DEPLOYMENTS]?.["TuneCampFactory#TuneCampNFT"] as string;
+                const nftAddress = (DEPLOYMENTS as Record<string, any>)[String(chainId)]?.["TuneCampFactory#TuneCampNFT"] as string;
                 
                 if (!nftAddress) {
                     console.error("TuneCampNFT proxy address not found in ABI deployments for chain", chainId);
@@ -84,7 +84,7 @@ export function useOwnedNFTs(address: string | null) {
                 if (tokenIds.length > 0) {
                      // Since TuneCampNFT inherits ERC1155, it has balanceOfBatch
                      // Ethers v6 calling
-                     const balances: bigint[] = await (tuneCampNFT.contract as any).balanceOfBatch(accounts, tokenIds);
+                     const balances: bigint[] = await ((tuneCampNFT as any).contract).balanceOfBatch(accounts, tokenIds);
                      
                      balances.forEach((bal, idx) => {
                          if (bal > 0n) {
