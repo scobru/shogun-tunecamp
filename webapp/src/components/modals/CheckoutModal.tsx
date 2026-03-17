@@ -3,7 +3,7 @@ import { useWalletStore } from "../../stores/useWalletStore";
 import { GunAuth } from "../../services/gun";
 import { Wallet, Loader2, CheckCircle2, Download } from "lucide-react";
 import { ethers } from "ethers";
-import { TuneCampCheckout, TokenRole } from "shogun-contracts-sdk";
+import { TokenRole, DEPLOYMENTS } from "shogun-contracts-sdk";
 
 // Fallback constants for Base Mainnet
 const DEFAULT_CHECKOUT = "0x2DBcce651aeeaF083d208cc8362B4fd7e72E380F";
@@ -120,21 +120,24 @@ export const CheckoutModal = () => {
 
     try {
       const activeSigner = useExternalWallet ? externalWallet! : wallet!;
-      const network = await activeSigner.provider!.getNetwork();
-      const chainId = Number(network.chainId);
       
       const checkoutAddr = (window as any).TUNECAMP_CONFIG?.web3_checkout_address || DEFAULT_CHECKOUT;
       
       if (!checkoutAddr) throw new Error("Web3 Checkout contract not configured on this network. Contact the admin.");
 
-      const checkout = new TuneCampCheckout(activeSigner.provider as any, activeSigner as any, chainId).attach(checkoutAddr);
+      // Bypass SDK constructor chain check by using ethers.Contract directly.
+      // The ABI is identical across chains, so we can pull it from a known deployment.
+      const abi = (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
+      if (!abi) throw new Error("TuneCampCheckout ABI not found in SDK");
+
+      const checkout = new ethers.Contract(checkoutAddr, abi, activeSigner);
       
       const trackIdBigInt = BigInt(track.id);
       const value = ethers.parseEther(finalPriceEth);
       // Assuming role 0 is LICENSE
       const role = TokenRole?.LICENSE || 0;
       
-      const tx = await checkout.purchaseWithETH(trackIdBigInt, role, 1, value);
+      const tx = await checkout.purchaseWithETH(trackIdBigInt, role, 1, { value });
 
       const receipt = await tx.wait();
 

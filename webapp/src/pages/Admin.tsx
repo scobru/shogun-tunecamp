@@ -289,6 +289,9 @@ const AdminSettingsPanel = () => {
   const activeSigner = useExternalWallet ? externalWallet : wallet;
   const isReady = useExternalWallet ? isExternalConnected : isWalletReady;
 
+  const [isCheckingOnChain, setIsCheckingOnChain] = useState(false);
+  const [hasOnChainInstance, setHasOnChainInstance] = useState(false);
+
   const handleDeploy = async () => {
     if (!activeSigner || !isReady) {
       setMessage("Failed: Wallet not connected or not ready.");
@@ -324,8 +327,8 @@ const AdminSettingsPanel = () => {
           // @ts-ignore
           const parsed = factory.contract.interface.parseLog(log);
           if (parsed && parsed.name === "InstanceDeployed") {
-            checkoutAddr = parsed.args.instance;
-            nftAddr = parsed.args.collection;
+            checkoutAddr = parsed.args.checkout;
+            nftAddr = parsed.args.nft;
           }
         } catch (e) {
           // Ignore logs that can't be parsed by this interface
@@ -351,13 +354,59 @@ const AdminSettingsPanel = () => {
     API.getSiteSettings().then(setSettings).catch(console.error);
   }, []);
 
+  useEffect(() => {
+    const checkFactory = async () => {
+      if (!activeSigner || !isReady || !settings) return;
+      
+      try {
+        setIsCheckingOnChain(true);
+        const network = await activeSigner.provider!.getNetwork();
+        const chainId = Number(network.chainId);
+        
+        // This will throw if the SDK doesn't support the chainId. We catch and ignore.
+        const factory = new TuneCampFactory(activeSigner.provider as any, activeSigner as any, chainId);
+        
+        const address = await activeSigner.getAddress();
+        const instances = await factory.instancesOf(address);
+        
+        if (instances && instances.length > 0) {
+          setHasOnChainInstance(true);
+          
+          if (!settings.web3_checkout_address || !settings.web3_nft_address) {
+            const firstInstanceId = instances[0];
+            const instanceData = await factory.getInstance(firstInstanceId);
+            setSettings(prev => prev ? ({ 
+                ...prev, 
+                web3_checkout_address: instanceData.checkout, 
+                web3_nft_address: instanceData.nft 
+            }) : null);
+            setMessage("Found existing on-chain store! Addresses have been auto-filled. Please save changes.");
+          }
+        } else {
+          setHasOnChainInstance(false);
+        }
+      } catch (e) {
+        // Will throw quietly if not connected to a supported chain or if factory not found
+      } finally {
+        setIsCheckingOnChain(false);
+      }
+    };
+    
+    checkFactory();
+  }, [activeSigner, isReady, settings !== null]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!settings) return;
     setLoading(true);
     setMessage("");
     try {
-      await API.updateSettings(settings);
+      const settingsToSave = {
+        ...settings,
+        web3_checkout_address: settings.web3_checkout_address || DEFAULT_CHECKOUT,
+        web3_nft_address: settings.web3_nft_address || DEFAULT_NFT,
+      };
+      await API.updateSettings(settingsToSave);
 
       if (bgFile) {
         await API.uploadBackgroundImage(bgFile);
@@ -384,7 +433,7 @@ const AdminSettingsPanel = () => {
       <div className="p-8 text-center opacity-50">Loading settings...</div>
     );
 
-  const hasDeployedStore = !!(settings.web3_checkout_address && settings.web3_nft_address);
+  const hasDeployedStore = !!(settings.web3_checkout_address && settings.web3_nft_address) || hasOnChainInstance;
   const checkoutAddress = settings.web3_checkout_address || DEFAULT_CHECKOUT;
   const nftAddress = settings.web3_nft_address || DEFAULT_NFT;
 
@@ -529,7 +578,7 @@ const AdminSettingsPanel = () => {
           <input
             type="text"
             className="input input-bordered font-mono text-sm"
-            value={checkoutAddress}
+            value={settings.web3_checkout_address !== undefined ? settings.web3_checkout_address : checkoutAddress}
             onChange={(e) =>
               setSettings({ ...settings, web3_checkout_address: e.target.value })
             }
@@ -544,7 +593,7 @@ const AdminSettingsPanel = () => {
           <input
             type="text"
             className="input input-bordered font-mono text-sm"
-            value={nftAddress}
+            value={settings.web3_nft_address !== undefined ? settings.web3_nft_address : nftAddress}
             onChange={(e) =>
               setSettings({ ...settings, web3_nft_address: e.target.value })
             }
@@ -562,9 +611,9 @@ const AdminSettingsPanel = () => {
             type="button"
             className="btn btn-secondary w-full"
             onClick={handleDeploy}
-            disabled={loading || !isReady}
+            disabled={loading || !isReady || isCheckingOnChain}
           >
-            {loading ? "Deploying..." : "Deploy New Store Instance"}
+            {loading ? "Deploying..." : isCheckingOnChain ? "Checking chain..." : "Deploy New Store Instance"}
           </button>
         )}
       </div>
