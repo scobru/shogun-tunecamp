@@ -170,6 +170,7 @@ export const API = {
     deleteArtist: (id: string) => handleResponse(api.delete(`/artists/${id}`)),
 
     // --- Admin: Tracks ---
+    getBatchPricing: () => handleResponse(api.get<any[]>('/tracks/pricing/batch')),
     createTrack: (data: { title: string, albumId?: number, artistId?: number, trackNum?: number, url?: string, service?: string, externalArtwork?: string, duration?: number }) =>
         handleResponse(api.post<Track>('/tracks', data)),
     updateTrack: (id: string | number, data: Partial<Track>) => handleResponse(api.put<Track>(`/tracks/${id}`, data)),

@@ -81,6 +81,47 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
     });
 
     /**
+     * GET /api/tracks/pricing/batch
+     * Get pricing data for all tracks owned by the current user (admin/artist) to sync to blockchain
+     */
+    router.get("/pricing/batch", (req: AuthenticatedRequest, res) => {
+        try {
+            if (!req.isAdmin && !req.artistId) {
+                return res.status(401).json({ error: "Unauthorized" });
+            }
+
+            // If root admin, they can sync everything? Usually, an admin syncs their local node's tracks.
+            // Let's get all tracks owned by this instance's artists that have a price set.
+            let tracksToSync: any[] = [];
+            
+            if (req.isAdmin) {
+               tracksToSync = database.getTracks(); // Root admin sees all
+            } else if (req.artistId) {
+               tracksToSync = database.getTracksByOwner(req.artistId);
+            }
+
+            const pricingData = tracksToSync
+                .filter(t => t.price && t.price > 0)
+                .map(t => {
+                   return {
+                       trackId: t.id,
+                       // Assuming track.price in DB is stored as ETH (or native token) decimal value (e.g., 0.001)
+                       // If currency is ETH, we'll format it on the frontend using ethers.parseEther
+                       price: t.price,
+                       currency: t.currency || 'ETH',
+                       // USDC price is not currently supported in the DB schema, defaulting to 0
+                       priceUSDC: 0 
+                   }
+                });
+
+            res.json(pricingData);
+        } catch (error) {
+            console.error("Error getting batch pricing:", error);
+            res.status(500).json({ error: "Failed to get batch pricing" });
+        }
+    });
+
+    /**
      * POST /api/tracks
      * Create a new track (usually for external links)
      */

@@ -19,7 +19,8 @@ import { ActivityPubPanel } from "../components/admin/ActivityPubPanel";
 import { BackupPanel } from "../components/admin/BackupPanel";
 import type { SiteSettings } from "../types";
 import { useWalletStore } from "../stores/useWalletStore";
-import { TuneCampFactory } from "shogun-contracts-sdk";
+import { TuneCampFactory, DEPLOYMENTS } from "shogun-contracts-sdk";
+import { ethers } from "ethers";
 
 // Fallback constants for Base Mainnet
 const DEFAULT_CHECKOUT = "0x2DBcce651aeeaF083d208cc8362B4fd7e72E380F";
@@ -350,6 +351,75 @@ const AdminSettingsPanel = () => {
     }
   };
 
+  const [isSyncingPrices, setIsSyncingPrices] = useState(false);
+
+  const handleSyncPrices = async () => {
+    if (!activeSigner || !isReady) {
+      setMessage("Failed: Wallet not connected or not ready.");
+      return;
+    }
+
+    const checkoutAddress = settings?.web3_checkout_address || DEFAULT_CHECKOUT;
+    if (!checkoutAddress) {
+      setMessage("Failed: No checkout contract address configured.");
+      return;
+    }
+
+    setIsSyncingPrices(true);
+    setMessage("Fetching track prices from database...");
+    
+    try {
+      const pricingData = await API.getBatchPricing();
+      
+      if (!pricingData || pricingData.length === 0) {
+        setMessage("No tracks with prices found to synchronize.");
+        setIsSyncingPrices(false);
+        return;
+      }
+
+      // Prepare arrays for the contract call
+      const trackIds: number[] = [];
+      const roles: number[] = [];
+      const pricesUSDC: bigint[] = [];
+      const pricesETH: bigint[] = [];
+
+      for (const t of pricingData) {
+        trackIds.push(t.trackId);
+        // Assuming TokenRole 0 is Standard per the smart contract
+        roles.push(0); 
+        // USDC is unsupported right now in DB
+        pricesUSDC.push(BigInt(t.priceUSDC || 0));
+        // Parse ETH string to wei
+        const weiPrice = ethers.parseEther(String(t.price || 0));
+        pricesETH.push(weiPrice);
+      }
+
+      setMessage("Please confirm the setPriceBatch transaction in your wallet...");
+
+      // Instantiate checkout contract directly using ABI bypass
+      const network = await activeSigner.provider!.getNetwork();
+      const chainId = String(network.chainId);
+      const abi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
+      
+      if (!abi) throw new Error(`TuneCampCheckout ABI not found in SDK`);
+
+      const checkoutContract = new ethers.Contract(checkoutAddress, abi, activeSigner as any);
+      const tx = await checkoutContract.setPriceBatch(trackIds, roles, pricesUSDC, pricesETH);
+      
+      setMessage("Transaction sent! Waiting for confirmation...");
+      await tx.wait();
+      
+      let successMsg = `Successfully synchronized ${pricingData.length} track price(s) to the blockchain.`;
+      setMessage(successMsg);
+      alert(successMsg);
+    } catch (e: any) {
+      console.error(e);
+      setMessage(`Sync failed: ${e.message}`);
+    } finally {
+      setIsSyncingPrices(false);
+    }
+  };
+
   useEffect(() => {
     API.getSiteSettings().then(setSettings).catch(console.error);
   }, []);
@@ -627,13 +697,25 @@ const AdminSettingsPanel = () => {
           </div>
         )}
 
-        <button
-          type="submit"
-          className="btn btn-primary gap-2"
-          disabled={loading}
-        >
-          <Save size={16} /> Save Changes
-        </button>
+        <div className="flex gap-4">
+          <button
+            type="submit"
+            className="btn btn-primary gap-2 flex-1"
+            disabled={loading}
+          >
+            <Save size={16} /> Save Changes
+          </button>
+          
+          <button
+            type="button"
+            className="btn btn-secondary gap-2 flex-1"
+            disabled={loading || isSyncingPrices || !isReady}
+            onClick={handleSyncPrices}
+          >
+            <RefreshCw size={16} className={isSyncingPrices ? "animate-spin" : ""} /> 
+            {isSyncingPrices ? "Syncing..." : "Sync Prices to Blockchain"}
+          </button>
+        </div>
       </div>
     </form>
   );
