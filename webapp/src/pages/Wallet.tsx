@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { GunAuth } from "../services/gun";
 import clsx from "clsx";
+import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
+import { TokenRole } from "shogun-contracts-sdk";
 
 export const Wallet = () => {
   const {
@@ -39,6 +41,9 @@ export const Wallet = () => {
   const [showKeys, setShowKeys] = useState(false);
   const [copiedPriv, setCopiedPriv] = useState(false);
   const [copiedSEA, setCopiedSEA] = useState(false);
+
+  const activeAddress = useExternalWallet && isExternalConnected ? externalAddress : address;
+  const { ownedNFTs, loading: nftsLoading } = useOwnedNFTs(activeAddress);
 
   useEffect(() => {
     if (!isWalletReady && !isWalletLoading) {
@@ -278,6 +283,54 @@ export const Wallet = () => {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="bg-base-200/50 rounded-2xl p-6 border border-white/5 space-y-6">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+             <span className="text-xl">🖼️</span>
+          </div>
+          <h3 className="text-xl font-bold">My TuneCamp NFTs</h3>
+        </div>
+        
+        {nftsLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-pulse">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="aspect-square bg-white/5 rounded-xl"></div>
+            ))}
+          </div>
+        ) : ownedNFTs.length === 0 ? (
+          <div className="text-center py-8 opacity-50 bg-black/20 rounded-xl">
+             No TuneCamp NFTs found in this wallet. Play and purchase tracks to build your collection!
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+             {ownedNFTs.map((nft, idx) => (
+               <div key={`${nft.trackId}-${nft.role}-${idx}`} className="group relative bg-black/40 rounded-xl overflow-hidden border border-white/5 hover:border-primary/50 transition-colors">
+                  <div className="aspect-square bg-white/5 relative">
+                     {nft.coverUrl ? (
+                         <img src={nft.coverUrl} alt={nft.title} className="w-full h-full object-cover" />
+                     ) : (
+                         <div className="w-full h-full flex items-center justify-center bg-base-300">🎵</div>
+                     )}
+                     <div className="absolute top-2 right-2">
+                         <span className={clsx(
+                             "badge badge-sm font-bold shadow-lg",
+                             nft.role === TokenRole.OWNERSHIP ? "badge-secondary" : "badge-primary"
+                         )}>
+                             {nft.role === TokenRole.OWNERSHIP ? "Mstr" : "Licn."} 
+                             {nft.balance > 1 && ` x${nft.balance}`}
+                         </span>
+                     </div>
+                  </div>
+                  <div className="p-3">
+                     <div className="font-bold text-sm truncate" title={nft.title}>{nft.title}</div>
+                     <div className="text-xs opacity-60 truncate" title={nft.artistName}>{nft.artistName}</div>
+                  </div>
+               </div>
+             ))}
+          </div>
+        )}
       </div>
 
       <div className="bg-base-200/50 rounded-2xl p-6 border border-white/5 space-y-6">
