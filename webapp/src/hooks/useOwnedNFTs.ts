@@ -33,7 +33,7 @@ export function useOwnedNFTs(address: string | null) {
     }, []);
 
     useEffect(() => {
-        if (!address || purchasesLoading || Object.keys(tracks).length === 0) {
+        if (!address || Object.keys(tracks).length === 0) {
             setLoading(false);
             return;
         }
@@ -45,6 +45,12 @@ export function useOwnedNFTs(address: string | null) {
             try {
                 // Instantiate the TuneCampNFT contract wrapper
                 const provider = WalletService.provider;
+                if (!provider) {
+                    console.error("No provider found in WalletService");
+                    setLoading(false);
+                    return;
+                }
+                
                 // Currently returning chain 8453 (Base Mainnet) hardcoded for production or via config
                 const chainId = await WalletService.getChainId();
                 
@@ -54,10 +60,12 @@ export function useOwnedNFTs(address: string | null) {
                 const nftAbi = deploymentData?.abi;
                 
                 if (!nftAddress || !nftAbi) {
-                    console.error("TuneCampNFT proxy address or ABI not found in ABI deployments for chain", chainId);
+                    console.error("TuneCampNFT proxy address or ABI not found in ABI deployments for chain", chainId, "Deployment data:", deploymentData);
                     setLoading(false);
                     return;
                 }
+
+                console.log(`Fetching NFT balances for ${address} on chain ${chainId} at contract ${nftAddress}`);
 
                 const tuneCampNFT = new ethers.Contract(nftAddress, nftAbi, provider);
 
@@ -95,7 +103,7 @@ export function useOwnedNFTs(address: string | null) {
                                  trackId: lookup[idx].trackId,
                                  title: trackData?.title || `Track #${lookup[idx].trackId}`,
                                  artistName: trackData?.artistName || "Unknown Artist",
-                                 coverUrl: trackData?.coverUrl,
+                                 coverUrl: trackData?.coverUrl || (trackData?.albumId ? API.getAlbumCoverUrl(trackData.albumId) : undefined),
                                  role: lookup[idx].role,
                                  balance: Number(bal)
                              });
@@ -104,6 +112,7 @@ export function useOwnedNFTs(address: string | null) {
                 }
 
                 if (isMounted) {
+                    console.log(`OwnedNFTs result for ${address}:`, nftsFound);
                     setOwnedNFTs(nftsFound);
                 }
             } catch (err) {
@@ -118,7 +127,7 @@ export function useOwnedNFTs(address: string | null) {
         fetchBalances();
 
         return () => { isMounted = false; };
-    }, [address, purchasesLoading, purchases, tracks]);
+    }, [address, tracks]);
 
     return { ownedNFTs, loading };
 }
