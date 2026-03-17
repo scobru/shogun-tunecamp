@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { TuneCampNFT, TokenRole, DEPLOYMENTS } from 'shogun-contracts-sdk';
+import { ethers } from 'ethers';
+import { TokenRole, DEPLOYMENTS } from 'shogun-contracts-sdk';
 import { WalletService } from '../services/wallet';
 import { usePurchases } from './usePurchases';
 import API from '../services/api';
@@ -48,15 +49,17 @@ export function useOwnedNFTs(address: string | null) {
                 const chainId = (window as any).TUNECAMP_CONFIG?.rpcUrl?.includes('sepolia') ? 84532 : 8453;
                 
                 // Address comes from our sdk DEPLOYMENTS map
-                const nftAddress = (DEPLOYMENTS as Record<string, any>)[String(chainId)]?.["TuneCampFactory#TuneCampNFT"] as string;
+                const deploymentData = (DEPLOYMENTS as Record<string, any>)[String(chainId)]?.["TuneCampFactory#TuneCampNFT"];
+                const nftAddress = deploymentData?.address as string;
+                const nftAbi = deploymentData?.abi;
                 
-                if (!nftAddress) {
-                    console.error("TuneCampNFT proxy address not found in ABI deployments for chain", chainId);
+                if (!nftAddress || !nftAbi) {
+                    console.error("TuneCampNFT proxy address or ABI not found in ABI deployments for chain", chainId);
                     setLoading(false);
                     return;
                 }
 
-                const tuneCampNFT = new TuneCampNFT(provider, undefined, chainId).attach(nftAddress);
+                const tuneCampNFT = new ethers.Contract(nftAddress, nftAbi, provider);
 
                 // Prepare to check both LICENSE and OWNERSHIP for each purchased track
                 // Since `usePurchases` gives us track IDs the user downloaded/bought on-database
@@ -84,7 +87,7 @@ export function useOwnedNFTs(address: string | null) {
                 if (tokenIds.length > 0) {
                      // Since TuneCampNFT inherits ERC1155, it has balanceOfBatch
                      // Ethers v6 calling
-                     const balances: bigint[] = await ((tuneCampNFT as any).contract).balanceOfBatch(accounts, tokenIds);
+                     const balances: bigint[] = await tuneCampNFT.balanceOfBatch(accounts, tokenIds);
                      
                      balances.forEach((bal, idx) => {
                          if (bal > 0n) {
