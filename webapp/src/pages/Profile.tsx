@@ -68,7 +68,6 @@ export const Profile = () => {
     }
   }, [isAuthenticated, user?.artistId]);
 
-  const { address } = useWalletStore();
   const { ownedNFTs } = useOwnedNFTs(address);
 
   const purchasedTracks = useMemo(() => {
