@@ -387,7 +387,8 @@ const AdminSettingsPanel = () => {
       if (!nftAbi) throw new Error(`TuneCampNFT ABI not found in SDK`);
 
       const checkoutContract = new ethers.Contract(checkoutAddress, checkoutAbi, activeSigner as any);
-      const nftContract = new ethers.Contract(nftAddress, nftAbi, activeSigner as any);
+      const actualNftAddress = await checkoutContract.nft();
+      const nftContract = new ethers.Contract(actualNftAddress, nftAbi, activeSigner as any);
       
       const adminAddress = await activeSigner.getAddress();
 
