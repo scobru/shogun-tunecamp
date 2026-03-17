@@ -46,7 +46,7 @@ export function useOwnedNFTs(address: string | null) {
                 // Instantiate the TuneCampNFT contract wrapper
                 const provider = WalletService.provider;
                 // Currently returning chain 8453 (Base Mainnet) hardcoded for production or via config
-                const chainId = (window as any).TUNECAMP_CONFIG?.rpcUrl?.includes('sepolia') ? 84532 : 8453;
+                const chainId = await WalletService.getChainId();
                 
                 // Address comes from our sdk DEPLOYMENTS map
                 const deploymentData = (DEPLOYMENTS as Record<string, any>)[String(chainId)]?.["TuneCampFactory#TuneCampNFT"];
