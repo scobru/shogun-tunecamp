@@ -22,10 +22,6 @@ import { useWalletStore } from "../stores/useWalletStore";
 import { TuneCampFactory, DEPLOYMENTS } from "shogun-contracts-sdk";
 import { ethers } from "ethers";
 
-// Fallback constants for Base Mainnet
-const DEFAULT_CHECKOUT = "0x2DBcce651aeeaF083d208cc8362B4fd7e72E380F";
-const DEFAULT_NFT = "0x532B0fBEe4d2b259a89982753fFf0E79E468fBce";
-
 export const Admin = () => {
   const { isAuthenticated, isLoading, role } = useAuthStore();
   const navigate = useNavigate();
@@ -311,7 +307,8 @@ const AdminSettingsPanel = () => {
       const baseURI = settings?.publicUrl ? `${settings.publicUrl}/api/nft/` : "https://tunecamp.app/api/nft/";
       
       // Treasury is the platform fee collector (could be actual TuneCamp platform wallet or admin for now)
-      const treasury = "0x532B0fBEe4d2b259a89982753fFf0E79E468fBce"; 
+      const adminAddress = await activeSigner.getAddress();
+      const treasury = adminAddress; // Or specify a global platform wallet here
 
       const tx = await factory.deployInstance(instanceName, baseURI, treasury);
       setMessage("Transaction sent! Waiting for confirmation...");
@@ -359,8 +356,8 @@ const AdminSettingsPanel = () => {
       return;
     }
 
-    const checkoutAddress = settings?.web3_checkout_address || DEFAULT_CHECKOUT;
-    const nftAddress = settings?.web3_nft_address || DEFAULT_NFT;
+    const checkoutAddress = settings?.web3_checkout_address;
+    const nftAddress = settings?.web3_nft_address;
 
     if (!checkoutAddress || !nftAddress) {
       setMessage("Failed: Store instance not fully configured.");
@@ -496,8 +493,8 @@ const AdminSettingsPanel = () => {
     try {
       const settingsToSave = {
         ...settings,
-        web3_checkout_address: settings.web3_checkout_address || DEFAULT_CHECKOUT,
-        web3_nft_address: settings.web3_nft_address || DEFAULT_NFT,
+        web3_checkout_address: settings.web3_checkout_address || "",
+        web3_nft_address: settings.web3_nft_address || "",
       };
       await API.updateSettings(settingsToSave);
 
@@ -527,8 +524,8 @@ const AdminSettingsPanel = () => {
     );
 
   const hasDeployedStore = !!(settings.web3_checkout_address && settings.web3_nft_address) || hasOnChainInstance;
-  const checkoutAddress = settings.web3_checkout_address || DEFAULT_CHECKOUT;
-  const nftAddress = settings.web3_nft_address || DEFAULT_NFT;
+  const checkoutAddress = settings.web3_checkout_address || "";
+  const nftAddress = settings.web3_nft_address || "";
 
   return (
     <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
