@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useAuthStore } from "../stores/useAuthStore";
 import { useWalletStore } from "../stores/useWalletStore";
 import { usePurchases } from "../hooks/usePurchases";
+import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
 import { GunAuth, GunSocial } from "../services/gun";
 import {
   User,
@@ -67,10 +68,16 @@ export const Profile = () => {
     }
   }, [isAuthenticated, user?.artistId]);
 
-  const purchasedTracks = useMemo(() => {
-    return allTracks.filter((t) => isPurchased(t.id));
-  }, [allTracks, isPurchased]);
+  const { address } = useWalletStore();
+  const { ownedNFTs } = useOwnedNFTs(address);
 
+  const purchasedTracks = useMemo(() => {
+    return allTracks.filter((t) => {
+      const isRecordPurchased = isPurchased(t.id);
+      const isNFTPurchased = ownedNFTs.some(n => n.trackId === Number(t.id));
+      return isRecordPurchased || isNFTPurchased;
+    });
+  }, [allTracks, isPurchased, ownedNFTs]);
   const favorites = useMemo(() => {
     const likedIds = new Set(likedTracks.map((t) => t.id));
     return allTracks.filter((t) => likedIds.has(t.id));

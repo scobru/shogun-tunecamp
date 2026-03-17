@@ -61,10 +61,9 @@ export function useOwnedNFTs(address: string | null) {
 
                 const tuneCampNFT = new ethers.Contract(nftAddress, nftAbi, provider);
 
-                // Prepare to check both LICENSE and OWNERSHIP for each purchased track
-                // Since `usePurchases` gives us track IDs the user downloaded/bought on-database
-                // we can just check those specific IDs rather than scanning all events.
-                const purchasedTrackIds = Array.from(purchases.keys()).map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+                // Check all tracks in the catalog for ownership, not just those in the 'purchases' list
+                // This allows NFTs bought directly on-chain to be visible.
+                const allTrackIds = Object.keys(tracks).map(id => parseInt(id, 10)).filter(id => !isNaN(id));
                 const nftsFound: OwnedNFT[] = [];
 
                 // Simple loop, can be optimized to balanceOfBatch if contract supports it (ERC1155 does)
@@ -72,7 +71,7 @@ export function useOwnedNFTs(address: string | null) {
                 const tokenIds: bigint[] = [];
                 const lookup: { trackId: number, role: TokenRole }[] = [];
 
-                for (const trackId of purchasedTrackIds) {
+                for (const trackId of allTrackIds) {
                     // Collect potential token IDs
                     const idLicense = await tuneCampNFT.encodeTokenId(trackId, TokenRole.LICENSE);
                     const idOwnership = await tuneCampNFT.encodeTokenId(trackId, TokenRole.OWNERSHIP);

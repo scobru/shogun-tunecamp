@@ -4,6 +4,8 @@ import { Download, Play, Clock, Music, CheckCircle2 } from "lucide-react";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
 import { usePurchases } from "../hooks/usePurchases";
+import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
+import { useWalletStore } from "../stores/useWalletStore";
 import type { Track } from "../types";
 import { Link } from "react-router-dom";
 
@@ -33,9 +35,16 @@ export const Purchases = () => {
       });
   }, [isAuthenticated]);
 
+  const { address } = useWalletStore();
+  const { ownedNFTs } = useOwnedNFTs(address);
+
   const purchasedTracks = useMemo(() => {
-    return tracks.filter((t) => isPurchased(t.id));
-  }, [tracks, isPurchased, purchases]);
+    return tracks.filter((t) => {
+      const isRecordPurchased = isPurchased(t.id);
+      const isNFTPurchased = ownedNFTs.some(n => n.trackId === Number(t.id));
+      return isRecordPurchased || isNFTPurchased;
+    });
+  }, [tracks, isPurchased, purchases, ownedNFTs]);
 
   if (!isAuthenticated) {
     return (

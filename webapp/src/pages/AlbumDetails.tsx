@@ -17,6 +17,8 @@ import {
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
 import { usePurchases } from "../hooks/usePurchases";
+import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
+import { useWalletStore } from "../stores/useWalletStore";
 
 import type { Album } from "../types";
 import { Comments } from "../components/Comments";
@@ -29,6 +31,12 @@ export const AlbumDetails = () => {
   const [coverVersion] = useState(Date.now()); // Cache buster
   const { isAdminAuthenticated: isAdmin } = useAuthStore();
   const { isPurchased, verifyAndGetCode } = usePurchases();
+  const { address } = useWalletStore();
+  const { ownedNFTs } = useOwnedNFTs(address);
+
+  const isTrackUnlocked = (trackId: string | number) => {
+    return isPurchased(trackId) || ownedNFTs.some(n => n.trackId === Number(trackId));
+  };
 
   useEffect(() => {
     if (idOrSlug) {
@@ -296,7 +304,7 @@ export const AlbumDetails = () => {
                         className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
                       >
                         <li>
-                          {isPurchased(track.id) ? (
+                          {isTrackUnlocked(track.id) ? (
                             <a
                               onClick={async (e) => {
                                 e.preventDefault();
@@ -308,6 +316,8 @@ export const AlbumDetails = () => {
                                     "_blank",
                                   );
                                 } else {
+                                  // If they have NFT but no code in GunDB, they might need to re-verify.
+                                  // For now, we alert them.
                                   alert(
                                     "Download code not found or could not be verified. Please try again or contact support.",
                                   );
