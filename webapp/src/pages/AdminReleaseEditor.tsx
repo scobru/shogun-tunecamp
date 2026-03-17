@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/useAuthStore";
 import API from "../services/api";
+import { useWalletStore } from "../stores/useWalletStore";
+import { ethers } from "ethers";
+import { DEPLOYMENTS } from "shogun-contracts-sdk";
 import { TrackPickerModal } from "../components/modals/TrackPickerModal";
 import { UnlockCodeManager } from "../components/modals/UnlockCodeManager";
 import {
@@ -69,10 +72,15 @@ export default function AdminReleaseEditor() {
   const isAdmin = role === 'admin';
 
 
-  // State
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [artists, setArtists] = useState<any[]>([]);
+
+  const { wallet, externalWallet, useExternalWallet, isExternalConnected, isWalletReady } = useWalletStore();
+  const activeSigner = useExternalWallet ? externalWallet : wallet;
+  const isReady = useExternalWallet ? isExternalConnected : isWalletReady;
+  const [isSyncingPrices, setIsSyncingPrices] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
 
   // Metadata State
   const [metadata, setMetadata] = useState<Partial<LocalRelease>>({
@@ -319,6 +327,91 @@ export default function AdminReleaseEditor() {
     } finally {
       setSaving(false);
       setUploadingFileIndex(null);
+    }
+  };
+
+  const handleSyncPrices = async () => {
+    if (!activeSigner || !isReady) {
+      alert("Wallet not connected.");
+      return;
+    }
+    if (isNew) {
+      alert("Please save the release first.");
+      return;
+    }
+
+    setIsSyncingPrices(true);
+    setSyncMessage("Preparing to sync...");
+    
+    try {
+      const settings = await API.getSiteSettings();
+      const checkoutAddress = settings?.web3_checkout_address;
+      const nftAddress = settings?.web3_nft_address;
+
+      if (!checkoutAddress || !nftAddress) {
+        throw new Error("Store instances not fully configured in Admin Settings.");
+      }
+
+      const network = await activeSigner.provider!.getNetwork();
+      const chainId = String(network.chainId);
+      
+      const checkoutAbi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
+      const nftAbi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampNFT"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampNFT"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampNFT"]?.abi;
+
+      if (!checkoutAbi || !nftAbi) throw new Error(`ABIs not found in SDK`);
+
+      const checkoutContract = new ethers.Contract(checkoutAddress, checkoutAbi, activeSigner as any);
+      const nftContract = new ethers.Contract(nftAddress, nftAbi, activeSigner as any);
+      
+      const adminAddress = await activeSigner.getAddress();
+
+      const pricingData = tracks.filter(t => 
+        (Number(t.price) > 0) || (metadata.price && Number(metadata.price) > 0)
+      );
+
+      if (pricingData.length === 0) {
+        setSyncMessage("No priced tracks to sync.");
+        setIsSyncingPrices(false);
+        return;
+      }
+
+      for (let i = 0; i < pricingData.length; i++) {
+         const t = pricingData[i];
+         const currentArtist = await nftContract.trackArtist(t.id);
+         
+         if (currentArtist === ethers.ZeroAddress) {
+            setSyncMessage(`Registering track ${i+1}/${pricingData.length}...`);
+            const txReg = await nftContract.registerTrack(t.id, adminAddress, 0, 0, 0);
+            await txReg.wait();
+         }
+      }
+
+      setSyncMessage("Sending price update transaction...");
+      const trackIds = [];
+      const roles = [];
+      const pricesUSDC = [];
+      const pricesETH = [];
+
+      for (const t of pricingData) {
+        trackIds.push(t.id);
+        roles.push(0); // License
+        pricesUSDC.push(BigInt(0));
+        const priceToUse = Number(t.price) > 0 ? String(t.price) : String(metadata.price);
+        pricesETH.push(ethers.parseEther(priceToUse));
+      }
+
+      const tx = await checkoutContract.setPriceBatch(trackIds, roles, pricesUSDC, pricesETH);
+      setSyncMessage("Transaction sent! Waiting for confirmation...");
+      await tx.wait();
+      
+      setSyncMessage("");
+      alert(`Synchronized ${pricingData.length} track price(s) to the blockchain.`);
+    } catch (e: any) {
+      console.error(e);
+      setSyncMessage("");
+      alert(`Sync failed: ${e.message}`);
+    } finally {
+      setIsSyncingPrices(false);
     }
   };
 
@@ -910,6 +1003,21 @@ export default function AdminReleaseEditor() {
                 </label>
               </div>
             </div>
+
+            {/* Sync Prices Button */}
+            {!isNew && (Number(metadata.price) > 0 || tracks.some(t => Number(t.price) > 0)) && (
+              <div className="form-control mt-2 mb-4 bg-secondary/10 p-4 border border-secondary/20 rounded-xl">
+                <label className="label pt-0"><span className="label-text-alt font-bold text-secondary">Web3 Actions</span></label>
+                <button
+                  type="button"
+                  className="btn btn-secondary w-full"
+                  disabled={isSyncingPrices || !isReady}
+                  onClick={handleSyncPrices}
+                >
+                  {isSyncingPrices ? syncMessage || "Syncing..." : "Sync Prices to Blockchain"}
+                </button>
+              </div>
+            )}
 
             {/* Download Options */}
             <div className="form-control">
