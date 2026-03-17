@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { TokenRole, DEPLOYMENTS } from 'shogun-contracts-sdk';
 import { WalletService } from '../services/wallet';
-import { usePurchases } from './usePurchases';
 import API from '../services/api';
 import type { Track } from '../types';
 
@@ -18,7 +17,6 @@ export interface OwnedNFT {
 export function useOwnedNFTs(address: string | null) {
     const [ownedNFTs, setOwnedNFTs] = useState<OwnedNFT[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
-    const { purchases, loading: purchasesLoading } = usePurchases();
     
     // We also need track metadata
     const [tracks, setTracks] = useState<Record<number, Track>>({});
