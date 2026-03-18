@@ -11,9 +11,23 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
-            const isPublicOnly = !req.isAdmin;
-            const playlists = database.getPlaylists(undefined, isPublicOnly);
-            res.json(playlists);
+            if (req.isAdmin) {
+                res.json(database.getPlaylists());
+            } else if (req.artistId && req.username) {
+                const myPlaylists = database.getPlaylists(req.username, false);
+                const publicPlaylists = database.getPlaylists(undefined, true);
+                
+                const seenIds = new Set(myPlaylists.map(p => p.id));
+                const combined = [...myPlaylists];
+                for (const p of publicPlaylists) {
+                    if (!seenIds.has(p.id)) {
+                        combined.push(p);
+                    }
+                }
+                res.json(combined);
+            } else {
+                res.json(database.getPlaylists(undefined, true));
+            }
         } catch (error) {
             console.error("Error getting playlists:", error);
             res.status(500).json({ error: "Failed to get playlists" });
@@ -25,7 +39,7 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
      * Create new playlist
      */
     router.post("/", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
         try {
             const { name, description } = req.body;
 
@@ -33,8 +47,9 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
                 return res.status(400).json({ error: "Name is required" });
             }
 
-            const id = database.createPlaylist(name, description);
-            res.status(201).json({ id, name, description });
+            const username = req.username || "admin";
+            const id = database.createPlaylist(name, username, description);
+            res.status(201).json({ id, name, username, description });
         } catch (error) {
             console.error("Error creating playlist:", error);
             res.status(500).json({ error: "Failed to create playlist" });
@@ -46,9 +61,17 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
      * Update playlist (rename, visibility, cover)
      */
     router.put("/:id", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
         try {
             const id = parseInt(req.params.id as string, 10);
+            
+            const playlist = database.getPlaylist(id);
+            if (!playlist) return res.status(404).json({ error: "Playlist not found" });
+            
+            if (!req.isAdmin && playlist.username !== req.username) {
+                return res.status(403).json({ error: "Not your playlist" });
+            }
+
             const { isPublic, coverPath } = req.body;
 
             if (isPublic !== undefined) {
@@ -99,13 +122,17 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
      * Delete playlist
      */
     router.delete("/:id", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
         try {
             const id = parseInt(req.params.id as string, 10);
             const playlist = database.getPlaylist(id);
 
             if (!playlist) {
                 return res.status(404).json({ error: "Playlist not found" });
+            }
+
+            if (!req.isAdmin && playlist.username !== req.username) {
+                return res.status(403).json({ error: "Not your playlist" });
             }
 
             database.deletePlaylist(id);
@@ -121,7 +148,7 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
      * Add track to playlist
      */
     router.post("/:id/tracks", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
         try {
             const playlistId = parseInt(req.params.id as string, 10);
             const { trackId } = req.body;
@@ -133,6 +160,10 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
             const playlist = database.getPlaylist(playlistId);
             if (!playlist) {
                 return res.status(404).json({ error: "Playlist not found" });
+            }
+
+            if (!req.isAdmin && playlist.username !== req.username) {
+                return res.status(403).json({ error: "Not your playlist" });
             }
 
             const track = database.getTrack(trackId);
@@ -153,10 +184,19 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
      * Remove track from playlist
      */
     router.delete("/:id/tracks/:trackId", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
         try {
             const playlistId = parseInt(req.params.id as string, 10);
             const trackId = parseInt(req.params.trackId as string, 10);
+
+            const playlist = database.getPlaylist(playlistId);
+            if (!playlist) {
+                return res.status(404).json({ error: "Playlist not found" });
+            }
+            
+            if (!req.isAdmin && playlist.username !== req.username) {
+                return res.status(403).json({ error: "Not your playlist" });
+            }
 
             database.removeTrackFromPlaylist(playlistId, trackId);
             res.json({ message: "Track removed from playlist" });
