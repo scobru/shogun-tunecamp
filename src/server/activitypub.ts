@@ -328,7 +328,7 @@ export class ActivityPubService {
                                 const attachments = Array.isArray(resolvedObj.attachment) ? resolvedObj.attachment : (resolvedObj.attachment ? [resolvedObj.attachment] : []);
                                 const audioAttachment = attachments.find((a: any) => hasType(a.type, "Audio") || a.mediaType?.startsWith("audio/"));
                                 
-                                let streamUrlCandidate = hasType(resolvedObj.type, "Audio") ? resolvedObj.url : (audioAttachment?.url || audioAttachment?.href || audioAttachment);
+                                let streamUrlCandidate = audioAttachment?.url || audioAttachment?.href || audioAttachment || resolvedObj.url;
                                 let finalStreamUrl = this.getString(streamUrlCandidate);
                                 if (Array.isArray(streamUrlCandidate)) {
                                     const audioLink = streamUrlCandidate.find((u: any) => u?.mediaType?.startsWith("audio/"));
