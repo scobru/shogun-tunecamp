@@ -8,8 +8,6 @@ export { Tracks } from './Tracks';
 export { Stats } from './Stats';
 export { Search } from './Search';
 export { Network } from './Network';
-// export { Admin } from './Admin';
-// export { Files } from './Files';
 export * from "./Purchases";
 export * from "./Profile";
 export { Support } from './Support';
