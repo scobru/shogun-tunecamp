@@ -244,6 +244,7 @@ export interface DatabaseService {
     updateAlbumVisibility(id: number, visibility: 'public' | 'private' | 'unlisted'): void;
     updateAlbumFederationSettings(id: number, publishedToGunDB: boolean, publishedToAP: boolean): void;
     updateAlbumArtist(id: number, artistId: number): void;
+    updateAlbumOwner(id: number, ownerId: number): void;
     updateAlbumTitle(id: number, title: string): void;
     updateAlbumCover(id: number, coverPath: string): void;
     updateAlbumGenre(id: number, genre: string | null): void;
@@ -952,42 +953,14 @@ export function createDatabase(dbPath: string): DatabaseService {
             console.log("📦 Migrating database: making tracks.file_path nullable...");
             db.transaction(() => {
                 // 1. Create new table with correct schema
-                db.exec(`
-                    CREATE TABLE tracks_new (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        title TEXT NOT NULL,
-                        album_id INTEGER REFERENCES albums(id),
-                        artist_id INTEGER REFERENCES artists(id),
-                        track_num INTEGER,
-                        duration REAL,
-                        file_path TEXT,
-                        format TEXT,
-                        bitrate INTEGER,
-                        sample_rate INTEGER,
-                        price REAL DEFAULT 0,
-                        waveform TEXT,
-                        url TEXT,
-                        service TEXT,
-                        external_artwork TEXT,
-                        lossless_path TEXT,
-                        lyrics TEXT,
-                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                    );
-                `);
+                const tableDef = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tracks'").get() as { sql: string };
+                let newSql = tableDef.sql.replace(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?['"`]?tracks['"`]?/i, "CREATE TABLE tracks_new");
+                newSql = newSql.replace(/(file_path\s+TEXT)\s+NOT\s+NULL/i, "$1");
+                db.exec(newSql);
 
                 // 2. Copy data
-                db.exec(`
-                    INSERT INTO tracks_new (
-                        id, title, album_id, artist_id, track_num, duration, 
-                        file_path, format, bitrate, sample_rate, price, waveform, 
-                        url, service, external_artwork, lossless_path, lyrics, created_at
-                    )
-                    SELECT 
-                        id, title, album_id, artist_id, track_num, duration, 
-                        file_path, format, bitrate, sample_rate, price, waveform, 
-                        url, service, external_artwork, lossless_path, lyrics, created_at 
-                    FROM tracks;
-                `);
+                const colNames = columns.map(c => `"${c.name}"`).join(", ");
+                db.exec(`INSERT INTO tracks_new (${colNames}) SELECT ${colNames} FROM tracks;`);
 
                 // 3. Swap tables
                 db.exec(`DROP TABLE tracks;`);
@@ -1252,7 +1225,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         createArtist(name: string, bio?: string, photoPath?: string, links?: any, postParams?: any, walletAddress?: string): number {
-            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "artist";
             const linksJson = links ? JSON.stringify(links) : null;
             const postParamsJson = postParams ? JSON.stringify(postParams) : null;
 
@@ -1408,7 +1381,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number {
-            const slug = album.slug || album.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            const slug = album.slug || album.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "album";
 
             // Try to insert, if slug exists add a number suffix
             let finalSlug = slug;
@@ -1480,9 +1453,13 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare("UPDATE albums SET artist_id = ? WHERE id = ?").run(artistId, id);
         },
 
+        updateAlbumOwner(id: number, ownerId: number): void {
+            db.prepare("UPDATE albums SET owner_id = ? WHERE id = ?").run(ownerId, id);
+        },
+
         updateAlbumTitle(id: number, title: string): void {
             // Also update slug to match scanner behavior
-            const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "album";
 
             let finalSlug = slug;
             let attempt = 0;
@@ -2342,12 +2319,24 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         getRemoteTracks(): RemoteContent[] {
-            const rows = db.prepare("SELECT * FROM remote_content WHERE type = 'release' ORDER BY published_at DESC").all() as RemoteContent[];
+            const rows = db.prepare(`
+                SELECT rc.*
+                FROM remote_content rc
+                JOIN remote_actors ra ON rc.actor_uri = ra.uri
+                WHERE rc.type = \'release\' AND ra.is_followed = 1
+                ORDER BY rc.published_at DESC
+            `).all() as RemoteContent[];
             return rows;
         },
 
         getRemotePosts(): RemoteContent[] {
-            const rows = db.prepare("SELECT * FROM remote_content WHERE type = 'post' ORDER BY published_at DESC").all() as RemoteContent[];
+            const rows = db.prepare(`
+                SELECT rc.*
+                FROM remote_content rc
+                JOIN remote_actors ra ON rc.actor_uri = ra.uri
+                WHERE rc.type = \'post\' AND ra.is_followed = 1
+                ORDER BY rc.published_at DESC
+            `).all() as RemoteContent[];
             return rows;
         },
 

@@ -128,6 +128,8 @@ export class ActivityPubService {
             const inboxUri = await this.getInboxFromActor(finalActorUri);
             if (!inboxUri) {
                 console.error(`❌ Could not resolve inbox for actor: ${finalActorUri}`);
+                // Proceed to fetch remote outbox directly (for instances like Funkwhale libraries that don't have an inbox)
+                this.fetchRemoteOutbox(finalActorUri).catch(e => console.error(`⚠️ Failed to pre-fetch outbox for ${finalActorUri}:`, e));
                 return;
             }
 
@@ -257,6 +259,9 @@ export class ActivityPubService {
             
             // Collect outboxes/libraries to scan
             const outboxesToScan: Set<string> = new Set();
+            if (hasType(actor.type, "Library", "Collection", "OrderedCollection")) {
+                outboxesToScan.add(actorUri);
+            }
             if (actor.outbox) outboxesToScan.add(typeof actor.outbox === 'string' ? actor.outbox : actor.outbox.id);
             
             // Funkwhale specific: Library and libraries collections
@@ -275,23 +280,32 @@ export class ActivityPubService {
                 if (!outboxUrl) continue;
                 console.log(`  📂 Fetching collection: ${outboxUrl}`);
 
-                // 2. Fetch first page of outbox/collection
+                // 2. Fetch pages of outbox/collection
                 try {
-                    const outboxRes = await this.fetchWithSignature(outboxUrl);
-                    if (!outboxRes.ok) continue;
-                    let outbox = await outboxRes.json() as any;
+                    let currentUrl: string | null = outboxUrl;
+                    let pageCount = 0;
+                    const maxPages = 50;
+                    const visitedUrls = new Set<string>();
 
-                    // If it's a collection, get the first page
-                    if (outbox.first) {
-                        const firstPageUrl = typeof outbox.first === 'string' ? outbox.first : outbox.first.id;
-                        const pageRes = await this.fetchWithSignature(firstPageUrl);
-                        if (pageRes.ok) {
-                            outbox = await pageRes.json();
+                    while (currentUrl && pageCount < maxPages && !visitedUrls.has(currentUrl)) {
+                        visitedUrls.add(currentUrl);
+                        const pageRes = await this.fetchWithSignature(currentUrl);
+                        if (!pageRes.ok) {
+                            console.warn(`⚠️ Failed to fetch page: ${currentUrl} (${pageRes.status})`);
+                            break;
                         }
-                    }
 
-                    const items = outbox.orderedItems || outbox.items || [];
-                    console.log(`📑 Found ${items.length} items in collection ${outboxUrl}`);
+                        let outbox = await pageRes.json() as any;
+
+                        // If we fetched the main collection and it has a 'first' page, navigate to it
+                        if (pageCount === 0 && outbox.first) {
+                             currentUrl = typeof outbox.first === 'string' ? outbox.first : outbox.first.id;
+                             pageCount++;
+                             continue;
+                        }
+
+                        const items = outbox.orderedItems || outbox.items || [];
+                        console.log(`📑 Found ${items.length} items in page ${pageCount + 1}`);
 
                     for (const activity of items) {
                         try {
@@ -346,10 +360,10 @@ export class ActivityPubService {
                                         title: this.getString(resolvedObj.name || resolvedObj.title || resolvedObj.content?.replace(/<[^>]*>?/gm, '').substring(0, 50) || "Untitled"),
                                         content: this.getString(resolvedObj.content || resolvedObj.summary || ""),
                                         url: this.getString(resolvedObj.url || (Array.isArray(resolvedObj.url) ? resolvedObj.url[0]?.href : resolvedObj.url?.href)),
-                                        cover_url: this.getString(resolvedObj.image?.url || resolvedObj.icon?.url || (attachments.find((a: any) => hasType(a.type, "Image") || a.mediaType?.startsWith("image/"))?.url)),
+                                        cover_url: this.getString(resolvedObj.image?.url || resolvedObj.icon?.url || (attachments.find((a: any) => hasType(a.type, "Image") || a.mediaType?.startsWith("image/"))?.url) || resolvedObj.track?.album?.image?.url),
                                         stream_url: finalStreamUrl,
-                                        artist_name: this.getString(resolvedObj.attributedTo?.name || actor.name || actor.preferredUsername || "Remote Artist"),
-                                        album_name: this.getString(resolvedObj.album?.name || resolvedObj.name || resolvedObj.title || null),
+                                        artist_name: this.getString(resolvedObj.attributedTo?.name || actor.name || actor.preferredUsername || resolvedObj.track?.artists?.[0]?.name || "Remote Artist"),
+                                        album_name: this.getString(resolvedObj.album?.name || resolvedObj.name || resolvedObj.title || resolvedObj.track?.album?.name || null),
                                         duration: this.getString(resolvedObj.duration || audioAttachment?.duration || null),
                                         published_at: this.getString(resolvedObj.published || activity.published || new Date().toISOString())
                                     };
@@ -363,6 +377,11 @@ export class ActivityPubService {
                             console.warn("⚠️ Failed to parse collection item:", itemErr);
                         }
                     }
+
+                    // Navigate to next page
+                    currentUrl = outbox.next ? (typeof outbox.next === 'string' ? outbox.next : outbox.next.id) : null;
+                    pageCount++;
+                }
                 } catch (outboxErr) {
                     console.warn(`⚠️ Error fetching outbox/collection ${outboxUrl}:`, outboxErr);
                 }
@@ -663,7 +682,7 @@ export class ActivityPubService {
         const artist = this.db.getArtist(album.artist_id);
         if (!artist) return;
 
-        const existingNotes = this.db.getApNotes(artist.id);
+        const existingNotes = this.db.getApNotes(artist.id, true);
         const alreadyPublished = existingNotes.find(n => n.note_type === 'release' && n.content_id === album.id);
         if (alreadyPublished) {
             console.log(`ℹ️ Release "${album.title}" already published via ActivityPub. Skipping broadcast.`);
@@ -709,7 +728,7 @@ export class ActivityPubService {
         const artist = this.db.getArtist(post.artist_id);
         if (!artist) return;
 
-        const existingNotes = this.db.getApNotes(artist.id);
+        const existingNotes = this.db.getApNotes(artist.id, true);
         const alreadyPublished = existingNotes.find(n => n.note_type === 'post' && n.content_id === post.id);
         if (alreadyPublished) {
             console.log(`ℹ️ Post "${post.slug}" already published via ActivityPub. Skipping broadcast.`);
@@ -747,16 +766,22 @@ export class ActivityPubService {
 
         const baseUrl = this.getBaseUrl();
         let noteId = manualNoteId;
+        let isAlreadyDeleted = false;
+
         if (!noteId) {
             const notes = this.db.getApNotes(artist.id, true);
             const note = notes.find(n => n.note_type === 'release' && n.content_id === album.id);
-            if (note) noteId = note.note_id;
+            if (note) {
+                noteId = note.note_id;
+                isAlreadyDeleted = !!note.deleted_at;
+            }
+        } else {
+            const note = this.db.getApNote(noteId);
+            if (note) isAlreadyDeleted = !!note.deleted_at;
         }
 
-        if (!noteId) {
-            const published = album.published_at || album.created_at;
-            const sentTime = published ? new Date(published).getTime() : 0;
-            noteId = `${baseUrl}/api/ap/note/release/${album.slug}/${sentTime}`;
+        if (!noteId || isAlreadyDeleted) {
+            return;
         }
 
         const followers = this.db.getFollowers(artist.id);
@@ -773,7 +798,7 @@ export class ActivityPubService {
             await Promise.all(followers.map(follower => this.sendActivity(artist, follower.inbox_uri, activity)));
         }
 
-        this.db.deleteApNote(noteId);
+        this.db.markApNoteDeleted(noteId);
     }
 
     public async broadcastPostDelete(post: Post, manualNoteId?: string): Promise<void> {
@@ -782,16 +807,22 @@ export class ActivityPubService {
 
         const baseUrl = this.getBaseUrl();
         let noteId = manualNoteId;
+        let isAlreadyDeleted = false;
+
         if (!noteId) {
             const notes = this.db.getApNotes(artist.id, true);
             const note = notes.find(n => n.note_type === 'post' && n.content_id === post.id);
-            if (note) noteId = note.note_id;
+            if (note) {
+                noteId = note.note_id;
+                isAlreadyDeleted = !!note.deleted_at;
+            }
+        } else {
+            const note = this.db.getApNote(noteId);
+            if (note) isAlreadyDeleted = !!note.deleted_at;
         }
 
-        if (!noteId) {
-            const published = post.published_at || post.created_at;
-            const sentTime = published ? new Date(published).getTime() : 0;
-            noteId = `${baseUrl}/api/ap/note/post/${post.slug}/${sentTime}`;
+        if (!noteId || isAlreadyDeleted) {
+            return;
         }
 
         const followers = this.db.getFollowers(artist.id);
@@ -807,7 +838,7 @@ export class ActivityPubService {
             };
             await Promise.all(followers.map(follower => this.sendActivity(artist, follower.inbox_uri, activity)));
         }
-        this.db.deleteApNote(noteId);
+        this.db.markApNoteDeleted(noteId);
     }
 
     public async syncAllContent(): Promise<{ artists: number; notes: number }> {
@@ -818,25 +849,30 @@ export class ActivityPubService {
         for (const artist of artists) {
             artistCount++;
             const albums = this.db.getAlbumsByArtist(artist.id, false);
-            for (const album of albums) {
+            const albumPromises = albums.map(async (album) => {
                 if (album.is_release) {
+                    noteCount++;
                     if (album.visibility === 'public' || album.visibility === 'unlisted') {
+                        console.log(`  - Syncing public release: ${album.title}`);
                         await this.broadcastRelease(album).catch(e => console.error(e));
                     } else {
+                        console.log(`  - Syncing private release (Delete): ${album.title}`);
                         await this.broadcastDelete(album).catch(e => console.error(e));
                     }
-                    noteCount++;
                 }
-            }
+            });
+            await Promise.all(albumPromises);
+
             const posts = this.db.getPostsByArtist(artist.id);
-            for (const post of posts) {
+            const postPromises = posts.map(async (post) => {
+                noteCount++;
                 if (post.visibility === 'public') {
                     await this.broadcastPost(post).catch(e => console.error(e));
                 } else {
                     await this.broadcastPostDelete(post).catch(e => console.error(e));
                 }
-                noteCount++;
-            }
+            });
+            await Promise.all(postPromises);
         }
         return { artists: artistCount, notes: noteCount };
     }

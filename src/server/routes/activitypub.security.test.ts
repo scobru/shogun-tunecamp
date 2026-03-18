@@ -31,6 +31,7 @@ const mockAuthMiddleware = {
         if (token === 'Bearer root') {
             req.isAdmin = true;
             req.artistId = null; // Root admin
+            req.isRootAdmin = true;
         } else if (token === 'Bearer artist1') {
             req.isAdmin = true;
             req.artistId = 1;

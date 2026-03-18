@@ -24,15 +24,8 @@ export const ArtistDetails = () => {
             ]).then(([artistData, artistPosts]) => {
                 setArtist(artistData);
                 // Use albums directly from artist response if available
-                // @ts-ignore
                 if (artistData.albums) {
-                    // @ts-ignore
                     setAlbums(artistData.albums);
-                } else {
-                    // Fallback to fetching all (deprecated logic, but keeping for safety if backend older)
-                    API.getAlbums().then(allAlbums => {
-                         setAlbums(allAlbums.filter(a => a.artistId === artistData.id));
-                    });
                 }
                 setPosts(artistPosts);
             })

@@ -37,7 +37,10 @@ describe("ActivityPub Outbox Performance", () => {
                 year: 2023,
                 published_to_gundb: false,
                 published_to_ap: false,
-                license: null
+                license: null,
+                owner_id: artistId,
+                price: 0,
+                currency: "USD"
             });
 
             // Create 10 tracks per release
@@ -56,7 +59,10 @@ describe("ActivityPub Outbox Performance", () => {
                     waveform: null,
                     url: null,
                     service: null,
-                    external_artwork: null
+                    external_artwork: null,
+                    owner_id: artistId,
+                    price: 0,
+                    currency: "USD"
                 });
             }
         }

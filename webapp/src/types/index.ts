@@ -34,6 +34,7 @@ export interface Artist {
     bio?: string;
     coverImage?: string;
     postParams?: any; // ActivityPub actor
+    albums?: Album[];
     links?: ArtistLink[];
     donationLinks?: ArtistLink[];
     walletAddress?: string;

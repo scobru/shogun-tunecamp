@@ -115,7 +115,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
             }));
 
             // 2. Get actors from ActivityPub (Local DB of remote actors)
-            const apActors = dbService.getRemoteActors();
+            const apActors = dbService.getFollowedActors();
             const formattedApSites = apActors.map(a => ({
                 url: a.uri,
                 name: a.name || a.username || "AP Actor",

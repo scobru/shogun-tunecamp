@@ -1,4 +1,3 @@
-
 import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
 import { createDatabase } from './database.js';
 import { Scanner } from './scanner.js';
@@ -23,7 +22,7 @@ describe('Orphan Release Fix Verification', () => {
         await fs.remove(TEST_MUSIC_DIR);
     });
 
-    test('Scanner should fix orphan releases with tracks linked via release_tracks', async () => {
+    test('Scanner should fix orphan releases with tracks linked via release_tracks and set ownership', async () => {
         // 1. Create an artist
         const artistId = db.createArtist('Orphan Master');
 
@@ -74,6 +73,7 @@ describe('Orphan Release Fix Verification', () => {
         // Verify it IS an orphan currently
         let album = db.getAlbum(albumId);
         expect(album.artist_id).toBeNull();
+        expect(album.owner_id).toBeNull();
 
         // 5. Run the fixing logic
         await (scanner as any).fixOrphanAlbums();
@@ -81,7 +81,12 @@ describe('Orphan Release Fix Verification', () => {
         // 6. Verify it is FIXED
         album = db.getAlbum(albumId);
         expect(album.artist_id).toBe(artistId);
-        console.log('✅ Orphan release correctly fixed!');
+        expect(album.owner_id).toBe(artistId);
+
+        // Check ownership link
+        const owners = db.getAlbumOwners(albumId);
+        expect(owners).toContain(artistId);
+        console.log('✅ Orphan release correctly fixed and ownership set!');
     });
 
     test('Scanner should correctly determine artist from folder map if skiped in config', async () => {
@@ -106,5 +111,40 @@ describe('Orphan Release Fix Verification', () => {
         expect(album).toBeDefined();
         expect(album.artist_id).toBe(artistId);
         console.log('✅ Artist correctly inherited from folder structure!');
+    });
+
+    test('Scanner should delete empty implicit library albums', async () => {
+        // Create an empty library album (is_release = false) with artist_id = null
+        const albumId = db.createAlbum({
+            title: 'Empty Library Folder',
+            slug: 'empty-library-folder',
+            artist_id: null,
+            date: '2023-01-01',
+            is_public: false,
+            visibility: 'private',
+            is_release: false, // Implicit library album
+            published_to_gundb: false,
+            published_to_ap: false,
+            cover_path: null,
+            genre: null,
+            description: null,
+            download: null,
+            price: 0,
+            currency: 'ETH',
+            external_links: null,
+            published_at: null,
+            type: 'album',
+            year: 2023,
+            license: null
+        });
+
+        let album = db.getAlbum(albumId);
+        expect(album).toBeDefined();
+
+        await (scanner as any).fixOrphanAlbums();
+
+        album = db.getAlbum(albumId);
+        expect(album).toBeUndefined(); // Should have been deleted
+        console.log('✅ Empty implicit library album correctly deleted!');
     });
 });
