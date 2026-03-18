@@ -58,3 +58,4 @@ gundb-keypair.json
 *.db-shm
 *.db-wal
 
+benchmark/

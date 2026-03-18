@@ -745,7 +745,7 @@ export class Scanner implements ScannerService {
         // 1. Discover all files
         const walkDir = async (currentDir: string): Promise<void> => {
             const entries = await fs.readdir(currentDir, { withFileTypes: true });
-            for (const entry of entries) {
+            await Promise.all(entries.map(async (entry) => {
                 const fullPath = path.join(currentDir, entry.name);
                 if (entry.isDirectory()) {
                     await walkDir(fullPath);
@@ -757,7 +757,7 @@ export class Scanner implements ScannerService {
                         yamlFiles.push(fullPath);
                     }
                 }
-            }
+            }));
         }
 
         await walkDir(dir);
