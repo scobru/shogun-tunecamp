@@ -59,4 +59,25 @@ describe('Albums Routes - Cache Optimization', () => {
         expect(response.headers['cache-control']).toContain('max-age=86400');
         expect(response.headers['content-type']).toContain('image/jpeg');
     });
+
+    describe('GET /albums/:idOrSlug/download', () => {
+        test('returns 404 when album has no tracks', async () => {
+            // Setup
+            (mockDatabase.getAlbum as jest.Mock).mockReturnValue({
+                id: 1,
+                title: 'Empty Album',
+                slug: 'empty-album',
+                download: 'free',
+                visibility: 'public'
+            });
+            (mockDatabase.getTracks as jest.Mock).mockReturnValue([]);
+
+            // Act
+            const response = await request(app).get('/albums/1/download');
+
+            // Assert
+            expect(response.status).toBe(404);
+            expect(response.body).toEqual({ error: "No tracks found" });
+        });
+    });
 });
