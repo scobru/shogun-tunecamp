@@ -1,3 +1,4 @@
+import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { Router } from "express";
 import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
@@ -24,7 +25,7 @@ export function createAdminRoutes(
      * GET /api/admin/releases
      * List all albums with visibility status
      */
-    router.get("/releases", (req: any, res) => {
+    router.get("/releases", (req: AuthenticatedRequest, res: any) => {
         try {
             const showMine = req.query.mine === 'true';
             let albums: any[] = [];
@@ -47,7 +48,7 @@ export function createAdminRoutes(
      * PUT /api/admin/releases/:id/visibility
      * Toggle album visibility
      */
-    router.put("/releases/:id/visibility", async (req: any, res) => {
+    router.put("/releases/:id/visibility", async (req: AuthenticatedRequest, res: any) => {
         try {
             const id = parseInt(req.params.id, 10);
             const { isPublic, visibility } = req.body;
@@ -92,10 +93,10 @@ export function createAdminRoutes(
      * GET /api/admin/stats
      * Get admin statistics
      */
-    router.get("/stats", async (req: any, res) => {
+    router.get("/stats", async (req: AuthenticatedRequest, res: any) => {
         try {
             const showMine = req.query.mine === 'true';
-            const stats = await database.getStats((req.isAdmin && !showMine) ? undefined : req.artistId);
+            const stats = await database.getStats((req.isAdmin && !showMine) ? undefined : (req.artistId || undefined));
             res.json(stats);
         } catch (error) {
             console.error("Error getting stats:", error);
@@ -107,7 +108,7 @@ export function createAdminRoutes(
      * GET /api/admin/settings
      * Get all site settings
      */
-    router.get("/settings", (req: any, res) => {
+    router.get("/settings", (req: AuthenticatedRequest, res: any) => {
         if (!req.isAdmin) return res.status(403).json({ error: "Admin access required" });
         try {
             const settings = database.getAllSettings();
@@ -122,10 +123,10 @@ export function createAdminRoutes(
      * PUT /api/admin/settings
      * Update site settings
      */
-    router.put("/settings", async (req: any, res) => {
+    router.put("/settings", async (req: AuthenticatedRequest, res: any) => {
         try {
             // Only root admin can change global settings
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can change site settings" });
             }
 
@@ -210,9 +211,9 @@ export function createAdminRoutes(
      * POST /api/admin/network/ap/follow
      * Follow a remote ActivityPub instance/actor (Root Admin only)
      */
-    router.post("/network/ap/follow", async (req: any, res) => {
+    router.post("/network/ap/follow", async (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can follow remote instances" });
             }
             const { url } = req.body;
@@ -232,10 +233,10 @@ export function createAdminRoutes(
      * GET /api/admin/system/identity
      * Get server identity keypair (ADMIN ONLY)
      */
-    router.get("/system/identity", async (req: any, res) => {
+    router.get("/system/identity", async (req: AuthenticatedRequest, res: any) => {
         try {
             // Only root admin can access system identity
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can access system identity" });
             }
             const pair = await gundbService.getIdentityKeyPair();
@@ -250,10 +251,10 @@ export function createAdminRoutes(
      * GET /api/admin/system/ap-identity
      * Get site actor ActivityPub identity keypair (ADMIN ONLY)
      */
-    router.get("/system/ap-identity", async (req: any, res) => {
+    router.get("/system/ap-identity", async (req: AuthenticatedRequest, res: any) => {
         try {
             // Only root admin can access site identity
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can access site identity" });
             }
             const publicKey = database.getSetting("site_public_key");
@@ -269,10 +270,10 @@ export function createAdminRoutes(
      * POST /api/admin/system/identity
      * Import server identity keypair (ADMIN ONLY)
      */
-    router.post("/system/identity", async (req: any, res) => {
+    router.post("/system/identity", async (req: AuthenticatedRequest, res: any) => {
         try {
             // Only root admin can import system identity
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can import system identity" });
             }
             const pair = req.body;
@@ -291,10 +292,10 @@ export function createAdminRoutes(
      * POST /api/admin/system/sync
      * Force sync with GunDB network
      */
-    router.post("/system/sync", async (req: any, res) => {
+    router.post("/system/sync", async (req: AuthenticatedRequest, res: any) => {
         try {
             // Only root admin can force sync
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can force sync" });
             }
             await gundbService.syncNetwork();
@@ -309,10 +310,10 @@ export function createAdminRoutes(
      * POST /api/admin/system/consolidate
      * Consolidate files in the filesystem based on DB tags
      */
-    router.post("/system/consolidate", async (req: any, res) => {
+    router.post("/system/consolidate", async (req: AuthenticatedRequest, res: any) => {
         try {
             // Only root admin can trigger consolidation
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can trigger file consolidation" });
             }
 
@@ -331,10 +332,10 @@ export function createAdminRoutes(
      * POST /api/admin/network/cleanup
      * Force global cleanup of unreachable sites in GunDB network
      */
-    router.post("/network/cleanup", async (req: any, res) => {
+    router.post("/network/cleanup", async (req: AuthenticatedRequest, res: any) => {
         try {
             // Only root admin can trigger global cleanup
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can trigger global network cleanup" });
             }
 
@@ -354,9 +355,9 @@ export function createAdminRoutes(
      * POST /api/admin/network/sync-community
      * Discover other Tunecamp instances via GunDB and follow them via ActivityPub (Root Admin only)
      */
-    router.post("/network/sync-community", async (req: any, res) => {
+    router.post("/network/sync-community", async (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can sync community" });
             }
 
@@ -375,7 +376,7 @@ export function createAdminRoutes(
      * GET /api/admin/artists/:id/identity
      * Get artist identity keypair (Root Admin or Assigned Artist Admin only)
      */
-    router.get("/artists/:id/identity", async (req: any, res) => {
+    router.get("/artists/:id/identity", async (req: AuthenticatedRequest, res: any) => {
         try {
             const artistId = parseInt(req.params.id);
             if (isNaN(artistId)) {
@@ -408,10 +409,10 @@ export function createAdminRoutes(
      * GET /api/admin/system/me
      * Get current admin user info (username, isRootAdmin)
      */
-    router.get("/system/me", (req: any, res) => {
+    router.get("/system/me", (req: AuthenticatedRequest, res: any) => {
         try {
             const username = req.username || "";
-            res.json({ username, isRootAdmin: authService.isRootAdmin(username) });
+            res.json({ username, isRootAdmin: !!req.isRootAdmin });
         } catch (error) {
             console.error("Error getting current admin:", error);
             res.status(500).json({ error: "Failed to get current admin" });
@@ -422,10 +423,10 @@ export function createAdminRoutes(
      * GET /api/admin/system/users
      * List all admin users
      */
-    router.get("/system/users", (req: any, res) => {
+    router.get("/system/users", (req: AuthenticatedRequest, res: any) => {
         try {
             // Only root admin can list users
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can list users" });
             }
             const admins = authService.listAdmins();
@@ -440,9 +441,9 @@ export function createAdminRoutes(
      * POST /api/admin/system/users
      * Create new admin user (root admin only)
      */
-    router.post("/system/users", async (req: any, res) => {
+    router.post("/system/users", async (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only the primary admin can create new admins" });
             }
             const { username, password, artistId, isAdmin } = req.body;
@@ -474,9 +475,9 @@ export function createAdminRoutes(
      * PUT /api/admin/system/users/:id
      * Update admin user (root admin only)
      */
-    router.put("/system/users/:id", async (req: any, res) => {
+    router.put("/system/users/:id", async (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only the primary admin can manage users" });
             }
             const id = parseInt(req.params.id, 10);
@@ -495,9 +496,9 @@ export function createAdminRoutes(
      * DELETE /api/admin/system/users/:id
      * Delete admin user (root admin only)
      */
-    router.delete("/system/users/:id", (req: any, res) => {
+    router.delete("/system/users/:id", (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only the primary admin can remove admins" });
             }
             const id = parseInt(req.params.id, 10);
@@ -516,9 +517,9 @@ export function createAdminRoutes(
      * PUT /api/admin/system/users/:id/status
      * Enable/disable admin user (root admin only)
      */
-    router.put("/system/users/:id/status", async (req: any, res) => {
+    router.put("/system/users/:id/status", async (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only the primary admin can manage user status" });
             }
             const id = parseInt(req.params.id, 10);
@@ -536,7 +537,7 @@ export function createAdminRoutes(
      * PUT /api/admin/system/users/:id/password
      * Reset admin user password
      */
-    router.put("/system/users/:id/password", async (req: any, res) => {
+    router.put("/system/users/:id/password", async (req: AuthenticatedRequest, res: any) => {
         try {
             const id = parseInt(req.params.id, 10);
             const { password } = req.body;
@@ -555,7 +556,7 @@ export function createAdminRoutes(
 
             // Permission Check
             // Only root admin can change other users' passwords
-            const isRoot = authService.isRootAdmin(req.username || "");
+            const isRoot = req.isRootAdmin;
             if (!isRoot && admin.username !== req.username) {
                 return res.status(403).json({ error: "Access denied: You can only change your own password" });
             }
@@ -572,7 +573,7 @@ export function createAdminRoutes(
      * PUT /api/admin/posts/:id
      * Update a post
      */
-    router.put("/posts/:id", async (req: any, res) => {
+    router.put("/posts/:id", async (req: AuthenticatedRequest, res: any) => {
         try {
             const id = parseInt(req.params.id, 10);
             const { content, visibility } = req.body;
@@ -607,7 +608,7 @@ export function createAdminRoutes(
      * POST /api/admin/posts
      * Create a new post for an artist
      */
-    router.post("/posts", async (req: any, res) => {
+    router.post("/posts", async (req: AuthenticatedRequest, res: any) => {
         try {
             const { artistId, content, visibility } = req.body;
             if (!artistId || !content) {
@@ -638,7 +639,7 @@ export function createAdminRoutes(
      * DELETE /api/admin/posts/:id
      * Delete a post
      */
-    router.delete("/posts/:id", (req: any, res) => {
+    router.delete("/posts/:id", (req: AuthenticatedRequest, res: any) => {
         try {
             const id = parseInt(req.params.id, 10);
             const post = database.getPost(id);
@@ -667,9 +668,9 @@ export function createAdminRoutes(
      * GET /api/admin/network/ap/peers
      * List followed ActivityPub actors
      */
-    router.get("/network/ap/peers", async (req: any, res) => {
+    router.get("/network/ap/peers", async (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can view peers" });
             }
             const peers = database.getFollowedActors();
@@ -684,9 +685,9 @@ export function createAdminRoutes(
      * POST /api/admin/network/ap/unfollow
      * Unfollow a remote ActivityPub actor
      */
-    router.post("/network/ap/unfollow", async (req: any, res) => {
+    router.post("/network/ap/unfollow", async (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!authService.isRootAdmin(req.username || "")) {
+            if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can unfollow peers" });
             }
             const { url } = req.body;
@@ -706,9 +707,9 @@ export function createAdminRoutes(
      * POST /api/admin/network/ap/sync
      * Force sync remote actors content
      */
-    router.post("/network/ap/sync", async (req: any, res) => {
+    router.post("/network/ap/sync", async (req: AuthenticatedRequest, res: any) => {
         try {
-             if (!authService.isRootAdmin(req.username || "")) {
+             if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can sync peers" });
             }
             const { url } = req.body;
