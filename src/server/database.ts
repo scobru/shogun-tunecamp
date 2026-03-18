@@ -952,42 +952,14 @@ export function createDatabase(dbPath: string): DatabaseService {
             console.log("📦 Migrating database: making tracks.file_path nullable...");
             db.transaction(() => {
                 // 1. Create new table with correct schema
-                db.exec(`
-                    CREATE TABLE tracks_new (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        title TEXT NOT NULL,
-                        album_id INTEGER REFERENCES albums(id),
-                        artist_id INTEGER REFERENCES artists(id),
-                        track_num INTEGER,
-                        duration REAL,
-                        file_path TEXT,
-                        format TEXT,
-                        bitrate INTEGER,
-                        sample_rate INTEGER,
-                        price REAL DEFAULT 0,
-                        waveform TEXT,
-                        url TEXT,
-                        service TEXT,
-                        external_artwork TEXT,
-                        lossless_path TEXT,
-                        lyrics TEXT,
-                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                    );
-                `);
+                const tableDef = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tracks'").get() as { sql: string };
+                let newSql = tableDef.sql.replace(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?['"`]?tracks['"`]?/i, "CREATE TABLE tracks_new");
+                newSql = newSql.replace(/(file_path\s+TEXT)\s+NOT\s+NULL/i, "$1");
+                db.exec(newSql);
 
                 // 2. Copy data
-                db.exec(`
-                    INSERT INTO tracks_new (
-                        id, title, album_id, artist_id, track_num, duration, 
-                        file_path, format, bitrate, sample_rate, price, waveform, 
-                        url, service, external_artwork, lossless_path, lyrics, created_at
-                    )
-                    SELECT 
-                        id, title, album_id, artist_id, track_num, duration, 
-                        file_path, format, bitrate, sample_rate, price, waveform, 
-                        url, service, external_artwork, lossless_path, lyrics, created_at 
-                    FROM tracks;
-                `);
+                const colNames = columns.map(c => `"${c.name}"`).join(", ");
+                db.exec(`INSERT INTO tracks_new (${colNames}) SELECT ${colNames} FROM tracks;`);
 
                 // 3. Swap tables
                 db.exec(`DROP TABLE tracks;`);
