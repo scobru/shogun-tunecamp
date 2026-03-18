@@ -872,45 +872,58 @@ export class Scanner implements ScannerService {
         }
     }
 
-    private async deduplicateTracks(tracks: Track[]): Promise<Track[]> {
-        console.log("[Scanner] Checking for duplicate tracks to merge...");
+    private groupTracksForDeduplication(tracks: Track[]): Map<string, Track[]> {
         const groups = new Map<string, Track[]>();
-
         for (const track of tracks) {
             const key = `${track.album_id || 0}|${track.artist_id || 0}|${track.title.toLowerCase().trim()}`;
             if (!groups.has(key)) groups.set(key, []);
             groups.get(key)!.push(track);
         }
+        return groups;
+    }
 
+    private migrateLosslessPath(primary: Track, other: Track): void {
+        if (other.lossless_path && !primary.lossless_path) {
+            this.database.updateTrackLosslessPath(primary.id, other.lossless_path);
+            primary.lossless_path = other.lossless_path;
+        } else if (!primary.lossless_path) {
+            const otherExt = path.extname(other.file_path || '').toLowerCase();
+            if (['.wav', '.flac'].includes(otherExt)) {
+                this.database.updateTrackLosslessPath(primary.id, other.file_path!);
+                primary.lossless_path = other.file_path;
+            }
+        }
+    }
+
+    private mergeDuplicateGroup(groupTracks: Track[], tracksToRemove: Set<number>): number {
+        let mergedInGroup = 0;
+        // Find primary (MP3) and lossless among duplicates
+        const primary = groupTracks.find(t => path.extname(t.file_path || '').toLowerCase() === '.mp3') || groupTracks[0];
+        const others = groupTracks.filter(t => t.id !== primary.id);
+
+        for (const other of others) {
+            console.log(`  [Dedupe] Merging duplicate track: ${other.title} (ID ${other.id}) into ID ${primary.id}`);
+
+            this.migrateLosslessPath(primary, other);
+
+            // Delete the duplicate
+            this.database.deleteTrack(other.id);
+            tracksToRemove.add(other.id);
+            mergedInGroup++;
+        }
+        return mergedInGroup;
+    }
+
+    private async deduplicateTracks(tracks: Track[]): Promise<Track[]> {
+        console.log("[Scanner] Checking for duplicate tracks to merge...");
+
+        const groups = this.groupTracksForDeduplication(tracks);
         const tracksToRemove = new Set<number>();
         let merged = 0;
 
-        for (const [key, groupTracks] of groups.entries()) {
+        for (const groupTracks of groups.values()) {
             if (groupTracks.length > 1) {
-                // Find primary (MP3) and lossless among duplicates
-                const primary = groupTracks.find(t => path.extname(t.file_path || '').toLowerCase() === '.mp3') || groupTracks[0];
-                const others = groupTracks.filter(t => t.id !== primary.id);
-
-                for (const other of others) {
-                    console.log(`  [Dedupe] Merging duplicate track: ${other.title} (ID ${other.id}) into ID ${primary.id}`);
-
-                    // If other has a lossless path and primary doesn't, migrate it
-                    if (other.lossless_path && !primary.lossless_path) {
-                        this.database.updateTrackLosslessPath(primary.id, other.lossless_path);
-                        primary.lossless_path = other.lossless_path;
-                    } else if (!primary.lossless_path) {
-                        const otherExt = path.extname(other.file_path || '').toLowerCase();
-                        if (['.wav', '.flac'].includes(otherExt)) {
-                            this.database.updateTrackLosslessPath(primary.id, other.file_path!);
-                            primary.lossless_path = other.file_path;
-                        }
-                    }
-
-                    // Delete the duplicate
-                    this.database.deleteTrack(other.id);
-                    tracksToRemove.add(other.id);
-                    merged++;
-                }
+                merged += this.mergeDuplicateGroup(groupTracks, tracksToRemove);
             }
         }
 
@@ -920,6 +933,7 @@ export class Scanner implements ScannerService {
 
         return tracks.filter(t => !tracksToRemove.has(t.id));
     }
+
 
     private async cleanupStaleTracks(musicDir: string, knownFiles: Set<string>, allTracks: Track[]) {
         console.log("[Scanner] Cleaning up stale database records...");
