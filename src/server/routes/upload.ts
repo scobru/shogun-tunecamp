@@ -197,7 +197,7 @@ export function createUploadRoutes(
             }
 
             // SECURITY FIX: Prevent uploading to another artist's release (unless root admin)
-            if (release && !req.isAdmin && req.artistId && release.artist_id !== req.artistId) {
+            if (release && !req.isRootAdmin && req.artistId && release.artist_id !== req.artistId) {
                 console.warn(`⛔ Access Denied: User ${(req as any).username} (Artist ${(req as any).artistId}) tried to upload to release ${release.slug} (Artist ${release.artist_id})`);
                 // Cleanup temp files
                 for (const file of files) {
@@ -322,7 +322,7 @@ export function createUploadRoutes(
                     return res.status(404).json({ error: "Release not found" });
                 }
 
-                if (!req.isAdmin && req.artistId && targetAlbum.artist_id !== req.artistId) {
+                if (!req.isRootAdmin && req.artistId && targetAlbum.artist_id !== req.artistId) {
                     await fs.remove(file.path);
                     return res.status(403).json({ error: "Access denied: Cannot upload cover for another artist's release" });
                 }
@@ -420,7 +420,7 @@ export function createUploadRoutes(
             }
 
             // Permission Check
-            if (!req.isAdmin && req.artistId && req.artistId !== artistId) {
+            if (!req.isRootAdmin && req.artistId && req.artistId !== artistId) {
                 await fs.remove(file.path);
                 return res.status(403).json({ error: "Access denied: You can only upload avatars for your own artist" });
             }
