@@ -79,7 +79,8 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
                         console.log(`Downloaded cover to ${dest}`);
 
                         // Update DB
-                        database.updateAlbumCover(albumId, dest);
+                        const dbPath = path.relative(musicDir, dest).replace(/\\/g, "/");
+                        database.updateAlbumCover(albumId, dbPath);
                         coverUpdated = true;
                     }
                 }
