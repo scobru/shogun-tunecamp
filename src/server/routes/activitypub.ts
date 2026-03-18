@@ -433,21 +433,19 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
                 const album = db.getAlbum(note.content_id);
                 if (album) {
                     await apService.broadcastDelete(album, note.note_id);
-                    // Critical fix: Set to private so it doesn't get re-synced
-                    db.updateAlbumVisibility(album.id, 'private');
+                    // Let markApNoteDeleted handle preventing re-sync instead of changing local visibility
                 } else {
-                    // Album gone, just delete note from DB
-                    db.deleteApNote(noteId);
+                    // Album gone, just mark note as deleted
+                    db.markApNoteDeleted(noteId);
                 }
             } else if (note.note_type === 'post') {
                 const post = db.getPost(note.content_id);
                 if (post) {
                     await apService.broadcastPostDelete(post, note.note_id);
-                    // Critical fix: Set to private so it doesn't get re-synced
-                    db.updatePostVisibility(post.id, 'private');
+                    // Let markApNoteDeleted handle preventing re-sync instead of changing local visibility
                 } else {
-                    // Post gone, just delete note from DB
-                    db.deleteApNote(noteId);
+                    // Post gone, just mark note as deleted
+                    db.markApNoteDeleted(noteId);
                 }
             }
             res.send("Deleted");
