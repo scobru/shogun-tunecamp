@@ -663,7 +663,7 @@ export class ActivityPubService {
         const artist = this.db.getArtist(album.artist_id);
         if (!artist) return;
 
-        const existingNotes = this.db.getApNotes(artist.id);
+        const existingNotes = this.db.getApNotes(artist.id, true);
         const alreadyPublished = existingNotes.find(n => n.note_type === 'release' && n.content_id === album.id);
         if (alreadyPublished) {
             console.log(`ℹ️ Release "${album.title}" already published via ActivityPub. Skipping broadcast.`);
@@ -709,7 +709,7 @@ export class ActivityPubService {
         const artist = this.db.getArtist(post.artist_id);
         if (!artist) return;
 
-        const existingNotes = this.db.getApNotes(artist.id);
+        const existingNotes = this.db.getApNotes(artist.id, true);
         const alreadyPublished = existingNotes.find(n => n.note_type === 'post' && n.content_id === post.id);
         if (alreadyPublished) {
             console.log(`ℹ️ Post "${post.slug}" already published via ActivityPub. Skipping broadcast.`);
@@ -747,16 +747,22 @@ export class ActivityPubService {
 
         const baseUrl = this.getBaseUrl();
         let noteId = manualNoteId;
+        let isAlreadyDeleted = false;
+
         if (!noteId) {
             const notes = this.db.getApNotes(artist.id, true);
             const note = notes.find(n => n.note_type === 'release' && n.content_id === album.id);
-            if (note) noteId = note.note_id;
+            if (note) {
+                noteId = note.note_id;
+                isAlreadyDeleted = !!note.deleted_at;
+            }
+        } else {
+            const note = this.db.getApNote(noteId);
+            if (note) isAlreadyDeleted = !!note.deleted_at;
         }
 
-        if (!noteId) {
-            const published = album.published_at || album.created_at;
-            const sentTime = published ? new Date(published).getTime() : 0;
-            noteId = `${baseUrl}/api/ap/note/release/${album.slug}/${sentTime}`;
+        if (!noteId || isAlreadyDeleted) {
+            return;
         }
 
         const followers = this.db.getFollowers(artist.id);
@@ -773,7 +779,7 @@ export class ActivityPubService {
             await Promise.all(followers.map(follower => this.sendActivity(artist, follower.inbox_uri, activity)));
         }
 
-        this.db.deleteApNote(noteId);
+        this.db.markApNoteDeleted(noteId);
     }
 
     public async broadcastPostDelete(post: Post, manualNoteId?: string): Promise<void> {
@@ -782,16 +788,22 @@ export class ActivityPubService {
 
         const baseUrl = this.getBaseUrl();
         let noteId = manualNoteId;
+        let isAlreadyDeleted = false;
+
         if (!noteId) {
             const notes = this.db.getApNotes(artist.id, true);
             const note = notes.find(n => n.note_type === 'post' && n.content_id === post.id);
-            if (note) noteId = note.note_id;
+            if (note) {
+                noteId = note.note_id;
+                isAlreadyDeleted = !!note.deleted_at;
+            }
+        } else {
+            const note = this.db.getApNote(noteId);
+            if (note) isAlreadyDeleted = !!note.deleted_at;
         }
 
-        if (!noteId) {
-            const published = post.published_at || post.created_at;
-            const sentTime = published ? new Date(published).getTime() : 0;
-            noteId = `${baseUrl}/api/ap/note/post/${post.slug}/${sentTime}`;
+        if (!noteId || isAlreadyDeleted) {
+            return;
         }
 
         const followers = this.db.getFollowers(artist.id);
@@ -807,7 +819,7 @@ export class ActivityPubService {
             };
             await Promise.all(followers.map(follower => this.sendActivity(artist, follower.inbox_uri, activity)));
         }
-        this.db.deleteApNote(noteId);
+        this.db.markApNoteDeleted(noteId);
     }
 
     public async syncAllContent(): Promise<{ artists: number; notes: number }> {
