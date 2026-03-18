@@ -818,25 +818,30 @@ export class ActivityPubService {
         for (const artist of artists) {
             artistCount++;
             const albums = this.db.getAlbumsByArtist(artist.id, false);
-            for (const album of albums) {
+            const albumPromises = albums.map(async (album) => {
                 if (album.is_release) {
+                    noteCount++;
                     if (album.visibility === 'public' || album.visibility === 'unlisted') {
+                        console.log(`  - Syncing public release: ${album.title}`);
                         await this.broadcastRelease(album).catch(e => console.error(e));
                     } else {
+                        console.log(`  - Syncing private release (Delete): ${album.title}`);
                         await this.broadcastDelete(album).catch(e => console.error(e));
                     }
-                    noteCount++;
                 }
-            }
+            });
+            await Promise.all(albumPromises);
+
             const posts = this.db.getPostsByArtist(artist.id);
-            for (const post of posts) {
+            const postPromises = posts.map(async (post) => {
+                noteCount++;
                 if (post.visibility === 'public') {
                     await this.broadcastPost(post).catch(e => console.error(e));
                 } else {
                     await this.broadcastPostDelete(post).catch(e => console.error(e));
                 }
-                noteCount++;
-            }
+            });
+            await Promise.all(postPromises);
         }
         return { artists: artistCount, notes: noteCount };
     }
