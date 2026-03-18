@@ -444,7 +444,7 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
                 if (post) {
                     await apService.broadcastPostDelete(post, note.note_id);
                     // Critical fix: Set to private so it doesn't get re-synced
-                    db.updatePost(post.id, post.content, 'private');
+                    db.updatePostVisibility(post.id, 'private');
                 } else {
                     // Post gone, just delete note from DB
                     db.deleteApNote(noteId);
