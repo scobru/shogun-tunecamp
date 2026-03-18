@@ -3,13 +3,13 @@ import request from 'supertest';
 import { jest, describe, test, expect, beforeEach } from '@jest/globals';
 
 // Mock isSafeUrl BEFORE importing the routes
-jest.unstable_mockModule('../utils/networkUtils.js', () => ({
+jest.unstable_mockModule('../../utils/networkUtils.js', () => ({
     isSafeUrl: jest.fn()
 }));
 
 // Dynamic imports
 const { createMetadataRoutes } = await import('./metadata.js');
-const { isSafeUrl } = await import('../utils/networkUtils.js');
+const { isSafeUrl } = await import('../../utils/networkUtils.js');
 
 const mockDb = {
     getAlbum: jest.fn(),
@@ -36,7 +36,7 @@ describe('Metadata Security', () => {
     });
 
     test('POST /api/metadata/apply should block unsafe coverUrl', async () => {
-        (isSafeUrl as jest.Mock).mockResolvedValue(false);
+        (isSafeUrl as jest.Mock<typeof isSafeUrl>).mockResolvedValue(false);
         (mockDb.getAlbum as jest.Mock).mockReturnValue({ id: 1, title: 'Test Album' });
 
         const response = await request(app)
@@ -51,7 +51,7 @@ describe('Metadata Security', () => {
     });
 
     test('POST /api/metadata/apply should allow safe coverUrl', async () => {
-        (isSafeUrl as jest.Mock).mockResolvedValue(true);
+        (isSafeUrl as jest.Mock<typeof isSafeUrl>).mockResolvedValue(true);
         (mockDb.getAlbum as jest.Mock).mockReturnValue({ id: 1, title: 'Test Album', cover_path: '/tmp/music/album/cover.jpg' });
         (mockDb.getTracks as jest.Mock).mockReturnValue([]);
 
