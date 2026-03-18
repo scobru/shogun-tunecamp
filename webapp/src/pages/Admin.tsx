@@ -37,8 +37,6 @@ export const Admin = () => {
   >(isAdmin ? "users" : "releases");
   const [stats, setStats] = useState<any>(null);
 
-  // const [loading, setLoading] = useState(false);
-
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated || (role !== 'admin' && role !== 'user')) {
@@ -56,14 +54,11 @@ export const Admin = () => {
     );
 
   const loadStats = async () => {
-    // setLoading(true);
     try {
       const data = await API.getAdminStats();
       setStats(data);
     } catch (e) {
       console.error(e);
-    } finally {
-      // setLoading(false);
     }
   };
 
