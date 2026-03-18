@@ -5,8 +5,6 @@ import { createDatabase } from './database.js';
 import type { GunDBService } from './gundb.js';
 import type { ActivityPubService } from './activitypub.js';
 import type { ServerConfig } from './config.js';
-import fs from 'fs';
-import path from 'path';
 
 const TEST_DB_PATH = ':memory:';
 
@@ -94,7 +92,10 @@ describe('PublishingService - Visibility Toggle', () => {
             external_links: null,
             published_at: null,
             type: 'album',
-            year: 2023
+            year: 2023,
+            owner_id: null,
+            price: null,
+            currency: 'USD'
         });
 
         // Add a track
@@ -112,7 +113,10 @@ describe('PublishingService - Visibility Toggle', () => {
             waveform: null,
             url: null,
             service: null,
-            external_artwork: null
+            external_artwork: null,
+            owner_id: null,
+            price: null,
+            currency: 'USD'
         });
 
         // 2. Sync (should register)
@@ -164,7 +168,10 @@ describe('PublishingService - Visibility Toggle', () => {
             external_links: null,
             published_at: null,
             type: 'album',
-            year: 2023
+            year: 2023,
+            owner_id: null,
+            price: null,
+            currency: 'USD'
         });
 
 
