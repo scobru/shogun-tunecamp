@@ -90,25 +90,9 @@ async function authenticateGunDB(gun: any, pair: SEAKeyPair): Promise<void> {
     return new Promise((resolve, reject) => {
         const user = gun.user();
         
-        // Try to authenticate
         user.auth(pair, (ack: any) => {
             if (ack.err) {
-                // If authentication fails, try to create user first
-                user.create(pair, (createAck: any) => {
-                    if (createAck.err && createAck.err !== 'User already created!') {
-                        reject(new Error(`Failed to create/authenticate user: ${createAck.err}`));
-                        return;
-                    }
-                    
-                    // Now try to authenticate again
-                    user.auth(pair, (authAck: any) => {
-                        if (authAck.err) {
-                            reject(new Error(`Failed to authenticate: ${authAck.err}`));
-                            return;
-                        }
-                        resolve();
-                    });
-                });
+                reject(new Error(`Failed to authenticate: ${ack.err}`));
             } else {
                 resolve();
             }
