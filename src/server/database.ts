@@ -1252,7 +1252,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         createArtist(name: string, bio?: string, photoPath?: string, links?: any, postParams?: any, walletAddress?: string): number {
-            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "artist";
             const linksJson = links ? JSON.stringify(links) : null;
             const postParamsJson = postParams ? JSON.stringify(postParams) : null;
 
@@ -1408,7 +1408,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number {
-            const slug = album.slug || album.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            const slug = album.slug || album.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "album";
 
             // Try to insert, if slug exists add a number suffix
             let finalSlug = slug;
@@ -1482,7 +1482,7 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updateAlbumTitle(id: number, title: string): void {
             // Also update slug to match scanner behavior
-            const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "album";
 
             let finalSlug = slug;
             let attempt = 0;
