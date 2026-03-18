@@ -253,12 +253,23 @@ export async function startServer(config: ServerConfig): Promise<void> {
         }
     });
 
+    // Serve artist page for generic fediverse queries or raw links
+    app.get("/artist/:slug", (req, res) => {
+        const { slug } = req.params;
+        const artist = database.getArtistBySlug(slug);
+        if (artist) {
+            res.redirect(`/#/artist/${artist.slug}`);
+        } else {
+            res.redirect("/");
+        }
+    });
+
     // Fix for legacy/short ActivityPub URLs linking to frontend
     app.get("/note/release/:slug", (req, res) => {
         const { slug } = req.params;
         const album = database.getAlbumBySlug(slug);
         if (album) {
-            res.redirect(`/albums/${album.slug}`);
+            res.redirect(`/#/album/${album.slug}`);
         } else {
             res.status(404).send("Release not found");
         }
