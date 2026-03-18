@@ -50,7 +50,7 @@ describe('Backup Routes (Chunked Upload)', () => {
 
         // Mock auth middleware (req.artistId undefined = root admin)
         app.use((req: any, res, next) => {
-            req.artistId = undefined;
+            req.isRootAdmin = true;
             next();
         });
 

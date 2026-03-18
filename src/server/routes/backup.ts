@@ -371,10 +371,31 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
                     // Delete existing final zip if exists
                     if (await fs.pathExists(finalZipPath)) await fs.unlink(finalZipPath);
 
-                    for (const part of partFiles) {
-                        const partPath = path.join(uploadDir, part);
-                        const data = await fs.readFile(partPath);
-                        await fs.appendFile(finalZipPath, data);
+                    const fd = await fs.open(finalZipPath, 'a');
+                    const chunkSize = 1024 * 1024; // 1MB chunks
+                    const buffer = Buffer.alloc(chunkSize);
+
+                    try {
+                        for (const part of partFiles) {
+                            const partPath = path.join(uploadDir, part);
+                            const fdPart = await fs.open(partPath, 'r');
+                            try {
+                                const stats = await fs.stat(partPath);
+                                let bytesRead = 0;
+
+                                while (bytesRead < stats.size) {
+                                    const { bytesRead: read } = await fs.read(fdPart, buffer, 0, chunkSize, bytesRead);
+                                    if (read === 0) break;
+
+                                    await fs.write(fd, buffer, 0, read);
+                                    bytesRead += read;
+                                }
+                            } finally {
+                                await fs.close(fdPart);
+                            }
+                        }
+                    } finally {
+                        await fs.close(fd);
                     }
 
                     // Cleanup parts
