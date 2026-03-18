@@ -121,35 +121,31 @@ export function getRelativePath(from: string, to: string): string {
  * Returns null if the path is invalid, tries to traverse out of root, or contains null bytes.
  */
 export function resolveSafePath(rootDir: string, userPath: string): string | null {
-  // Prevent null byte injection
-  if (userPath.indexOf('\0') !== -1) {
-    return null;
-  }
+  if (userPath.includes('\0')) return null;
 
   const resolvedRoot = path.resolve(rootDir);
-
-  // Normalize user path by removing leading slashes to treat it as relative
-  let relativePath = userPath;
-  while (relativePath.startsWith('/') || relativePath.startsWith('\\')) {
-    relativePath = relativePath.substring(1);
-  }
-
+  const relativePath = userPath.replace(/^[/\\]+/, '');
   const absPath = path.resolve(resolvedRoot, relativePath);
 
-  // Check if path is within root
+  return isSafePath(resolvedRoot, absPath) ? absPath : null;
+}
+
+/**
+ * Validates whether an absolute path is safely contained within a root directory.
+ */
+function isSafePath(resolvedRoot: string, absPath: string): boolean {
   const relative = path.relative(resolvedRoot, absPath);
 
   // Check if it escapes the directory
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    return null;
+    return false;
   }
 
   // Double check the absolute path to be absolutely sure
   if (!absPath.startsWith(resolvedRoot + path.sep) && absPath !== resolvedRoot) {
-    return null;
+    return false;
   }
-
-  return absPath;
+  return true;
 }
 
 /**
