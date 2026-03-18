@@ -84,8 +84,6 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
                 // Allow 5% slippage/margin for price fluctuations
                 const margin = expectedEth * 0.05;
                 if (paidEth < expectedEth - margin) {
-                    // With smart contracts, the contract ensures exact payment based on its inner oracle.
-                    // This warning is kept for legacy direct transfers.
                     console.warn(`Potential underpayment: paid ${paidEth} ETH, expected ~${expectedEth} ETH`);
                 }
             }
