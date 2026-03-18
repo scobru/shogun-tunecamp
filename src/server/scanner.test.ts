@@ -1,7 +1,6 @@
 
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
 import { Scanner } from './scanner.js';
-import path from 'path';
 
 // Mock fs-extra to avoid file system operations
 jest.mock('fs-extra', () => ({
