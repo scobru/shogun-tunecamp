@@ -13,7 +13,8 @@ import { UploadTracksModal } from "../components/modals/UploadTracksModal";
 import { CreatePostModal } from "../components/modals/CreatePostModal";
 import { IdentityPanel } from "../components/admin/IdentityPanel";
 import { ArtistFediversePanel } from "../components/artist/ArtistFediversePanel";
-import { AdminReleasesList, AdminTracksList } from "./Admin";
+import { AdminReleasesList } from "../components/admin/AdminReleasesList";
+import { AdminTracksList } from "../components/admin/AdminTracksList";
 
 export const MyMusic = () => {
   const { user, isAuthenticated, isLoading } = useAuthStore();
