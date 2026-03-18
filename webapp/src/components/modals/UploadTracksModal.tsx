@@ -56,7 +56,7 @@ export const UploadTracksModal = ({
       if (album && album.tracks) {
         setExistingTracks(album.tracks);
       }
-    } catch (e) {
+    } catch (e: unknown) {
       console.error("Failed to load existing tracks:", e);
     } finally {
       setLoadingExisting(false);
@@ -77,8 +77,8 @@ export const UploadTracksModal = ({
         prev.filter((t: Track) => t.id !== trackId),
       );
       if (onUploadComplete) onUploadComplete();
-    } catch (e: any) {
-      setError(e.message || "Failed to delete track");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to delete track");
     }
   };
 
@@ -126,7 +126,7 @@ export const UploadTracksModal = ({
             // simple file counting is often smoother visually for the user
           });
           successCount++;
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error(`Failed to upload ${file.name}:`, err);
           failCount++;
         } finally {
@@ -159,9 +159,13 @@ export const UploadTracksModal = ({
 
       if (onUploadComplete) onUploadComplete();
       if (releaseSlug) loadExistingTracks(releaseSlug); // Refresh list
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setError(e.message || "An unexpected error occurred during upload");
+      setError(
+        e instanceof Error
+          ? e.message
+          : "An unexpected error occurred during upload",
+      );
     } finally {
       setUploading(false);
     }
