@@ -2319,12 +2319,24 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         getRemoteTracks(): RemoteContent[] {
-            const rows = db.prepare("SELECT * FROM remote_content WHERE type = 'release' ORDER BY published_at DESC").all() as RemoteContent[];
+            const rows = db.prepare(`
+                SELECT rc.*
+                FROM remote_content rc
+                JOIN remote_actors ra ON rc.actor_uri = ra.uri
+                WHERE rc.type = \'release\' AND ra.is_followed = 1
+                ORDER BY rc.published_at DESC
+            `).all() as RemoteContent[];
             return rows;
         },
 
         getRemotePosts(): RemoteContent[] {
-            const rows = db.prepare("SELECT * FROM remote_content WHERE type = 'post' ORDER BY published_at DESC").all() as RemoteContent[];
+            const rows = db.prepare(`
+                SELECT rc.*
+                FROM remote_content rc
+                JOIN remote_actors ra ON rc.actor_uri = ra.uri
+                WHERE rc.type = \'post\' AND ra.is_followed = 1
+                ORDER BY rc.published_at DESC
+            `).all() as RemoteContent[];
             return rows;
         },
 
