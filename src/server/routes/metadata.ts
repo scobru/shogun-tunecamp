@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import path from "path";
 import fetch from "node-fetch";
 import { isSafeUrl } from "../../utils/networkUtils.js";
+import { resolveSafePath, getRelativePath } from "../../utils/fileUtils.js";
 import { metadataService } from "../metadata.js";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
@@ -69,18 +70,22 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
                     dir = path.dirname(album.cover_path);
                 }
 
-                if (dir && await fs.pathExists(dir)) {
-                    const dest = path.join(dir, "cover.jpg");
+                if (dir) {
+                    const fullDir = resolveSafePath(musicDir, dir);
+                    if (fullDir && await fs.pathExists(fullDir)) {
+                        const dest = path.join(fullDir, "cover.jpg");
 
-                    const response = await fetch(coverUrl);
-                    if (response.ok) {
-                        const buffer = await response.buffer();
-                        await fs.writeFile(dest, buffer);
-                        console.log(`Downloaded cover to ${dest}`);
+                        const response = await fetch(coverUrl);
+                        if (response.ok) {
+                            const buffer = await response.buffer();
+                            await fs.writeFile(dest, buffer);
+                            console.log(`Downloaded cover to ${dest}`);
 
-                        // Update DB
-                        database.updateAlbumCover(albumId, dest);
-                        coverUpdated = true;
+                            // Update DB
+                            const dbPath = getRelativePath(musicDir, dest);
+                            database.updateAlbumCover(albumId, dbPath);
+                            coverUpdated = true;
+                        }
                     }
                 }
             }

@@ -4,6 +4,7 @@ import path from "path";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { getPlaceholderSVG } from "../../utils/audioUtils.js";
+import { resolveSafePath } from "../../utils/fileUtils.js";
 
 export function createAlbumsRoutes(database: DatabaseService, musicDir: string): Router {
     const router = Router();
@@ -178,29 +179,36 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             // This allows showing covers in player even for private albums
 
             // Verify file existence
-            let resolvedPath = path.join(musicDir, album.cover_path);
+            let resolvedPath = resolveSafePath(musicDir, album.cover_path);
 
             // Fix for potential double-prefixing or absolute paths stored in DB
-            // If the path implies double nesting (e.g. /music/music/...) or is absolute, try to fix it
-            if (!await fs.pathExists(resolvedPath)) {
+            // If the path implies double nesting (e.g. /music/music/...) try to fix it securely
+            if (!resolvedPath || !await fs.pathExists(resolvedPath)) {
                 // Check if paths behaves like "/music/music/..."
                 if (album.cover_path.startsWith("/music/") || album.cover_path.startsWith("music/")) {
                     const stripped = album.cover_path.replace(/^[\/\\]?music[\/\\]/, "");
-                    const tryPath = path.join(musicDir, stripped);
-                    if (await fs.pathExists(tryPath)) {
-                        console.log(`🔧 [Debug] Fixed double path: ${resolvedPath} -> ${tryPath}`);
+                    const tryPath = resolveSafePath(musicDir, stripped);
+                    if (tryPath && await fs.pathExists(tryPath)) {
+                        console.log(`🔧 [Debug] Fixed double path: ${album.cover_path} -> ${tryPath}`);
                         resolvedPath = tryPath;
                     }
                 }
-                // Fallback: Check if cover_path itself is absolute and exists
-                if (path.isAbsolute(album.cover_path) && await fs.pathExists(album.cover_path)) {
-                    console.log(`🔧 [Debug] Using absolute path directly: ${album.cover_path}`);
-                    resolvedPath = album.cover_path;
+
+                // Fallback: Check if cover_path itself is absolute and exists securely within musicDir
+                if ((!resolvedPath || !await fs.pathExists(resolvedPath)) && path.isAbsolute(album.cover_path)) {
+                    // Check if it's securely inside musicDir
+                    const relative = path.relative(path.resolve(musicDir), album.cover_path);
+                    if (!relative.startsWith('..') && !path.isAbsolute(relative)) {
+                        if (await fs.pathExists(album.cover_path)) {
+                            console.log(`🔧 [Debug] Using absolute path securely: ${album.cover_path}`);
+                            resolvedPath = album.cover_path;
+                        }
+                    }
                 }
             }
 
             console.log(`🖼️ [Debug] Serving album cover: ${resolvedPath}`);
-            if (!await fs.pathExists(resolvedPath)) {
+            if (!resolvedPath || !await fs.pathExists(resolvedPath)) {
                 console.warn(`⚠️ [Debug] Album cover not found at: ${resolvedPath}`);
                 const svg = getPlaceholderSVG(album.title);
                 res.setHeader("Content-Type", "image/svg+xml");
