@@ -33,7 +33,6 @@ import { createPublishingService } from "./publishing.js";
 import { integrateFederation } from "@fedify/express";
 import { createFedify } from "./fedify.js";
 import { createBackupRoutes } from "./routes/backup.js";
-import { createPostsRoutes } from "./routes/posts.js";
 import { createSubsonicRouter } from "./routes/subsonic.js";
 import { createProxyRoutes } from "./routes/proxy.js";
 import { WaveformService } from "./modules/waveform/waveform.service.js";
