@@ -34,6 +34,8 @@ describe('Upload Routes - Security Check', () => {
 
         // Simulate restricted admin middleware
         app.use((req, res, next) => {
+            (req as any).isAdmin = true;
+            (req as any).isRootAdmin = false;
             (req as any).artistId = 1; // Authenticated as Artist 1
             next();
         });
