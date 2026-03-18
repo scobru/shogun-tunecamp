@@ -844,7 +844,13 @@ export class Scanner implements ScannerService {
                     ? this.database.getTracksByReleaseId(orphan.id)
                     : this.database.getTracks(orphan.id);
 
-                if (tracks.length === 0) continue;
+                if (tracks.length === 0) {
+                    if (!orphan.is_release) {
+                        console.log(`  [Scanner] Deleting empty implicit library album "${orphan.title}" (ID ${orphan.id})`);
+                        this.database.deleteAlbum(orphan.id);
+                    }
+                    continue;
+                }
 
                 // Collect unique artist IDs from tracks
                 const artistIds = [...new Set(tracks.map(t => t.artist_id).filter(id => id !== null))];
@@ -854,6 +860,8 @@ export class Scanner implements ScannerService {
                     if (artistId !== null) { // Type check, though filter ensures it
                         console.log(`  [Scanner] Fixing orphan album "${orphan.title}" (ID ${orphan.id}) -> Setting artist to ID ${artistId}`);
                         this.database.updateAlbumArtist(orphan.id, artistId);
+                        this.database.updateAlbumOwner(orphan.id, artistId);
+                        this.database.addAlbumOwner(orphan.id, artistId);
                     }
                 } else if (artistIds.length > 1) {
                     console.warn(`  [Scanner] Orphan album "${orphan.title}" has tracks from multiple artists. Skipping auto-assignment.`);
