@@ -27,7 +27,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [currentUser, setCurrentUser] = useState<import("../../types").User | null>(null);
 
     const isSelf = currentUser && editId && String(currentUser.artistId) === String(editId);
     const canEditSensitive = !isEditing || isSelf; // Can edit sensitive fields on create or if it's self
@@ -49,7 +49,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 if (artist.postParams) {
                     let params = artist.postParams;
                     if (typeof params === 'string') {
-                        try { params = JSON.parse(params); } catch (e) { params = {}; }
+                        try { params = JSON.parse(params); } catch { params = {}; }
                     }
                     setMastodonInstance(params.instance || '');
                     setMastodonToken(params.token || '');
@@ -62,12 +62,12 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 if (artist.links) {
                     let linksArr = artist.links;
                     if (typeof linksArr === 'string') {
-                        try { linksArr = JSON.parse(linksArr); } catch (e) { linksArr = []; }
+                        try { linksArr = JSON.parse(linksArr); } catch { linksArr = []; }
                     }
                     if (Array.isArray(linksArr)) {
-                        const donation = (linksArr as any[]).find(l => l.type === 'support' || l.platform?.toLowerCase() === 'donation');
-                        setDonationUrl(donation ? donation.url : '');
-                        setSocialLinks((linksArr as any[]).filter(l => l.type !== 'support' && l.platform?.toLowerCase() !== 'donation').map(l => ({
+                        const donation = (linksArr as Array<{ type?: string; platform?: string; url?: string }>).find(l => l.type === 'support' || l.platform?.toLowerCase() === 'donation');
+                        setDonationUrl(donation && donation.url ? donation.url : "");
+                        setSocialLinks((linksArr as Array<{ type?: string; platform?: string; url: string }>).filter(l => l.type !== 'support' && l.platform?.toLowerCase() !== 'donation').map(l => ({
                             platform: l.platform || 'Social',
                             url: l.url
                         })));
@@ -113,7 +113,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 token: mastodonToken
             } : null;
 
-            const allLinks: any[] = socialLinks.map(l => ({ ...l, type: 'social' }));
+            const allLinks: Array<import("../../types").ArtistLink> = socialLinks.map(l => ({ ...l, type: 'social' as const }));
             if (donationUrl) {
                 allLinks.unshift({ platform: 'Donation', url: donationUrl, type: 'support' });
             }
@@ -147,9 +147,9 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
 
             onArtistUpdated();
             dialogRef.current?.close();
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
-            setError(e.message || 'Failed to save artist');
+            setError((e as Error).message || 'Failed to save artist');
         } finally {
             setLoading(false);
         }
