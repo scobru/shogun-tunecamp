@@ -412,7 +412,6 @@ export const Profile = () => {
 
 const ArtistProfileEditor = ({ initialData, onSaved }: { initialData: any, onSaved: (data: any) => void }) => {
     const [name, setName] = useState(initialData?.name || '');
-    // const [slug, setSlug] = useState(initialData?.slug || '');
     const [bio, setBio] = useState(initialData?.bio || '');
     const [donationUrl, setDonationUrl] = useState('');
     const [socialLinks, setSocialLinks] = useState<{ platform: string, url: string }[]>([]);
