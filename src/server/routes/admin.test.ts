@@ -77,6 +77,7 @@ describe('Admin Routes Vulnerability Check', () => {
         // Simple auth middleware mock
         app.use((req: any, res, next) => {
             req.username = req.headers['x-username'] || 'admin';
+            req.isRootAdmin = mockAuthService.isRootAdmin(req.username);
             next();
         });
 
