@@ -818,25 +818,25 @@ export class ActivityPubService {
         for (const artist of artists) {
             artistCount++;
             const albums = this.db.getAlbumsByArtist(artist.id, false);
-            for (const album of albums) {
+            await Promise.all(albums.map(async (album) => {
                 if (album.is_release) {
                     if (album.visibility === 'public' || album.visibility === 'unlisted') {
                         await this.broadcastRelease(album).catch(e => console.error(e));
                     } else {
                         await this.broadcastDelete(album).catch(e => console.error(e));
                     }
-                    noteCount++;
                 }
-            }
+            }));
+            noteCount += albums.filter(a => a.is_release).length;
             const posts = this.db.getPostsByArtist(artist.id);
-            for (const post of posts) {
+            await Promise.all(posts.map(async (post) => {
                 if (post.visibility === 'public') {
                     await this.broadcastPost(post).catch(e => console.error(e));
                 } else {
                     await this.broadcastPostDelete(post).catch(e => console.error(e));
                 }
-                noteCount++;
-            }
+            }));
+            noteCount += posts.length;
         }
         return { artists: artistCount, notes: noteCount };
     }
