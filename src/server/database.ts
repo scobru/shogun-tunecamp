@@ -244,6 +244,7 @@ export interface DatabaseService {
     updateAlbumVisibility(id: number, visibility: 'public' | 'private' | 'unlisted'): void;
     updateAlbumFederationSettings(id: number, publishedToGunDB: boolean, publishedToAP: boolean): void;
     updateAlbumArtist(id: number, artistId: number): void;
+    updateAlbumOwner(id: number, ownerId: number): void;
     updateAlbumTitle(id: number, title: string): void;
     updateAlbumCover(id: number, coverPath: string): void;
     updateAlbumGenre(id: number, genre: string | null): void;
@@ -1478,6 +1479,10 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updateAlbumArtist(id: number, artistId: number): void {
             db.prepare("UPDATE albums SET artist_id = ? WHERE id = ?").run(artistId, id);
+        },
+
+        updateAlbumOwner(id: number, ownerId: number): void {
+            db.prepare("UPDATE albums SET owner_id = ? WHERE id = ?").run(ownerId, id);
         },
 
         updateAlbumTitle(id: number, title: string): void {
