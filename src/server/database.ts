@@ -304,6 +304,7 @@ export interface DatabaseService {
     getPostBySlug(slug: string): Post | undefined;
     createPost(artistId: number, content: string, visibility?: 'public' | 'private' | 'unlisted'): number;
     updatePost(id: number, content: string, visibility?: 'public' | 'private' | 'unlisted'): void;
+    updatePostVisibility(id: number, visibility: 'public' | 'private' | 'unlisted'): void;
     deletePost(id: number): void;
     // Stats
     getStats(artistId?: number): Promise<{ artists: number; albums: number; tracks: number; publicAlbums: number; totalUsers: number; storageUsed: number; networkSites: number; totalTracks: number; genresCount: number }>;
@@ -1901,6 +1902,15 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         deletePost(id: number): void {
             db.prepare("DELETE FROM posts WHERE id = ?").run(id);
+        },
+
+        updatePostVisibility(id: number, visibility: 'public' | 'private' | 'unlisted'): void {
+            const publishedAt = visibility === 'public' || visibility === 'unlisted' ? new Date().toISOString() : null;
+            if (publishedAt) {
+                db.prepare("UPDATE posts SET visibility = ?, published_at = ? WHERE id = ?").run(visibility, publishedAt, id);
+            } else {
+                db.prepare("UPDATE posts SET visibility = ? WHERE id = ?").run(visibility, id);
+            }
         },
 
         updatePost(id: number, content: string, visibility?: 'public' | 'private' | 'unlisted'): void {
