@@ -220,6 +220,7 @@ export interface DatabaseService {
     // Artists
     getArtists(): Artist[];
     getArtist(id: number): Artist | undefined;
+    getArtistsByIds(ids: number[]): Artist[];
     getArtistByName(name: string): Artist | undefined;
     getArtistBySlug(slug: string): Artist | undefined;
     createArtist(name: string, bio?: string, photoPath?: string, links?: any, postParams?: any, walletAddress?: string): number;
@@ -236,6 +237,7 @@ export interface DatabaseService {
     getReleases(publicOnly?: boolean): Album[]; // is_release=1
     getLibraryAlbums(): Album[]; // is_release=0
     getAlbum(id: number): Album | undefined;
+    getAlbumsByIds(ids: number[]): Album[];
     getAlbumBySlug(slug: string): Album | undefined;
     getAlbumByTitle(title: string, artistId?: number): Album | undefined;
     getAlbumsByArtist(artistId: number, publicOnly?: boolean): Album[];
@@ -260,6 +262,7 @@ export interface DatabaseService {
     getTracksByAlbumIds(albumIds: number[]): Track[];
     getTracksByReleaseId(releaseId: number): Track[];
     getTrack(id: number): Track | undefined;
+    getTracksByIds(ids: number[]): Track[];
     getTrackByPath(filePath: string): Track | undefined;
     createTrack(track: Omit<Track, "id" | "created_at" | "album_title" | "artist_name">): number;
     updateTrackAlbum(id: number, albumId: number | null): void;
@@ -1216,6 +1219,19 @@ export function createDatabase(dbPath: string): DatabaseService {
             return getArtistStmt.get(id) as Artist | undefined;
         },
 
+        getArtistsByIds(ids: number[]): Artist[] {
+            if (ids.length === 0) return [];
+            const CHUNK_SIZE = 900;
+            const results: Artist[] = [];
+            for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+                const chunk = ids.slice(i, i + CHUNK_SIZE);
+                const placeholders = chunk.map(() => "?").join(",");
+                const rows = db.prepare(`SELECT * FROM artists WHERE id IN (${placeholders})`).all(...chunk) as Artist[];
+                results.push(...rows);
+            }
+            return results;
+        },
+
         getArtistByName(name: string): Artist | undefined {
             return db.prepare("SELECT * FROM artists WHERE name = ?").get(name) as Artist | undefined;
         },
@@ -1328,6 +1344,21 @@ export function createDatabase(dbPath: string): DatabaseService {
         getAlbum(id: number): Album | undefined {
             const row = getAlbumStmt.get(id);
             return mapAlbum(row);
+        },
+
+        getAlbumsByIds(ids: number[]): Album[] {
+            if (ids.length === 0) return [];
+            const CHUNK_SIZE = 900;
+            const results: Album[] = [];
+            for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+                const chunk = ids.slice(i, i + CHUNK_SIZE);
+                const placeholders = chunk.map(() => "?").join(",");
+                const rows = db.prepare(`SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
+                    LEFT JOIN artists ar ON a.artist_id = ar.id
+                    WHERE a.id IN (${placeholders})`).all(...chunk);
+                results.push(...mapAlbums(rows));
+            }
+            return results;
         },
 
         getAlbumBySlug(slug: string): Album | undefined {
@@ -1606,6 +1637,28 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         getTrack(id: number): Track | undefined {
             return getTrackStmt.get(id) as Track | undefined;
+        },
+
+        getTracksByIds(ids: number[]): Track[] {
+            if (ids.length === 0) return [];
+            const CHUNK_SIZE = 900;
+            const results: Track[] = [];
+            for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+                const chunk = ids.slice(i, i + CHUNK_SIZE);
+                const placeholders = chunk.map(() => "?").join(",");
+                const rows = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price,
+                    COALESCE(ar_t.id, ar_a.id) as artist_id,
+                    COALESCE(ar_t.name, ar_a.name) as artist_name,
+                    COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+                    COALESCE(t.owner_id, a.owner_id) as owner_id
+                   FROM tracks t
+                   LEFT JOIN albums a ON t.album_id = a.id
+                   LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                   LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                   WHERE t.id IN (${placeholders})`).all(...chunk) as Track[];
+                results.push(...rows);
+            }
+            return results;
         },
 
         getTrackByPath(filePath: string): Track | undefined {

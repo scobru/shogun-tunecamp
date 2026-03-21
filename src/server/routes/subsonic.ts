@@ -595,22 +595,43 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // Helper to build starred data
     const buildStarredData = (username: string) => {
         const starred = db.getStarredItems(username);
+
+        const artistIds: number[] = [];
+        const albumIds: number[] = [];
+        const trackIds: number[] = [];
+
+        for (const item of starred) {
+            if (item.item_type === 'artist') {
+                artistIds.push(parseInt(item.item_id.startsWith('ar_') ? item.item_id.substring(3) : item.item_id));
+            } else if (item.item_type === 'album') {
+                albumIds.push(parseInt(item.item_id.startsWith('al_') ? item.item_id.substring(3) : item.item_id));
+            } else if (item.item_type === 'track') {
+                trackIds.push(parseInt(item.item_id.startsWith('tr_') ? item.item_id.substring(3) : item.item_id));
+            }
+        }
+
+        const artistsList = db.getArtistsByIds([...new Set(artistIds)]);
+        const albumsList = db.getAlbumsByIds([...new Set(albumIds)]);
+        const tracksList = db.getTracksByIds([...new Set(trackIds)]);
+
+        const artistMap = new Map(artistsList.map(a => [a.id, a]));
+        const albumMap = new Map(albumsList.map(a => [a.id, a]));
+        const trackMap = new Map(tracksList.map(t => [t.id, t]));
+
         const artists: any[] = [];
         const albums: any[] = [];
         const songs: any[] = [];
 
         for (const item of starred) {
+            const id = parseInt(item.item_id.startsWith(item.item_type.substring(0, 2) + '_') ? item.item_id.substring(3) : item.item_id);
             if (item.item_type === 'artist') {
-                const artistId = parseInt(item.item_id.startsWith('ar_') ? item.item_id.substring(3) : item.item_id);
-                const artist = db.getArtist(artistId);
+                const artist = artistMap.get(id);
                 if (artist) artists.push(formatArtist(artist, username));
             } else if (item.item_type === 'album') {
-                const albumId = parseInt(item.item_id.startsWith('al_') ? item.item_id.substring(3) : item.item_id);
-                const album = db.getAlbum(albumId);
+                const album = albumMap.get(id);
                 if (album) albums.push(formatAlbum(album, username));
             } else if (item.item_type === 'track') {
-                const trackId = parseInt(item.item_id.startsWith('tr_') ? item.item_id.substring(3) : item.item_id);
-                const track = db.getTrack(trackId);
+                const track = trackMap.get(id);
                 if (track) songs.push(formatTrack(track, username));
             }
         }
