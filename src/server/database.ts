@@ -1343,7 +1343,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                 SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM releases r
                 LEFT JOIN artists ar ON r.artist_id = ar.id
                 WHERE r.id = ?
-            `).get(id);
+            `).get(id) as any;
             if (!row) return undefined;
             return {
                 ...row,
@@ -1357,7 +1357,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                 SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM releases r
                 LEFT JOIN artists ar ON r.artist_id = ar.id
                 WHERE r.slug = ?
-            `).get(slug);
+            `).get(slug) as any;
             if (!row) return undefined;
             return {
                 ...row,
@@ -1701,7 +1701,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         getAlbum(id: number): Album | undefined {
             const row = db.prepare(`SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
                    LEFT JOIN artists ar ON a.artist_id = ar.id
-                   WHERE a.id = ?`).get(id);
+                   WHERE a.id = ?`).get(id) as any;
             if (!row || row.is_release) return undefined; // Only return library albums
             return mapAlbum(row);
         },
@@ -2143,18 +2143,6 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare("DELETE FROM track_ownership WHERE track_id = ?").run(id);
             db.prepare("DELETE FROM release_tracks WHERE track_id = ?").run(id);
             db.prepare("DELETE FROM tracks WHERE id = ?").run(id);
-        },
-
-        addTrackToRelease(releaseId: number, trackId: number): void {
-            db.prepare(
-                "INSERT OR IGNORE INTO release_tracks (release_id, track_id) VALUES (?, ?)"
-            ).run(releaseId, trackId);
-        },
-
-        removeTrackFromRelease(releaseId: number, trackId: number): void {
-            db.prepare(
-                "DELETE FROM release_tracks WHERE release_id = ? AND track_id = ?"
-            ).run(releaseId, trackId);
         },
 
 
