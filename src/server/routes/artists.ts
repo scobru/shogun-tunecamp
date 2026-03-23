@@ -256,7 +256,18 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 return res.status(404).json({ error: "Artist not found" });
             }
 
-            const albums = database.getAlbumsByArtist(artist.id, req.isAdmin !== true);
+            const libraryAlbums = database.getAlbumsByArtist(artist.id, req.isAdmin !== true);
+            const formalReleases = database.getReleasesByArtist(artist.id, req.isAdmin !== true);
+            
+            // Combine and sort by date
+            const albums = [
+                ...libraryAlbums.map(a => ({ ...a, is_formal_release: false })),
+                ...formalReleases.map(r => ({ ...r, is_formal_release: true }))
+            ].sort((a, b) => {
+                const dateA = new Date(a.date || a.created_at || 0).getTime();
+                const dateB = new Date(b.date || b.created_at || 0).getTime();
+                return dateB - dateA;
+            });
 
             // Get cover image from first album if artist has no photo
             let coverImage = artist.photo_path;

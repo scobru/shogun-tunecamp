@@ -50,7 +50,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
     try {
       const [artistsData, albumsData] = await Promise.all([
         API.getArtists(),
-        API.getAlbums(),
+        API.getAdminReleases({ mine: true }),
       ]);
       setArtists(artistsData);
       setAlbums(albumsData);

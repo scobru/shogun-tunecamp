@@ -787,16 +787,6 @@ export function createDatabase(dbPath: string): DatabaseService {
     CREATE INDEX IF NOT EXISTS idx_album_ownership_owner ON album_ownership(owner_id);
   `);
 
-    // Debug: Print schema
-    try {
-        const tables = ['releases', 'release_tracks', 'tracks', 'albums', 'artists'];
-        console.log("🔍 [Debug] Database Schema Check:");
-        for (const table of tables) {
-            const schema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?").get(table) as { sql: string };
-            console.log(`   - ${table}: ${schema?.sql}`);
-        }
-    } catch (e) { }
-
     // Migration: Move existing releases from 'albums' to 'releases' table
     try {
         const releaseCount = (db.prepare("SELECT COUNT(*) as count FROM releases").get() as { count: number }).count;

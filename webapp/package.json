@@ -14,7 +14,7 @@
     "axios": "^1.13.4",
     "clsx": "^2.1.1",
     "ethers": "^6.16.0",
-    "gun": "^0.2020.1241",
+    "gun": "git+https://github.com/scobru/gun",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
