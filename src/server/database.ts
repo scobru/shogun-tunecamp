@@ -1621,6 +1621,10 @@ export function createDatabase(dbPath: string): DatabaseService {
         addTrackToRelease(releaseId: number, trackId: number, metadata?: Partial<ReleaseTrack>): number {
             // Get base metadata from library track if not provided
             const libraryTrack = trackId ? this.getTrack(trackId) : null;
+            
+            // SECURITY: If trackId was provided but track doesn't exist, use NULL for track_id column
+            // to avoid FOREIGN KEY constraint failure, but keep the metadata.
+            const effectiveTrackId = libraryTrack ? trackId : null;
 
             const title = metadata?.title || libraryTrack?.title || "Unknown Track";
             const artistName = metadata?.artist_name || libraryTrack?.artist_name || null;
@@ -1639,7 +1643,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             const result = db.prepare(`
                 INSERT INTO release_tracks (release_id, track_id, title, artist_name, track_num, duration, file_path, price, currency)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(releaseId, trackId || null, title, artistName, trackNum, duration, filePath, price, currency);
+            `).run(releaseId, effectiveTrackId, title, artistName, trackNum, duration, filePath, price, currency);
 
             return result.lastInsertRowid as number;
         },
