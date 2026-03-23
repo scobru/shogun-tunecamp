@@ -26,7 +26,7 @@ export const Tracks = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const { playTrack } = usePlayerStore();
-  const { isAuthenticated, isAdminAuthenticated } = useAuthStore();
+  const { isAuthenticated, isAdminAuthenticated, user } = useAuthStore();
   const { isPurchased, verifyAndGetCode } = usePurchases();
   const { address, externalAddress, useExternalWallet, isExternalConnected } = useWalletStore();
   const activeAddress = useExternalWallet && isExternalConnected ? externalAddress : address;
