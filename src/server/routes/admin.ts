@@ -454,6 +454,41 @@ export function createAdminRoutes(
                 }
             }
 
+            // --- TRACKS UPDATE LOGIC ---
+            if (body.track_ids && Array.isArray(body.track_ids)) {
+                const newTrackIds = body.track_ids.map((tid: any) => parseInt(tid, 10)).filter((tid: any) => !isNaN(tid));
+                
+                if (release) {
+                    // Update formal release tracks
+                    const existingTrackIds = database.getReleaseTrackIds(id);
+                    const toAdd = newTrackIds.filter((ntid: number) => !existingTrackIds.includes(ntid));
+                    const toRemove = existingTrackIds.filter((etid: number) => !newTrackIds.includes(etid));
+
+                    for (const trackId of toAdd) {
+                        database.addTrackToRelease(id, trackId);
+                    }
+                    for (const trackId of toRemove) {
+                        database.removeTrackFromRelease(id, trackId);
+                    }
+                    // Also update order if provided (preserving the list order)
+                    database.updateReleaseTracksOrder(id, newTrackIds);
+                } else if (album) {
+                    // Update library album tracks
+                    const existingTracks = database.getTracks(id);
+                    const existingTrackIds = existingTracks.map(t => t.id);
+                    
+                    const toAdd = newTrackIds.filter((ntid: number) => !existingTrackIds.includes(ntid));
+                    const toRemove = existingTrackIds.filter((etid: number) => !newTrackIds.includes(etid));
+
+                    for (const trackId of toAdd) {
+                        database.updateTrackAlbum(trackId, id);
+                    }
+                    for (const trackId of toRemove) {
+                        database.updateTrackAlbum(trackId, null);
+                    }
+                }
+            }
+
             // Sync changes
             publishingService.syncRelease(id).catch(e => console.error("Failed to sync release update:", e));
 
