@@ -402,18 +402,26 @@ export function createAdminRoutes(
             const id = parseInt(req.params.id, 10);
             const body = req.body;
 
+            console.log(`📝 [Debug] PUT /api/admin/releases/${id} received:`, {
+                title: body.title,
+                track_ids: body.track_ids,
+                track_ids_count: body.track_ids?.length
+            });
+
             // Check both releases and albums
             const release = database.getRelease(id);
             const album = database.getAlbum(id);
             const item = release || album;
 
             if (!item) {
+                console.warn(`⚠️ [Debug] Release/Album ${id} not found during update`);
                 return res.status(404).json({ error: "Release or album not found" });
             }
 
             // Permission Check
             const ownerId = release ? release.owner_id : album?.owner_id;
             if (req.artistId && !req.isAdmin && ownerId !== req.artistId) {
+                console.warn(`⛔ [Debug] Access Denied for user ${req.username} on item ${id}. Owner: ${ownerId}, Request ArtistId: ${req.artistId}`);
                 return res.status(403).json({ error: "Access denied" });
             }
 
@@ -439,8 +447,10 @@ export function createAdminRoutes(
 
             if (Object.keys(updates).length > 0) {
                 if (release) {
+                    console.log(`   - Updating formal release metadata:`, Object.keys(updates));
                     database.updateRelease(id, updates);
                 } else {
+                    console.log(`   - Updating library album metadata:`, Object.keys(updates));
                     // Legacy album update - map generic fields to specific update methods or a generic one if available
                     if (updates.title) database.updateAlbumTitle(id, updates.title);
                     if (updates.genre) database.updateAlbumGenre(id, updates.genre);
@@ -457,12 +467,15 @@ export function createAdminRoutes(
             // --- TRACKS UPDATE LOGIC ---
             if (body.track_ids && Array.isArray(body.track_ids)) {
                 const newTrackIds = body.track_ids.map((tid: any) => parseInt(tid, 10)).filter((tid: any) => !isNaN(tid));
+                console.log(`   - Processing ${newTrackIds.length} tracks for item ${id}`);
                 
                 if (release) {
                     // Update formal release tracks
                     const existingTrackIds = database.getReleaseTrackIds(id);
                     const toAdd = newTrackIds.filter((ntid: number) => !existingTrackIds.includes(ntid));
                     const toRemove = existingTrackIds.filter((etid: number) => !newTrackIds.includes(etid));
+
+                    console.log(`   - Release tracks: existing=${existingTrackIds.length}, toAdd=${toAdd.length}, toRemove=${toRemove.length}`);
 
                     for (const trackId of toAdd) {
                         database.addTrackToRelease(id, trackId);
@@ -480,23 +493,33 @@ export function createAdminRoutes(
                     const toAdd = newTrackIds.filter((ntid: number) => !existingTrackIds.includes(ntid));
                     const toRemove = existingTrackIds.filter((etid: number) => !newTrackIds.includes(etid));
 
+                    console.log(`   - Album tracks: existing=${existingTrackIds.length}, toAdd=${toAdd.length}, toRemove=${toRemove.length}`);
+
                     for (const trackId of toAdd) {
                         database.updateTrackAlbum(trackId, id);
                     }
                     for (const trackId of toRemove) {
                         database.updateTrackAlbum(trackId, null);
                     }
+
+                    // For library albums, we should also update the track_num in the tracks table to preserve reordering
+                    for (let i = 0; i < newTrackIds.length; i++) {
+                        const trackId = newTrackIds[i];
+                        // We need a method to update track_num in the tracks table
+                        (database as any).updateTrackOrder?.(trackId, i + 1);
+                    }
                 }
             }
 
             // Sync changes
-            publishingService.syncRelease(id).catch(e => console.error("Failed to sync release update:", e));
+            publishingService.syncRelease(id).catch(e => console.error("❌ Failed to sync release update:", e));
 
             const finalItem = release ? database.getRelease(id) : database.getAlbum(id);
+            console.log(`✅ [Debug] PUT /api/admin/releases/${id} completed successfully`);
             res.json(finalItem || { message: "Updated successfully" });
 
         } catch (error) {
-            console.error("Error updating release:", error);
+            console.error("❌ Error updating release:", error);
             res.status(500).json({ error: "Failed to update release" });
         }
     });
