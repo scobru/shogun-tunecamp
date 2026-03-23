@@ -1282,6 +1282,12 @@ export function createDatabase(dbPath: string): DatabaseService {
     } catch (e) { }
 
     try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN id INTEGER`);
+        db.prepare("UPDATE release_tracks SET id = rowid WHERE id IS NULL").run();
+        console.log("📦 Migrated database: added and backfilled id column to release_tracks");
+    } catch (e) { }
+
+    try {
         db.exec(`ALTER TABLE release_tracks ADD COLUMN artist_name TEXT`);
         console.log("📦 Migrated database: added artist_name column to release_tracks");
     } catch (e) { }
@@ -1552,7 +1558,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             // This returns Track objects but with metadata from the release_tracks table (decoupled)
             return db.prepare(`
                 SELECT 
-                    COALESCE(t.id, rt.id) as id,
+                    COALESCE(t.id, rt.id, rt.rowid) as id,
                     rt.title as title,
                     t.album_id,
                     r.title as album_title,
