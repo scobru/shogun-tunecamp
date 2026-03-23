@@ -29,14 +29,16 @@ export const AlbumDetails = () => {
   const [loading, setLoading] = useState(true);
   const { playTrack } = usePlayerStore();
   const [coverVersion] = useState(Date.now()); // Cache buster
-  const { isAdminAuthenticated: isAdmin } = useAuthStore();
+  const { isAdminAuthenticated: isAdmin, user } = useAuthStore();
   const { isPurchased, verifyAndGetCode } = usePurchases();
   const { address, externalAddress, useExternalWallet, isExternalConnected } = useWalletStore();
   const activeAddress = useExternalWallet && isExternalConnected ? externalAddress : address;
   const { ownedNFTs } = useOwnedNFTs(activeAddress);
 
-  const isTrackUnlocked = (trackId: string | number) => {
-    return isPurchased(trackId) || ownedNFTs.some(n => n.trackId === Number(trackId));
+  const isTrackUnlocked = (track: any) => {
+    return isPurchased(track.id) || 
+           ownedNFTs.some(n => n.trackId === Number(track.id)) ||
+           (user?.artistId && (String(track.artistId) === String(user.artistId) || String(album?.artistId) === String(user.artistId)));
   };
 
   useEffect(() => {
@@ -305,11 +307,15 @@ export const AlbumDetails = () => {
                         className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
                       >
                         <li>
-                          {isTrackUnlocked(track.id) ? (
+                          {isTrackUnlocked(track) ? (
                             <a
                               onClick={async (e) => {
                                 e.preventDefault();
-                                // Create logic indicator if helpful, or just wait.
+                                if (user?.artistId && (String(track.artistId) === String(user.artistId) || String(album?.artistId) === String(user.artistId))) {
+                                  window.open(`/api/tracks/${track.id}/stream`, "_blank");
+                                  return;
+                                }
+
                                 const code = await verifyAndGetCode(track.id);
                                 if (code) {
                                   window.open(
@@ -317,11 +323,14 @@ export const AlbumDetails = () => {
                                     "_blank",
                                   );
                                 } else {
-                                  // If they have NFT but no code in GunDB, they might need to re-verify.
-                                  // For now, we alert them.
-                                  alert(
-                                    "Download code not found or could not be verified. Please try again or contact support.",
-                                  );
+                                  if (ownedNFTs.some(n => n.trackId === Number(track.id))) {
+                                    // NFT owners direct download fallback (no GunDB code generated)
+                                    window.open(`/api/tracks/${track.id}/stream`, "_blank");
+                                  } else {
+                                    alert(
+                                      "Download code not found or could not be verified. Please try again or contact support.",
+                                    );
+                                  }
                                 }
                               }}
                             >

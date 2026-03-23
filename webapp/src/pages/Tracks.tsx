@@ -211,9 +211,14 @@ export const Tracks = () => {
                           </a>
                         </li>
                         <li>
-                          {isPurchased(String(track.id)) || ownedNFTs.some(n => n.trackId === Number(track.id) && n.balance > 0) ? (
+                          {isPurchased(String(track.id)) || ownedNFTs.some(n => n.trackId === Number(track.id) && n.balance > 0) || (user?.artistId && String(track.artistId) === String(user.artistId)) ? (
                             <a
                               onClick={async () => {
+                                if (user?.artistId && String(track.artistId) === String(user.artistId)) {
+                                  window.open(`/api/tracks/${track.id}/stream`, "_blank");
+                                  return;
+                                }
+
                                 const code = await verifyAndGetCode(String(track.id));
                                 if (code) {
                                   window.open(
@@ -221,9 +226,14 @@ export const Tracks = () => {
                                     "_blank",
                                   );
                                 } else {
-                                  alert(
-                                    "Download code not found or could not be verified. Please try again or contact support.",
-                                  );
+                                  if (ownedNFTs.some(n => n.trackId === Number(track.id) && n.balance > 0)) {
+                                    // NFT owners direct download fallback (no GunDB code generated)
+                                    window.open(`/api/tracks/${track.id}/stream`, "_blank");
+                                  } else {
+                                    alert(
+                                      "Download code not found or could not be verified. Please try again or contact support.",
+                                    );
+                                  }
                                 }
                               }}
                             >

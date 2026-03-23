@@ -153,28 +153,32 @@ export const Purchases = () => {
                         .substr(14, 5)}
                     </td>
                     <td className="text-right">
-                      <button
-                        className="btn btn-ghost btn-sm gap-2 opacity-70 hover:opacity-100 group-hover:opacity-100"
-                        onClick={async () => {
-                          const code = await verifyAndGetCode(track.id);
-                          if (code) {
-                            window.open(
-                              `/api/payments/download/${track.id}?code=${code}`,
-                              "_blank",
-                            );
-                          } else {
-                            alert(
-                              "Download code not found or could not be verified. Please try again or contact support.",
-                            );
-                          }
-                        }}
-                      >
+                        <button
+                          className="btn btn-ghost btn-sm gap-2 opacity-70 hover:opacity-100 group-hover:opacity-100"
+                          onClick={async () => {
+                            const code = await verifyAndGetCode(track.id);
+                            if (code) {
+                              window.open(
+                                `/api/payments/download/${track.id}?code=${code}`,
+                                "_blank",
+                              );
+                            } else {
+                              if (ownedNFTs.some(n => n.trackId === Number(track.id))) {
+                                window.open(`/api/tracks/${track.id}/stream`, "_blank");
+                              } else {
+                                alert(
+                                  "Download code not found or could not be verified. Please try again or contact support.",
+                                );
+                              }
+                            }
+                          }}
+                        >
                         <CheckCircle2
                           size={16}
                           className="text-success hidden md:block"
                         />
                         <span>Download</span>
-                      </button>
+                        </button>
                     </td>
                   </tr>
                 );
