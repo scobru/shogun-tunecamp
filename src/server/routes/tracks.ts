@@ -693,6 +693,44 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             // Update album
             if (albumId !== undefined) {
                 database.updateTrackAlbum(id, albumId ? parseInt(albumId) : null);
+            } else if (album !== undefined) {
+                let albumRecord = database.getAlbumByTitle(album); // Try exact title first
+                if (!albumRecord && album) {
+                    const slug = "lib-" + album.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                    albumRecord = database.getAlbumBySlug(slug);
+                    if (!albumRecord) {
+                        const newAlbumId = database.createAlbum({
+                            title: album,
+                            slug: slug,
+                            artist_id: artistId ? parseInt(artistId) : (track.artist_id || null),
+                            owner_id: req.artistId || track.artist_id || null,
+                            date: null,
+                            cover_path: null,
+                            genre: genre || "Unknown",
+                            description: `Auto-generated from track edit`,
+                            type: 'album',
+                            year: null,
+                            download: null,
+                            price: 0,
+                            currency: 'ETH',
+                            external_links: null,
+                            is_public: false,
+                            visibility: 'private',
+                            is_release: false,
+                            published_at: null,
+                            published_to_gundb: false,
+                            published_to_ap: false,
+                            license: null,
+                        });
+                        albumRecord = database.getAlbum(newAlbumId);
+                    }
+                }
+                if (albumRecord) {
+                    database.updateTrackAlbum(id, albumRecord.id);
+                } else if (!album) {
+                    // if album is explicitly empty string, unlink album
+                    database.updateTrackAlbum(id, null);
+                }
             }
 
             // Update duration (optional, if provided in body)

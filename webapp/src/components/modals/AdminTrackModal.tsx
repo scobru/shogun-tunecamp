@@ -9,8 +9,8 @@ interface AdminTrackModalProps {
 export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [title, setTitle] = useState("");
-  const [artistId, setArtistId] = useState("");
-  const [albumId, setAlbumId] = useState("");
+  const [artistName, setArtistName] = useState("");
+  const [albumTitle, setAlbumTitle] = useState("");
   const [trackId, setTrackId] = useState<string | null>(null);
   const [trackNum, setTrackNum] = useState<string>("");
 
@@ -26,8 +26,8 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
       if (e.detail) {
         setTrackId(e.detail.id);
         setTitle(e.detail.title || "");
-        setArtistId(e.detail.artist_id ? String(e.detail.artist_id) : "");
-        setAlbumId(e.detail.album_id ? String(e.detail.album_id) : "");
+        setArtistName(e.detail.artist_name || "");
+        setAlbumTitle(e.detail.album_title || "");
         setTrackNum(e.detail.track_num ? String(e.detail.track_num) : "");
 
         loadData();
@@ -89,12 +89,29 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
     setError("");
 
     try {
-      await API.updateTrack(trackId, {
+      const matchedArtist = artists.find(a => a.name.toLowerCase() === artistName.trim().toLowerCase());
+      const matchedAlbum = albums.find(a => a.title.toLowerCase() === albumTitle.trim().toLowerCase());
+
+      const payload: any = {
         title,
-        artistId: artistId ? artistId : null, // explicit null if empty
-        albumId: albumId ? albumId : null,
         trackNumber: trackNum ? parseInt(trackNum) : undefined,
-      } as any);
+      };
+
+      if (matchedArtist) {
+        payload.artistId = String(matchedArtist.id);
+      } else {
+        payload.artist = artistName.trim();
+        if (!artistName.trim()) payload.artistId = null;
+      }
+
+      if (matchedAlbum) {
+        payload.albumId = String(matchedAlbum.id);
+      } else {
+        payload.album = albumTitle.trim();
+        if (!albumTitle.trim()) payload.albumId = null;
+      }
+
+      await API.updateTrack(trackId, payload);
 
       onTrackUpdated();
       dialogRef.current?.close();
@@ -136,36 +153,38 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
             <label className="label">
               <span className="label-text">Artist</span>
             </label>
-            <select
-              className="select select-bordered w-full"
-              value={artistId}
-              onChange={(e) => setArtistId(e.target.value)}
-            >
-              <option value="">(Various / Unknown)</option>
+            <input
+              type="text"
+              list="artist-options"
+              className="input input-bordered w-full"
+              placeholder="(Various / Unknown)"
+              value={artistName}
+              onChange={(e) => setArtistName(e.target.value)}
+            />
+            <datalist id="artist-options">
               {artists.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
+                <option key={a.id} value={a.name} />
               ))}
-            </select>
+            </datalist>
           </div>
 
           <div className="form-control">
             <label className="label">
               <span className="label-text">Album</span>
             </label>
-            <select
-              className="select select-bordered w-full"
-              value={albumId}
-              onChange={(e) => setAlbumId(e.target.value)}
-            >
-              <option value="">(None / Single)</option>
+            <input
+              type="text"
+              list="album-options"
+              className="input input-bordered w-full"
+              placeholder="(None / Single)"
+              value={albumTitle}
+              onChange={(e) => setAlbumTitle(e.target.value)}
+            />
+            <datalist id="album-options">
               {albums.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.title}
-                </option>
+                <option key={a.id} value={a.title} />
               ))}
-            </select>
+            </datalist>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
