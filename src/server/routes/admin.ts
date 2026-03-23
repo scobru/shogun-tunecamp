@@ -65,9 +65,13 @@ export function createAdminRoutes(
             const id = parseInt(req.params.id, 10);
             const { isPublic, visibility } = req.body;
 
+            // Check both releases and albums
+            const release = database.getRelease(id);
             const album = database.getAlbum(id);
-            if (!album) {
-                return res.status(404).json({ error: "Album not found" });
+            const item = release || album;
+
+            if (!item) {
+                return res.status(404).json({ error: "Release or album not found" });
             }
 
             // Determine visibility
@@ -80,14 +84,17 @@ export function createAdminRoutes(
             }
 
             // Permission Check
-            if (req.artistId && !req.isAdmin && album.owner_id !== req.artistId) {
-                return res.status(403).json({ error: "Access denied: You can only manage your own releases" });
+            const ownerId = release ? release.owner_id : album?.owner_id;
+            if (req.artistId && !req.isAdmin && ownerId !== req.artistId) {
+                return res.status(403).json({ error: "Access denied: You can only manage your own content" });
             }
 
-            const currentVisibility = album.visibility || (album.is_public ? 'public' : 'private');
-
             // Update visibility in DB
-            database.updateAlbumVisibility(id, newVisibility);
+            if (release) {
+                database.updateRelease(id, { visibility: newVisibility });
+            } else {
+                database.updateAlbumVisibility(id, newVisibility);
+            }
 
             // Use PublishingService to sync
             publishingService.syncRelease(id).catch(e => console.error("Failed to sync visibility:", e));
