@@ -459,6 +459,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       title TEXT NOT NULL,
       slug TEXT NOT NULL UNIQUE,
       artist_id INTEGER REFERENCES artists(id),
+      artist_name TEXT,
       date TEXT,
       cover_path TEXT,
       genre TEXT,
@@ -482,6 +483,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       title TEXT NOT NULL,
       album_id INTEGER REFERENCES albums(id),
       artist_id INTEGER REFERENCES artists(id),
+      artist_name TEXT,
       track_num INTEGER,
       duration REAL,
       file_path TEXT,
@@ -1054,6 +1056,17 @@ export function createDatabase(dbPath: string): DatabaseService {
         db.exec(`ALTER TABLE tracks ADD COLUMN owner_id INTEGER REFERENCES artists(id)`);
         console.log("📦 Migrated database: added owner_id column to tracks");
         db.prepare("UPDATE tracks SET owner_id = artist_id WHERE owner_id IS NULL").run();
+    } catch (e) { }
+
+    // Migration: Add artist_name to albums and tracks if missing
+    try {
+        db.exec(`ALTER TABLE albums ADD COLUMN artist_name TEXT`);
+        console.log("📦 Migrated database: added artist_name column to albums");
+    } catch (e) { }
+
+    try {
+        db.exec(`ALTER TABLE tracks ADD COLUMN artist_name TEXT`);
+        console.log("📦 Migrated database: added artist_name column to tracks");
     } catch (e) { }
 
     // Migration: Backfill ownership tables from owner_id columns
