@@ -284,6 +284,7 @@ export interface DatabaseService {
     
     // Release Tracks
     getReleaseTracks(releaseId: number): ReleaseTrack[];
+    getReleaseTrackIds(releaseId: number): number[];
     getReleaseTrack(id: number): ReleaseTrack | undefined;
     addTrackToRelease(releaseId: number, trackId: number, metadata?: Partial<ReleaseTrack>): number;
     updateReleaseTrack(id: number, metadata: Partial<ReleaseTrack>): void;
@@ -335,11 +336,7 @@ export interface DatabaseService {
     updateTrackLosslessPath(id: number, losslessPath: string | null): void;
     updateTrackLyrics(id: number, lyrics: string | null): void;
     updateTrackPathsPrefix(oldPrefix: string, newPrefix: string): void;
-    deleteTrack(id: number): void;
-    addTrackToRelease(releaseId: number, trackId: number): void;
-    removeTrackFromRelease(releaseId: number, trackId: number): void;
-    updateReleaseTracks(releaseId: number, toAdd: number[], toRemove: number[]): void;
-    getReleaseTrackIds(releaseId: number): number[];
+    deleteTrack(id: number, ownerId?: number): void;
 
     // Ownership & Deduplication
     addTrackOwner(trackId: number, ownerId: number): void;
@@ -1188,66 +1185,6 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.warn("⚠️  Migration warning (remote_content):", e);
     }
 
-    // Prepared statements for release tracks
-    const addReleaseTrackStmt = db.prepare("INSERT OR IGNORE INTO release_tracks (release_id, track_id) VALUES (?, ?)");
-    const removeReleaseTrackStmt = db.prepare("DELETE FROM release_tracks WHERE release_id = ? AND track_id = ?");
-    const getReleaseTrackIdsStmt = db.prepare("SELECT track_id FROM release_tracks WHERE release_id = ?");
-
-    const updateReleaseTracksTransaction = db.transaction((releaseId: number, addIds: number[], removeIds: number[]) => {
-        for (const trackId of addIds) {
-            addReleaseTrackStmt.run(releaseId, trackId);
-        }
-        for (const trackId of removeIds) {
-            removeReleaseTrackStmt.run(releaseId, trackId);
-        }
-    });
-
-    // Migration: Add owner_id to albums and tracks if missing
-    try {
-        db.exec(`ALTER TABLE albums ADD COLUMN owner_id INTEGER REFERENCES artists(id)`);
-        console.log("📦 Migrated database: added owner_id column to albums");
-        db.prepare("UPDATE albums SET owner_id = artist_id WHERE owner_id IS NULL").run();
-    } catch (e) { }
-
-    try {
-        db.exec(`ALTER TABLE tracks ADD COLUMN owner_id INTEGER REFERENCES artists(id)`);
-        console.log("📦 Migrated database: added owner_id column to tracks");
-        db.prepare("UPDATE tracks SET owner_id = artist_id WHERE owner_id IS NULL").run();
-    } catch (e) { }
-
-    // Migration: Add owner_id to releases if missing
-    try {
-        db.exec(`ALTER TABLE releases ADD COLUMN owner_id INTEGER REFERENCES artists(id)`);
-        console.log("📦 Migrated database: added owner_id column to releases");
-        db.prepare("UPDATE releases SET owner_id = artist_id WHERE owner_id IS NULL").run();
-    } catch (e) { }
-
-    // Migration: Add missing release fields
-    try {
-        db.exec(`ALTER TABLE releases ADD COLUMN type TEXT`);
-        console.log("📦 Migrated database: added type column to releases");
-    } catch (e) { }
-    try {
-        db.exec(`ALTER TABLE releases ADD COLUMN year INTEGER`);
-        console.log("📦 Migrated database: added year column to releases");
-    } catch (e) { }
-    try {
-        db.exec(`ALTER TABLE releases ADD COLUMN download TEXT`);
-        console.log("📦 Migrated database: added download column to releases");
-    } catch (e) { }
-    try {
-        db.exec(`ALTER TABLE releases ADD COLUMN price REAL DEFAULT 0`);
-        console.log("📦 Migrated database: added price column to releases");
-    } catch (e) { }
-    try {
-        db.exec(`ALTER TABLE releases ADD COLUMN currency TEXT DEFAULT 'ETH'`);
-        console.log("📦 Migrated database: added currency column to releases");
-    } catch (e) { }
-    try {
-        db.exec(`ALTER TABLE releases ADD COLUMN external_links TEXT`);
-        console.log("📦 Migrated database: added external_links column to releases");
-    } catch (e) { }
-
     // Migration: Add federation columns to releases if missing
     try {
         db.exec(`ALTER TABLE releases ADD COLUMN published_to_gundb INTEGER DEFAULT 0`);
@@ -1432,16 +1369,6 @@ export function createDatabase(dbPath: string): DatabaseService {
 
     return {
         db,
-        updateReleaseTracks(releaseId: number, toAdd: number[], toRemove: number[]): void {
-            // This is the old version used by some routes, we keep it for now but it should use addTrackToRelease/removeTrackFromRelease
-            for (const trackId of toAdd) {
-                this.addTrackToRelease(releaseId, trackId);
-            }
-            for (const trackId of toRemove) {
-                this.removeTrackFromRelease(releaseId, trackId);
-            }
-        },
-
         getReleaseTrackIds(releaseId: number): number[] {
             const rows = db.prepare("SELECT track_id FROM release_tracks WHERE release_id = ?").all(releaseId) as { track_id: number }[];
             return rows.map(r => r.track_id).filter(id => id !== null) as number[];

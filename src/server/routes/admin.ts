@@ -467,43 +467,51 @@ export function createAdminRoutes(
             // --- TRACKS UPDATE LOGIC ---
             if (body.track_ids && Array.isArray(body.track_ids)) {
                 const newTrackIds = body.track_ids.map((tid: any) => parseInt(tid, 10)).filter((tid: any) => !isNaN(tid));
-                console.log(`   - Processing ${newTrackIds.length} tracks for item ${id}`);
+                console.log(`   - Received ${newTrackIds.length} track IDs from frontend:`, newTrackIds);
                 
                 if (release) {
                     // Update formal release tracks
                     const existingTrackIds = database.getReleaseTrackIds(id);
+                    console.log(`   - Existing formal release tracks:`, existingTrackIds);
+
                     const toAdd = newTrackIds.filter((ntid: number) => !existingTrackIds.includes(ntid));
                     const toRemove = existingTrackIds.filter((etid: number) => !newTrackIds.includes(etid));
 
-                    console.log(`   - Release tracks: existing=${existingTrackIds.length}, toAdd=${toAdd.length}, toRemove=${toRemove.length}`);
+                    console.log(`   - Formal Release Sync: existing=${existingTrackIds.length}, toAdd=${toAdd.length}, toRemove=${toRemove.length}`);
 
                     for (const trackId of toAdd) {
+                        console.log(`     🔗 Adding track ${trackId} to formal release ${id}`);
                         database.addTrackToRelease(id, trackId);
                     }
                     for (const trackId of toRemove) {
+                        console.log(`     ✂️ Removing track ${trackId} from formal release ${id}`);
                         database.removeTrackFromRelease(id, trackId);
                     }
                     // Also update order if provided (preserving the list order)
+                    console.log(`     🔢 Updating track order for formal release ${id}:`, newTrackIds);
                     database.updateReleaseTracksOrder(id, newTrackIds);
                 } else if (album) {
                     // Update library album tracks
                     const existingTracks = database.getTracks(id);
                     const existingTrackIds = existingTracks.map(t => t.id);
+                    console.log(`   - Existing library album tracks:`, existingTrackIds);
                     
                     const toAdd = newTrackIds.filter((ntid: number) => !existingTrackIds.includes(ntid));
                     const toRemove = existingTrackIds.filter((etid: number) => !newTrackIds.includes(etid));
 
-                    console.log(`   - Album tracks: existing=${existingTrackIds.length}, toAdd=${toAdd.length}, toRemove=${toRemove.length}`);
+                    console.log(`   - Library Album Sync: existing=${existingTrackIds.length}, toAdd=${toAdd.length}, toRemove=${toRemove.length}`);
 
                     for (const trackId of toAdd) {
+                        console.log(`     🔗 Linking track ${trackId} to library album ${id}`);
                         database.updateTrackAlbum(trackId, id);
                     }
                     for (const trackId of toRemove) {
+                        console.log(`     ✂️ Unlinking track ${trackId} from library album ${id}`);
                         database.updateTrackAlbum(trackId, null);
                     }
 
                     // For library albums, we should also update the track_num in the tracks table to preserve reordering
-                    console.log(`   - Updating track order for ${newTrackIds.length} tracks in album ${id}`);
+                    console.log(`     🔢 Updating track order for library album ${id}`);
                     for (let i = 0; i < newTrackIds.length; i++) {
                         const trackId = newTrackIds[i];
                         database.updateTrackOrder(trackId, i + 1);
@@ -621,8 +629,7 @@ export function createAdminRoutes(
     });
 
     /**
-     * GET /api/admin/artists
-/:id/identity
+     * GET /api/admin/artists/:id/identity
      * Get artist identity keypair (Root Admin or Assigned Artist Admin only)
      */
     router.get("/artists/:id/identity", async (req: AuthenticatedRequest, res: any) => {
