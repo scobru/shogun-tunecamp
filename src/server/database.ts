@@ -1202,6 +1202,36 @@ export function createDatabase(dbPath: string): DatabaseService {
         db.prepare("UPDATE tracks SET owner_id = artist_id WHERE owner_id IS NULL").run();
     } catch (e) { }
 
+    // Migration: Add owner_id to releases if missing
+    try {
+        db.exec(`ALTER TABLE releases ADD COLUMN owner_id INTEGER REFERENCES artists(id)`);
+        console.log("📦 Migrated database: added owner_id column to releases");
+        db.prepare("UPDATE releases SET owner_id = artist_id WHERE owner_id IS NULL").run();
+    } catch (e) { }
+
+    // Migration: Add federation columns to releases if missing
+    try {
+        db.exec(`ALTER TABLE releases ADD COLUMN published_to_gundb INTEGER DEFAULT 0`);
+        console.log("📦 Migrated database: added published_to_gundb column to releases");
+    } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE releases ADD COLUMN published_to_ap INTEGER DEFAULT 0`);
+        console.log("📦 Migrated database: added published_to_ap column to releases");
+    } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE releases ADD COLUMN visibility TEXT DEFAULT 'private'`);
+        console.log("📦 Migrated database: added visibility column to releases");
+    } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE releases ADD COLUMN published_at TEXT`);
+        console.log("📦 Migrated database: added published_at column to releases");
+    } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE releases ADD COLUMN license TEXT`);
+        console.log("📦 Migrated database: added license column to releases");
+    } catch (e) { }
+
+
     // Migration: Add artist_name to albums and tracks if missing
     try {
         db.exec(`ALTER TABLE albums ADD COLUMN artist_name TEXT`);
@@ -1890,8 +1920,38 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         promoteToRelease(id: number): void {
-            db.prepare("UPDATE albums SET is_release = 1 WHERE id = ?").run(id);
+            const album = db.prepare("SELECT * FROM albums WHERE id = ?").get(id) as any;
+            if (!album) return;
+
+            db.transaction(() => {
+                // 1. Insert into releases
+                db.prepare(`
+                    INSERT OR IGNORE INTO releases (id, title, slug, artist_id, owner_id, date, cover_path, genre, description, type, year, download, price, currency, external_links, visibility, published_at, published_to_gundb, published_to_ap, license, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `).run(
+                    album.id, album.title, album.slug, album.artist_id, album.owner_id || album.artist_id,
+                    album.date, album.cover_path, album.genre, album.description, album.type, album.year,
+                    album.download, album.price, album.currency, album.external_links, album.visibility,
+                    album.published_at, album.published_to_gundb, album.published_to_ap, album.license, album.created_at
+                );
+
+                // 2. Migrate tracks
+                const tracks = db.prepare("SELECT * FROM tracks WHERE album_id = ?").all(id) as any[];
+                for (const track of tracks) {
+                    db.prepare(`
+                        INSERT OR IGNORE INTO release_tracks (release_id, track_id, title, artist_name, track_num, duration, file_path, price, currency, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `).run(
+                        id, track.id, track.title, track.artist_name, track.track_num, track.duration, 
+                        track.file_path, track.price, track.currency, track.created_at
+                    );
+                }
+
+                // 3. Mark as release in albums table
+                db.prepare("UPDATE albums SET is_release = 1 WHERE id = ?").run(id);
+            })();
         },
+
 
         deleteAlbum(id: number, keepTracks = false): void {
             // Delete from release_tracks join table

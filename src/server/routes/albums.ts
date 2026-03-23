@@ -135,7 +135,10 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 return res.status(404).json({ error: "Album not found" });
             }
 
-            const tracks = database.getTracksByReleaseId(album.id);
+            const isFormalRelease = album.is_release === true || album.is_release === 1 || !('is_release' in album);
+            const tracks = isFormalRelease 
+                ? database.getTracksByReleaseId(album.id)
+                : database.getTracks(album.id);
 
             // Map tracks to include album cover info for the player
             const mappedTracks = tracks.map(t => ({
@@ -180,28 +183,18 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 return res.send(svg);
             }
 
-            // Note: Cover images are accessible regardless of album visibility
-            // This allows showing covers in player even for private albums
-
             // Verify file existence
             const resolvedPath = path.join(musicDir, album.cover_path);
 
-
-            console.log(`🖼️ [Debug] Serving album cover: ${resolvedPath}`);
             if (!await fs.pathExists(resolvedPath)) {
-                console.warn(`⚠️ [Debug] Album cover not found at: ${resolvedPath}`);
                 const svg = getPlaceholderSVG(album.title);
                 res.setHeader("Content-Type", "image/svg+xml");
                 res.setHeader("Cache-Control", "public, max-age=0");
                 return res.send(svg);
             }
 
-            // Use res.sendFile to handle ETag/Last-Modified and correct Content-Type automatically
-            // Cache for 24 hours (86400000ms)
-            // Frontend uses cache busting (?v=timestamp) when covers change, so we can safely cache.
             res.sendFile(path.resolve(resolvedPath), { maxAge: 86400000 }, (err) => {
                 if (err && !res.headersSent) {
-                    console.error(`❌ [Debug] Error sending file: ${err}`);
                     res.status(500).end();
                 }
             });
@@ -248,13 +241,15 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 if (validation.releaseId && validation.releaseId !== album.id) {
                     return res.status(403).json({ error: "Code is for a different release" });
                 }
-                // Optional: Check if already used? For now, we allow re-download or multi-use.
-                // Log redemption
                 database.redeemUnlockCode(code);
             }
 
             // Get tracks for this album/release
-            const tracks = database.getTracks(album.id);
+            const isFormalRelease = album.is_release === true || album.is_release === 1 || !('is_release' in album);
+            const tracks = isFormalRelease 
+                ? database.getTracksByReleaseId(album.id)
+                : database.getTracks(album.id);
+
             if (!tracks || tracks.length === 0) {
                 return res.status(404).json({ error: "No tracks found" });
             }
@@ -282,7 +277,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             }
 
 
-            // For multiple tracks, create a simple sequential download
+            // For multiple tracks, create a ZIP
             const archiver = await import("archiver");
             const archive = archiver.default("zip", { zlib: { level: 5 } });
 
@@ -292,9 +287,8 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             archive.pipe(res);
 
             for (const track of tracks) {
-                // Use lossless path if requested and available, fallback to primary path
                 const trackFile = (useLossless && track.lossless_path) ? track.lossless_path : track.file_path;
-                if (!trackFile) continue; // Skip external tracks in ZIP
+                if (!trackFile) continue;
                 const trackPath = path.join(musicDir, trackFile);
 
                 if (await fs.pathExists(trackPath)) {
