@@ -1,4 +1,4 @@
-import type { DatabaseService, Album, Post, Track } from "./database.js";
+import type { DatabaseService, Album, Post, Track, Release } from "./database.js";
 import type { GunDBService, SiteInfo } from "./gundb.js";
 import type { ActivityPubService } from "./activitypub.js";
 import type { ServerConfig } from "./config.js";
@@ -35,55 +35,54 @@ export class PublishingService {
 
     /**
      * Publishes a release to GunDB.
-     * Note: This also registers the site if needed.
      */
-    async publishReleaseToGunDB(album: Album): Promise<void> {
-        const siteInfo = this.getSiteInfo(album.artist_name);
+    async publishReleaseToGunDB(release: Release): Promise<void> {
+        const siteInfo = this.getSiteInfo(release.artist_name);
         if (!siteInfo) {
             console.warn("⚠️ Cannot publish to GunDB: No public URL configured.");
             return;
         }
 
-        console.log(`🚀 Publishing release "${album.title}" to GunDB...`);
+        console.log(`🚀 Publishing release "${release.title}" to GunDB...`);
 
         // Ensure site is registered first
         await this.gundb.registerSite(siteInfo);
 
-        // Register tracks
-        const tracks = this.db.getTracksByReleaseId(album.id);
-        await this.gundb.registerTracks(siteInfo, album, tracks);
+        // Register tracks (this uses the decoupled metadata)
+        const tracks = this.db.getTracksByReleaseId(release.id);
+        await this.gundb.registerTracks(siteInfo, release as any, tracks);
     }
 
     /**
      * Removes a release from GunDB.
      */
-    async unpublishReleaseFromGunDB(album: Album): Promise<void> {
-        const siteInfo = this.getSiteInfo(album.artist_name);
-        if (!siteInfo) return; // Can't unpublish if we don't know where we are, but usually safe to ignore
+    async unpublishReleaseFromGunDB(release: Release): Promise<void> {
+        const siteInfo = this.getSiteInfo(release.artist_name);
+        if (!siteInfo) return;
 
-        console.log(`🗑️ Unpublishing release "${album.title}" from GunDB...`);
-        await this.gundb.unregisterTracks(siteInfo, album);
+        console.log(`🗑️ Unpublishing release "${release.title}" from GunDB...`);
+        await this.gundb.unregisterTracks(siteInfo, release as any);
     }
 
     /**
      * Broadcasts a release via ActivityPub.
      */
-    async publishReleaseToAP(album: Album): Promise<void> {
+    async publishReleaseToAP(release: Release): Promise<void> {
         if (!this.getSiteInfo()) {
             console.warn("⚠️ Cannot publish to ActivityPub: No public URL configured.");
             return;
         }
 
-        console.log(`📢 Broadcasting release "${album.title}" via ActivityPub...`);
+        console.log(`📢 Broadcasting release "${release.title}" via ActivityPub...`);
         try {
-            await this.ap.broadcastRelease(album);
+            await this.ap.broadcastRelease(release as any);
 
-            // Also announce to relay for global discovery (mirroring GunDB registry)
-            if (album.artist_id) {
-                const artist = this.db.getArtist(album.artist_id);
+            // Also announce to relay for global discovery
+            if (release.artist_id) {
+                const artist = this.db.getArtist(release.artist_id);
                 if (artist) {
-                    const tracks = this.db.getTracksByReleaseId(album.id);
-                    const note = this.ap.generateNote(album, artist, tracks);
+                    const tracks = this.db.getTracksByReleaseId(release.id);
+                    const note = this.ap.generateNote(release as any, artist, tracks);
                     await this.ap.announceToRelay(note);
                 }
             }
@@ -95,10 +94,10 @@ export class PublishingService {
     /**
      * Broadcasts a deletion of a release via ActivityPub.
      */
-    async unpublishReleaseFromAP(album: Album): Promise<void> {
-        console.log(`🗑️ Broadcasting deletion of release "${album.title}" via ActivityPub...`);
+    async unpublishReleaseFromAP(release: Release): Promise<void> {
+        console.log(`🗑️ Broadcasting deletion of release "${release.title}" via ActivityPub...`);
         try {
-            await this.ap.broadcastDelete(album);
+            await this.ap.broadcastDelete(release as any);
         } catch (e) {
             console.error("❌ Failed to broadcast release deletion via ActivityPub:", e);
         }
@@ -106,30 +105,33 @@ export class PublishingService {
 
     /**
      * Synchronizes a release's published state based on its visibility and federation flags.
-     * This is the main entry point for updates.
      */
-    async syncRelease(albumId: number): Promise<void> {
-        const album = this.db.getAlbum(albumId);
-        if (!album) return;
+    async syncRelease(releaseId: number): Promise<void> {
+        const release = this.db.getRelease(releaseId);
+        if (!release) {
+            // Check if it's a legacy album
+            const album = this.db.getAlbum(releaseId);
+            if (album && album.is_release) {
+                 // Should have been migrated, but let's handle it for safety
+                 console.warn(`⚠️ syncRelease: Album ${releaseId} is marked as release but not found in releases table.`);
+            }
+            return;
+        }
 
-        const isPublic = album.visibility === 'public' || album.visibility === 'unlisted';
+        const isPublic = release.visibility === 'public' || release.visibility === 'unlisted';
 
         // GunDB Logic
-        if (isPublic && album.published_to_gundb) {
-            await this.publishReleaseToGunDB(album);
+        if (isPublic && release.published_to_gundb) {
+            await this.publishReleaseToGunDB(release);
         } else {
-            // If it's private OR published_to_gundb is false, ensure it's removed
-            await this.unpublishReleaseFromGunDB(album);
+            await this.unpublishReleaseFromGunDB(release);
         }
 
         // ActivityPub Logic
-        if (isPublic && album.published_to_ap) {
-            await this.publishReleaseToAP(album);
+        if (isPublic && release.published_to_ap) {
+            await this.publishReleaseToAP(release);
         } else {
-            // If it's private OR published_to_ap is false, ensure deletion is broadcast
-            // Note: If it was never published, this might send an unnecessary delete,
-            // but AP service handles "no followers" or "no note found" gracefully.
-            await this.unpublishReleaseFromAP(album);
+            await this.unpublishReleaseFromAP(release);
         }
 
         // Trigger network sync to clean up any orphaned data in GunDB
@@ -138,13 +140,8 @@ export class PublishingService {
 
     // --- Posts ---
 
-    /**
-     * Broadcasts a post via ActivityPub.
-     * Note: Posts are currently only federated via ActivityPub, not GunDB.
-     */
     async publishPostToAP(post: Post): Promise<void> {
         if (post.visibility !== 'public') return;
-
         console.log(`📢 Broadcasting post "${post.slug}" via ActivityPub...`);
         try {
             await this.ap.broadcastPost(post);
@@ -153,9 +150,6 @@ export class PublishingService {
         }
     }
 
-    /**
-     * Broadcasts a deletion of a post via ActivityPub.
-     */
     async unpublishPostFromAP(post: Post): Promise<void> {
         console.log(`🗑️ Broadcasting deletion of post "${post.slug}" via ActivityPub...`);
         try {
@@ -165,9 +159,6 @@ export class PublishingService {
         }
     }
 
-    /**
-     * Synchronizes a post's published state.
-     */
     async syncPost(postId: number): Promise<void> {
         const post = this.db.getPost(postId);
         if (!post) return;
@@ -179,10 +170,6 @@ export class PublishingService {
         }
     }
 
-    /**
-     * Automatically discovers other Tunecamp instances via GunDB 
-     * and follows their Site Actor via ActivityPub to create a decentralized mesh.
-     */
     async syncCommunityFollows(): Promise<{ discovered: number, followed: number }> {
         console.log("🌐 Starting decentralized community discovery via GunDB...");
         
@@ -193,9 +180,8 @@ export class PublishingService {
         }
 
         try {
-            // 1. Get all sites registered in the GunDB community
             const sites = await this.gundb.getCommunitySites();
-            const myUrl = publicUrl.replace(/\/$/, ""); // Normalize
+            const myUrl = publicUrl.replace(/\/$/, "");
             
             let followedCount = 0;
             const remoteActors = this.db.getRemoteActors();
@@ -203,18 +189,9 @@ export class PublishingService {
 
             for (const site of sites) {
                 if (!site.url) continue;
-                
                 const siteUrl = site.url.replace(/\/$/, "");
-                
-                // Skip self
-                if (siteUrl === myUrl || siteUrl.includes("localhost") || siteUrl.includes("127.0.0.1")) {
-                    continue;
-                }
-
-                // The Site Actor URI for a Tunecamp instance is always /users/site
+                if (siteUrl === myUrl || siteUrl.includes("localhost") || siteUrl.includes("127.0.0.1")) continue;
                 const siteActorUri = `${siteUrl}/users/site`;
-                
-                // If we haven't interacted with this actor yet, follow it
                 if (!existingUris.has(siteActorUri)) {
                     console.log(`📡 Discovered new instance: ${site.title} (${siteUrl}). Sending follow request...`);
                     try {
@@ -225,8 +202,6 @@ export class PublishingService {
                     }
                 }
             }
-
-            console.log(`✅ Community sync complete. Discovered ${sites.length} sites, followed ${followedCount} new instances.`);
             return { discovered: sites.length, followed: followedCount };
         } catch (error) {
             console.error("❌ Error during community follow sync:", error);

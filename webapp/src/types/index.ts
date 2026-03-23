@@ -1,29 +1,82 @@
 export interface Track {
-    id: string;
+    id: string | number;
     title: string;
-    artistId: string;
+    artistId: string | number;
     artistName?: string;
-    albumId: string;
+    artist_name?: string;
+    albumId: string | number;
     albumName?: string;
+    album_title?: string;
     albumDownload?: string;
     albumVisibility?: string;
     albumPrice?: number;
     duration: number;
     path: string;
+    file_path?: string;
     filename: string;
     format?: string;
     codec?: string;
     bitrate?: number;
     size?: number;
     losslessPath?: string;
+    lossless_path?: string;
     playCount: number;
     liked?: boolean;
     coverImage?: string; // helpers
-    waveform?: number[]; // or string
+    waveform?: number[] | string;
     lyrics?: string;
     streamUrl?: string; // For remote/network tracks
     coverUrl?: string; // For remote/network tracks
     walletAddress?: string;
+    price?: number;
+    currency?: 'ETH' | 'USD';
+    track_num?: number;
+}
+
+export interface ReleaseTrack {
+    id: number;
+    release_id: number;
+    track_id: number | null;
+    title: string;
+    artist_name: string | null;
+    track_num: number | null;
+    duration: number | null;
+    file_path: string | null;
+    price: number | null;
+    currency: 'ETH' | 'USD';
+    created_at: string;
+}
+
+export interface Release {
+    id: string | number;
+    title: string;
+    slug: string;
+    artistId?: string | number;
+    artist_id?: string | number;
+    artistName?: string;
+    artist_name?: string;
+    artistSlug?: string;
+    artist_slug?: string;
+    coverPath?: string;
+    cover_path?: string;
+    date?: string;
+    description?: string;
+    genre?: string;
+    type?: 'album' | 'single' | 'ep';
+    year?: number;
+    download?: 'free' | 'paid' | 'codes';
+    price?: number;
+    currency?: 'ETH' | 'USD';
+    external_links?: string;
+    visibility: 'public' | 'private' | 'unlisted';
+    published_at?: string;
+    published_to_gundb?: boolean;
+    published_to_ap?: boolean;
+    license?: string;
+    tracks?: Track[]; // Compat with existing code
+    release_tracks?: ReleaseTrack[];
+    downloadCount?: number;
+    unlockCodeCount?: number;
 }
 
 export interface Artist {
@@ -113,12 +166,6 @@ export interface SiteSettings {
     gunPeers?: string;
     web3_checkout_address?: string;
     web3_nft_address?: string;
-}
-
-export interface Release extends Album {
-    downloadCount: number;
-    unlockCodeCount: number;
-    visibility: 'public' | 'private' | 'unlisted';
 }
 
 export interface Post {

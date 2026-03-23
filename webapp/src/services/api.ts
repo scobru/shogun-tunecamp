@@ -144,6 +144,7 @@ export const API = {
 
     // --- Admin: Releases & Content ---
     getAdminReleases: (options: { mine?: boolean } = {}) => handleResponse(api.get<Release[]>(`/admin/releases${options.mine ? '?mine=true' : ''}`)),
+    getRelease: (id: string | number) => handleResponse(api.get<Release>(`/admin/releases/${id}`)),
     createRelease: (data: Partial<Release>) => handleResponse(api.post<Release>('/admin/releases', data)),
     updateRelease: (id: string, data: Partial<Release>) => handleResponse(api.put<Release>(`/admin/releases/${id}`, data)),
     deleteRelease: (id: string, keepFiles = false) =>

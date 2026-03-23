@@ -12,6 +12,10 @@ export function createCatalogRoutes(database: DatabaseService): Router {
     router.get("/", async (req: AuthenticatedRequest, res) => {
         try {
             const stats = await database.getStats();
+            const recentReleases = database
+                .getReleases(req.isAdmin !== true)
+                .slice(0, 10);
+            
             const recentAlbums = database
                 .getAlbums(req.isAdmin !== true)
                 .slice(0, 10);
@@ -35,6 +39,7 @@ export function createCatalogRoutes(database: DatabaseService): Router {
 
             res.json({
                 stats: publicStats,
+                recentReleases,
                 recentAlbums,
             });
         } catch (error) {

@@ -145,7 +145,7 @@ export default function AdminReleaseEditor() {
   const loadRelease = async (releaseId: number) => {
     setLoading(true);
     try {
-      const data: any = await API.getAlbum(releaseId);
+      const data: any = await API.getRelease(releaseId);
       setMetadata({
         id: parseInt(data.id),
         title: data.title,
@@ -175,7 +175,7 @@ export default function AdminReleaseEditor() {
       if (data.tracks) {
         setTracks(
           data.tracks.sort(
-            (a: any, b: any) => (a.position || 0) - (b.position || 0),
+            (a: any, b: any) => (a.track_num || a.position || 0) - (b.track_num || b.position || 0),
           ),
         );
       }

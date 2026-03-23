@@ -105,6 +105,46 @@ export interface Track {
     created_at: string;
 }
 
+export interface Release {
+    id: number;
+    title: string;
+    slug: string;
+    artist_id: number | null;
+    owner_id: number | null;
+    artist_name?: string;
+    artist_slug?: string;
+    date: string | null;
+    cover_path: string | null;
+    genre: string | null;
+    description: string | null;
+    type: 'album' | 'single' | 'ep' | null;
+    year: number | null;
+    download: string | null;
+    price: number | null;
+    currency: 'ETH' | 'USD';
+    external_links: string | null;
+    visibility: 'public' | 'private' | 'unlisted';
+    published_at: string | null;
+    published_to_gundb: boolean;
+    published_to_ap: boolean;
+    license?: string | null;
+    created_at: string;
+}
+
+export interface ReleaseTrack {
+    id: number;
+    release_id: number;
+    track_id: number | null; // Reference to library track (nullable if deleted)
+    title: string;
+    artist_name: string | null;
+    track_num: number | null;
+    duration: number | null;
+    file_path: string | null;
+    price: number | null;
+    currency: 'ETH' | 'USD';
+    created_at: string;
+}
+
 
 function mapAlbum(row: any): Album | undefined {
     if (!row) return undefined;
@@ -232,9 +272,27 @@ export interface DatabaseService {
     removeFollower(artistId: number, actorUri: string): void;
     getFollowers(artistId: number): Follower[];
     getFollower(artistId: number, actorUri: string): Follower | undefined;
-    // Albums
+    // Releases (New watertight compartment)
+    getReleases(publicOnly?: boolean): Release[];
+    getRelease(id: number): Release | undefined;
+    getReleaseBySlug(slug: string): Release | undefined;
+    getReleasesByArtist(artistId: number, publicOnly?: boolean): Release[];
+    getReleasesByOwner(ownerId: number, publicOnly?: boolean): Release[];
+    createRelease(release: Omit<Release, "id" | "created_at" | "artist_name" | "artist_slug">): number;
+    updateRelease(id: number, release: Partial<Release>): void;
+    deleteRelease(id: number): void;
+    
+    // Release Tracks
+    getReleaseTracks(releaseId: number): ReleaseTrack[];
+    getReleaseTrack(id: number): ReleaseTrack | undefined;
+    addTrackToRelease(releaseId: number, trackId: number, metadata?: Partial<ReleaseTrack>): number;
+    updateReleaseTrack(id: number, metadata: Partial<ReleaseTrack>): void;
+    removeTrackFromRelease(releaseId: number, trackId: number): void; // Old version by IDs
+    deleteReleaseTrack(id: number): void; // New version by record ID
+    updateReleaseTracksOrder(releaseId: number, trackIds: number[]): void;
+
+    // Legacy/Library Albums
     getAlbums(publicOnly?: boolean): Album[];
-    getReleases(publicOnly?: boolean): Album[]; // is_release=1
     getLibraryAlbums(): Album[]; // is_release=0
     getAlbum(id: number): Album | undefined;
     getAlbumsByIds(ids: number[]): Album[];
@@ -520,11 +578,44 @@ export function createDatabase(dbPath: string): DatabaseService {
       PRIMARY KEY (playlist_id, track_id)
     );
 
-    CREATE TABLE IF NOT EXISTS release_tracks (
-      release_id INTEGER REFERENCES albums(id) ON DELETE CASCADE,
-      track_id INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
-      PRIMARY KEY (release_id, track_id)
+    CREATE TABLE IF NOT EXISTS releases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      artist_id INTEGER REFERENCES artists(id),
+      owner_id INTEGER REFERENCES artists(id),
+      date TEXT,
+      cover_path TEXT,
+      genre TEXT,
+      description TEXT,
+      type TEXT,
+      year INTEGER,
+      download TEXT,
+      price REAL DEFAULT 0,
+      currency TEXT DEFAULT 'ETH',
+      external_links TEXT,
+      visibility TEXT DEFAULT 'private',
+      published_at TEXT,
+      published_to_gundb INTEGER DEFAULT 0,
+      published_to_ap INTEGER DEFAULT 0,
+      license TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS release_tracks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      release_id INTEGER REFERENCES releases(id) ON DELETE CASCADE,
+      track_id INTEGER REFERENCES tracks(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      artist_name TEXT,
+      track_num INTEGER,
+      duration REAL,
+      file_path TEXT,
+      price REAL DEFAULT 0,
+      currency TEXT DEFAULT 'ETH',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_release_tracks_release_id ON release_tracks(release_id);
     CREATE INDEX IF NOT EXISTS idx_release_tracks_track_id ON release_tracks(track_id);
 
 
@@ -694,11 +785,61 @@ export function createDatabase(dbPath: string): DatabaseService {
     CREATE INDEX IF NOT EXISTS idx_album_ownership_owner ON album_ownership(owner_id);
   `);
 
-    // Migration: Add hash column to tracks
+    // Migration: Move existing releases from 'albums' to 'releases' table
     try {
-        db.exec(`ALTER TABLE tracks ADD COLUMN hash TEXT`);
-        console.log("📦 Migrated database: added hash column to tracks");
-    } catch (e) { }
+        const releaseCount = (db.prepare("SELECT COUNT(*) as count FROM releases").get() as { count: number }).count;
+        if (releaseCount === 0) {
+            const oldReleases = db.prepare("SELECT * FROM albums WHERE is_release = 1").all() as any[];
+            if (oldReleases.length > 0) {
+                console.log(`📦 Migrating ${oldReleases.length} releases to new structure...`);
+                db.transaction(() => {
+                    for (const album of oldReleases) {
+                        // 1. Insert into releases
+                        const res = db.prepare(`
+                            INSERT INTO releases (id, title, slug, artist_id, owner_id, date, cover_path, genre, description, type, year, download, price, currency, external_links, visibility, published_at, published_to_gundb, published_to_ap, license, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `).run(
+                            album.id, album.title, album.slug, album.artist_id, album.owner_id || album.artist_id,
+                            album.date, album.cover_path, album.genre, album.description, album.type, album.year,
+                            album.download, album.price, album.currency, album.external_links, album.visibility,
+                            album.published_at, album.published_to_gundb, album.published_to_ap, album.license, album.created_at
+                        );
+
+                        // 2. Migrate tracks
+                        // We need to find tracks associated with this album. 
+                        // In the old system, they were in 'release_tracks' referencing albums(id) OR just tracks with album_id.
+                        // Actually, if is_release=1, the tracks were linked via release_tracks.
+                        const oldTracks = db.prepare(`
+                            SELECT t.* FROM tracks t
+                            JOIN release_tracks rt ON t.id = rt.track_id
+                            WHERE rt.release_id = ?
+                        `).all(album.id) as any[];
+
+                        // But wait, the old 'release_tracks' table might have been dropped or renamed if I'm not careful.
+                        // Actually, I haven't dropped it yet.
+                        
+                        for (const track of oldTracks) {
+                            db.prepare(`
+                                INSERT INTO release_tracks (release_id, track_id, title, artist_name, track_num, duration, file_path, price, currency, created_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            `).run(
+                                album.id, track.id, track.title, track.artist_name, track.track_num, track.duration, 
+                                track.file_path, track.price, track.currency, track.created_at
+                            );
+                        }
+                    }
+
+                    // 3. Migrate unlock_codes
+                    // They already point to the ID which is now in 'releases' (we preserved IDs).
+                    // But we might want to update the table definition later.
+                    
+                    console.log("✅ Migration complete: releases moved to separate compartment.");
+                })();
+            }
+        }
+    } catch (e) {
+        console.error("Migration error (releases):", e);
+    }
 
 
     // Migration: Add is_release column if it doesn't exist
@@ -1171,29 +1312,244 @@ export function createDatabase(dbPath: string): DatabaseService {
     return {
         db,
         updateReleaseTracks(releaseId: number, toAdd: number[], toRemove: number[]): void {
-            updateReleaseTracksTransaction(releaseId, toAdd, toRemove);
+            // This is the old version used by some routes, we keep it for now but it should use addTrackToRelease/removeTrackFromRelease
+            for (const trackId of toAdd) {
+                this.addTrackToRelease(releaseId, trackId);
+            }
+            for (const trackId of toRemove) {
+                this.removeTrackFromRelease(releaseId, trackId);
+            }
         },
 
         getReleaseTrackIds(releaseId: number): number[] {
-            const rows = getReleaseTrackIdsStmt.all(releaseId) as { track_id: number }[];
-            return rows.map(r => r.track_id);
+            const rows = db.prepare("SELECT track_id FROM release_tracks WHERE release_id = ?").all(releaseId) as { track_id: number }[];
+            return rows.map(r => r.track_id).filter(id => id !== null) as number[];
+        },
+
+        // Releases (Watertight compartment)
+        getReleases(publicOnly = false): Release[] {
+            const sql = publicOnly
+                ? `SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM releases r
+                   LEFT JOIN artists ar ON r.artist_id = ar.id
+                   WHERE r.visibility = 'public' ORDER BY r.date DESC`
+                : `SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM releases r
+                   LEFT JOIN artists ar ON r.artist_id = ar.id
+                   ORDER BY r.date DESC`;
+            return db.prepare(sql).all() as any[];
+        },
+
+        getRelease(id: number): Release | undefined {
+            const row = db.prepare(`
+                SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM releases r
+                LEFT JOIN artists ar ON r.artist_id = ar.id
+                WHERE r.id = ?
+            `).get(id);
+            if (!row) return undefined;
+            return {
+                ...row,
+                published_to_gundb: !!row.published_to_gundb,
+                published_to_ap: !!row.published_to_ap
+            } as any;
+        },
+
+        getReleaseBySlug(slug: string): Release | undefined {
+            const row = db.prepare(`
+                SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM releases r
+                LEFT JOIN artists ar ON r.artist_id = ar.id
+                WHERE r.slug = ?
+            `).get(slug);
+            if (!row) return undefined;
+            return {
+                ...row,
+                published_to_gundb: !!row.published_to_gundb,
+                published_to_ap: !!row.published_to_ap
+            } as any;
+        },
+
+        getReleasesByArtist(artistId: number, publicOnly = false): Release[] {
+            const sql = publicOnly
+                ? `SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM releases r
+                   LEFT JOIN artists ar ON r.artist_id = ar.id
+                   WHERE r.artist_id = ? AND r.visibility = 'public' ORDER BY r.date DESC`
+                : `SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM releases r
+                   LEFT JOIN artists ar ON r.artist_id = ar.id
+                   WHERE r.artist_id = ? ORDER BY r.date DESC`;
+            return db.prepare(sql).all(artistId) as any[];
+        },
+
+        getReleasesByOwner(ownerId: number, publicOnly = false): Release[] {
+            const sql = publicOnly
+                ? `SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM releases r
+                   LEFT JOIN artists ar ON r.artist_id = ar.id
+                   WHERE r.owner_id = ? AND r.visibility = 'public' ORDER BY r.date DESC`
+                : `SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM releases r
+                   LEFT JOIN artists ar ON r.artist_id = ar.id
+                   WHERE r.owner_id = ? ORDER BY r.date DESC`;
+            return db.prepare(sql).all(ownerId) as any[];
+        },
+
+        createRelease(release: Omit<Release, "id" | "created_at" | "artist_name" | "artist_slug">): number {
+            const slug = release.slug || release.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "release";
+            let finalSlug = slug;
+            let attempt = 0;
+            while (attempt < 100) {
+                try {
+                    const result = db.prepare(`
+                        INSERT INTO releases (title, slug, artist_id, owner_id, date, cover_path, genre, description, type, year, download, price, currency, external_links, visibility, published_at, published_to_gundb, published_to_ap, license)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `).run(
+                        release.title, finalSlug, release.artist_id, release.owner_id || release.artist_id,
+                        release.date, release.cover_path, release.genre, release.description, release.type, release.year,
+                        release.download, release.price || 0, release.currency || 'ETH', release.external_links,
+                        release.visibility || 'private', release.published_at, 
+                        release.published_to_gundb ? 1 : 0, release.published_to_ap ? 1 : 0,
+                        release.license
+                    );
+                    return result.lastInsertRowid as number;
+                } catch (e: any) {
+                    if (e.code === "SQLITE_CONSTRAINT_UNIQUE" && e.message.includes("slug")) {
+                        attempt++;
+                        finalSlug = `${slug}-${attempt}`;
+                    } else {
+                        throw e;
+                    }
+                }
+            }
+            throw new Error("Could not create unique slug for release");
+        },
+
+        updateRelease(id: number, release: Partial<Release>): void {
+            const fields: string[] = [];
+            const values: any[] = [];
+
+            for (const [key, value] of Object.entries(release)) {
+                if (key === 'id' || key === 'created_at' || key === 'artist_name' || key === 'artist_slug') continue;
+                fields.push(`${key} = ?`);
+                if (key === 'published_to_gundb' || key === 'published_to_ap') {
+                    values.push(value ? 1 : 0);
+                } else {
+                    values.push(value);
+                }
+            }
+
+            if (fields.length === 0) return;
+
+            values.push(id);
+            db.prepare(`UPDATE releases SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+        },
+
+        deleteRelease(id: number): void {
+            db.transaction(() => {
+                db.prepare("DELETE FROM release_tracks WHERE release_id = ?").run(id);
+                db.prepare("DELETE FROM unlock_codes WHERE release_id = ?").run(id);
+                db.prepare("DELETE FROM releases WHERE id = ?").run(id);
+            })();
+        },
+
+        // Release Tracks
+        getReleaseTracks(releaseId: number): ReleaseTrack[] {
+            return db.prepare("SELECT * FROM release_tracks WHERE release_id = ? ORDER BY track_num").all(releaseId) as any[];
+        },
+
+        getReleaseTrack(id: number): ReleaseTrack | undefined {
+            return db.prepare("SELECT * FROM release_tracks WHERE id = ?").get(id) as any;
         },
 
         getTracksByReleaseId(releaseId: number): Track[] {
-            return db
-                .prepare(
-                    `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, 
-                    COALESCE(ar_t.id, ar_a.id) as artist_id,
-                    COALESCE(ar_t.name, ar_a.name) as artist_name, 
-                    COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress
-            FROM tracks t
-           JOIN release_tracks rt ON t.id = rt.track_id
-           LEFT JOIN albums a ON t.album_id = a.id
-           LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
-           LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-           WHERE rt.release_id = ?`
-                )
-                .all(releaseId) as Track[];
+            // This returns Track objects but with metadata from the release_tracks table (decoupled)
+            return db.prepare(`
+                SELECT 
+                    t.id,
+                    rt.title as title,
+                    t.album_id,
+                    r.title as album_title,
+                    r.download as album_download,
+                    r.visibility as album_visibility,
+                    r.price as album_price,
+                    r.artist_id as artist_id,
+                    rt.artist_name as artist_name,
+                    ar.wallet_address as walletAddress,
+                    r.owner_id as owner_id,
+                    rt.track_num as track_num,
+                    rt.duration as duration,
+                    t.file_path,
+                    t.format,
+                    t.bitrate,
+                    t.sample_rate,
+                    rt.price as price,
+                    rt.currency as currency,
+                    t.waveform,
+                    t.url,
+                    t.service,
+                    t.external_artwork,
+                    t.lyrics,
+                    t.created_at
+                FROM release_tracks rt
+                JOIN releases r ON rt.release_id = r.id
+                LEFT JOIN tracks t ON rt.track_id = t.id
+                LEFT JOIN artists ar ON r.artist_id = ar.id
+                WHERE rt.release_id = ?
+                ORDER BY rt.track_num
+            `).all(releaseId) as any[];
+        },
+
+        addTrackToRelease(releaseId: number, trackId: number, metadata?: Partial<ReleaseTrack>): number {
+            // Get base metadata from library track if not provided
+            const libraryTrack = trackId ? this.getTrack(trackId) : null;
+
+            const title = metadata?.title || libraryTrack?.title || "Unknown Track";
+            const artistName = metadata?.artist_name || libraryTrack?.artist_name || null;
+            const duration = metadata?.duration || libraryTrack?.duration || 0;
+            const filePath = metadata?.file_path || libraryTrack?.file_path || null;
+            const price = metadata?.price || 0;
+            const currency = metadata?.currency || 'ETH';
+
+            // Auto-calculate track_num if not provided
+            let trackNum = metadata?.track_num;
+            if (trackNum === undefined) {
+                const maxNum = db.prepare("SELECT MAX(track_num) as max FROM release_tracks WHERE release_id = ?").get(releaseId) as { max: number | null };
+                trackNum = (maxNum.max || 0) + 1;
+            }
+
+            const result = db.prepare(`
+                INSERT INTO release_tracks (release_id, track_id, title, artist_name, track_num, duration, file_path, price, currency)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(releaseId, trackId || null, title, artistName, trackNum, duration, filePath, price, currency);
+
+            return result.lastInsertRowid as number;
+        },
+
+        updateReleaseTrack(id: number, metadata: Partial<ReleaseTrack>): void {
+            const fields: string[] = [];
+            const values: any[] = [];
+
+            for (const [key, value] of Object.entries(metadata)) {
+                if (key === 'id' || key === 'release_id' || key === 'created_at') continue;
+                fields.push(`${key} = ?`);
+                values.push(value);
+            }
+
+            if (fields.length === 0) return;
+
+            values.push(id);
+            db.prepare(`UPDATE release_tracks SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+        },
+
+        removeTrackFromRelease(releaseId: number, trackId: number): void {
+            db.prepare("DELETE FROM release_tracks WHERE release_id = ? AND track_id = ?").run(releaseId, trackId);
+        },
+
+        deleteReleaseTrack(id: number): void {
+            db.prepare("DELETE FROM release_tracks WHERE id = ?").run(id);
+        },
+
+        updateReleaseTracksOrder(releaseId: number, trackIds: number[]): void {
+            db.transaction(() => {
+                const stmt = db.prepare("UPDATE release_tracks SET track_num = ? WHERE release_id = ? AND track_id = ?");
+                trackIds.forEach((trackId, index) => {
+                    stmt.run(index + 1, releaseId, trackId);
+                });
+            })();
         },
 
         // OAuth
@@ -1321,41 +1677,32 @@ export function createDatabase(dbPath: string): DatabaseService {
             return db.prepare("SELECT * FROM followers WHERE artist_id = ? AND actor_uri = ?").get(artistId, actorUri) as Follower | undefined;
         },
 
-        // Albums
+        // Albums (Library)
         getAlbums(publicOnly = false): Album[] {
             const sql = publicOnly
-                ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
+                ? `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
-           WHERE a.visibility = 'public' ORDER BY a.date DESC`
-                : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
+           WHERE a.is_release = 0 AND a.visibility = 'public' ORDER BY a.date DESC`
+                : `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
-           ORDER BY a.date DESC`;
-            return db.prepare(sql).all() as Album[];
-        },
-
-        getReleases(publicOnly = false): Album[] {
-            const sql = publicOnly
-                ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
-           LEFT JOIN artists ar ON a.artist_id = ar.id 
-           WHERE a.is_release = 1 AND a.visibility = 'public' ORDER BY a.date DESC`
-                : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
-           LEFT JOIN artists ar ON a.artist_id = ar.id 
-           WHERE a.is_release = 1 ORDER BY a.date DESC`;
+           WHERE a.is_release = 0 ORDER BY a.date DESC`;
             return db.prepare(sql).all() as Album[];
         },
 
         getLibraryAlbums(): Album[] {
             const rows = db.prepare(
-                `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
+                `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.is_release = 0 ORDER BY a.title`
             ).all();
             return mapAlbums(rows);
         },
 
-
         getAlbum(id: number): Album | undefined {
-            const row = getAlbumStmt.get(id);
+            const row = db.prepare(`SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
+                   LEFT JOIN artists ar ON a.artist_id = ar.id
+                   WHERE a.id = ?`).get(id);
+            if (!row || row.is_release) return undefined; // Only return library albums
             return mapAlbum(row);
         },
 
@@ -1366,9 +1713,9 @@ export function createDatabase(dbPath: string): DatabaseService {
             for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
                 const chunk = ids.slice(i, i + CHUNK_SIZE);
                 const placeholders = chunk.map(() => "?").join(",");
-                const rows = db.prepare(`SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
+                const rows = db.prepare(`SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
                     LEFT JOIN artists ar ON a.artist_id = ar.id
-                    WHERE a.id IN (${placeholders})`).all(...chunk);
+                    WHERE a.is_release = 0 AND a.id IN (${placeholders})`).all(...chunk);
                 results.push(...mapAlbums(rows));
             }
             return results;
@@ -1377,49 +1724,48 @@ export function createDatabase(dbPath: string): DatabaseService {
         getAlbumBySlug(slug: string): Album | undefined {
             const row = db
                 .prepare(
-                    `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
+                    `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
-           WHERE a.slug = ?`
+           WHERE a.is_release = 0 AND a.slug = ?`
                 )
                 .get(slug);
             return mapAlbum(row);
         },
-
         getAlbumByTitle(title: string, artistId?: number): Album | undefined {
             if (artistId) {
                 const row = db
-                    .prepare("SELECT * FROM albums WHERE title = ? AND artist_id = ?")
+                    .prepare("SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM albums a LEFT JOIN artists ar ON a.artist_id = ar.id WHERE a.title = ? AND a.artist_id = ?")
                     .get(title, artistId);
                 return mapAlbum(row);
             }
             const row = db
-                .prepare("SELECT * FROM albums WHERE title = ?")
+                .prepare("SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM albums a LEFT JOIN artists ar ON a.artist_id = ar.id WHERE a.title = ?")
                 .get(title);
             return mapAlbum(row);
         },
 
         getAlbumsByArtist(artistId: number, publicOnly = false): Album[] {
             const sql = publicOnly
-                ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                ? `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM albums a 
                    LEFT JOIN artists ar ON a.artist_id = ar.id 
-                   WHERE a.artist_id = ? AND a.visibility = 'public' ORDER BY a.date DESC`
-                : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                   WHERE a.artist_id = ? AND a.is_release = 0 AND a.visibility = 'public' ORDER BY a.date DESC`
+                : `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM albums a 
                    LEFT JOIN artists ar ON a.artist_id = ar.id 
-                   WHERE a.artist_id = ? ORDER BY a.date DESC`;
+                   WHERE a.artist_id = ? AND a.is_release = 0 ORDER BY a.date DESC`;
             const rows = db.prepare(sql).all(artistId);
             return mapAlbums(rows);
         },
 
         getAlbumsByOwner(ownerId: number, publicOnly = false): Album[] {
             const sql = publicOnly
-                ? `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                ? `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM albums a 
                    JOIN album_ownership ao ON a.id = ao.album_id
                    LEFT JOIN artists ar ON a.artist_id = ar.id 
-                   WHERE ao.owner_id = ? AND a.visibility = 'public' ORDER BY a.date DESC`
-                : `SELECT a.*, ar.name as artist_name, ar.slug as artist_slug FROM albums a 
+                   WHERE ao.owner_id = ? AND a.is_release = 0 AND a.visibility = 'public' ORDER BY a.date DESC`
+                : `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM albums a 
                    JOIN album_ownership ao ON a.id = ao.album_id
                    LEFT JOIN artists ar ON a.artist_id = ar.id 
-                   WHERE ao.owner_id = ? ORDER BY a.date DESC`;
+                   WHERE ao.owner_id = ? AND a.is_release = 0 ORDER BY a.date DESC`;
             const rows = db.prepare(sql).all(ownerId);
             return mapAlbums(rows);
         },

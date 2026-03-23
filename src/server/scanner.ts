@@ -265,15 +265,9 @@ export class Scanner implements ScannerService {
             // Determine artist
             let artistId: number | null = null;
             if (config.artist) {
-                // Check if artist already exists before creating
                 const existingArtist = this.database.getArtistByName(config.artist);
-                if (existingArtist) {
-                    artistId = existingArtist.id;
-                } else {
-                    artistId = this.database.createArtist(config.artist);
-                }
+                artistId = existingArtist ? existingArtist.id : this.database.createArtist(config.artist);
             } else {
-                // Look up parent folders for artist config
                 let current = dir;
                 while (current.length >= path.dirname(current).length) {
                     if (this.folderToArtistMap.has(current)) {
@@ -286,7 +280,7 @@ export class Scanner implements ScannerService {
                 }
             }
 
-            // Resolve cover path to be relative to the music root
+            // Resolve cover path
             let coverPath: string | null = null;
             if (config.cover) {
                 const absoluteCoverPath = path.resolve(dir, config.cover);
@@ -294,10 +288,7 @@ export class Scanner implements ScannerService {
                     coverPath = this.normalizePath(absoluteCoverPath, musicDir);
                 }
             } else {
-                // Try common cover names
-                const standardCoverJpg = getStandardCoverFilename("jpg");
-                const standardCoverPng = getStandardCoverFilename("png");
-                const coverNames = [standardCoverJpg, standardCoverPng, "cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png"];
+                const coverNames = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png"];
                 for (const name of coverNames) {
                     const p = path.resolve(dir, name);
                     if (await fs.pathExists(p)) {
@@ -307,25 +298,11 @@ export class Scanner implements ScannerService {
                 }
             }
 
-            // Check for existing album by SLUG
+            // Check for existing release by SLUG
             const slug = slugify(config.title);
-            let existingAlbum = this.database.getAlbumBySlug(slug);
+            let existingRelease = this.database.getReleaseBySlug(slug);
 
-            // If not found by slug, check by FOLDER mapping (handling renamed albums)
-            if (!existingAlbum) {
-                // Normalize dir relative to musicDir for lookup
-                const relativeDir = this.normalizePath(dir, musicDir);
-                const mappedAlbumId = this.folderToExistingAlbumMap.get(relativeDir);
-                if (mappedAlbumId) {
-                    const mappedAlbum = this.database.getAlbum(mappedAlbumId);
-                    if (mappedAlbum) {
-                        existingAlbum = mappedAlbum;
-                        console.log(`  [Scanner] Matched folder '${relativeDir}' to existing album '${existingAlbum.title}' (ID ${existingAlbum.id}), ignoring title/slug mismatch.`);
-                    }
-                }
-            }
-
-            let albumId: number;
+            let releaseId: number;
 
             // Prepare external links
             let linksJson: string | null = null;
@@ -334,7 +311,6 @@ export class Scanner implements ScannerService {
                 if (Array.isArray(config.links)) {
                     links.push(...config.links);
                 } else {
-                    // Handle object format { 'Bandcamp': 'url' }
                     for (const [label, url] of Object.entries(config.links)) {
                         links.push({ label, url: url as string });
                     }
@@ -342,36 +318,25 @@ export class Scanner implements ScannerService {
                 linksJson = JSON.stringify(links);
             }
 
-            if (existingAlbum) {
-                albumId = existingAlbum.id;
-
-                // Update artist only if missing (don't overwrite user selection)
-                if (artistId && !existingAlbum.artist_id) {
-                    this.database.updateAlbumArtist(albumId, artistId);
-                }
-
-                // Update download setting
-                this.database.updateAlbumDownload(albumId, config.download || null);
-
-                // Update external links
-                this.database.updateAlbumLinks(albumId, linksJson);
-
-                // Update cover if needed
-                if (coverPath) {
-                    this.database.updateAlbumCover(albumId, coverPath);
-                }
-
-                // Do NOT force promoteToRelease if the album exists.
-                if (!existingAlbum.is_release) {
-                    console.log(`  [Scanner] Album '${existingAlbum.title}' has release.yaml but is_release=false in DB. Respecting DB state.`);
-                }
-                console.log(`  Updated existing album config: ${existingAlbum.title}`);
+            if (existingRelease) {
+                releaseId = existingRelease.id;
+                this.database.updateRelease(releaseId, {
+                    artist_id: artistId || existingRelease.artist_id,
+                    cover_path: coverPath || existingRelease.cover_path,
+                    genre: config.genres?.join(", ") || existingRelease.genre,
+                    description: config.description || existingRelease.description,
+                    download: config.download || existingRelease.download,
+                    external_links: linksJson || existingRelease.external_links,
+                    type: config.type || existingRelease.type,
+                    year: config.year || existingRelease.year
+                });
+                console.log(`  Updated existing release config: ${existingRelease.title}`);
             } else {
-                albumId = this.database.createAlbum({
+                releaseId = this.database.createRelease({
                     title: config.title,
                     slug: slug,
                     artist_id: artistId,
-                    owner_id: artistId, // added
+                    owner_id: artistId,
                     date: config.date || null,
                     cover_path: coverPath,
                     genre: config.genres?.join(", ") || null,
@@ -382,9 +347,7 @@ export class Scanner implements ScannerService {
                     price: 0,
                     currency: 'ETH',
                     external_links: linksJson,
-                    is_public: false, // Default to private
                     visibility: 'private',
-                    is_release: true, // Albums from release.yaml are releases
                     published_at: null,
                     published_to_gundb: false,
                     published_to_ap: false,
@@ -393,40 +356,22 @@ export class Scanner implements ScannerService {
                 console.log(`  Created release from config: ${config.title}`);
             }
 
-            this.folderToAlbumMap.set(dir, albumId);
-            this.folderToAlbumMap.set(path.join(dir, "tracks"), albumId);
-            this.folderToAlbumMap.set(path.join(dir, "audio"), albumId);
+            this.folderToAlbumMap.set(dir, releaseId);
 
-            // Process external tracks defined in config
+            // Process external tracks
             if (config.metadata?.tracks) {
                 for (const tc of config.metadata.tracks) {
                     if (tc.url) {
-                        const trimmedUrl = String(tc.url).trim();
                         const trackTitle = tc.title || "External Track";
-                        const existingTrack = this.database.getTrackByMetadata(trackTitle, artistId, albumId);
-
-                        if (!existingTrack) {
-                            this.database.createTrack({
-                                title: trackTitle,
-                                album_id: albumId,
-                                artist_id: artistId,
-                                owner_id: artistId, // added
-                                track_num: tc.trackNum || tc.track || null,
-                                duration: tc.duration || null,
-                                file_path: null,
-                                format: tc.service || 'external',
-                                bitrate: null,
-                                sample_rate: null,
-                                lossless_path: null,
-                                waveform: null,
-                                url: trimmedUrl,
-                                service: tc.service || 'local',
-                                external_artwork: tc.artwork || null,
-                                price: 0,
-                                currency: 'ETH'
-                            });
-                            console.log(`  Added external track to DB: ${trackTitle}`);
-                        }
+                        this.database.addTrackToRelease(releaseId, 0, {
+                            title: trackTitle,
+                            artist_name: config.artist || null,
+                            track_num: tc.trackNum || tc.track || null,
+                            duration: tc.duration || null,
+                            file_path: tc.url,
+                            price: 0,
+                            currency: 'ETH'
+                        });
                     }
                 }
             }
@@ -833,38 +778,35 @@ export class Scanner implements ScannerService {
     }
 
     private async fixOrphanAlbums() {
-        console.log("[Scanner] Checking for orphan albums to fix...");
-        // Get all orphan releases/albums (using raw query as DatabaseService doesn't expose a specific method)
-        // Accessing the raw 'db' property from DatabaseService interface
+        console.log("[Scanner] Checking for orphan albums/releases to fix...");
         try {
-            const orphans = this.database.db.prepare("SELECT * FROM albums WHERE artist_id IS NULL").all() as Album[];
-
-            for (const orphan of orphans) {
-                const tracks = orphan.is_release
-                    ? this.database.getTracksByReleaseId(orphan.id)
-                    : this.database.getTracks(orphan.id);
-
+            // 1. Fix library albums
+            const orphanAlbums = this.database.db.prepare("SELECT * FROM albums WHERE artist_id IS NULL").all() as Album[];
+            for (const orphan of orphanAlbums) {
+                const tracks = this.database.getTracks(orphan.id);
                 if (tracks.length === 0) {
-                    if (!orphan.is_release) {
-                        console.log(`  [Scanner] Deleting empty implicit library album "${orphan.title}" (ID ${orphan.id})`);
-                        this.database.deleteAlbum(orphan.id);
-                    }
+                    console.log(`  [Scanner] Deleting empty library album "${orphan.title}" (ID ${orphan.id})`);
+                    this.database.deleteAlbum(orphan.id);
                     continue;
                 }
-
-                // Collect unique artist IDs from tracks
                 const artistIds = [...new Set(tracks.map(t => t.artist_id).filter(id => id !== null))];
-
                 if (artistIds.length === 1) {
                     const artistId = artistIds[0];
-                    if (artistId !== null) { // Type check, though filter ensures it
-                        console.log(`  [Scanner] Fixing orphan album "${orphan.title}" (ID ${orphan.id}) -> Setting artist to ID ${artistId}`);
-                        this.database.updateAlbumArtist(orphan.id, artistId);
-                        this.database.updateAlbumOwner(orphan.id, artistId);
-                        this.database.addAlbumOwner(orphan.id, artistId);
-                    }
-                } else if (artistIds.length > 1) {
-                    console.warn(`  [Scanner] Orphan album "${orphan.title}" has tracks from multiple artists. Skipping auto-assignment.`);
+                    console.log(`  [Scanner] Fixing orphan library album "${orphan.title}" (ID ${orphan.id}) -> Artist ID ${artistId}`);
+                    this.database.updateAlbumArtist(orphan.id, artistId!);
+                }
+            }
+
+            // 2. Fix releases
+            const orphanReleases = this.database.db.prepare("SELECT * FROM releases WHERE artist_id IS NULL").all() as any[];
+            for (const orphan of orphanReleases) {
+                const tracks = this.database.getTracksByReleaseId(orphan.id);
+                if (tracks.length === 0) continue;
+                const artistIds = [...new Set(tracks.map(t => t.artist_id).filter(id => id !== null))];
+                if (artistIds.length === 1) {
+                    const artistId = artistIds[0];
+                    console.log(`  [Scanner] Fixing orphan release "${orphan.title}" (ID ${orphan.id}) -> Artist ID ${artistId}`);
+                    this.database.updateRelease(orphan.id, { artist_id: artistId! });
                 }
             }
         } catch (e) {

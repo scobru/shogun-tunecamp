@@ -4,62 +4,84 @@ import fs from "fs-extra";
 import { stringify } from "yaml";
 import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
-import { slugify } from "../../utils/audioUtils.js";
+import type { PublishingService } from "../publishing.js";
+import type { AuthService } from "../auth.js";
 
 interface CreateReleaseBody {
     title: string;
-    date?: string;
-    description?: string;
-    genres?: string[];
-    license?: string;
-    download?: "free" | "paycurtain" | "codes" | "none";
-    price?: number;
-    currency?: "ETH" | "USD";
     artistName?: string;
     artistId?: number;
+    date?: string;
+    description?: string;
+    track_ids?: number[];
     type?: 'album' | 'single' | 'ep';
     year?: number;
-    externalLinks?: { label: string; url: string }[] | { [key: string]: string };
-    track_ids?: number[];
+    license?: string;
     visibility?: 'public' | 'private' | 'unlisted';
+    download?: string;
+    price?: number;
+    currency?: 'ETH' | 'USD';
+    genres?: string[];
+    externalLinks?: any[];
     publishedToGunDB?: boolean;
     publishedToAP?: boolean;
 }
 
 interface UpdateReleaseBody extends Partial<CreateReleaseBody> {
-    artistId?: number;
     isPublic?: boolean;
-    visibility?: 'public' | 'private' | 'unlisted';
-    publishedToGunDB?: boolean;
-    publishedToAP?: boolean;
 }
 
-// ... imports at top ...
-import type { PublishingService } from "../publishing.js";
-
-import type { AuthService } from "../auth.js";
-
-// ... existing interfaces ...
-
-export function createReleaseRoutes(
+export function createReleaseRouter(
     database: DatabaseService,
     scanner: ScannerService,
-    musicDir: string,
     publishingService: PublishingService,
-    authService?: AuthService
+    authService: AuthService,
+    musicDir: string
 ): Router {
     const router = Router();
+
+    router.get("/", async (req: any, res) => {
+        try {
+            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
+            const artistId = req.artistId;
+
+            let releases;
+            if (isRoot) {
+                releases = database.getReleases();
+            } else if (artistId) {
+                releases = database.getReleasesByOwner(artistId);
+            } else {
+                releases = database.getReleases(true);
+            }
+            res.json(releases);
+        } catch (error) {
+            console.error("Error getting releases:", error);
+            res.status(500).json({ error: "Failed to get releases" });
+        }
+    });
+
+    router.get("/:id", async (req, res) => {
+        try {
+            const id = parseInt(req.params.id, 10);
+            const release = database.getRelease(id);
+            if (!release) return res.status(404).json({ error: "Release not found" });
+
+            const tracks = database.getTracksByReleaseId(id);
+            res.json({ ...release, tracks });
+        } catch (error) {
+            console.error("Error getting release:", error);
+            res.status(500).json({ error: "Failed to get release" });
+        }
+    });
 
     router.post("/", async (req: any, res) => {
         try {
             const body = req.body as CreateReleaseBody;
 
-            // Basic validation
             if (!body.title) {
                 return res.status(400).json({ error: "Title is required" });
             }
 
-            // Determine artist
             let artistId: number | null = body.artistId || null;
             if (!artistId && body.artistName) {
                 const existingArtist = database.getArtistByName(body.artistName);
@@ -72,21 +94,19 @@ export function createReleaseRoutes(
                 artistId = (req as any).artistId;
             }
 
-            const slug = slugify(body.title);
+            const slug = body.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "release";
 
-            const newAlbumId = database.createAlbum({
+            const newReleaseId = database.createRelease({
                 title: body.title,
                 slug: slug,
                 artist_id: artistId,
-                owner_id: (req as any).artistId || artistId, // Track ownership
+                owner_id: (req as any).artistId || artistId,
                 date: body.date || new Date().toISOString(),
                 description: body.description || null,
                 type: body.type || 'album',
                 year: body.year || new Date().getFullYear(),
                 license: body.license || null,
-                is_release: true,
                 visibility: body.visibility || 'private',
-                is_public: body.visibility === 'public' || body.visibility === 'unlisted',
                 cover_path: null,
                 genre: body.genres?.join(", ") || null,
                 download: body.download || null,
@@ -98,17 +118,16 @@ export function createReleaseRoutes(
                 published_to_ap: body.publishedToAP !== undefined ? body.publishedToAP : (body.visibility === 'public' || body.visibility === 'unlisted'),
             });
 
-            // Associate tracks
             if (body.track_ids && body.track_ids.length > 0) {
-                database.updateReleaseTracks(newAlbumId, body.track_ids, []);
+                for (const trackId of body.track_ids) {
+                    database.addTrackToRelease(newReleaseId, trackId);
+                }
             }
 
-            // Sync with federation (publish if public)
-            publishingService.syncRelease(newAlbumId).catch(e => console.error("Failed to sync new release:", e));
+            publishingService.syncRelease(newReleaseId).catch(e => console.error("Failed to sync new release:", e));
 
-            const newAlbum = database.getAlbum(newAlbumId);
-
-            res.status(201).json(newAlbum);
+            const newRelease = database.getRelease(newReleaseId);
+            res.status(201).json(newRelease);
 
         } catch (error) {
             console.error("Error creating release:", error);
@@ -116,160 +135,64 @@ export function createReleaseRoutes(
         }
     });
 
-    // ... existing POST / ...
-
-    // ... existing POST /:id/tracks/add ...
-
-    /**
-     * PUT /api/admin/releases/:id
-     * Update release metadata
-     */
     router.put("/:id", async (req: any, res) => {
         try {
             const id = parseInt(req.params.id, 10);
             const body = req.body as UpdateReleaseBody;
 
-            const album = database.getAlbum(id);
-            if (!album) {
+            const release = database.getRelease(id);
+            if (!release) {
                 return res.status(404).json({ error: "Release not found" });
             }
 
-            // Permission Check
             const isRoot = req.username && authService && authService.isRootAdmin(req.username);
             if (!isRoot) {
-                if (!req.artistId || album.owner_id !== req.artistId) {
-                    return res.status(403).json({ error: "Access denied: You can only edit your own releases" });
-                }
-                // Don't allow changing artist name if restricted
-                if (body.artistName) {
-                    const artist = database.getArtist(req.artistId);
-                    if (artist && body.artistName !== artist.name) {
-                        return res.status(403).json({ error: "Cannot change artist name to a different artist" });
-                    }
+                if (!req.artistId || release.owner_id !== req.artistId) {
+                    return res.status(403).json({ error: "Access denied" });
                 }
             }
 
-            // Update track associations
+            const updates: any = {};
+            if (body.title) updates.title = body.title;
+            if (body.artistId) updates.artist_id = body.artistId;
+            if (body.date) updates.date = body.date;
+            if (body.description !== undefined) updates.description = body.description;
+            if (body.type) updates.type = body.type;
+            if (body.year) updates.year = body.year;
+            if (body.license !== undefined) updates.license = body.license;
+            if (body.visibility) updates.visibility = body.visibility;
+            if (body.download !== undefined) updates.download = body.download;
+            if (body.price !== undefined) updates.price = body.price;
+            if (body.currency) updates.currency = body.currency;
+            if (body.genres) updates.genre = Array.isArray(body.genres) ? body.genres.join(", ") : body.genres;
+            if (body.externalLinks) updates.external_links = JSON.stringify(body.externalLinks);
+            if (body.publishedToGunDB !== undefined) updates.published_to_gundb = body.publishedToGunDB;
+            if (body.publishedToAP !== undefined) updates.published_to_ap = body.publishedToAP;
+
+            if (Object.keys(updates).length > 0) {
+                database.updateRelease(id, updates);
+            }
+
             if (body.track_ids) {
-                const existingTrackIds = new Set(database.getReleaseTrackIds(id));
+                const existingTracks = database.getReleaseTracks(id);
+                const existingTrackIds = new Set(existingTracks.map(t => t.track_id).filter(tid => tid !== null) as number[]);
                 const newTrackIds = new Set(body.track_ids);
 
                 const toAdd = [...newTrackIds].filter(newId => !existingTrackIds.has(newId));
-                const toRemove = [...existingTrackIds].filter(oldId => !newTrackIds.has(oldId));
+                const toRemove = existingTracks.filter(t => t.track_id !== null && !newTrackIds.has(t.track_id));
 
-                database.updateReleaseTracks(id, toAdd, toRemove);
-            }
-
-            // Update DB checks...
-            if (body.title) {
-                try { database.updateAlbumTitle(id, body.title); } catch (e) {
-                    console.error("Failed to update album title in DB:", e);
+                for (const trackId of toAdd) {
+                    database.addTrackToRelease(id, trackId);
                 }
-            }
-            if (body.artistId) {
-                // If restricted, we already checked this in permission check above/below 
-                // actually we need to verify permission if changing artist
-                if (req.artistId && req.artistId !== body.artistId) {
-                    return res.status(403).json({ error: "Cannot assign to another artist" });
-                }
-
-                const artist = database.getArtist(body.artistId);
-                if (artist) {
-                    database.updateAlbumArtist(id, artist.id);
-                }
-            } else if (body.artistName) {
-                let artist = database.getArtistByName(body.artistName);
-                if (!artist) {
-                    const artistId = database.createArtist(body.artistName);
-                    artist = database.getArtist(artistId);
-                }
-                if (artist) {
-                    database.updateAlbumArtist(id, artist.id);
+                for (const trackRecord of toRemove) {
+                    database.deleteReleaseTrack(trackRecord.id);
                 }
             }
 
-            let visibilityChanged = false;
-            let currentVisibility = album.visibility || 'private';
+            publishingService.syncRelease(id).catch(e => console.error("Failed to sync release:", e));
 
-            if (body.visibility) {
-                database.updateAlbumVisibility(id, body.visibility);
-                visibilityChanged = true;
-                currentVisibility = body.visibility;
-            } else if (typeof body.isPublic === "boolean") {
-                // Backward compatibility
-                database.updateAlbumVisibility(id, body.isPublic ? 'public' : 'private');
-                visibilityChanged = true;
-                currentVisibility = body.isPublic ? 'public' : 'private';
-            }
-
-            let federationChanged = false;
-            if (body.publishedToGunDB !== undefined || body.publishedToAP !== undefined) {
-                const newGunDB = body.publishedToGunDB !== undefined ? body.publishedToGunDB : (!!album.published_to_gundb);
-                const newAP = body.publishedToAP !== undefined ? body.publishedToAP : (!!album.published_to_ap);
-                database.updateAlbumFederationSettings(id, newGunDB, newAP);
-                federationChanged = true;
-            }
-
-            // Update type and year in DB - these were recently added columns
-            if (body.type) {
-                try {
-                    database.db.prepare("UPDATE albums SET type = ? WHERE id = ?").run(body.type, id);
-                } catch (e) {
-                    console.error("Failed to update album type in DB:", e);
-                }
-            }
-            if (body.year) {
-                try {
-                    database.db.prepare("UPDATE albums SET year = ? WHERE id = ?").run(body.year, id);
-                } catch (e) {
-                    console.error("Failed to update album year in DB:", e);
-                }
-            }
-
-            if (body.download !== undefined) {
-                try {
-                    database.updateAlbumDownload(id, body.download);
-                } catch (e) {
-                    console.error("Failed to update album download in DB:", e);
-                }
-            }
-            if (body.price !== undefined) {
-                try {
-                    database.updateAlbumPrice(id, body.price, body.currency || 'ETH');
-                } catch (e) {
-                    console.error("Failed to update album price in DB:", e);
-                }
-            }
-            if (body.genres !== undefined) {
-                try {
-                    const genreStr = Array.isArray(body.genres) ? body.genres.join(", ") : body.genres;
-                    database.updateAlbumGenre(id, genreStr);
-                } catch (e) {
-                    console.error("Failed to update album genre in DB:", e);
-                }
-            }
-
-            if (body.license !== undefined) {
-                try {
-                    database.db.prepare("UPDATE albums SET license = ? WHERE id = ?").run(body.license, id);
-                } catch (e) {
-                    console.error("Failed to update album license in DB:", e);
-                }
-            }
-
-
-
-            // SYNC WITH FEDERATION
-            // If visibility changed OR ANY metadata changed (since it updates the Note content/attachments), we need to update network
-            const shouldSync = visibilityChanged || federationChanged || !!body.title || !!body.description || !!body.genres || !!body.artistName || !!body.download || !!body.externalLinks || !!body.date;
-
-            if (shouldSync) {
-                // Use new PublishingService
-                publishingService.syncRelease(id).catch(e => console.error("Failed to sync release:", e));
-            }
-
-            const finalUpdatedAlbum = database.getAlbum(id);
-            res.json(finalUpdatedAlbum || { message: "Release updated" });
+            const finalUpdatedRelease = database.getRelease(id);
+            res.json(finalUpdatedRelease || { message: "Release updated" });
 
         } catch (error) {
             console.error("Error updating release:", error);
@@ -277,56 +200,40 @@ export function createReleaseRoutes(
         }
     });
 
-    /**
-     * DELETE /api/admin/releases/:id
-     * Delete a release
-     */
     router.delete("/:id", async (req: any, res) => {
         try {
             const id = parseInt(req.params.id, 10);
             const keepFiles = req.query.keepFiles === "true";
 
-            const album = database.getAlbum(id);
-            if (!album) return res.status(404).json({ error: "Release not found" });
+            const release = database.getRelease(id);
+            if (!release) return res.status(404).json({ error: "Release not found" });
 
-            // Permission Check
             const isRoot = req.username && authService && authService.isRootAdmin(req.username);
-            if (!isRoot && album.owner_id !== req.artistId) {
-                return res.status(403).json({ error: "Access denied: You can only delete your own releases" });
+            if (!isRoot && release.owner_id !== req.artistId) {
+                return res.status(403).json({ error: "Access denied" });
             }
 
-            // Cleanup External Networks
             try {
-                await publishingService.unpublishReleaseFromAP(album);
-                await publishingService.unpublishReleaseFromGunDB(album);
+                await (publishingService as any).unpublishReleaseFromAP(release);
+                await (publishingService as any).unpublishReleaseFromGunDB(release);
             } catch (e) {
-                console.error("Failed to unpublish release from external networks:", e);
-                // Continue with deletion anyway
+                console.error("Failed to unpublish:", e);
             }
 
-            let releaseDir: string | null = null;
-            const tracks = database.getTracksByReleaseId(id);
-            if (tracks.length > 0 && tracks[0].file_path) {
-                const trackDir = path.dirname(tracks[0].file_path);
-                releaseDir = trackDir.includes("tracks") ? path.dirname(trackDir) : trackDir;
-            } else {
-                // Fallback for releases with no tracks
-                const releasesDir = path.join(musicDir, "releases");
-                const potentialDir = path.join(releasesDir, album.slug);
-                if (await fs.pathExists(potentialDir)) releaseDir = potentialDir;
-            }
-
-            if (keepFiles) {
-                database.deleteAlbum(id, true);
-                res.json({ message: "Release deleted (files kept)" });
-            } else {
-                if (releaseDir && await fs.pathExists(releaseDir)) {
-                    await fs.remove(releaseDir);
+            if (!keepFiles) {
+                const tracks = database.getReleaseTracks(id);
+                const firstWithFile = tracks.find(t => t.file_path);
+                if (firstWithFile && firstWithFile.file_path) {
+                    const trackDir = path.dirname(firstWithFile.file_path);
+                    const releaseDir = trackDir.includes("tracks") ? path.dirname(trackDir) : trackDir;
+                    if (releaseDir && await fs.pathExists(releaseDir)) {
+                        await fs.remove(releaseDir);
+                    }
                 }
-                database.deleteAlbum(id, false);
-                res.json({ message: "Release deleted" });
             }
 
+            database.deleteRelease(id);
+            res.json({ message: "Release deleted" });
 
         } catch (error) {
             console.error("Error deleting release:", error);
@@ -334,16 +241,13 @@ export function createReleaseRoutes(
         }
     });
 
-    /**
-     * GET /api/admin/releases/:id/folder
-     */
     router.get("/:id/folder", async (req, res) => {
         try {
             const id = parseInt(req.params.id, 10);
-            const album = database.getAlbum(id);
-            if (!album) return res.status(404).json({ error: "Release not found" });
+            const release = database.getRelease(id);
+            if (!release) return res.status(404).json({ error: "Release not found" });
 
-            const tracks = database.getTracksByReleaseId(id);
+            const tracks = database.getReleaseTracks(id);
             if (tracks.length === 0) return res.json({ folder: null, files: [] });
 
             const firstWithFile = tracks.find(t => t.file_path);
@@ -371,7 +275,9 @@ export function createReleaseRoutes(
                     }
                 }
             }
-            await walkDir(releaseDir);
+            if (await fs.pathExists(releaseDir)) {
+                await walkDir(releaseDir);
+            }
             res.json({ folder: releaseDir, files });
         } catch (error) {
             console.error("Error getting release folder:", error);
