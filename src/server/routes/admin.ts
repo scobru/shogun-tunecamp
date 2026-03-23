@@ -29,15 +29,27 @@ export function createAdminRoutes(
         try {
             const showMine = req.query.mine === 'true';
             let albums: any[] = [];
+            let releases: any[] = [];
             
             if (req.isAdmin && !showMine) {
-                albums = database.getAlbums(false); // Admin sees everything
+                albums = database.getAlbums(false).map(a => ({ ...a, is_formal_release: false })); 
+                releases = database.getReleases(false).map(r => ({ ...r, is_formal_release: true }));
             } else if (req.artistId) {
-                albums = database.getAlbumsByOwner(req.artistId, false); // Artist sees their own
+                albums = database.getAlbumsByOwner(req.artistId, false).map(a => ({ ...a, is_formal_release: false }));
+                releases = database.getReleasesByOwner(req.artistId, false).map(r => ({ ...r, is_formal_release: true }));
             } else {
-                albums = []; // No access
+                res.json([]);
+                return;
             }
-            res.json(albums);
+
+            // Combine and sort by date/id
+            const combined = [...albums, ...releases].sort((a, b) => {
+                const dateA = new Date(a.date || a.created_at || 0).getTime();
+                const dateB = new Date(b.date || b.created_at || 0).getTime();
+                return dateB - dateA;
+            });
+
+            res.json(combined);
         } catch (error) {
             console.error("Error getting releases:", error);
             res.status(500).json({ error: "Failed to get releases" });
@@ -384,9 +396,9 @@ export function createAdminRoutes(
             }
 
             // Permission Check
-            // ONLY the artist themselves can see their own keys. Root admin is blocked for security.
-            if (!req.artistId || req.artistId !== artistId) {
-                return res.status(403).json({ error: "Access denied: Only the artist can access their identity keys" });
+            // ONLY the artist themselves or root admin can see keys.
+            if (!req.isRootAdmin && (!req.artistId || req.artistId !== artistId)) {
+                return res.status(403).json({ error: "Access denied: Only the artist or root admin can access their identity keys" });
             }
 
             const artist = database.getArtist(artistId);

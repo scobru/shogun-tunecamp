@@ -78,7 +78,17 @@ export const AdminReleasesList = ({ mine }: { mine?: boolean }) => {
             <td className="flex gap-2">
               <button
                 className="btn btn-xs btn-ghost"
-                onClick={() => navigate(`/admin/release/${r.id}/edit`)}
+                onClick={() => {
+                  if (r.is_formal_release) {
+                    navigate(`/admin/release/${r.id}/edit`);
+                  } else {
+                    document.dispatchEvent(
+                      new CustomEvent("open-admin-release-modal", {
+                        detail: r,
+                      }),
+                    );
+                  }
+                }}
               >
                 Edit
               </button>
