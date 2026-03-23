@@ -1312,6 +1312,11 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.log("📦 Migrated database: added file_path column to release_tracks");
     } catch (e) { }
 
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP`);
+        console.log("📦 Migrated database: added created_at column to release_tracks");
+    } catch (e) { }
+
     // Migration: Backfill ownership tables from owner_id columns
     try {
         db.exec(`
