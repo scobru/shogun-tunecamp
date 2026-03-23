@@ -1221,6 +1221,32 @@ export function createDatabase(dbPath: string): DatabaseService {
         db.prepare("UPDATE releases SET owner_id = artist_id WHERE owner_id IS NULL").run();
     } catch (e) { }
 
+    // Migration: Add missing release fields
+    try {
+        db.exec(`ALTER TABLE releases ADD COLUMN type TEXT`);
+        console.log("📦 Migrated database: added type column to releases");
+    } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE releases ADD COLUMN year INTEGER`);
+        console.log("📦 Migrated database: added year column to releases");
+    } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE releases ADD COLUMN download TEXT`);
+        console.log("📦 Migrated database: added download column to releases");
+    } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE releases ADD COLUMN price REAL DEFAULT 0`);
+        console.log("📦 Migrated database: added price column to releases");
+    } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE releases ADD COLUMN currency TEXT DEFAULT 'ETH'`);
+        console.log("📦 Migrated database: added currency column to releases");
+    } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE releases ADD COLUMN external_links TEXT`);
+        console.log("📦 Migrated database: added external_links column to releases");
+    } catch (e) { }
+
     // Migration: Add federation columns to releases if missing
     try {
         db.exec(`ALTER TABLE releases ADD COLUMN published_to_gundb INTEGER DEFAULT 0`);
@@ -1506,15 +1532,15 @@ export function createDatabase(dbPath: string): DatabaseService {
             // This returns Track objects but with metadata from the release_tracks table (decoupled)
             return db.prepare(`
                 SELECT 
-                    t.id,
+                    COALESCE(t.id, rt.id) as id,
                     rt.title as title,
                     t.album_id,
                     r.title as album_title,
                     r.download as album_download,
                     r.visibility as album_visibility,
                     r.price as album_price,
-                    r.artist_id as artist_id,
-                    rt.artist_name as artist_name,
+                    COALESCE(t.artist_id, r.artist_id) as artist_id,
+                    COALESCE(rt.artist_name, ar.name) as artist_name,
                     ar.wallet_address as walletAddress,
                     r.owner_id as owner_id,
                     rt.track_num as track_num,
@@ -1530,7 +1556,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                     t.service,
                     t.external_artwork,
                     t.lyrics,
-                    t.created_at
+                    rt.created_at
                 FROM release_tracks rt
                 JOIN releases r ON rt.release_id = r.id
                 LEFT JOIN tracks t ON rt.track_id = t.id
