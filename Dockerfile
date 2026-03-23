@@ -36,7 +36,7 @@ RUN echo "CapRover commit: ${CAPROVER_GIT_COMMIT_SHA:-none}" && \
     echo "Relay cache bust: ${RELAY_CACHE_BUST:-unset}"
 
 # Install build dependencies for native modules (better-sqlite3)
-RUN apk add --no-cache python3 make g++ curl
+RUN apk add --no-cache python3 make g++ curl git
 
 
 # Copy package files
