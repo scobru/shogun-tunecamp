@@ -385,7 +385,51 @@ export function createAdminRoutes(
     });
 
     /**
-     * GET /api/admin/artists/:id/identity
+     * DELETE /api/admin/releases/:id
+     * Delete an album or formal release
+     */
+    router.delete("/releases/:id", async (req: AuthenticatedRequest, res: any) => {
+        try {
+            const id = parseInt(req.params.id, 10);
+            const keepFiles = req.query.keepFiles === 'true';
+
+            // Check if it's a formal release or a library album
+            const release = database.getRelease(id);
+            const album = database.getAlbum(id);
+
+            if (!release && !album) {
+                return res.status(404).json({ error: "Release not found" });
+            }
+
+            // Permission Check
+            const ownerId = release ? release.owner_id : album?.owner_id;
+            if (req.artistId && !req.isRootAdmin && ownerId !== req.artistId) {
+                return res.status(403).json({ error: "Access denied" });
+            }
+
+            if (release) {
+                // Handle unpublishing for formal releases
+                try {
+                    await (publishingService as any).unpublishReleaseFromAP(release);
+                    await (publishingService as any).unpublishReleaseFromGunDB(release);
+                } catch (e) {
+                    console.error("Failed to unpublish formal release:", e);
+                }
+                database.deleteRelease(id);
+            } else if (album) {
+                database.deleteAlbum(id, keepFiles);
+            }
+
+            res.json({ message: "Release deleted successfully" });
+        } catch (error) {
+            console.error("Error deleting release:", error);
+            res.status(500).json({ error: "Failed to delete release" });
+        }
+    });
+
+    /**
+     * GET /api/admin/artists
+/:id/identity
      * Get artist identity keypair (Root Admin or Assigned Artist Admin only)
      */
     router.get("/artists/:id/identity", async (req: AuthenticatedRequest, res: any) => {
