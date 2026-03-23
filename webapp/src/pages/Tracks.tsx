@@ -14,6 +14,8 @@ import {
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
 import { usePurchases } from "../hooks/usePurchases";
+import { useWalletStore } from "../stores/useWalletStore";
+import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
 import { GunSocial } from "../services/gun";
 import type { Track } from "../types";
 import { MetadataMatchModal } from "../components/MetadataMatchModal";
@@ -26,6 +28,9 @@ export const Tracks = () => {
   const { playTrack } = usePlayerStore();
   const { isAuthenticated, isAdminAuthenticated } = useAuthStore();
   const { isPurchased, verifyAndGetCode } = usePurchases();
+  const { address, externalAddress, useExternalWallet, isExternalConnected } = useWalletStore();
+  const activeAddress = useExternalWallet && isExternalConnected ? externalAddress : address;
+  const { ownedNFTs } = useOwnedNFTs(activeAddress);
   const [matchingTrack, setMatchingTrack] = useState<Track | null>(null);
   const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
 
@@ -206,7 +211,7 @@ export const Tracks = () => {
                           </a>
                         </li>
                         <li>
-                          {isPurchased(String(track.id)) ? (
+                          {isPurchased(String(track.id)) || ownedNFTs.some(n => n.trackId === Number(track.id) && n.balance > 0) ? (
                             <a
                               onClick={async () => {
                                 const code = await verifyAndGetCode(String(track.id));
