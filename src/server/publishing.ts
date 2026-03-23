@@ -104,38 +104,67 @@ export class PublishingService {
     }
 
     /**
+     * Synchronizes an album's published state (legacy library albums).
+     */
+    async syncAlbum(albumId: number): Promise<void> {
+        const album = this.db.getAlbum(albumId);
+        if (!album) return;
+
+        const isPublic = album.visibility === 'public' || album.visibility === 'unlisted';
+        const siteInfo = this.getSiteInfo(album.artist_name);
+
+        if (isPublic && siteInfo) {
+            console.log(`🚀 Updating library album "${album.title}" on GunDB...`);
+            await this.gundb.registerSite(siteInfo);
+            const tracks = this.db.getTracks(album.id);
+            await this.gundb.registerTracks(siteInfo, album, tracks);
+        }
+    }
+
+    /**
      * Synchronizes a release's published state based on its visibility and federation flags.
      */
     async syncRelease(releaseId: number): Promise<void> {
-        const release = this.db.getRelease(releaseId);
-        if (!release) {
-            // Check if it's a legacy album
-            const album = this.db.getAlbum(releaseId);
-            if (album && album.is_release) {
-                 // Should have been migrated, but let's handle it for safety
-                 console.warn(`⚠️ syncRelease: Album ${releaseId} is marked as release but not found in releases table.`);
+        try {
+            const release = this.db.getRelease(releaseId);
+            if (!release) {
+                // Check if it's a legacy album
+                const album = this.db.getAlbum(releaseId);
+                if (album) {
+                    await this.syncAlbum(releaseId);
+                }
+                return;
             }
-            return;
+
+            const isPublic = release.visibility === 'public' || release.visibility === 'unlisted';
+
+            // GunDB Logic
+            try {
+                if (isPublic && release.published_to_gundb) {
+                    await this.publishReleaseToGunDB(release);
+                } else {
+                    await this.unpublishReleaseFromGunDB(release);
+                }
+            } catch (e) {
+                console.error(`❌ GunDB sync failed for release ${releaseId}:`, e);
+            }
+
+            // ActivityPub Logic
+            try {
+                if (isPublic && release.published_to_ap) {
+                    await this.publishReleaseToAP(release);
+                } else {
+                    await this.unpublishReleaseFromAP(release);
+                }
+            } catch (e) {
+                console.error(`❌ ActivityPub sync failed for release ${releaseId}:`, e);
+            }
+
+            // Trigger network sync to clean up any orphaned data in GunDB
+            this.gundb.syncNetwork().catch(e => console.error("Network sync failed:", e));
+        } catch (error) {
+            console.error(`🔥 Critical error in syncRelease for ${releaseId}:`, error);
         }
-
-        const isPublic = release.visibility === 'public' || release.visibility === 'unlisted';
-
-        // GunDB Logic
-        if (isPublic && release.published_to_gundb) {
-            await this.publishReleaseToGunDB(release);
-        } else {
-            await this.unpublishReleaseFromGunDB(release);
-        }
-
-        // ActivityPub Logic
-        if (isPublic && release.published_to_ap) {
-            await this.publishReleaseToAP(release);
-        } else {
-            await this.unpublishReleaseFromAP(release);
-        }
-
-        // Trigger network sync to clean up any orphaned data in GunDB
-        this.gundb.syncNetwork().catch(e => console.error("Network sync failed:", e));
     }
 
     // --- Posts ---
