@@ -1286,6 +1286,26 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.log("📦 Migrated database: added artist_name column to release_tracks");
     } catch (e) { }
 
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN title TEXT NOT NULL DEFAULT 'Unknown'`);
+        console.log("📦 Migrated database: added title column to release_tracks");
+    } catch (e) { }
+
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN track_num INTEGER`);
+        console.log("📦 Migrated database: added track_num column to release_tracks");
+    } catch (e) { }
+
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN duration REAL`);
+        console.log("📦 Migrated database: added duration column to release_tracks");
+    } catch (e) { }
+
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN file_path TEXT`);
+        console.log("📦 Migrated database: added file_path column to release_tracks");
+    } catch (e) { }
+
     // Migration: Backfill ownership tables from owner_id columns
     try {
         db.exec(`
