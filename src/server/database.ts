@@ -602,8 +602,8 @@ export function createDatabase(dbPath: string): DatabaseService {
 
     CREATE TABLE IF NOT EXISTS release_tracks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      release_id INTEGER REFERENCES releases(id) ON DELETE CASCADE,
-      track_id INTEGER REFERENCES tracks(id) ON DELETE SET NULL,
+      release_id INTEGER,
+      track_id INTEGER,
       title TEXT NOT NULL,
       artist_name TEXT,
       track_num INTEGER,
@@ -783,6 +783,16 @@ export function createDatabase(dbPath: string): DatabaseService {
     CREATE INDEX IF NOT EXISTS idx_album_ownership_owner ON album_ownership(owner_id);
   `);
 
+    // Debug: Print schema
+    try {
+        const tables = ['releases', 'release_tracks', 'tracks', 'albums', 'artists'];
+        console.log("🔍 [Debug] Database Schema Check:");
+        for (const table of tables) {
+            const schema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?").get(table) as { sql: string };
+            console.log(`   - ${table}: ${schema?.sql}`);
+        }
+    } catch (e) { }
+
     // Migration: Move existing releases from 'albums' to 'releases' table
     try {
         const releaseCount = (db.prepare("SELECT COUNT(*) as count FROM releases").get() as { count: number }).count;
@@ -839,6 +849,63 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.error("Migration error (releases):", e);
     }
 
+
+    // Migration: Recreate release_tracks without strict foreign keys to avoid constraint failures in decoupled mode
+    try {
+        const tableInfo = db.pragma("table_info(release_tracks)") as any[];
+        // Check if table has strict FKs (usually indicated by REFERENCES in schema, but easier to just check if we haven't fixed it yet)
+        const fixKey = "release_tracks_fk_fixed_v2";
+        const isFixed = (db.prepare("SELECT value FROM settings WHERE key = ?").get(fixKey) as { value: string } | undefined);
+
+        if (!isFixed) {
+            console.log("📦 Migrating database: Removing strict foreign keys from release_tracks...");
+            db.transaction(() => {
+                // 1. Get existing data
+                const data = db.prepare("SELECT * FROM release_tracks").all() as any[];
+
+                // 2. Drop old table
+                db.exec("DROP TABLE IF EXISTS release_tracks");
+
+                // 3. Create new table without REFERENCES
+                db.exec(`
+                    CREATE TABLE IF NOT EXISTS release_tracks (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        release_id INTEGER,
+                        track_id INTEGER,
+                        title TEXT NOT NULL,
+                        artist_name TEXT,
+                        track_num INTEGER,
+                        duration REAL,
+                        file_path TEXT,
+                        price REAL DEFAULT 0,
+                        currency TEXT DEFAULT 'ETH',
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+
+                // 4. Restore data
+                if (data.length > 0) {
+                    const insert = db.prepare(`
+                        INSERT INTO release_tracks (id, release_id, track_id, title, artist_name, track_num, duration, file_path, price, currency, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `);
+                    for (const row of data) {
+                        insert.run(row.id, row.release_id, row.track_id, row.title, row.artist_name, row.track_num, row.duration, row.file_path, row.price, row.currency, row.created_at);
+                    }
+                }
+
+                // 5. Re-create indexes
+                db.exec("CREATE INDEX IF NOT EXISTS idx_release_tracks_release_id ON release_tracks(release_id)");
+                db.exec("CREATE INDEX IF NOT EXISTS idx_release_tracks_track_id ON release_tracks(track_id)");
+
+                // 6. Mark as fixed
+                db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(fixKey, "true");
+            })();
+            console.log("✅ Database migrated: release_tracks is now unconstrained.");
+        }
+    } catch (e) {
+        console.warn("⚠️  Migration warning (release_tracks recreation):", e);
+    }
 
     // Migration: Add is_release column if it doesn't exist
     try {
