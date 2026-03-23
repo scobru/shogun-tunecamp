@@ -127,7 +127,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 radisk: true,
                 file: "./radata",
                 web: server,
-                axe: true,
+                axe: false,
                 wire: true
             });
 

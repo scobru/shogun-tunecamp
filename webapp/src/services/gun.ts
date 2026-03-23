@@ -9,7 +9,6 @@ import type { UserPlaylist, UserPlaylistTrack, Track } from '../types';
 
 
 const defaultPeers = [
-    "http://localhost:1970/gun",
     "https://shogun-relay.scobrudot.dev/gun",
     "https://gun.defucc.me/gun",
     "https://gun.o8.is/gun",
@@ -29,7 +28,7 @@ const gun = Gun({
     localStorage: false,
     radisk: false,
     wire: true,
-    axe: true
+    axe: false
 });
 
 const user = gun.user().recall({ sessionStorage: true });
