@@ -63,11 +63,22 @@ export function createReleaseRouter(
     router.get("/:id", async (req, res) => {
         try {
             const id = parseInt(req.params.id, 10);
+            
+            // Try formal release first
             const release = database.getRelease(id);
-            if (!release) return res.status(404).json({ error: "Release not found" });
+            if (release) {
+                const tracks = database.getTracksByReleaseId(id);
+                return res.json({ ...release, tracks, is_formal_release: true });
+            }
 
-            const tracks = database.getTracksByReleaseId(id);
-            res.json({ ...release, tracks });
+            // Fallback to library album
+            const album = database.getAlbum(id);
+            if (album) {
+                const tracks = database.getTracks(id);
+                return res.json({ ...album, tracks, is_formal_release: false });
+            }
+
+            res.status(404).json({ error: "Release not found" });
         } catch (error) {
             console.error("Error getting release:", error);
             res.status(500).json({ error: "Failed to get release" });
