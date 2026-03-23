@@ -6,6 +6,7 @@ import os from "os";
 import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
 import type { AuthService } from "../auth.js";
+import type { PublishingService } from "../publishing.js";
 import { sanitizeFilename } from "../../utils/audioUtils.js";
 
 const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
@@ -75,6 +76,7 @@ export function createUploadRoutes(
     database: DatabaseService,
     scanner: ScannerService,
     musicDir: string,
+    publishingService: PublishingService,
     authService?: AuthService
 ): Router {
     const router = Router();
@@ -191,7 +193,10 @@ export function createUploadRoutes(
             }
 
             // Get release if applicable
-            const release = releaseSlug ? database.getAlbumBySlug(releaseSlug) : undefined;
+            const formalRelease = releaseSlug ? database.getReleaseBySlug(releaseSlug) : undefined;
+            const libraryAlbum = releaseSlug ? database.getAlbumBySlug(releaseSlug) : undefined;
+            const release = formalRelease || libraryAlbum;
+
             if (releaseSlug && !release) {
                 console.warn(`⚠️ Target release not found: ${releaseSlug}`);
             }
@@ -252,8 +257,13 @@ export function createUploadRoutes(
 
                         // Link to release if applicable
                         if (release) {
-                            database.addTrackToRelease(release.id, scanResult.trackId);
-                            console.log(`   🔗 Linked new track ${scanResult.trackId} to release ${release.title}`);
+                            if (formalRelease) {
+                                database.addTrackToRelease(release.id, scanResult.trackId);
+                                console.log(`   🔗 Linked new track ${scanResult.trackId} to formal release ${release.title}`);
+                            } else {
+                                database.updateTrackAlbum(scanResult.trackId, release.id);
+                                console.log(`   🔗 Linked new track ${scanResult.trackId} to library album ${release.title}`);
+                            }
                         }
                     }
 
@@ -315,21 +325,23 @@ export function createUploadRoutes(
             // If release slug provided, update release.yaml and database
             if (releaseSlug) {
                 // Permission Check
-                const targetAlbum = database.getAlbumBySlug(releaseSlug);
+                const release = database.getReleaseBySlug(releaseSlug);
+                const album = database.getAlbumBySlug(releaseSlug);
+                const targetItem = release || album;
 
-                if (!targetAlbum) {
+                if (!targetItem) {
                     await fs.remove(file.path);
                     return res.status(404).json({ error: "Release not found" });
                 }
 
-                if (!req.isRootAdmin && req.artistId && targetAlbum.artist_id !== req.artistId) {
+                if (!req.isRootAdmin && req.artistId && targetItem.artist_id !== req.artistId) {
                     await fs.remove(file.path);
                     return res.status(403).json({ error: "Access denied: Cannot upload cover for another artist's release" });
                 }
 
                 // 1. Determine target directory: musicDir/releases/<slug>/artwork/
-                // SECURITY: Use targetAlbum.slug (from DB) instead of req.body.releaseSlug to prevent path traversal
-                const safeSlug = targetAlbum.slug;
+                // SECURITY: Use targetItem.slug (from DB) instead of req.body.releaseSlug to prevent path traversal
+                const safeSlug = targetItem.slug;
                 const releaseDir = path.join(musicDir, "releases", safeSlug);
                 const artworkDir = path.join(releaseDir, "artwork");
                 await fs.ensureDir(artworkDir);
@@ -358,10 +370,13 @@ export function createUploadRoutes(
                 }
 
                 // 4. Update database (relative to musicDir)
-                if (targetAlbum) {
-                    const dbPath = path.relative(musicDir, targetPath).replace(/\\/g, "/");
-                    database.updateAlbumCover(targetAlbum.id, dbPath);
-                    console.log(`📀 Updated cover for album ${targetAlbum.title} -> ${dbPath}`);
+                const dbPath = path.relative(musicDir, targetPath).replace(/\\/g, "/");
+                if (release) {
+                    database.updateRelease(release.id, { cover_path: dbPath });
+                    console.log(`📀 Updated cover for formal release ${release.title} -> ${dbPath}`);
+                } else if (album) {
+                    database.updateAlbumCover(album.id, dbPath);
+                    console.log(`📀 Updated cover for library album ${album.title} -> ${dbPath}`);
                 }
 
                 // 5. Cleanup old covers (Best effort)
@@ -380,6 +395,8 @@ export function createUploadRoutes(
                     console.warn("   [Cleanup] Failed to list/clean artwork directory:", cleanupErr);
                 }
 
+                // 6. Sync changes
+                publishingService.syncRelease(targetItem.id).catch(e => console.error("Failed to sync cover upload:", e));
             } else {
                 // Orphan upload? Just clean up
                 await fs.remove(file.path);

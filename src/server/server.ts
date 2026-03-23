@@ -71,22 +71,8 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const gundbService = createGunDBService(database, server, config.gunPeers);
     await gundbService.init();
 
-    // Upload routes - MOVED BEFORE FEDIFY/BODY PARSERS to avoid stream consumption issues
-    app.use("/api/admin/upload", authMiddleware.requireUser, createUploadRoutes(database, scanner, config.musicDir, authService));
-    app.use("/api/admin/backup", authMiddleware.requireAdmin, createBackupRoutes(database, config, () => {
-        console.log("🔄 Restarting server...");
-        process.exit(0); // Docker/PM2 should handle restart
-    }));
-
     // Initialize Fedify (Must be before AP Service)
     const federation = createFedify(database, config);
-    app.use(integrateFederation(federation, (req: express.Request) => undefined)); // Context data if needed
-
-    // Parse JSON (must be AFTER Fedify to avoid conflicting with body stream reading)
-    app.use(express.json({
-        type: ['application/json', 'application/activity+json', 'application/ld+json'],
-        limit: '10mb'
-    }));
 
     // Initialize ActivityPub
     const apService = createActivityPubService(database, config, federation);
@@ -94,6 +80,21 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     // Initialize Publishing Service
     const publishingService = createPublishingService(database, gundbService, apService, config);
+
+    // Upload routes - MOVED BEFORE FEDIFY/BODY PARSERS to avoid stream consumption issues
+    app.use("/api/admin/upload", authMiddleware.requireUser, createUploadRoutes(database, scanner, config.musicDir, publishingService, authService));
+    app.use("/api/admin/backup", authMiddleware.requireAdmin, createBackupRoutes(database, config, () => {
+        console.log("🔄 Restarting server...");
+        process.exit(0); // Docker/PM2 should handle restart
+    }));
+
+    app.use(integrateFederation(federation, (req: express.Request) => undefined)); // Context data if needed
+
+    // Parse JSON (must be AFTER Fedify to avoid conflicting with body stream reading)
+    app.use(express.json({
+        type: ['application/json', 'application/activity+json', 'application/ld+json'],
+        limit: '10mb'
+    }));
 
     // DIAGNOSTIC LOGGING: Verify frontend file paths
     const webappPath = path.join(__dirname, "..", "..", "webapp");
