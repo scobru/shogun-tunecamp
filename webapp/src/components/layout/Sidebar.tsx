@@ -93,7 +93,7 @@ export const Sidebar = () => {
       <div className="w-full h-px bg-white/5 my-2"></div>
  
       <ul className="menu bg-base-200/50 rounded-box w-full gap-1 p-1 font-medium flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin items-center no-scrollbar">
-        <NavItem to="/albums" icon={Disc} label="Albums" />
+        <NavItem to="/albums" icon={Disc} label="Releases" />
         <NavItem to="/artists" icon={User} label="Artists" />
         <NavItem to="/tracks" icon={Music} label="Tracks" />
         <NavItem to="/playlists" icon={ListMusic} label="Playlists" />

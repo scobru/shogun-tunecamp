@@ -112,12 +112,18 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
     router.get("/:idOrSlug", (req: AuthenticatedRequest, res) => {
         try {
             const param = req.params.idOrSlug as string;
-            let album;
+            let album: any;
 
             if (/^\d+$/.test(param)) {
                 album = database.getAlbum(parseInt(param, 10));
+                if (!album) {
+                    album = database.getRelease(parseInt(param, 10));
+                }
             } else {
                 album = database.getAlbumBySlug(param);
+                if (!album) {
+                    album = database.getReleaseBySlug(param);
+                }
             }
 
             if (!album) {
@@ -159,12 +165,12 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
     router.get("/:idOrSlug/cover", async (req: AuthenticatedRequest, res) => {
         try {
             const param = req.params.idOrSlug as string;
-            let album;
+            let album: any;
 
             if (/^\d+$/.test(param)) {
-                album = database.getAlbum(parseInt(param, 10));
+                album = database.getAlbum(parseInt(param, 10)) || database.getRelease(parseInt(param, 10));
             } else {
-                album = database.getAlbumBySlug(param);
+                album = database.getAlbumBySlug(param) || database.getReleaseBySlug(param);
             }
 
             if (!album || !album.cover_path) {
@@ -212,12 +218,12 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
     router.get("/:idOrSlug/download", async (req: AuthenticatedRequest, res) => {
         try {
             const param = req.params.idOrSlug as string;
-            let album;
+            let album: any;
 
             if (/^\d+$/.test(param)) {
-                album = database.getAlbum(parseInt(param, 10));
+                album = database.getAlbum(parseInt(param, 10)) || database.getRelease(parseInt(param, 10));
             } else {
-                album = database.getAlbumBySlug(param);
+                album = database.getAlbumBySlug(param) || database.getReleaseBySlug(param);
             }
 
             if (!album) {
@@ -247,7 +253,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 database.redeemUnlockCode(code);
             }
 
-            // Get tracks for this album
+            // Get tracks for this album/release
             const tracks = database.getTracks(album.id);
             if (!tracks || tracks.length === 0) {
                 return res.status(404).json({ error: "No tracks found" });

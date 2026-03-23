@@ -73,7 +73,8 @@ export const API = {
 
     // --- Library (Browsing) ---
     getAlbums: () => handleResponse(api.get<Album[]>('/albums')),
-    getAlbum: (id: string | number) => handleResponse(api.get<Album>(`/albums/${id}`)),
+    getReleases: () => handleResponse(api.get<Album[]>('/albums/releases')),
+    getAlbum: (idOrSlug: string | number) => handleResponse(api.get<Album>(`/albums/${idOrSlug}`)),
     getAlbumCoverUrl: (id: string | number, timestamp?: number) => id ? `${API_URL}/albums/${id}/cover${timestamp ? `?v=${timestamp}` : ''}` : '',
 
     getArtists: () => handleResponse(api.get<Artist[]>('/artists')),

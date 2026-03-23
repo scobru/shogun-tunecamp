@@ -1,38 +1,79 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import API from '../services/api';
 import { Link } from 'react-router-dom';
-import { Disc } from 'lucide-react';
+import { Disc, Library } from 'lucide-react';
 import type { Album } from '../types';
+import clsx from 'clsx';
 
 export const Albums = () => {
-    const [albums, setAlbums] = useState<Album[]>([]);
+    const [activeTab, setActiveTab] = useState<'releases' | 'library'>('releases');
+    const [releases, setReleases] = useState<Album[]>([]);
+    const [library, setLibrary] = useState<Album[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        API.getAlbums()
-            .then(setAlbums)
-            .catch(console.error)
-            .finally(() => setLoading(false));
+        setLoading(true);
+        Promise.all([
+            API.getReleases().catch(err => {
+                console.error("Failed to load releases:", err);
+                return [];
+            }),
+            API.getAlbums().catch(err => {
+                console.error("Failed to load library albums:", err);
+                return [];
+            })
+        ]).then(([releasesData, libraryData]) => {
+            setReleases(releasesData);
+            setLibrary(libraryData);
+        }).finally(() => {
+            setLoading(false);
+        });
     }, []);
 
-    if (loading) return <div className="p-12 text-center opacity-50">Loading library...</div>;
+    const currentItems = useMemo(() => {
+        return activeTab === 'releases' ? releases : library;
+    }, [activeTab, releases, library]);
+
+    if (loading) return <div className="p-12 text-center opacity-50">Loading...</div>;
 
     return (
         <div className="space-y-6 animate-fade-in">
-             <div className="flex items-center justify-between">
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <h1 className="text-3xl font-bold flex items-center gap-3">
-                    <Disc size={32} className="text-primary"/> Albums
+                    <Disc size={32} className="text-primary"/> Catalog
                 </h1>
-                <span className="opacity-50 font-mono text-sm">{albums.length} items</span>
+                
+                <div role="tablist" className="tabs tabs-boxed bg-base-200/50 p-1 border border-white/5">
+                    <button 
+                        role="tab" 
+                        className={clsx("tab tab-sm md:tab-md transition-all gap-2", activeTab === 'releases' && "tab-active !bg-primary !text-primary-content")}
+                        onClick={() => setActiveTab('releases')}
+                    >
+                        <Disc size={16}/> Formal Releases
+                        <div className={clsx("badge badge-xs", activeTab === 'releases' ? "badge-ghost" : "badge-outline opacity-50")}>
+                            {releases.length}
+                        </div>
+                    </button>
+                    <button 
+                        role="tab" 
+                        className={clsx("tab tab-sm md:tab-md transition-all gap-2", activeTab === 'library' && "tab-active !bg-primary !text-primary-content")}
+                        onClick={() => setActiveTab('library')}
+                    >
+                        <Library size={16}/> File Library
+                        <div className={clsx("badge badge-xs", activeTab === 'library' ? "badge-ghost" : "badge-outline opacity-50")}>
+                            {library.length}
+                        </div>
+                    </button>
+                </div>
              </div>
 
              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {albums.map(album => {
+                {currentItems.map(album => {
                     if (!album) return null;
                     return (
                         <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group card bg-base-200 hover:bg-base-300 transition-all hover:-translate-y-1 duration-300 shadow-xl border border-white/5">
                             <figure className="aspect-square relative overflow-hidden">
-                                {album.coverImage ? (
+                                {album.coverImage || (album as any).cover_path ? (
                                     <img 
                                         src={API.getAlbumCoverUrl(album.id)} 
                                         alt={album.title} 
@@ -50,7 +91,7 @@ export const Albums = () => {
                             </figure>
                             <div className="card-body p-4">
                                 <h3 className="font-bold truncate text-lg" title={album.title}>{album.title}</h3>
-                                <p className="text-sm opacity-60 truncate">{album.artistName || album.artist_name}</p>
+                                <p className="text-sm opacity-60 truncate">{album.artistName || (album as any).artist_name}</p>
                                 <div className="flex justify-between items-center mt-2 opacity-40 text-xs font-mono">
                                     <span>{album.year}</span>
                                     <span className="uppercase border border-white/20 px-1 rounded text-[10px]">{album.type}</span>
@@ -61,10 +102,12 @@ export const Albums = () => {
                 })}
              </div>
              
-             {albums.length === 0 && (
+             {currentItems.length === 0 && (
                 <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
                     <Disc size={64}/>
-                    <p className="text-xl">Your library is empty.</p>
+                    <p className="text-xl">
+                        {activeTab === 'releases' ? "No formal releases published yet." : "Library is empty."}
+                    </p>
                 </div>
              )}
         </div>
