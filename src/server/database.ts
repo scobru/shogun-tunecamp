@@ -901,6 +901,12 @@ export function createDatabase(dbPath: string): DatabaseService {
     } catch (e) {
     }
 
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN price REAL DEFAULT 0`);
+        console.log("📦 Migrated database: added price column to release_tracks");
+    } catch (e) {
+    }
+
     // Migration: Add currency columns
     try {
         db.exec(`ALTER TABLE albums ADD COLUMN currency TEXT DEFAULT 'ETH'`);
@@ -911,6 +917,12 @@ export function createDatabase(dbPath: string): DatabaseService {
     try {
         db.exec(`ALTER TABLE tracks ADD COLUMN currency TEXT DEFAULT 'ETH'`);
         console.log("📦 Migrated database: added currency column to tracks");
+    } catch (e) {
+    }
+
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN currency TEXT DEFAULT 'ETH'`);
+        console.log("📦 Migrated database: added currency column to release_tracks");
     } catch (e) {
     }
 
@@ -1241,6 +1253,11 @@ export function createDatabase(dbPath: string): DatabaseService {
     try {
         db.exec(`ALTER TABLE tracks ADD COLUMN artist_name TEXT`);
         console.log("📦 Migrated database: added artist_name column to tracks");
+    } catch (e) { }
+
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN artist_name TEXT`);
+        console.log("📦 Migrated database: added artist_name column to release_tracks");
     } catch (e) { }
 
     // Migration: Backfill ownership tables from owner_id columns
