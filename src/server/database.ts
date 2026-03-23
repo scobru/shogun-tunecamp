@@ -1282,57 +1282,55 @@ export function createDatabase(dbPath: string): DatabaseService {
     } catch (e) { }
 
     // Migration: Add columns to release_tracks if missing (Robust version)
-    const releaseTracksCols = db.pragma("table_info(release_tracks)") as any[];
-    const hasCol = (name: string) => releaseTracksCols.some(c => c.name.toLowerCase() === name.toLowerCase());
-
-    if (!hasCol("id")) {
-        try {
-            db.exec(`ALTER TABLE release_tracks ADD COLUMN id INTEGER`);
-            db.prepare("UPDATE release_tracks SET id = rowid WHERE id IS NULL").run();
-            console.log("📦 Migrated database: added and backfilled id column to release_tracks");
-        } catch (e) { console.error("Error adding id to release_tracks:", e); }
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN id INTEGER`);
+        db.prepare("UPDATE release_tracks SET id = rowid WHERE id IS NULL").run();
+        console.log("📦 Migrated database: added and backfilled id column to release_tracks");
+    } catch (e: any) {
+        if (!e.message.includes("duplicate column name")) console.error("Error adding id to release_tracks:", e);
     }
 
-    if (!hasCol("artist_name")) {
-        try {
-            db.exec(`ALTER TABLE release_tracks ADD COLUMN artist_name TEXT`);
-            console.log("📦 Migrated database: added artist_name column to release_tracks");
-        } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN artist_name TEXT`);
+        console.log("📦 Migrated database: added artist_name column to release_tracks");
+    } catch (e: any) {
+        if (!e.message.includes("duplicate column name")) console.error("Error adding artist_name:", e);
     }
 
-    if (!hasCol("title")) {
-        try {
-            db.exec(`ALTER TABLE release_tracks ADD COLUMN title TEXT NOT NULL DEFAULT 'Unknown'`);
-            console.log("📦 Migrated database: added title column to release_tracks");
-        } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN title TEXT NOT NULL DEFAULT 'Unknown'`);
+        console.log("📦 Migrated database: added title column to release_tracks");
+    } catch (e: any) {
+        if (!e.message.includes("duplicate column name")) console.error("Error adding title:", e);
     }
 
-    if (!hasCol("track_num")) {
-        try {
-            db.exec(`ALTER TABLE release_tracks ADD COLUMN track_num INTEGER`);
-            console.log("📦 Migrated database: added track_num column to release_tracks");
-        } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN track_num INTEGER`);
+        console.log("📦 Migrated database: added track_num column to release_tracks");
+    } catch (e: any) {
+        if (!e.message.includes("duplicate column name")) console.error("Error adding track_num:", e);
     }
 
-    if (!hasCol("duration")) {
-        try {
-            db.exec(`ALTER TABLE release_tracks ADD COLUMN duration REAL`);
-            console.log("📦 Migrated database: added duration column to release_tracks");
-        } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN duration REAL`);
+        console.log("📦 Migrated database: added duration column to release_tracks");
+    } catch (e: any) {
+        if (!e.message.includes("duplicate column name")) console.error("Error adding duration:", e);
     }
 
-    if (!hasCol("file_path")) {
-        try {
-            db.exec(`ALTER TABLE release_tracks ADD COLUMN file_path TEXT`);
-            console.log("📦 Migrated database: added file_path column to release_tracks");
-        } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN file_path TEXT`);
+        console.log("📦 Migrated database: added file_path column to release_tracks");
+    } catch (e: any) {
+        if (!e.message.includes("duplicate column name")) console.error("Error adding file_path:", e);
     }
 
-    if (!hasCol("created_at")) {
-        try {
-            db.exec(`ALTER TABLE release_tracks ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP`);
-            console.log("📦 Migrated database: added created_at column to release_tracks");
-        } catch (e) { }
+    try {
+        db.exec(`ALTER TABLE release_tracks ADD COLUMN created_at TEXT`);
+        db.prepare("UPDATE release_tracks SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL").run();
+        console.log("📦 Migrated database: added created_at column to release_tracks");
+    } catch (e: any) {
+        if (!e.message.includes("duplicate column name")) console.error("Error adding created_at:", e);
     }
 
     // Migration: Backfill ownership tables from owner_id columns

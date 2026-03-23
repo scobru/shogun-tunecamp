@@ -200,47 +200,6 @@ export function createReleaseRouter(
         }
     });
 
-    router.delete("/:id", async (req: any, res) => {
-        try {
-            const id = parseInt(req.params.id, 10);
-            const keepFiles = req.query.keepFiles === "true";
-
-            const release = database.getRelease(id);
-            if (!release) return res.status(404).json({ error: "Release not found" });
-
-            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
-            if (!isRoot && release.owner_id !== req.artistId) {
-                return res.status(403).json({ error: "Access denied" });
-            }
-
-            try {
-                await (publishingService as any).unpublishReleaseFromAP(release);
-                await (publishingService as any).unpublishReleaseFromGunDB(release);
-            } catch (e) {
-                console.error("Failed to unpublish:", e);
-            }
-
-            if (!keepFiles) {
-                const tracks = database.getReleaseTracks(id);
-                const firstWithFile = tracks.find(t => t.file_path);
-                if (firstWithFile && firstWithFile.file_path) {
-                    const trackDir = path.dirname(firstWithFile.file_path);
-                    const releaseDir = trackDir.includes("tracks") ? path.dirname(trackDir) : trackDir;
-                    if (releaseDir && await fs.pathExists(releaseDir)) {
-                        await fs.remove(releaseDir);
-                    }
-                }
-            }
-
-            database.deleteRelease(id);
-            res.json({ message: "Release deleted" });
-
-        } catch (error) {
-            console.error("Error deleting release:", error);
-            res.status(500).json({ error: "Failed to delete release" });
-        }
-    });
-
     router.get("/:id/folder", async (req, res) => {
         try {
             const id = parseInt(req.params.id, 10);
