@@ -1,5 +1,7 @@
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { Router } from "express";
+import path from "path";
+import fs from "fs-extra";
 import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
 import type { GunDBService } from "../gundb.js";
@@ -388,6 +390,132 @@ export function createAdminRoutes(
         } catch (error: any) {
             console.error("Error syncing community follows:", error);
             res.status(500).json({ error: error.message || "Failed to sync community follows" });
+        }
+    });
+
+    /**
+     * PUT /api/admin/releases/:id
+     * Update an album or formal release
+     */
+    router.put("/releases/:id", async (req: AuthenticatedRequest, res: any) => {
+        try {
+            const id = parseInt(req.params.id, 10);
+            const body = req.body;
+
+            // Check both releases and albums
+            const release = database.getRelease(id);
+            const album = database.getAlbum(id);
+            const item = release || album;
+
+            if (!item) {
+                return res.status(404).json({ error: "Release or album not found" });
+            }
+
+            // Permission Check
+            const ownerId = release ? release.owner_id : album?.owner_id;
+            if (req.artistId && !req.isAdmin && ownerId !== req.artistId) {
+                return res.status(403).json({ error: "Access denied" });
+            }
+
+            const updates: any = {};
+            if (body.title) updates.title = body.title;
+            if (body.artistId) updates.artist_id = body.artistId;
+            if (body.date) updates.date = body.date;
+            if (body.description !== undefined) updates.description = body.description;
+            if (body.type) updates.type = body.type;
+            if (body.year) updates.year = body.year;
+            if (body.license !== undefined) updates.license = body.license;
+            if (body.visibility) updates.visibility = body.visibility;
+            if (body.download !== undefined) updates.download = body.download;
+            if (body.price !== undefined) updates.price = body.price;
+            if (body.currency) updates.currency = body.currency;
+            if (body.genres) {
+                const genreStr = Array.isArray(body.genres) ? body.genres.join(", ") : body.genres;
+                updates.genre = genreStr;
+            }
+            if (body.externalLinks) updates.external_links = JSON.stringify(body.externalLinks);
+            if (body.publishedToGunDB !== undefined) updates.published_to_gundb = body.publishedToGunDB;
+            if (body.publishedToAP !== undefined) updates.published_to_ap = body.publishedToAP;
+
+            if (Object.keys(updates).length > 0) {
+                if (release) {
+                    database.updateRelease(id, updates);
+                } else {
+                    // Legacy album update - map generic fields to specific update methods or a generic one if available
+                    if (updates.title) database.updateAlbumTitle(id, updates.title);
+                    if (updates.genre) database.updateAlbumGenre(id, updates.genre);
+                    if (updates.visibility) database.updateAlbumVisibility(id, updates.visibility);
+                    if (updates.download !== undefined) database.updateAlbumDownload(id, updates.download);
+                    if (updates.price !== undefined) database.updateAlbumPrice(id, updates.price, updates.currency);
+                    if (updates.external_links) database.updateAlbumLinks(id, updates.external_links);
+                    if (updates.published_to_gundb !== undefined || updates.published_to_ap !== undefined) {
+                        database.updateAlbumFederationSettings(id, !!updates.published_to_gundb, !!updates.published_to_ap);
+                    }
+                }
+            }
+
+            // Sync changes
+            publishingService.syncRelease(id).catch(e => console.error("Failed to sync release update:", e));
+
+            const finalItem = release ? database.getRelease(id) : database.getAlbum(id);
+            res.json(finalItem || { message: "Updated successfully" });
+
+        } catch (error) {
+            console.error("Error updating release:", error);
+            res.status(500).json({ error: "Failed to update release" });
+        }
+    });
+
+    /**
+     * GET /api/admin/releases/:id/folder
+     * Get folder contents for a release
+     */
+    router.get("/releases/:id/folder", async (req: AuthenticatedRequest, res: any) => {
+        try {
+            const id = parseInt(req.params.id, 10);
+            const tracks = database.getTracksByReleaseId(id); // Use the more robust unified getter
+            
+            if (tracks.length === 0) return res.json({ folder: null, files: [] });
+
+            const firstWithFile = tracks.find(t => t.file_path);
+            if (!firstWithFile || !firstWithFile.file_path) {
+                return res.json({ folder: null, files: [] });
+            }
+
+            const trackDir = path.dirname(firstWithFile.file_path);
+            const releaseDir = trackDir.includes("releases") ? trackDir : path.join(musicDir, "releases", path.basename(trackDir));
+            // Security: ensure we are within musicDir
+            const absoluteReleaseDir = path.resolve(musicDir, releaseDir);
+            if (!absoluteReleaseDir.startsWith(path.resolve(musicDir))) {
+                return res.status(403).json({ error: "Invalid path" });
+            }
+
+            const files: any[] = [];
+            async function walkDir(dir: string, prefix = "") {
+                if (!(await fs.pathExists(dir))) return;
+                const entries = await fs.readdir(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = path.join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        await walkDir(fullPath, `${prefix}${entry.name}/`);
+                    } else {
+                        const stat = await fs.stat(fullPath);
+                        files.push({
+                            name: `${prefix}${entry.name}`,
+                            type: path.extname(entry.name).substring(1),
+                            size: stat.size,
+                        });
+                    }
+                }
+            }
+            
+            if (await fs.pathExists(absoluteReleaseDir)) {
+                await walkDir(absoluteReleaseDir);
+            }
+            res.json({ folder: releaseDir, files });
+        } catch (error) {
+            console.error("Error getting release folder:", error);
+            res.status(500).json({ error: "Failed to get folder" });
         }
     });
 
