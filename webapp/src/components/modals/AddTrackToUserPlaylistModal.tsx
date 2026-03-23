@@ -120,7 +120,7 @@ export const AddTrackToUserPlaylistModal = ({
     const id =
       options?.source === "network"
         ? `${options.siteUrl}::${track.id}`
-        : track.id;
+        : String(track.id);
     setAddingId(id);
     setSuccessId(null);
 
@@ -134,9 +134,9 @@ export const AddTrackToUserPlaylistModal = ({
         if (!coverUrl && track.albumId)
           coverUrl = `${baseUrl}/api/albums/${track.albumId}/cover`;
       } else if (options?.source === "tunecamp" || !options?.source) {
-        streamUrl = API.getStreamUrl(track.id);
+        streamUrl = API.getStreamUrl(String(track.id));
         coverUrl = track.albumId
-          ? API.getAlbumCoverUrl(track.albumId)
+          ? API.getAlbumCoverUrl(String(track.albumId))
           : undefined;
       }
 
@@ -147,14 +147,14 @@ export const AddTrackToUserPlaylistModal = ({
         title: track.title,
         artistName: track.artistName || "Unknown",
         albumName: track.albumName,
-        albumId: track.albumId,
+        albumId: track.albumId ? String(track.albumId) : undefined,
         source: options?.source || "tunecamp",
         siteUrl: options?.siteUrl,
         siteName: options?.siteName,
         streamUrl,
         coverUrl,
         duration: track.duration,
-        tunecampTrackId: options?.source === "network" ? undefined : track.id,
+        tunecampTrackId: options?.source === "network" ? undefined : String(track.id),
         addedAt: Date.now(),
       };
 

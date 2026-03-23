@@ -43,7 +43,7 @@ export const Tracks = () => {
 
     if (isAuthenticated) {
       GunSocial.getLikedTracks().then((liked) => {
-        setLikedTrackIds(new Set(liked.map((t: any) => t.id)));
+        setLikedTrackIds(new Set(liked.map((t: any) => String(t.id))));
       });
     } else {
       setLikedTrackIds(new Set());
@@ -71,8 +71,8 @@ export const Tracks = () => {
       const isNowLiked = await GunSocial.toggleLikeTrack(track);
       setLikedTrackIds((prev) => {
         const next = new Set(prev);
-        if (isNowLiked) next.add(track.id);
-        else next.delete(track.id);
+        if (isNowLiked) next.add(String(track.id));
+        else next.delete(String(track.id));
         return next;
       });
     } catch (err) {
@@ -154,7 +154,7 @@ export const Tracks = () => {
                           {track.format || "MP3"}
                         </span>
                       )}
-                      {(track.liked || likedTrackIds.has(track.id)) && (
+                      {(track.liked || likedTrackIds.has(String(track.id))) && (
                         <Heart
                           size={12}
                           className="text-primary"
@@ -191,28 +191,28 @@ export const Tracks = () => {
                             <Heart
                               size={16}
                               className={clsx(
-                                (track.liked || likedTrackIds.has(track.id)) &&
+                                (track.liked || likedTrackIds.has(String(track.id))) &&
                                   "text-primary",
                               )}
                               fill={
-                                track.liked || likedTrackIds.has(track.id)
+                                track.liked || likedTrackIds.has(String(track.id))
                                   ? "currentColor"
                                   : "none"
                               }
                             />
-                            {track.liked || likedTrackIds.has(track.id)
+                            {track.liked || likedTrackIds.has(String(track.id))
                               ? "Unlike Song"
                               : "Like Song"}
                           </a>
                         </li>
                         <li>
-                          {isPurchased(track.id) ? (
+                          {isPurchased(String(track.id)) ? (
                             <a
                               onClick={async () => {
-                                const code = await verifyAndGetCode(track.id);
+                                const code = await verifyAndGetCode(String(track.id));
                                 if (code) {
                                   window.open(
-                                    `/api/payments/download/${track.id}?code=${code}`,
+                                    `/api/payments/download/${String(track.id)}?code=${code}`,
                                     "_blank",
                                   );
                                 } else {
@@ -230,7 +230,7 @@ export const Tracks = () => {
                             </a>
                           ) : track.albumDownload === "free" ? (
                             <a
-                              href={`/api/albums/${track.albumId}/download`}
+                              href={`/api/albums/${String(track.albumId)}/download`}
                               target="_blank"
                             >
                               <Download size={16} className="text-primary" />{" "}
@@ -301,7 +301,7 @@ export const Tracks = () => {
           onMatched={(updated) => {
             setTracks((prev) =>
               prev.map((t) =>
-                t.id === updated.id
+                String(t.id) === String(updated.id)
                   ? {
                       ...t,
                       ...updated,

@@ -13,7 +13,7 @@ export const LyricsPanel = () => {
             setLoading(true);
             setLyrics('');
             
-            API.getLyrics(currentTrack.id)
+            API.getLyrics(String(currentTrack.id))
                 .then(data => {
                     const text = typeof data.lyrics === 'string' 
                         ? data.lyrics 

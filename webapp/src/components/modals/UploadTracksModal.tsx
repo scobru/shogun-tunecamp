@@ -247,7 +247,7 @@ export const UploadTracksModal = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleDeleteTrack(track.id)}
+                      onClick={() => handleDeleteTrack(String(track.id))}
                       className="btn btn-ghost btn-xs btn-square text-error"
                       title="Delete track"
                     >

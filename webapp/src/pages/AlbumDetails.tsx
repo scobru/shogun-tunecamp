@@ -434,10 +434,10 @@ export const AlbumDetails = () => {
       <Comments
         trackId={
           album.tracks && album.tracks.length > 0
-            ? album.tracks[0].id
+            ? String(album.tracks[0].id)
             : undefined
         }
-        albumId={album.id}
+        albumId={String(album.id)}
       />
     </div>
   );

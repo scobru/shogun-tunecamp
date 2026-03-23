@@ -245,7 +245,7 @@ export const PlaylistDetails = () => {
                           <li>
                             <button
                               className="text-error"
-                              onClick={() => handleRemoveTrack(track.id)}
+                              onClick={() => handleRemoveTrack(String(track.id))}
                             >
                               <Trash2 size={16} /> Remove
                             </button>

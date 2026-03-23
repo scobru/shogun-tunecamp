@@ -73,6 +73,7 @@ export interface Release {
     published_to_gundb?: boolean;
     published_to_ap?: boolean;
     license?: string;
+    track_ids?: (string | number)[];
     tracks?: Track[]; // Compat with existing code
     release_tracks?: ReleaseTrack[];
     downloadCount?: number;
