@@ -219,7 +219,7 @@ export const API = {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("trackId", trackId);
-        return handleResponse(api.post('/admin/upload/track-artwork', formData));
+        return handleResponse(api.post<{ url: string }>('/admin/upload/track-artwork', formData));
     },
 
     uploadArtistAvatar: (artistId: string, file: File) => {
