@@ -250,6 +250,12 @@ export default function AdminReleaseEditor() {
           ? metadata.tags.split(",").map((s: string) => s.trim())
           : [],
         track_ids, // Send full list of IDs to sync associations
+        tracks_data: tracks.map((t) => ({ 
+          id: t.id, 
+          title: t.title, 
+          price: t.price, 
+          currency: t.currency || "ETH" 
+        }))
       } as any;
 
       let releaseId = id ? parseInt(id) : null;

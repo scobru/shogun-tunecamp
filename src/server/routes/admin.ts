@@ -490,6 +490,17 @@ export function createAdminRoutes(
                     // Also update order if provided (preserving the list order)
                     console.log(`     🔢 Updating track order for formal release ${id}:`, newTrackIds);
                     database.updateReleaseTracksOrder(id, newTrackIds);
+
+                    if (body.tracks_data && Array.isArray(body.tracks_data)) {
+                        console.log(`     📝 Updating track metadata for formal release ${id}`);
+                        for (const td of body.tracks_data) {
+                            database.updateReleaseTrackMetadata(id, td.id, {
+                                title: td.title,
+                                price: td.price,
+                                currency: td.currency || 'ETH'
+                            });
+                        }
+                    }
                 } else if (album) {
                     // Update library album tracks
                     const existingTracks = database.getTracks(id);

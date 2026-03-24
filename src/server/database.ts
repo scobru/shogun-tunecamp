@@ -290,6 +290,7 @@ export interface DatabaseService {
     getReleaseTrack(id: number): ReleaseTrack | undefined;
     addTrackToRelease(releaseId: number, trackId: number, metadata?: Partial<ReleaseTrack>): number;
     updateReleaseTrack(id: number, metadata: Partial<ReleaseTrack>): void;
+    updateReleaseTrackMetadata(releaseId: number, trackId: number, metadata: Partial<ReleaseTrack>): void;
     removeTrackFromRelease(releaseId: number, trackId: number): void; // Old version by IDs
     deleteReleaseTrack(id: number): void; // New version by record ID
     updateReleaseTracksOrder(releaseId: number, trackIds: number[]): void;
@@ -1669,6 +1670,22 @@ export function createDatabase(dbPath: string): DatabaseService {
 
             values.push(id);
             db.prepare(`UPDATE release_tracks SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+        },
+
+        updateReleaseTrackMetadata(releaseId: number, trackId: number, metadata: Partial<ReleaseTrack>): void {
+            const fields: string[] = [];
+            const values: any[] = [];
+
+            for (const [key, value] of Object.entries(metadata)) {
+                if (key === 'id' || key === 'release_id' || key === 'created_at') continue;
+                fields.push(`${key} = ?`);
+                values.push(value);
+            }
+
+            if (fields.length === 0) return;
+
+            values.push(releaseId, trackId);
+            db.prepare(`UPDATE release_tracks SET ${fields.join(', ')} WHERE release_id = ? AND track_id = ?`).run(...values);
         },
 
         removeTrackFromRelease(releaseId: number, trackId: number): void {
