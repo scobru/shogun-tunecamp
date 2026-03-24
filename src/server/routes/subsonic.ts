@@ -1459,9 +1459,14 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const matchingAlbums = allAlbums.filter(a => a.genre && a.genre.toLowerCase().includes(genre.toLowerCase()));
 
         const songs: any[] = [];
-        for (const album of matchingAlbums) {
-            const tracks = db.getTracks(album.id);
+        if (matchingAlbums.length > 0) {
+            const albumIds = matchingAlbums.map(a => a.id);
+            const albumMap = new Map(matchingAlbums.map(a => [a.id, a]));
+            const tracks = db.getTracksByAlbumIds(albumIds);
+
             for (const track of tracks) {
+                const album = albumMap.get(track.album_id!);
+                if (!album) continue;
                 songs.push({
                     '@id': `tr_${track.id}`,
                     '@title': track.title,
