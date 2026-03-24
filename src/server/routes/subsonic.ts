@@ -26,7 +26,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     /**
      * Ensures that a query parameter is a string, even if multiple values were provided as an array.
      */
-    const ensureString = (val: any): string | undefined => {
+    const ensureString = (val: unknown): string | undefined => {
         if (typeof val === 'string') return val;
         if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'string') return val[0];
         return undefined;
