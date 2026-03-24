@@ -214,6 +214,14 @@ export const API = {
         }
         return handleResponse(api.post('/admin/upload/cover', formData));
     },
+
+    uploadTrackArtwork: (trackId: string, file: File) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("trackId", trackId);
+        return handleResponse(api.post('/admin/upload/track-artwork', formData));
+    },
+
     uploadArtistAvatar: (artistId: string, file: File) => {
         const formData = new FormData();
         formData.append('file', file);

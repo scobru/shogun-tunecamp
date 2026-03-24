@@ -236,6 +236,16 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 return res.status(400).json({ error: "Cannot delete artist: they have existing releases, albums, or tracks." });
             }
 
+            // Check if artist is associated with a user account
+            try {
+                const isUserArtist = database.db.prepare("SELECT id FROM admin WHERE artist_id = ?").get(id);
+                if (isUserArtist) {
+                    return res.status(400).json({ error: "Cannot delete artist: they are associated with a user account." });
+                }
+            } catch (e) {
+                console.error("Error checking user association:", e);
+            }
+
             database.deleteArtist(id);
             console.log(`🗑️  Deleted artist: ${artist.name}`);
             res.json({ message: "Artist deleted" });

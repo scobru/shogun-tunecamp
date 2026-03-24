@@ -484,6 +484,57 @@ export function createUploadRoutes(
     // Removed createSiteCoverStorage
 
     /**
+     * POST /api/admin/upload/track-artwork
+     * Upload custom artwork for a track
+     */
+    router.post("/track-artwork", imageUpload.single("file") as any, async (req: any, res: any) => {
+        try {
+            const file = req.file;
+            const trackIdRaw = req.body.trackId;
+            const trackId = trackIdRaw ? parseInt(trackIdRaw as string, 10) : undefined;
+
+            if (!file) return res.status(400).json({ error: "No file uploaded" });
+            if (!trackId) return res.status(400).json({ error: "Track ID required" });
+
+            const track = database.getTrack(trackId);
+            if (!track) {
+                await fs.remove(file.path);
+                return res.status(404).json({ error: "Track not found" });
+            }
+
+            // Permission Check
+            const isOwner = req.artistId && (track.artist_id === req.artistId || track.owner_id === req.artistId);
+            if (!req.isRootAdmin && !isOwner) {
+                await fs.remove(file.path);
+                return res.status(403).json({ error: "Access denied: Cannot upload artwork for this track" });
+            }
+
+            const ext = path.extname(file.originalname).toLowerCase();
+            const assetsDir = path.join(musicDir, "assets", "tracks");
+            await fs.ensureDir(assetsDir);
+
+            const targetFilename = `track-${trackId}-${Date.now()}${ext}`;
+            const targetPath = path.join(assetsDir, targetFilename);
+
+            await fs.move(file.path, targetPath, { overwrite: true });
+
+            const dbPath = path.relative(musicDir, targetPath).replace(/\\/g, "/");
+            database.updateTrackExternalArtwork(trackId, dbPath);
+
+            res.json({
+                message: "Track artwork uploaded",
+                url: `/music/${dbPath}`,
+                file: { name: targetFilename, path: targetPath, size: file.size }
+            });
+            console.log(`✅ Track artwork upload completed for track ${trackId}`);
+        } catch (error) {
+            console.error("❌ Track artwork upload error:", error);
+            if (req.file) await fs.remove(req.file.path).catch(() => { });
+            res.status(500).json({ error: "Track artwork upload failed" });
+        }
+    });
+
+    /**
      * POST /api/admin/upload/background
      * Upload site background image (saved to server, URL stored in settings)
      */

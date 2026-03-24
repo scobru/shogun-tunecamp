@@ -682,7 +682,7 @@ export class ActivityPubService {
         const artist = this.db.getArtist(album.artist_id);
         if (!artist) return;
 
-        const existingNotes = this.db.getApNotes(artist.id, true);
+        const existingNotes = this.db.getApNotes(artist.id, false);
         const alreadyPublished = existingNotes.find(n => n.note_type === 'release' && n.content_id === album.id);
         if (alreadyPublished) {
             console.log(`ℹ️ Release "${album.title}" already published via ActivityPub. Skipping broadcast.`);
@@ -728,7 +728,7 @@ export class ActivityPubService {
         const artist = this.db.getArtist(post.artist_id);
         if (!artist) return;
 
-        const existingNotes = this.db.getApNotes(artist.id, true);
+        const existingNotes = this.db.getApNotes(artist.id, false);
         const alreadyPublished = existingNotes.find(n => n.note_type === 'post' && n.content_id === post.id);
         if (alreadyPublished) {
             console.log(`ℹ️ Post "${post.slug}" already published via ActivityPub. Skipping broadcast.`);

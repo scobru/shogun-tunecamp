@@ -1184,12 +1184,20 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             // --- 1. TCleanup TRACKS (Secure Graph) ---
             const publicAlbums = database.getAlbums(true);
+            const publicReleases = database.getReleases(true);
             const validTrackSlugs = new Set<string>();
 
             for (const album of publicAlbums) {
                 const tracks = database.getTracks(album.id);
                 for (const track of tracks) {
                     validTrackSlugs.add(generateTrackSlug(album.title, track.title));
+                }
+            }
+
+            for (const release of publicReleases) {
+                const tracks = database.getTracksByReleaseId(release.id);
+                for (const track of tracks) {
+                    validTrackSlugs.add(generateTrackSlug(release.title, track.title));
                 }
             }
 

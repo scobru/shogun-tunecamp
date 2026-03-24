@@ -13,6 +13,10 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
   const [albumTitle, setAlbumTitle] = useState("");
   const [trackId, setTrackId] = useState<string | null>(null);
   const [trackNum, setTrackNum] = useState<string>("");
+  const [artworkUrl, setArtworkUrl] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingArtwork, setUploadingArtwork] = useState(false);
 
   // Dropdown data
   const [artists, setArtists] = useState<any[]>([]);
@@ -29,6 +33,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         setArtistName(e.detail.artist_name || "");
         setAlbumTitle(e.detail.album_title || "");
         setTrackNum(e.detail.track_num ? String(e.detail.track_num) : "");
+        setArtworkUrl(e.detail.external_artwork || null);
 
         loadData();
         dialogRef.current?.showModal();
@@ -56,6 +61,30 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
       setAlbums(albumsData);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleArtworkClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleArtworkChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !trackId) return;
+
+    setUploadingArtwork(true);
+    setError("");
+    try {
+      const res = await API.uploadTrackArtwork(trackId, file);
+      setArtworkUrl(res.url);
+      onTrackUpdated();
+    } catch (err: any) {
+      setError(err.message || "Failed to upload artwork");
+    } finally {
+      setUploadingArtwork(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -129,6 +158,41 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
           <Music size={20} /> Edit Track
         </h3>
+
+        {trackId && (
+          <div className="flex flex-col items-center mb-6">
+            <div 
+              className={`w-32 h-32 rounded-lg bg-base-300 border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer overflow-hidden relative ${uploadingArtwork ? 'opacity-50' : 'hover:border-primary transition-colors'}`}
+              onClick={handleArtworkClick}
+            >
+              {artworkUrl ? (
+                <img src={artworkUrl} alt="Track Artwork" className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-center p-4 cursor-pointer">
+                  <Music className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <span className="text-xs opacity-50">Upload Custom Artwork</span>
+                </div>
+              )}
+              {uploadingArtwork && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                  <span className="loading loading-spinner loading-md text-primary"></span>
+                </div>
+              )}
+            </div>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/jpeg,image/png,image/webp" 
+              onChange={handleArtworkChange} 
+            />
+            {artworkUrl && (
+              <div className="text-xs opacity-50 mt-2 text-center max-w-xs truncate">
+                Custom artwork applied
+              </div>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="form-control">
