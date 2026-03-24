@@ -3,7 +3,6 @@ import jwt from "jsonwebtoken";
 import type { Database } from "better-sqlite3";
 import fetch from "node-fetch";
 import crypto from "crypto";
-import md5 from "md5";
 import Gun from "gun";
 import "gun/sea.js";
 import { isSafeUrl } from "../utils/networkUtils.js";
@@ -270,10 +269,6 @@ export function createAuthService(
                 db.prepare("UPDATE admin SET gun_pub = ?, gun_priv = ? WHERE id = ?").run(gunPair.pub, encryptedPriv, user.id);
             }
 
-            // Update Subsonic Token (MD5 of cleartext password) on successful login
-            const subsonicToken = md5(password);
-            db.prepare("UPDATE admin SET subsonic_token = ? WHERE id = ?").run(subsonicToken, user.id);
-
             // Also store encrypted cleartext password for Subsonic token+salt auth
             const encryptedPass = encryptGunPrivHelper(password, jwtSecret);
             try {
@@ -320,25 +315,19 @@ export function createAuthService(
         },
 
         async verifySubsonicToken(username: string, token: string, salt: string): Promise<boolean> {
-            const user = db.prepare("SELECT subsonic_token, subsonic_password FROM admin WHERE username = ?").get(username) as { subsonic_token: string; subsonic_password: string } | undefined;
-            if (!user) return false;
+            const user = db.prepare("SELECT subsonic_password FROM admin WHERE username = ?").get(username) as { subsonic_password: string } | undefined;
+            if (!user || !token) return false;
 
             // Method 1: Use stored encrypted password (preferred, standard Subsonic auth)
             // Standard: token = md5(password + salt)
             if (user.subsonic_password) {
                 try {
                     const clearPassword = decryptGunPrivHelper(user.subsonic_password, jwtSecret);
-                    const expectedToken = md5(clearPassword + salt);
-                    if (token === expectedToken) return true;
+                    const expectedToken = crypto.createHash('md5').update(clearPassword + salt).digest('hex');
+                    if (token.length === expectedToken.length && crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expectedToken))) return true;
                 } catch (e) {
-                    // Decryption failed, fall through to method 2
+                    // Decryption failed or lengths differ
                 }
-            }
-
-            // Method 2: Use stored md5(password) - check if client sent md5(md5(password) + salt)
-            if (user.subsonic_token) {
-                const expectedTokenFromMd5 = md5(user.subsonic_token + salt);
-                if (token === expectedTokenFromMd5) return true;
             }
 
             return false;
