@@ -305,24 +305,37 @@ export function createAuthService(
 
             // Handle Artist Profile (Actor) Management - ensure everyone has an artist record for wallet support
             if (!artistId) {
-                console.log(`🎤 Creating missing artist profile for ${userRole} ${username}...`);
-                const slug = username.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+                console.log(`🎤 Checking missing artist profile for ${userRole} ${username}...`);
                 
-                // Simple slug collision handling
-                let finalSlug = slug;
-                let attempt = 0;
-                while (attempt < 10) {
-                    try {
-                        const result = db.prepare("INSERT INTO artists (name, slug, bio) VALUES (?, ?, ?)").run(username, finalSlug, `Artist profile for ${username}`);
-                        artistId = result.lastInsertRowid as number;
-                        db.prepare("UPDATE admin SET artist_id = ? WHERE id = ?").run(artistId, user.id);
-                        break;
-                    } catch (e: any) {
-                        if (e.code === "SQLITE_CONSTRAINT_UNIQUE") {
-                            attempt++;
-                            finalSlug = `${slug}-${attempt}`;
-                        } else {
-                            throw e;
+                // First, check if an artist with the same name exists
+                const existingArtist = db.prepare("SELECT id FROM artists WHERE name = ? COLLATE NOCASE").get(username) as { id: number } | undefined;
+                
+                if (existingArtist) {
+                    console.log(`🔗 Found existing artist profile for ${username}, linking it...`);
+                    artistId = existingArtist.id;
+                    db.prepare("UPDATE admin SET artist_id = ? WHERE id = ?").run(artistId, user.id);
+                } else {
+                    console.log(`🎤 Creating missing artist profile for ${username}...`);
+                    const slug = username.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+                    
+                    // Simple slug/name collision handling
+                    let finalSlug = slug;
+                    let finalName = username;
+                    let attempt = 0;
+                    while (attempt < 10) {
+                        try {
+                            const result = db.prepare("INSERT INTO artists (name, slug, bio) VALUES (?, ?, ?)").run(finalName, finalSlug, `Artist profile for ${username}`);
+                            artistId = result.lastInsertRowid as number;
+                            db.prepare("UPDATE admin SET artist_id = ? WHERE id = ?").run(artistId, user.id);
+                            break;
+                        } catch (e: any) {
+                            if (e.code === "SQLITE_CONSTRAINT_UNIQUE") {
+                                attempt++;
+                                finalSlug = `${slug}-${attempt}`;
+                                finalName = `${username} ${attempt}`;
+                            } else {
+                                throw e;
+                            }
                         }
                     }
                 }

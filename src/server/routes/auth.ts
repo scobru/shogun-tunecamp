@@ -11,7 +11,7 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
      * POST /api/auth/login
      * Login with admin password, returns JWT token
      */
-    router.post("/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), async (req, res) => {
+    router.post("/login", rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }), async (req, res) => {
         try {
             const { username, password, pubKey, proof } = req.body;
 
@@ -63,7 +63,7 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
      * POST /api/auth/setup
      * Set initial admin password (first run only)
      */
-    router.post("/setup", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), async (req, res) => {
+    router.post("/setup", rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }), async (req, res) => {
         try {
             if (!authService.isFirstRun()) {
                 return res.status(400).json({ error: "Admin account already set up" });
@@ -105,7 +105,7 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
      * POST /api/auth/password
      * Change admin password (requires auth)
      */
-    router.post("/password", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), authMiddleware.requireAdmin, async (req: AuthenticatedRequest, res) => {
+    router.post("/password", rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }), authMiddleware.requireAdmin, async (req: AuthenticatedRequest, res) => {
         try {
             // This route should be protected by requireAdmin middleware
             const { currentPassword, newPassword } = req.body;
@@ -176,7 +176,7 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
      * POST /api/auth/mastodon/init
      * Start Mastodon OAuth flow
      */
-    router.post("/mastodon/init", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), async (req, res) => {
+    router.post("/mastodon/init", rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }), async (req, res) => {
         try {
             const { instanceUrl, redirectUri } = req.body;
 
@@ -199,7 +199,7 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
      * POST /api/auth/mastodon/callback
      * Handle Mastodon OAuth callback
      */
-    router.post("/mastodon/callback", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), async (req, res) => {
+    router.post("/mastodon/callback", rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }), async (req, res) => {
         try {
             const { instanceUrl, code, redirectUri } = req.body;
 
