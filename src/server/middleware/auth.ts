@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import type { AuthService } from "../auth.js";
-import type { UserRole } from "../auth.js";
+import type { UserRole, TokenPayload } from "../auth.js";
 
 export interface AuthenticatedRequest extends Request {
     isAdmin?: boolean;
@@ -18,7 +18,7 @@ export function createAuthMiddleware(authService: AuthService) {
     /**
      * Extracts and verifies token from request
      */
-    function extractPayload(req: AuthenticatedRequest) {
+    function extractPayload(req: AuthenticatedRequest): TokenPayload | null {
         let token: string | undefined;
         const authHeader = req.headers.authorization;
 
