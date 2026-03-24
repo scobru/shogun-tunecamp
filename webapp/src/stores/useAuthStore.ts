@@ -103,7 +103,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 username: status.username, 
                 isAdmin: status.role === 'admin', 
                 id: String(status.artistId || '0'), 
-                artistId: String(status.artistId) 
+                artistId: String(status.artistId),
+                isActive: status.isActive
             } as User : null);
 
             set({
@@ -192,7 +193,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 username, 
                 isAdmin: result.role === 'admin', 
                 id: String(result.artistId || '0'),
-                artistId: String(result.artistId)
+                artistId: String(result.artistId),
+                isActive: result.isActive
             } as User;
 
             const userRole = (result as any).role || 'user';
@@ -244,7 +246,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     username, 
                     isAdmin: result.role === 'admin', 
                     id: String(result.artistId || '0'),
-                    artistId: String(result.artistId)
+                    artistId: String(result.artistId),
+                    isActive: result.isActive
                 } as User;
                 
                 const userRole = (result as any).role || 'user';

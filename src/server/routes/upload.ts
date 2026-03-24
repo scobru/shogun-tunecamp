@@ -157,6 +157,15 @@ export function createUploadRoutes(
             const { releaseSlug } = req.body;
             const artistId = (req as any).artistId;
 
+            if (!req.isAdmin && !req.isActive) {
+                if (files) {
+                    for (const file of files) {
+                        await fs.remove(file.path).catch(() => {});
+                    }
+                }
+                return res.status(403).json({ error: "Access denied: Account must be activated by admin to upload tracks" });
+            }
+
             if (!files || files.length === 0) {
                 return res.status(400).json({ error: "No files uploaded" });
             }
@@ -320,6 +329,11 @@ export function createUploadRoutes(
                 return res.status(400).json({ error: "No file uploaded" });
             }
 
+            if (!req.isAdmin && !req.isActive) {
+                if (file) await fs.remove(file.path).catch(() => {});
+                return res.status(403).json({ error: "Access denied: Account must be activated by admin to upload covers" });
+            }
+
             console.log(`🎨 Uploaded cover: ${file.originalname}`);
 
             // If release slug provided, update release.yaml and database
@@ -432,6 +446,11 @@ export function createUploadRoutes(
                 return res.status(400).json({ error: "No file uploaded" });
             }
 
+            if (!req.isAdmin && !req.isActive) {
+                if (file) await fs.remove(file.path).catch(() => {});
+                return res.status(403).json({ error: "Access denied: Account must be activated by admin to upload avatars" });
+            }
+
             if (!artistId) {
                 return res.status(400).json({ error: "Artist ID required" });
             }
@@ -495,6 +514,11 @@ export function createUploadRoutes(
 
             if (!file) return res.status(400).json({ error: "No file uploaded" });
             if (!trackId) return res.status(400).json({ error: "Track ID required" });
+
+            if (!req.isAdmin && !req.isActive) {
+                if (file) await fs.remove(file.path).catch(() => {});
+                return res.status(403).json({ error: "Access denied: Account must be activated by admin to upload track artwork" });
+            }
 
             const track = database.getTrack(trackId);
             if (!track) {

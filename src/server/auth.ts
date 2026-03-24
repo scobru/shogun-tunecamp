@@ -17,6 +17,7 @@ export interface TokenPayload {
     username: string;
     artistId: number | null;
     role: UserRole;
+    isActive: boolean;
 }
 
 export interface AuthService {
@@ -25,7 +26,7 @@ export interface AuthService {
     generateToken(payload: TokenPayload): string;
     verifyToken(token: string): TokenPayload | null;
     // Multi-user management
-    authenticateUser(username: string, password: string, pubKey?: string, proof?: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; pair?: any } | false>;
+    authenticateUser(username: string, password: string, pubKey?: string, proof?: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; isActive: boolean; pair?: any } | false>;
     verifyGunSignature(message: any, pubKey: string, proof: string): Promise<boolean>;
     verifySubsonicToken(username: string, token: string, salt: string): Promise<boolean>;
     createAdmin(username: string, password: string, artistId?: number | null): Promise<void>;
@@ -216,14 +217,15 @@ export function createAuthService(
                     isAdmin: decoded.isAdmin ?? (decoded.role === 'admin'),
                     username: decoded.username,
                     artistId: decoded.artistId ?? null,
-                    role: decoded.role || (decoded.isAdmin ? 'admin' : 'user') // backward compat
+                    role: decoded.role || (decoded.isAdmin ? 'admin' : 'user'), // backward compat
+                    isActive: decoded.isActive ?? true // backward compat
                 };
             } catch {
                 return null;
             }
         },
 
-        async authenticateUser(username: string, password: string, pubKey?: string, proof?: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; pair?: any } | false> {
+        async authenticateUser(username: string, password: string, pubKey?: string, proof?: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; isActive: boolean; pair?: any } | false> {
             let user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv, is_active FROM admin WHERE username = ?").get(username) as { id: number; password_hash: string; artist_id: number | null; role: UserRole; gun_pub: string | null; gun_priv: string | null; is_active: number } | undefined;
             
             // ROAMING LOGIC: If user doesn't exist locally, try to verify GunDB proof for lazy-creation
@@ -246,11 +248,6 @@ export function createAuthService(
             }
 
             if (!user) return false;
-
-            if (user.is_active === 0) {
-                console.log(`🔐 Blocked login attempt for disabled user: ${username}`);
-                return false;
-            }
 
             const valid = await this.verifyPassword(password, user.password_hash);
             if (!valid) return false;
@@ -317,6 +314,7 @@ export function createAuthService(
                 isAdmin: userRole === 'admin',
                 artistId: artistId,
                 role: userRole,
+                isActive: user.is_active === 1,
                 pair: gunPair
             };
         },
@@ -358,7 +356,7 @@ export function createAuthService(
 
         async createUser(username: string, password: string, artistId: number, storageQuota: number = 1024 * 1024 * 1024, pubKey?: string): Promise<{ id: number }> {
             const hash = await this.hashPassword(password);
-            const result = db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota, storage_used, gun_pub) VALUES (?, ?, ?, 'user', ?, 0, ?)").run(username, hash, artistId, storageQuota, pubKey || null);
+            const result = db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota, storage_used, gun_pub, is_active) VALUES (?, ?, ?, 'user', ?, 0, ?, 0)").run(username, hash, artistId, storageQuota, pubKey || null);
             return { id: Number(result.lastInsertRowid) };
         },
 

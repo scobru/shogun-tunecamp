@@ -117,7 +117,7 @@ export default function AdminReleaseEditor() {
 
   useEffect(() => {
     if (!isLoading) {
-      if (!isAuthenticated || (role !== 'admin' && role !== 'user')) {
+      if (!isAuthenticated || (role !== 'admin' && role !== 'user') || (!isAdmin && !user?.isActive)) {
         navigate("/");
         return;
       }
@@ -126,7 +126,7 @@ export default function AdminReleaseEditor() {
         loadRelease(parseInt(id));
       }
     }
-  }, [id, isLoading, isAuthenticated, role]);
+  }, [id, isLoading, isAuthenticated, role, isAdmin, user]);
 
   const loadArtists = async () => {
     try {

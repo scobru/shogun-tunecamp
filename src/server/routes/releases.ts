@@ -91,6 +91,10 @@ export function createReleaseRouter(
             const isAdmin = req.isAdmin;
             const userArtistId = req.artistId;
 
+            if (!isAdmin && !req.isActive) {
+                return res.status(403).json({ error: "Access denied: Account must be activated by admin to create releases" });
+            }
+
             if (!body.title) {
                 return res.status(400).json({ error: "Title is required" });
             }

@@ -8,6 +8,7 @@ export interface AuthenticatedRequest extends Request {
     username?: string;
     artistId?: number | null;
     role?: UserRole;
+    isActive?: boolean;
     userId?: number;
 }
 
@@ -51,6 +52,7 @@ export function createAuthMiddleware(authService: AuthService) {
             req.username = payload.username;
             req.artistId = payload.artistId;
             req.role = payload.role;
+            req.isActive = payload.isActive;
             req.isRootAdmin = authService.isRootAdmin(payload.username);
             next();
         },
@@ -73,6 +75,7 @@ export function createAuthMiddleware(authService: AuthService) {
             req.username = payload.username;
             req.artistId = payload.artistId;
             req.role = payload.role;
+            req.isActive = payload.isActive;
             req.isRootAdmin = authService.isRootAdmin(payload.username);
             next();
         },
@@ -92,9 +95,11 @@ export function createAuthMiddleware(authService: AuthService) {
                 req.username = payload.username;
                 req.artistId = payload.artistId;
                 req.role = payload.role;
+                req.isActive = payload.isActive;
                 req.isRootAdmin = authService.isRootAdmin(payload.username);
             } else {
                 req.isAdmin = false;
+                req.isActive = false;
                 req.isRootAdmin = false;
             }
 

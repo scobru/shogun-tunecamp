@@ -399,6 +399,10 @@ export function createAdminRoutes(
             const id = parseInt(req.params.id, 10);
             const body = req.body;
 
+            if (!req.isAdmin && !req.isActive) {
+                return res.status(403).json({ error: "Access denied: Account must be activated by admin to modify releases" });
+            }
+
             console.log(`📝 [Debug] PUT /api/admin/releases/${id} received:`, {
                 title: body.title,
                 track_ids: body.track_ids,

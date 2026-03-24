@@ -143,6 +143,7 @@ export interface User {
     isRootAdmin?: boolean;
     artistId?: string;
     mustChangePassword?: boolean;
+    isActive?: boolean;
 }
 
 export interface AuthStatus {
@@ -154,6 +155,7 @@ export interface AuthStatus {
     firstRun?: boolean;
     mustChangePassword?: boolean;
     pair?: any; // Added GunDB identity pair
+    isActive?: boolean;
 }
 
 export interface SiteSettings {

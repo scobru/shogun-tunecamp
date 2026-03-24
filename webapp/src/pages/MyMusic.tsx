@@ -133,22 +133,26 @@ export const MyMusic = () => {
           <div className="space-y-6">
             <h3 className="font-bold text-lg">Quick Actions</h3>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <button
-                className="btn btn-primary gap-2"
-                onClick={() =>
-                  document.dispatchEvent(
-                    new CustomEvent("open-upload-tracks-modal"),
-                  )
-                }
-              >
-                📤 Upload Tracks
-              </button>
-              <button
-                className="btn btn-secondary gap-2"
-                onClick={() => navigate("/admin/release/new")}
-              >
-                💿 New Release
-              </button>
+              {(user?.isAdmin || user?.isActive) && (
+                <>
+                  <button
+                    className="btn btn-primary gap-2"
+                    onClick={() =>
+                      document.dispatchEvent(
+                        new CustomEvent("open-upload-tracks-modal"),
+                      )
+                    }
+                  >
+                    📤 Upload Tracks
+                  </button>
+                  <button
+                    className="btn btn-secondary gap-2"
+                    onClick={() => navigate("/admin/release/new")}
+                  >
+                    💿 New Release
+                  </button>
+                </>
+              )}
               <button
                 className="btn btn-outline gap-2"
                 onClick={() =>
@@ -183,12 +187,14 @@ export const MyMusic = () => {
                 >
                   Create Post
                 </button>
-                <button
-                  className="btn btn-sm btn-primary"
-                  onClick={() => navigate("/admin/release/new")}
-                >
-                  Create Release
-                </button>
+                {(user?.isAdmin || user?.isActive) && (
+                  <button
+                    className="btn btn-sm btn-primary"
+                    onClick={() => navigate("/admin/release/new")}
+                  >
+                    Create Release
+                  </button>
+                )}
               </div>
             </div>
             <AdminReleasesList mine={true} />

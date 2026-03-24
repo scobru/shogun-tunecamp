@@ -90,7 +90,8 @@ export function createUsersRoutes(
                 isAdmin: false,
                 username,
                 artistId,
-                role: 'user'
+                role: 'user',
+                isActive: false
             });
 
             console.log(`🆕 New user registered: ${username} (artist: ${artistId}, user: ${userId}, pubKey: ${pubKey ? 'linked' : 'none'})`);
@@ -102,6 +103,7 @@ export function createUsersRoutes(
                 username,
                 artistId,
                 role: 'user',
+                isActive: false,
                 storageQuota: DEFAULT_QUOTA,
                 pubKey: pubKey || null
             });
