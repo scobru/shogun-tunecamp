@@ -50,7 +50,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
     try {
       const [artistsData, albumsData] = await Promise.all([
         API.getArtists(),
-        API.getAdminReleases({ mine: true }),
+        API.getAlbums(),
       ]);
       setArtists(artistsData);
       setAlbums(albumsData);
@@ -90,7 +90,6 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
 
     try {
       const matchedArtist = artists.find(a => a.name.toLowerCase() === artistName.trim().toLowerCase());
-      const matchedAlbum = albums.find(a => a.title.toLowerCase() === albumTitle.trim().toLowerCase());
 
       const payload: any = {
         title,
@@ -104,12 +103,8 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         if (!artistName.trim()) payload.artistId = null;
       }
 
-      if (matchedAlbum) {
-        payload.albumId = String(matchedAlbum.id);
-      } else {
-        payload.album = albumTitle.trim();
-        if (!albumTitle.trim()) payload.albumId = null;
-      }
+      payload.album = albumTitle.trim();
+      if (!albumTitle.trim()) payload.albumId = null;
 
       await API.updateTrack(trackId, payload);
 
