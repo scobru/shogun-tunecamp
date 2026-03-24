@@ -100,12 +100,21 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                tracksToSync = database.getTracksByOwner(req.artistId);
             }
 
+            // Get unique artist IDs for tracks that have a price
+            const artistIdsToFetch = [...new Set(tracksToSync
+                .filter(t => t.price && t.price > 0 && t.artist_id)
+                .map(t => t.artist_id as number))];
+
+            // Fetch artists in batch
+            const artistsBatch = database.getArtistsByIds(artistIdsToFetch);
+            const artistMap = new Map(artistsBatch.map(a => [a.id, a]));
+
             const pricingData = tracksToSync
                 .filter(t => t.price && t.price > 0)
                 .map(t => {
                    let walletAddress = null;
                    if (t.artist_id) {
-                       const artist = database.getArtist(t.artist_id);
+                       const artist = artistMap.get(t.artist_id);
                        if (artist) {
                            walletAddress = artist.wallet_address;
                        }
