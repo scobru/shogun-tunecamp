@@ -843,25 +843,34 @@ export class ActivityPubService {
 
     public async syncAllContent(): Promise<{ artists: number; notes: number }> {
         const artists = this.db.getArtists();
-        let artistCount = 0;
+        let artistCount = artists.length;
         let noteCount = 0;
 
+        // Fetch all releases upfront to avoid N+1 queries during the loop
+        const releases = this.db.getReleases();
+
+        // Group releases by artist ID
+        const releasesByArtist: Record<number, any[]> = {};
+        for (const release of releases) {
+            if (release.artist_id !== null) {
+                if (!releasesByArtist[release.artist_id]) releasesByArtist[release.artist_id] = [];
+                releasesByArtist[release.artist_id].push(release);
+            }
+        }
+
         for (const artist of artists) {
-            artistCount++;
-            const albums = this.db.getAlbumsByArtist(artist.id, false);
-            const albumPromises = albums.map(async (album) => {
-                if (album.is_release) {
-                    noteCount++;
-                    if (album.visibility === 'public' || album.visibility === 'unlisted') {
-                        console.log(`  - Syncing public release: ${album.title}`);
-                        await this.broadcastRelease(album).catch(e => console.error(e));
-                    } else {
-                        console.log(`  - Syncing private release (Delete): ${album.title}`);
-                        await this.broadcastDelete(album).catch(e => console.error(e));
-                    }
+            const artistReleases = releasesByArtist[artist.id] || [];
+            const releasePromises = artistReleases.map(async (release) => {
+                noteCount++;
+                if (release.visibility === 'public' || release.visibility === 'unlisted') {
+                    console.log(`  - Syncing public release: ${release.title}`);
+                    await this.broadcastRelease(release as any).catch(e => console.error(e));
+                } else {
+                    console.log(`  - Syncing private release (Delete): ${release.title}`);
+                    await this.broadcastDelete(release as any).catch(e => console.error(e));
                 }
             });
-            await Promise.all(albumPromises);
+            await Promise.all(releasePromises);
 
             const posts = this.db.getPostsByArtist(artist.id);
             const postPromises = posts.map(async (post) => {
