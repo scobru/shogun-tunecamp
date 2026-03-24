@@ -54,8 +54,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         set({ isWalletLoading: true, error: null });
         try {
             // Need to get the authenticated user's SEA 'priv' key to derive the wallet.
-            // GunAuth doesn't expose SEA directly in the profile, but we can access `GunAuth.user._.sea.priv` 
-            // if we use a helper or access it directly.
+            // GunAuth doesn't expose SEA directly in the profile, but we can access `GunAuth.user._.sea.priv`.
 
             // @ts-ignore
             const sea = GunAuth.user._.sea;
