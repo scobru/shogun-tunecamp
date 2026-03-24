@@ -1,7 +1,7 @@
 import Gun from "gun";
 import "gun/sea.js";
 import "gun/lib/yson.js"
-import fetch from "node-fetch";
+
 import type { DatabaseService, Album, Track } from "./database.js";
 import { generateTrackSlug, normalizeUrl } from "../utils/audioUtils.js";
 import { isSafeUrl } from "../utils/networkUtils.js";
