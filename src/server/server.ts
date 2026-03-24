@@ -456,7 +456,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 }
 
-export const globalErrorHandler = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+export const globalErrorHandler = (err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error("🔥 Global error:", err);
     if (res.headersSent) {
         return next(err);
