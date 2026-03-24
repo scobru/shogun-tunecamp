@@ -299,6 +299,7 @@ export interface DatabaseService {
     getAlbumsByIds(ids: number[]): Album[];
     getAlbumBySlug(slug: string): Album | undefined;
     getAlbumByTitle(title: string, artistId?: number): Album | undefined;
+    getArtistAlbumCounts(): { artist_id: number, count: number }[];
     getAlbumsByArtist(artistId: number, publicOnly?: boolean): Album[];
     getAlbumsByOwner(ownerId: number, publicOnly?: boolean): Album[];
     createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number;
@@ -1864,6 +1865,11 @@ export function createDatabase(dbPath: string): DatabaseService {
                 .prepare("SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM albums a LEFT JOIN artists ar ON a.artist_id = ar.id WHERE a.title = ?")
                 .get(title);
             return mapAlbum(row);
+        },
+
+        getArtistAlbumCounts(): { artist_id: number, count: number }[] {
+            const sql = `SELECT artist_id, count(*) as count FROM albums WHERE is_release = 0 GROUP BY artist_id`;
+            return db.prepare(sql).all() as { artist_id: number, count: number }[];
         },
 
         getAlbumsByArtist(artistId: number, publicOnly = false): Album[] {
