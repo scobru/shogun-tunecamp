@@ -63,6 +63,7 @@ const mockDatabase = {
     getAlbum: jest.fn(),
     getTracks: jest.fn(),
     getTracksByArtist: jest.fn(),
+    getTracksByOwner: jest.fn(),
     deleteTrack: jest.fn(),
 } as unknown as DatabaseService;
 
@@ -152,14 +153,14 @@ describe('Tracks Routes', () => {
 
         test('Artists see their own tracks + public catalog', async () => {
             (app as any).testAuth = { isAdmin: false, artistId: 10 };
-            (mockDatabase.getTracksByArtist as jest.Mock).mockReturnValue(privateTracks);
+            (mockDatabase.getTracksByOwner as jest.Mock).mockReturnValue(privateTracks);
             (mockDatabase.getTracks as jest.Mock).mockReturnValue(publicTracks);
 
             const res = await request(app).get('/tracks');
             expect(res.status).toBe(200);
             // Combined: 1 private + 2 public = 3
             expect(res.body.length).toBe(3);
-            expect(mockDatabase.getTracksByArtist).toHaveBeenCalledWith(10);
+            expect(mockDatabase.getTracksByOwner).toHaveBeenCalledWith(10);
             expect(mockDatabase.getTracks).toHaveBeenCalledWith(undefined, true);
         });
 
@@ -177,7 +178,7 @@ describe('Tracks Routes', () => {
     describe('Deletion Logic', () => {
         test('Artists can delete their own tracks', async () => {
             (app as any).testAuth = { isAdmin: false, artistId: 10 };
-            const myTrack = { id: 274, artist_id: 10, title: 'My Track' };
+            const myTrack = { id: 274, artist_id: 10, owner_id: 10, title: 'My Track' };
             (mockDatabase.getTrack as jest.Mock).mockReturnValue(myTrack);
 
             const res = await request(app).delete('/tracks/274');
@@ -187,7 +188,7 @@ describe('Tracks Routes', () => {
 
         test('Artists cannot delete tracks of others', async () => {
             (app as any).testAuth = { isAdmin: false, artistId: 10 };
-            const otherTrack = { id: 275, artist_id: 11, title: 'Other Track' };
+            const otherTrack = { id: 275, artist_id: 11, owner_id: 11, title: 'Other Track' };
             (mockDatabase.getTrack as jest.Mock).mockReturnValue(otherTrack);
 
             const res = await request(app).delete('/tracks/275');
