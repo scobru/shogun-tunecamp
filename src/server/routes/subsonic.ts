@@ -682,15 +682,19 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const artists = db.getArtists();
         const indexes: Record<string, any[]> = {};
 
+        const albumCounts = db.getArtistAlbumCounts();
+        const countMap = new Map<number, number>();
+        for (const row of albumCounts) {
+            countMap.set(row.artist_id, row.count);
+        }
+
         artists.forEach(artist => {
             let char = artist.name.charAt(0).toUpperCase();
             if (!/[A-Z]/.test(char)) char = '#';
             if (!indexes[char]) indexes[char] = [];
 
-            const artistAlbums = db.getAlbumsByArtist(artist.id);
-
             const artistData = formatArtist(artist, username);
-            (artistData as any)['@albumCount'] = artistAlbums.length;
+            (artistData as any)['@albumCount'] = countMap.get(artist.id) || 0;
             indexes[char].push(artistData);
         });
 
