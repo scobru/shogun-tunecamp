@@ -159,16 +159,11 @@ export async function startServer(config: ServerConfig): Promise<void> {
                 }
             }
 
-            // Fallback: check for remote track
-            const remoteTrack = database.getRemoteTrack(idParam);
-            if (remoteTrack) {
-                 // For remote tracks, return a generic flat line SVG so Player doesn't throw 404
-                 res.setHeader("Content-Type", "image/svg+xml");
-                 res.setHeader("Cache-Control", "public, max-age=31536000");
-                 return res.send('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="100" viewBox="0 0 800 100"><line x1="0" y1="50" x2="800" y2="50" stroke="#888" stroke-width="2"/></svg>');
-            }
-
-            res.status(404).send("Waveform not available");
+            // For remote tracks (ActivityPub or GunDB), return a generic flat line SVG 
+            // so the Player doesn't throw 404
+            res.setHeader("Content-Type", "image/svg+xml");
+            res.setHeader("Cache-Control", "public, max-age=31536000");
+            return res.send('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="100" viewBox="0 0 800 100"><line x1="0" y1="50" x2="800" y2="50" stroke="#888" stroke-width="2"/></svg>');
         } catch (e) {
             console.error(e);
             res.status(500).send("Error generating waveform");
