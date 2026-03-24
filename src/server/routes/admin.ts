@@ -30,28 +30,25 @@ export function createAdminRoutes(
     router.get("/releases", (req: AuthenticatedRequest, res: any) => {
         try {
             const showMine = req.query.mine === 'true';
-            let albums: any[] = [];
             let releases: any[] = [];
             
             if (req.isAdmin && !showMine) {
-                albums = database.getAlbums(false).map(a => ({ ...a, is_formal_release: false })); 
                 releases = database.getReleases(false).map(r => ({ ...r, is_formal_release: true }));
             } else if (req.artistId) {
-                albums = database.getAlbumsByOwner(req.artistId, false).map(a => ({ ...a, is_formal_release: false }));
                 releases = database.getReleasesByOwner(req.artistId, false).map(r => ({ ...r, is_formal_release: true }));
             } else {
                 res.json([]);
                 return;
             }
 
-            // Combine and sort by date/id
-            const combined = [...albums, ...releases].sort((a, b) => {
+            // Sort by date/id
+            const sortedReleases = releases.sort((a, b) => {
                 const dateA = new Date(a.date || a.created_at || 0).getTime();
                 const dateB = new Date(b.date || b.created_at || 0).getTime();
                 return dateB - dateA;
             });
 
-            res.json(combined);
+            res.json(sortedReleases);
         } catch (error) {
             console.error("Error getting releases:", error);
             res.status(500).json({ error: "Failed to get releases" });
