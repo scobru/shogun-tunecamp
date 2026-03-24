@@ -1,5 +1,5 @@
 
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { create } from 'xmlbuilder2';
 import md5 from 'md5';
 import path from 'path';
@@ -58,7 +58,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         return 'audio/mpeg';
     };
 
-    const sendResponse = (res: any, req: any, data: object, status = 'ok') => {
+    const sendResponse = (res: Response, req: Request, data: object, status = 'ok') => {
         const isJson = ensureString(req.query.f) === 'json';
         const version = '1.16.1';
 
@@ -94,12 +94,12 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         res.send(xml);
     };
 
-    const sendXML = (res: any, data: object) => {
+    const sendXML = (res: Response, data: object) => {
         // Legacy helper, now redirects to sendResponse with default req (XML)
-        sendResponse(res, { query: {} }, data);
+        sendResponse(res, { query: {} } as unknown as Request, data);
     };
 
-    const sendError = (res: any, req: any, code: number, message: string) => {
+    const sendError = (res: Response, req: Request, code: number, message: string) => {
         const isJson = ensureString(req.query.f) === 'json';
         const status = 'failed';
         const version = '1.16.1';
