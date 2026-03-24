@@ -15,8 +15,8 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
         try {
             const { username, password, pubKey, proof } = req.body;
 
-            if (!password) {
-                return res.status(400).json({ error: "Password required" });
+            if (!password && !(pubKey && proof)) {
+                return res.status(400).json({ error: "Password or GunDB proof required" });
             }
 
             // Check if first run

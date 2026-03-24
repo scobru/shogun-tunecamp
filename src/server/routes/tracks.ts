@@ -149,7 +149,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         }
 
         try {
-            const { title, albumId, artistId: bodyArtistId, trackNum, url, service, externalArtwork, duration, lyrics, currency } = req.body;
+            const { title, albumId, artistId: bodyArtistId, trackNum, url, service, externalArtwork, duration, lyrics, currency, priceUsdc } = req.body;
             
             // SECURITY: If not root admin, force the artistId to the current user's artistId
             let finalArtistId = bodyArtistId;
@@ -179,6 +179,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 service: service || null,
                 external_artwork: externalArtwork || null,
                 price: 0,
+                price_usdc: priceUsdc !== undefined ? parseFloat(priceUsdc) : 0,
                 currency: currency || 'ETH',
                 waveform: null,
                 lyrics: lyrics || null
@@ -385,6 +386,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                         year: null,
                         download: null,
                         price: 0,
+                        price_usdc: 0,
                         currency: 'ETH',
                         external_links: null,
                         is_public: false,
@@ -721,6 +723,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                             year: null,
                             download: null,
                             price: 0,
+                            price_usdc: 0,
                             currency: 'ETH',
                             external_links: null,
                             is_public: false,
@@ -753,8 +756,13 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             // Update price
-            if (price !== undefined) {
-                database.updateTrackPrice(id, parseFloat(price), currency || 'ETH');
+            const priceUsdc = req.body.priceUsdc;
+            if (price !== undefined || priceUsdc !== undefined) {
+                const tr = database.getTrack(id);
+                const finalP = price !== undefined ? Number(price) : (tr?.price ?? 0);
+                const finalPu = priceUsdc !== undefined ? Number(priceUsdc) : (tr?.price_usdc ?? 0);
+                const finalC = (currency || tr?.currency || 'ETH') as 'ETH' | 'USD';
+                database.updateTrackPrice(id, finalP, finalPu, finalC);
             }
 
             // Update lyrics

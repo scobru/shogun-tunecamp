@@ -146,8 +146,9 @@ export const AdminSettingsPanel = () => {
         trackIds.push(t.trackId);
         // Assuming TokenRole 0 is Standard/License per the smart contract
         roles.push(0);
-        // USDC is unsupported right now in DB
-        pricesUSDC.push(BigInt(t.priceUSDC || 0));
+        // Parse USDC string to 6 decimals
+        const usdcPrice = ethers.parseUnits(String(t.priceUSDC || t.price_usdc || 0), 6);
+        pricesUSDC.push(usdcPrice);
         // Parse ETH string to wei
         const weiPrice = ethers.parseEther(String(t.price || 0));
         pricesETH.push(weiPrice);

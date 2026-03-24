@@ -228,29 +228,47 @@ export function createAuthService(
         async authenticateUser(username: string, password: string, pubKey?: string, proof?: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; isActive: boolean; pair?: any } | false> {
             let user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv, is_active FROM admin WHERE username = ?").get(username) as { id: number; password_hash: string; artist_id: number | null; role: UserRole; gun_pub: string | null; gun_priv: string | null; is_active: number } | undefined;
             
-            // ROAMING LOGIC: If user doesn't exist locally, try to verify GunDB proof for lazy-creation
-            if (!user && pubKey && proof) {
-                console.log(`📡 Roaming attempt for ${username} (pub: ${pubKey.slice(0, 8)}...)`);
+            let gunVerified = false;
+
+            // 1. Verify GunDB identity if provided
+            if (pubKey && proof) {
                 const isValid = await this.verifyGunSignature(username, pubKey, proof);
                 if (isValid) {
-                    console.log(`✨ GunDB proof verified for ${username}. Lazily creating local account...`);
-                    // Create local user with random password (they'll use GunDB/Roaming to login anyway, 
-                    // or they can change it later if they want local-only login)
-                    const tempPass = crypto.randomBytes(32).toString('hex');
-                    const { id } = await this.createUser(username, tempPass, null as any); // null triggers artist creation below
+                    console.log(`✨ GunDB proof verified for ${username} (pub: ${pubKey.slice(0, 8)}...)`);
                     
-                    // Link the pubKey now to avoid re-generating
-                    db.prepare("UPDATE admin SET gun_pub = ? WHERE id = ?").run(pubKey, id);
-                    
-                    // Reload user record
-                    user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv, is_active FROM admin WHERE id = ?").get(id) as any;
+                    // If user doesn't exist locally, lazy-create (Roaming)
+                    if (!user) {
+                        console.log(`📡 Roaming: Lazily creating local account for GunDB user ${username}`);
+                        const tempPass = crypto.randomBytes(32).toString('hex');
+                        const { id } = await this.createUser(username, tempPass, null as any); // artist creation below
+                        
+                        // Link the pubKey
+                        db.prepare("UPDATE admin SET gun_pub = ? WHERE id = ?").run(pubKey, id);
+                        
+                        // Reload user record
+                        user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv, is_active FROM admin WHERE id = ?").get(id) as any;
+                    } else if (!user.gun_pub) {
+                        // User exists but has no GunDB link yet - link it now
+                        console.log(`🔗 Linking existing local user ${username} to GunDB identity`);
+                        db.prepare("UPDATE admin SET gun_pub = ? WHERE id = ?").run(pubKey, user.id);
+                        user.gun_pub = pubKey;
+                    }
+
+                    // Only allow proof to bypass password if it matches the linked pubKey (if any)
+                    if (user && (!user.gun_pub || user.gun_pub === pubKey)) {
+                        gunVerified = true;
+                    }
                 }
             }
 
             if (!user) return false;
 
-            const valid = await this.verifyPassword(password, user.password_hash);
-            if (!valid) return false;
+            // 2. Verification check: Either GunDB proof was verified OR local password must match
+            if (!gunVerified) {
+                if (!password) return false;
+                const valid = await this.verifyPassword(password, user.password_hash);
+                if (!valid) return false;
+            }
 
             const userRole: UserRole = user.role || 'admin';
 
@@ -274,11 +292,13 @@ export function createAuthService(
             }
 
             // Also store encrypted cleartext password for Subsonic token+salt auth
-            const encryptedPass = encryptGunPrivHelper(password, jwtSecret);
-            try {
-                db.prepare("UPDATE admin SET subsonic_password = ? WHERE id = ?").run(encryptedPass, user.id);
-            } catch (e) {
-                // Column might not exist yet
+            if (password) {
+                const encryptedPass = encryptGunPrivHelper(password, jwtSecret);
+                try {
+                    db.prepare("UPDATE admin SET subsonic_password = ? WHERE id = ?").run(encryptedPass, user.id);
+                } catch (e) {
+                    // Column might not exist yet
+                }
             }
 
             let artistId = user.artist_id;

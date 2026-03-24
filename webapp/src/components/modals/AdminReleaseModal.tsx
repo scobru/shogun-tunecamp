@@ -13,6 +13,8 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
     const [artistId, setArtistId] = useState(''); // Could be dropdown in future
     const [type, setType] = useState<'album'|'single'|'ep'>('album');
     const [year, setYear] = useState(new Date().getFullYear());
+    const [price, setPrice] = useState<string>('');
+    const [priceUsdc, setPriceUsdc] = useState<string>('');
     
     const [visibility, setVisibility] = useState<'public' | 'private' | 'unlisted'>('private');
     
@@ -41,6 +43,8 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                 // Handle visibility: check new field, then fallback to is_public (boolean)
                 setVisibility(e.detail.visibility || (e.detail.is_public ? 'public' : 'private'));
                 setLicense(e.detail.license || 'copyright');
+                setPrice(e.detail.price ? String(e.detail.price) : '');
+                setPriceUsdc(e.detail.price_usdc ? String(e.detail.price_usdc) : '');
                 
                 // Fetch release tracks and set selected IDs
                 // Fetch release tracks and set selected IDs
@@ -59,7 +63,10 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                 setType('album');
                 setYear(new Date().getFullYear());
                 setVisibility('private');
+                setVisibility('private');
                 setLicense('copyright');
+                setPrice('');
+                setPriceUsdc('');
                 setSelectedTrackIds([]);
             }
             
@@ -137,6 +144,8 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                     visibility,
                     license,
                     track_ids: selectedTrackIds,
+                    price: price ? Number(price) : undefined,
+                    priceUsdc: priceUsdc ? Number(priceUsdc) : undefined,
                 });
             } else {
                 release = await API.createRelease({ 
@@ -229,6 +238,33 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                                 className="input input-bordered w-full" 
                                 value={year}
                                 onChange={e => setYear(parseInt(e.target.value))}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="form-control">
+                            <label className="label">
+                                <span className="label-text">Price (ETH)</span>
+                            </label>
+                            <input 
+                                type="number" 
+                                step="any"
+                                className="input input-bordered w-full" 
+                                value={price}
+                                onChange={e => setPrice(e.target.value)}
+                            />
+                        </div>
+                        <div className="form-control">
+                            <label className="label">
+                                <span className="label-text">Price (USDC)</span>
+                            </label>
+                            <input 
+                                type="number" 
+                                step="any"
+                                className="input input-bordered w-full" 
+                                value={priceUsdc}
+                                onChange={e => setPriceUsdc(e.target.value)}
                             />
                         </div>
                     </div>

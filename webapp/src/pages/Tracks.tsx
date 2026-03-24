@@ -276,6 +276,7 @@ export const Tracks = () => {
                                                 Number(track.albumPrice) > 0
                                               ? String(track.albumPrice)
                                               : "0.005",
+                                          use_nft: (track as any).use_nft,
                                       },
                                     },
                                   }),

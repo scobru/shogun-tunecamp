@@ -174,6 +174,7 @@ export class Scanner implements ScannerService {
             year: null,
             download: null,
             price: 0,
+            price_usdc: 0,
             currency: 'ETH',
             external_links: null,
             is_public: false,
@@ -345,6 +346,7 @@ export class Scanner implements ScannerService {
                     year: config.year || (config.date ? new Date(config.date).getFullYear() : null),
                     download: config.download || null,
                     price: 0,
+                    price_usdc: 0,
                     currency: 'ETH',
                     external_links: linksJson,
                     visibility: 'private',
@@ -370,6 +372,7 @@ export class Scanner implements ScannerService {
                             duration: tc.duration || null,
                             file_path: tc.url,
                             price: 0,
+                            price_usdc: 0,
                             currency: 'ETH'
                         });
                     }
@@ -575,6 +578,7 @@ export class Scanner implements ScannerService {
                 service: null,
                 external_artwork: null,
                 price: 0,
+                price_usdc: 0,
                 currency: 'ETH',
                 hash: hash // Store the hash
             });

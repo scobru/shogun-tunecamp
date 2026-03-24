@@ -29,6 +29,8 @@ export interface Track {
     coverUrl?: string; // For remote/network tracks
     walletAddress?: string;
     price?: number;
+    priceUsdc?: number;
+    price_usdc?: number;
     currency?: 'ETH' | 'USD';
     track_num?: number;
 }
@@ -43,6 +45,8 @@ export interface ReleaseTrack {
     duration: number | null;
     file_path: string | null;
     price: number | null;
+    priceUsdc?: number | null;
+    price_usdc?: number | null;
     currency: 'ETH' | 'USD';
     created_at: string;
 }
@@ -66,12 +70,16 @@ export interface Release {
     year?: number;
     download?: 'free' | 'paid' | 'codes';
     price?: number;
+    priceUsdc?: number;
+    price_usdc?: number;
     currency?: 'ETH' | 'USD';
     external_links?: string;
     visibility: 'public' | 'private' | 'unlisted';
     published_at?: string;
     published_to_gundb?: boolean;
     published_to_ap?: boolean;
+    use_nft?: boolean;
+    useNft?: boolean;
     license?: string;
     track_ids?: (string | number)[];
     tracks?: Track[]; // Compat with existing code
@@ -120,6 +128,8 @@ export interface Album {
     download?: 'free' | 'paid' | 'codes';
     external_links?: string; // JSON string
     price?: number;
+    priceUsdc?: number;
+    price_usdc?: number;
     walletAddress?: string;
 }
 

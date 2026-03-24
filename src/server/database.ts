@@ -62,8 +62,9 @@ export interface Album {
     description: string | null;
     type: 'album' | 'single' | 'ep' | null; // Added
     year: number | null; // Added
-    download: string | null; // 'free' | 'paid' | null
+    download: string | null;
     price: number | null; // Added
+    price_usdc: number | null;
     currency: 'ETH' | 'USD'; // Added
     external_links: string | null; // JSON string of ExternalLink[]
     is_public: boolean;
@@ -94,6 +95,7 @@ export interface Track {
     bitrate: number | null;
     sample_rate: number | null;
     price: number | null; // Added
+    price_usdc: number | null;
     currency: 'ETH' | 'USD'; // Added
     lossless_path: string | null;
     waveform: string | null; // JSON string of number[]
@@ -123,6 +125,7 @@ export interface Release {
     year: number | null;
     download: string | null;
     price: number | null;
+    price_usdc: number | null;
     currency: 'ETH' | 'USD';
     external_links: string | null;
     visibility: 'public' | 'private' | 'unlisted';
@@ -130,6 +133,7 @@ export interface Release {
     published_to_gundb: boolean;
     published_to_ap: boolean;
     license?: string | null;
+    use_nft?: number;
     created_at: string;
 }
 
@@ -143,6 +147,7 @@ export interface ReleaseTrack {
     duration: number | null;
     file_path: string | null;
     price: number | null;
+    price_usdc: number | null;
     currency: 'ETH' | 'USD';
     created_at: string;
 }
@@ -315,7 +320,7 @@ export interface DatabaseService {
     updateAlbumCover(id: number, coverPath: string): void;
     updateAlbumGenre(id: number, genre: string | null): void;
     updateAlbumDownload(id: number, download: string | null): void;
-    updateAlbumPrice(id: number, price: number | null, currency?: 'ETH' | 'USD'): void;
+    updateAlbumPrice(id: number, price: number | null, price_usdc: number | null, currency?: 'ETH' | 'USD'): void;
     updateAlbumLinks(id: number, links: string | null): void;
     promoteToRelease(id: number): void; // Mark library album as release
     deleteAlbum(id: number, keepTracks?: boolean): void;
@@ -335,7 +340,7 @@ export interface DatabaseService {
     getTrackByMetadata(title: string, artistId: number | null, albumId: number | null): Track | undefined;
     updateTrackTitle(id: number, title: string): void;
     updateTrackPath(id: number, filePath: string, albumId: number | null): void;
-    updateTrackPrice(id: number, price: number | null, currency?: 'ETH' | 'USD'): void;
+    updateTrackPrice(id: number, price: number | null, price_usdc: number | null, currency?: 'ETH' | 'USD'): void;
     updateTrackDuration(id: number, duration: number): void;
     updateTrackWaveform(id: number, waveform: string): void;
     updateTrackLosslessPath(id: number, losslessPath: string | null): void;
@@ -378,8 +383,8 @@ export interface DatabaseService {
     // Play History
     recordPlay(trackId: number, playedAt?: string): void;
     getRecentPlays(limit?: number): PlayHistoryEntry[];
-    getTopTracks(limit?: number, days?: number): TrackWithPlayCount[];
-    getTopArtists(limit?: number, days?: number): ArtistWithPlayCount[];
+    getTopTracks(limit?: number, days?: number, filter?: 'all' | 'library' | 'releases'): TrackWithPlayCount[];
+    getTopArtists(limit?: number, days?: number, filter?: 'all' | 'library' | 'releases'): ArtistWithPlayCount[];
     getListeningStats(): ListeningStats;
     // Search
     search(query: string, publicOnly?: boolean): { artists: Artist[]; albums: Album[]; tracks: Track[] };
@@ -535,6 +540,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       description TEXT,
       download TEXT,
       price REAL DEFAULT 0,
+      price_usdc REAL DEFAULT 0,
       currency TEXT DEFAULT 'ETH',
       external_links TEXT,
       is_public INTEGER DEFAULT 0,
@@ -560,6 +566,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       bitrate INTEGER,
       sample_rate INTEGER,
       price REAL DEFAULT 0,
+      price_usdc REAL DEFAULT 0,
       currency TEXT DEFAULT 'ETH',
       waveform TEXT,
       url TEXT,
@@ -600,6 +607,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       year INTEGER,
       download TEXT,
       price REAL DEFAULT 0,
+      price_usdc REAL DEFAULT 0,
       currency TEXT DEFAULT 'ETH',
       external_links TEXT,
       visibility TEXT DEFAULT 'private',
@@ -607,6 +615,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       published_to_gundb INTEGER DEFAULT 0,
       published_to_ap INTEGER DEFAULT 0,
       license TEXT,
+      use_nft INTEGER DEFAULT 1,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -620,6 +629,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       duration REAL,
       file_path TEXT,
       price REAL DEFAULT 0,
+      price_usdc REAL DEFAULT 0,
       currency TEXT DEFAULT 'ETH',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -1022,6 +1032,30 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Ignore
     }
 
+    // Migration: Add price_usdc to tracks, albums, releases, release_tracks
+    const tablesWithUsdc = ['tracks', 'albums', 'releases', 'release_tracks'];
+    for (const tableName of tablesWithUsdc) {
+        try {
+            const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all() as any[];
+            if (!tableInfo.find(c => c.name === 'price_usdc')) {
+                db.exec(`ALTER TABLE ${tableName} ADD COLUMN price_usdc REAL DEFAULT 0`);
+                console.log(`📦 Migrated database: added price_usdc column to ${tableName}`);
+            }
+        } catch (e) {
+            // Ignore if column exists
+        }
+    }
+
+    // Migration: Add use_nft to releases
+    try {
+        const releaseTableInfo = db.prepare(`PRAGMA table_info(releases)`).all() as any[];
+        if (!releaseTableInfo.find(c => c.name === 'use_nft')) {
+            db.exec(`ALTER TABLE releases ADD COLUMN use_nft INTEGER DEFAULT 1`);
+            console.log(`📦 Migrated database: added use_nft column to releases`);
+        }
+    } catch (e) {
+        // Ignore if column exists
+    }
     // Migration: Add is_public column to playlists if it doesn't exist
     try {
         db.exec(`ALTER TABLE playlists ADD COLUMN is_public INTEGER DEFAULT 0`);
@@ -2055,8 +2089,8 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare("UPDATE albums SET download = ? WHERE id = ?").run(download, id);
         },
 
-        updateAlbumPrice(id: number, price: number | null, currency: 'ETH' | 'USD' = 'ETH'): void {
-            db.prepare("UPDATE albums SET price = ?, currency = ? WHERE id = ?").run(price || 0, currency, id);
+        updateAlbumPrice(id: number, price: number | null, price_usdc: number | null, currency: 'ETH' | 'USD' = 'ETH'): void {
+            db.prepare("UPDATE albums SET price = ?, price_usdc = ?, currency = ? WHERE id = ?").run(price || 0, price_usdc || 0, currency, id);
         },
 
         updateAlbumLinks(id: number, links: string | null): void {
@@ -2308,8 +2342,8 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare("UPDATE tracks SET duration = ? WHERE id = ?").run(duration, id);
         },
 
-        updateTrackPrice(id: number, price: number | null, currency: 'ETH' | 'USD' = 'ETH'): void {
-            db.prepare("UPDATE tracks SET price = ?, currency = ? WHERE id = ?").run(price || 0, currency, id);
+        updateTrackPrice(id: number, price: number | null, price_usdc: number | null, currency: 'ETH' | 'USD' = 'ETH'): void {
+            db.prepare("UPDATE tracks SET price = ?, price_usdc = ?, currency = ? WHERE id = ?").run(price || 0, price_usdc || 0, currency, id);
         },
 
         updateTrackWaveform(id: number, waveform: string): void {

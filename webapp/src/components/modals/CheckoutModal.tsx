@@ -7,17 +7,29 @@ import { TokenRole, DEPLOYMENTS } from "shogun-contracts-sdk";
 
 
 
+const ERC20_ABI = [
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function balanceOf(address owner) external view returns (uint256)",
+  "function transfer(address to, uint256 amount) external returns (bool)"
+];
+const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+
 // Track type matching minimum required for checkout
 interface CheckoutTrack {
   id: string;
   title: string;
   artist: string;
   priceEth?: string;
+  priceUsdc?: number | string;
+  price_usdc?: number | string;
   price?: number;
   currency?: "ETH" | "USD";
   albumId?: number | string;
   album_id?: number | string;
   walletAddress?: string;
+  use_nft?: boolean;
+  useNft?: boolean;
 }
 
 export const CheckoutModal = () => {
@@ -29,6 +41,8 @@ export const CheckoutModal = () => {
   const [error, setError] = useState<string | null>(null);
   const [usdRate, setUsdRate] = useState<number | null>(null);
   const [isLoadingRate, setIsLoadingRate] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"ETH" | "USDC">("ETH");
+  const [usdcBalance, setUsdcBalance] = useState<string>("0");
 
   const {
     wallet,
@@ -49,6 +63,8 @@ export const CheckoutModal = () => {
       setUnlockCode(null);
       setError(null);
       setIsProcessing(false);
+      setPaymentMethod("ETH");
+      setUsdcBalance("0");
 
       if (t.currency === "USD") {
         setIsLoadingRate(true);
@@ -89,72 +105,92 @@ export const CheckoutModal = () => {
   };
 
   const handlePurchase = async () => {
-    if (useExternalWallet && !externalWallet) {
-      setError("MetaMask selected but not connected.");
-      return;
-    }
-    if (!useExternalWallet && !wallet) {
-      setError("Local wallet not ready.");
+    const activeSigner = useExternalWallet ? externalWallet! : wallet!;
+    if (!activeSigner) {
+      setError("Active wallet not ready.");
       return;
     }
     if (!track) return;
-
-    let finalPriceEth = track.priceEth;
-
-    if (track.currency === "USD" && track.price) {
-      if (!usdRate) {
-        setError("Could not determine ETH price for USD amount.");
-        return;
-      }
-      finalPriceEth = (track.price / usdRate).toFixed(6);
-    }
-
-    if (!finalPriceEth || parseFloat(finalPriceEth) <= 0) {
-      setError("Invalid price.");
-      return;
-    }
-
+    
     setIsProcessing(true);
     setError(null);
 
+    const checkoutAddr = (window as any).TUNECAMP_CONFIG?.web3_checkout_address;
+    
     try {
-      const activeSigner = useExternalWallet ? externalWallet! : wallet!;
-      
-      const checkoutAddr = (window as any).TUNECAMP_CONFIG?.web3_checkout_address;
-      const value = ethers.parseEther(finalPriceEth);
       let receipt: any;
+      let finalPriceEth = track.priceEth;
+      
+      const useNft = track.use_nft !== undefined ? track.use_nft : (track.useNft !== undefined ? track.useNft : true);
+      const isDirectPayment = useNft === false;
+      const artistWallet = track.walletAddress || (window as any).TUNECAMP_CONFIG?.ownerAddress;
 
-      if (checkoutAddr && checkoutAddr !== "" && checkoutAddr !== "null") {
-        // ── Case A: Smart Contract Checkout (NFT Minting) ──────────────────
-        // Bypass SDK constructor chain check by using ethers.Contract directly.
-        // The ABI is identical across chains, so we can pull it from a known deployment.
-        const abi = (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
-        if (!abi) throw new Error("TuneCampCheckout ABI not found in SDK");
+      if (paymentMethod === "USDC") {
+        const trackUsdc = Number(track.priceUsdc || track.price_usdc || 0);
+        if (trackUsdc <= 0) throw new Error("This track is not priced in USDC.");
 
-        const checkout = new ethers.Contract(checkoutAddr, abi, activeSigner);
-        
-        const trackIdBigInt = BigInt(track.id);
-        // Assuming role 0 is LICENSE
-        const role = TokenRole?.LICENSE || 0;
-        
-        const tx = await checkout.purchaseWithETH(trackIdBigInt, role, 1, { value });
-        receipt = await tx.wait();
+        const usdcAmount = ethers.parseUnits(String(trackUsdc), 6);
+        const usdcContract = new ethers.Contract(BASE_USDC_ADDRESS, ERC20_ABI, activeSigner);
+
+        if (isDirectPayment) {
+          if (!artistWallet) throw new Error("Artist wallet address is not configured for direct payments.");
+          setError("Executing direct USDC transfer... Please confirm in your wallet.");
+          const tx = await usdcContract.transfer(artistWallet, usdcAmount);
+          receipt = await tx.wait();
+        } else {
+          if (!checkoutAddr) throw new Error("No smart contract store connected for USDC checkout.");
+          const ownerAddr = await activeSigner.getAddress();
+          const allowance = await usdcContract.allowance(ownerAddr, checkoutAddr);
+
+          if (allowance < usdcAmount) {
+            setError("Approving USDC... Please confirm in your wallet.");
+            const txApprove = await usdcContract.approve(checkoutAddr, usdcAmount);
+            await txApprove.wait();
+          }
+
+          setError("Purchasing... Please confirm in your wallet.");
+          const abi = (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
+          if (!abi) throw new Error("TuneCampCheckout ABI not found in SDK");
+          const checkout = new ethers.Contract(checkoutAddr, abi, activeSigner);
+          
+          const role = TokenRole?.LICENSE || 0;
+          const tx = await checkout.purchaseWithUSDC(BigInt(track.id), role, 1, usdcAmount);
+          receipt = await tx.wait();
+        }
       } else {
-        // ── Case B: Direct ETH Transfer (No NFT, Legacy/Fallback) ──────────
-        const recipient = (track as any).walletAddress || (window as any).TUNECAMP_CONFIG?.ownerAddress;
-        
-        if (!recipient) {
-          throw new Error("No recipient address configured for this track. Contact the artist or admin.");
+        // ETH PURCHASE FLOW
+        if (track.currency === "USD" && track.price) {
+          if (!usdRate) {
+            throw new Error("Could not determine ETH price for USD amount.");
+          }
+          finalPriceEth = (track.price / usdRate).toFixed(6);
         }
 
-        console.log(`Fallback: Sending direct payment of ${finalPriceEth} ETH to ${recipient}`);
-        
-        const tx = await activeSigner.sendTransaction({
-          to: recipient,
-          value: value
-        });
-        receipt = await tx.wait();
-      }
+        if (!finalPriceEth || parseFloat(finalPriceEth) <= 0) {
+          throw new Error("Invalid price.");
+        }
+
+        const value = ethers.parseEther(finalPriceEth);
+
+        if (!isDirectPayment && checkoutAddr && checkoutAddr !== "" && checkoutAddr !== "null") {
+          const abi = (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
+          if (!abi) throw new Error("TuneCampCheckout ABI not found in SDK");
+
+          const checkout = new ethers.Contract(checkoutAddr, abi, activeSigner);
+          const trackIdBigInt = BigInt(track.id);
+          const role = TokenRole?.LICENSE || 0;
+          
+          const tx = await checkout.purchaseWithETH(trackIdBigInt, role, 1, { value });
+          receipt = await tx.wait();
+        } else {
+          // Direct ETH Transfer
+          if (!artistWallet) {
+            throw new Error("No recipient address configured for this track. Contact the artist system admin.");
+          }
+          const tx = await activeSigner.sendTransaction({ to: artistWallet, value });
+          receipt = await tx.wait();
+        }
+      } // End ETH/USDC toggle
 
       if (!receipt || receipt.status === 0) {
         throw new Error("Transaction failed on-chain.");
@@ -176,10 +212,7 @@ export const CheckoutModal = () => {
           setUnlockCode(code ?? null);
         }
       } catch (verifyErr) {
-        console.warn(
-          "Payment verification failed, purchase still recorded:",
-          verifyErr,
-        );
+        console.warn("Payment verification failed, purchase still recorded:", verifyErr);
       }
 
       const user = GunAuth.user;
@@ -191,7 +224,7 @@ export const CheckoutModal = () => {
           .put({
             txid: receipt.hash,
             date: Date.now(),
-            price: finalPriceEth,
+            price: finalPriceEth || 0,
             code: code || "",
           });
       }
@@ -215,10 +248,12 @@ export const CheckoutModal = () => {
   }
 
   const activeBalance = useExternalWallet ? externalBalanceEth : balanceEth;
-  const hasEnoughBalance =
-    parseFloat(activeBalance || "0") >= parseFloat(displayPriceEth);
+  const hasEnoughBalance = paymentMethod === "USDC" 
+    ? parseFloat(usdcBalance || "0") >= Number(track.priceUsdc || track.price_usdc || 0)
+    : parseFloat(activeBalance || "0") >= parseFloat(displayPriceEth);
   const isReady = useExternalWallet ? isExternalConnected : isWalletReady;
   const activeWalletLabel = useExternalWallet ? "MetaMask" : "Local Wallet";
+  const activeSigner = useExternalWallet ? externalWallet : wallet;
 
   return (
     <div
@@ -317,9 +352,46 @@ export const CheckoutModal = () => {
                 </span>
               </div>
 
-              {!hasEnoughBalance && !txHash && (
+              {Number(track.priceUsdc || track.price_usdc || 0) > 0 && (
+                <div className="flex bg-base-300 rounded-lg p-1 w-full mb-6 relative z-20">
+                  <button 
+                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${paymentMethod === "ETH" ? "bg-primary text-white shadow" : "text-white/50 hover:text-white"}`}
+                    onClick={() => { setPaymentMethod("ETH"); setError(null); }}
+                  >
+                    ETH
+                  </button>
+                  <button 
+                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${paymentMethod === "USDC" ? "bg-[#2775CA] text-white shadow" : "text-white/50 hover:text-white"}`}
+                    onClick={async () => {
+                      setPaymentMethod("USDC");
+                      setError(null);
+                      // Try fetching balance
+                      if (activeSigner) {
+                        try {
+                          const usdcContract = new ethers.Contract(BASE_USDC_ADDRESS, ERC20_ABI, activeSigner as any);
+                          const addr = await activeSigner.getAddress();
+                          const bal = await usdcContract.balanceOf(addr);
+                          setUsdcBalance(ethers.formatUnits(bal, 6));
+                        } catch (e) {
+                          console.warn("Failed to fetch USDC balance", e);
+                        }
+                      }
+                    }}
+                  >
+                    USDC
+                  </button>
+                </div>
+              )}
+
+              {!hasEnoughBalance && !txHash && paymentMethod === "ETH" && (
                 <p className="text-error text-sm mb-4">
                   Insufficient ETH balance in {activeWalletLabel}.
+                </p>
+              )}
+
+              {!hasEnoughBalance && !txHash && paymentMethod === "USDC" && (
+                <p className="text-error text-sm mb-4">
+                  Insufficient USDC balance in {activeWalletLabel}. You have {usdcBalance} USDC.
                 </p>
               )}
 
@@ -341,7 +413,7 @@ export const CheckoutModal = () => {
                 <button
                   className="btn btn-primary rounded-xl flex-1 shadow-lg shadow-primary/20"
                   onClick={handlePurchase}
-                  disabled={!isReady || isProcessing || !hasEnoughBalance}
+                  disabled={!isReady || isProcessing || (paymentMethod === "ETH" && !hasEnoughBalance)}
                 >
                   {isProcessing ? (
                     <>
@@ -349,7 +421,7 @@ export const CheckoutModal = () => {
                       Processing...
                     </>
                   ) : (
-                    `Pay ${displayPriceEth} ETH`
+                    paymentMethod === "ETH" ? `Pay ${displayPriceEth} ETH` : `Pay ${track.priceUsdc || track.price_usdc || 0} USDC`
                   )}
                 </button>
               </div>

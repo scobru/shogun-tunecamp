@@ -121,8 +121,8 @@ export const API = {
 
     // --- Stats ---
     getRecentPlays: (limit = 50) => handleResponse(api.get<any[]>(`/stats/library/recent?limit=${limit}`)),
-    getTopTracks: (limit = 20, days = 30) => handleResponse(api.get<any[]>(`/stats/library/top-tracks?limit=${limit}&days=${days}`)),
-    getTopArtists: (limit = 10, days = 30) => handleResponse(api.get<any[]>(`/stats/library/top-artists?limit=${limit}&days=${days}`)),
+    getTopTracks: (limit = 20, days = 30, filter: 'all' | 'library' | 'releases' = 'all') => handleResponse(api.get<any[]>(`/stats/library/top-tracks?limit=${limit}&days=${days}&filter=${filter}`)),
+    getTopArtists: (limit = 10, days = 30, filter: 'all' | 'library' | 'releases' = 'all') => handleResponse(api.get<any[]>(`/stats/library/top-artists?limit=${limit}&days=${days}&filter=${filter}`)),
 
     // --- Community / ActivityPub ---
     getArtistPosts: (idOrSlug: string) => handleResponse(api.get<Post[]>(`/artists/${idOrSlug}/posts`)),

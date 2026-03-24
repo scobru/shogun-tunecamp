@@ -30,6 +30,7 @@ interface LocalTrack {
   duration: number;
   position: number;
   price?: number | string;
+  priceUsdc?: number | string;
   currency?: "ETH" | "USD";
   file_path: string | null;
   url: string | null;
@@ -58,7 +59,9 @@ interface LocalRelease {
   is_public: boolean;
   published_to_gundb?: boolean;
   published_to_ap?: boolean;
+  use_nft?: boolean;
   price?: number | string;
+  priceUsdc?: number | string;
   currency?: "ETH" | "USD";
   download?: string;
   license?: string;
@@ -93,9 +96,11 @@ export default function AdminReleaseEditor() {
     credits: "",
     tags: "",
     price: 0,
+    priceUsdc: 0,
     currency: "ETH",
     download: "none",
     license: "copyright",
+    use_nft: true,
   });
 
   // Tracks State
@@ -164,10 +169,12 @@ export default function AdminReleaseEditor() {
         published_to_ap:
           data.published_to_ap !== undefined ? !!data.published_to_ap : true,
         price: data.price,
+        priceUsdc: data.price_usdc || data.priceUsdc || 0,
         currency: data.currency || "ETH",
         download: data.download || "none",
         tags: data.genre || "",
         license: data.license || "copyright",
+        use_nft: data.use_nft !== undefined ? !!data.use_nft : true,
       });
 
       if (data.slug || releaseId) {
@@ -195,6 +202,7 @@ export default function AdminReleaseEditor() {
       duration: t.duration,
       position: tracks.length + 1, // Append
       price: 0,
+      priceUsdc: 0,
       currency: "ETH" as "ETH" | "USD",
       file_path: t.file_path || t.path || null,
       url: t.url || null,
@@ -254,6 +262,7 @@ export default function AdminReleaseEditor() {
           id: t.id, 
           title: t.title, 
           price: t.price, 
+          priceUsdc: t.priceUsdc,
           currency: t.currency || "ETH" 
         }))
       } as any;
@@ -304,6 +313,7 @@ export default function AdminReleaseEditor() {
           const updateData: any = {
             title: t.title,
             price: t.price,
+            priceUsdc: t.priceUsdc,
             currency: t.currency || "ETH",
             lyrics: t.lyrics,
           };
@@ -403,9 +413,10 @@ export default function AdminReleaseEditor() {
       for (const t of pricingData) {
         trackIds.push(t.id);
         roles.push(0); // License
-        pricesUSDC.push(BigInt(0));
-        const priceToUse = Number(t.price) > 0 ? String(t.price) : String(metadata.price);
-        pricesETH.push(ethers.parseEther(priceToUse));
+        const priceUsdcToUse = Number(t.price) > 0 || Number(t.priceUsdc) > 0 ? String(t.priceUsdc || 0) : String(metadata.priceUsdc || 0);
+        pricesUSDC.push(ethers.parseUnits(priceUsdcToUse || "0", 6));
+        const priceToUse = Number(t.price) > 0 || Number(t.priceUsdc) > 0 ? String(t.price || 0) : String(metadata.price || 0);
+        pricesETH.push(ethers.parseEther(priceToUse || "0"));
       }
 
       const tx = await checkoutContract.setPriceBatch(trackIds, roles, pricesUSDC, pricesETH);
@@ -653,6 +664,24 @@ export default function AdminReleaseEditor() {
                             onChange={(e) => {
                               const newTracks = [...tracks];
                               newTracks[idx].price =
+                                e.target.value === "" ? "" : e.target.value;
+                              newTracks[idx].isDirty = true;
+                              setTracks(newTracks);
+                            }}
+                          />
+                        </label>
+                        <label className="input input-sm input-bordered flex items-center gap-1 group-focus-within:border-primary w-28">
+                          <span className="opacity-50 text-[10px]">USDC</span>
+                          <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            className="w-full bg-transparent"
+                            placeholder="0.00"
+                            value={track.priceUsdc ?? ""}
+                            onChange={(e) => {
+                              const newTracks = [...tracks];
+                              newTracks[idx].priceUsdc =
                                 e.target.value === "" ? "" : e.target.value;
                               newTracks[idx].isDirty = true;
                               setTracks(newTracks);
@@ -1046,55 +1075,26 @@ export default function AdminReleaseEditor() {
               </div>
             </div>
 
-            <div className="form-control">
-              <label className="label">Album Price</label>
-              <div className="flex gap-2">
-                <select
-                  className="select select-bordered"
-                  value={metadata.currency || "ETH"}
-                  onChange={(e) =>
-                    setMetadata((prev) => ({
-                      ...prev,
-                      currency: e.target.value as any,
-                    }))
-                  }
-                >
-                  <option value="ETH">ETH</option>
-                  <option value="USD">USD</option>
-                </select>
-                <label className="input input-bordered flex items-center gap-2 flex-1">
-                  <span className="opacity-50">
-                    {metadata.currency === "USD" ? "$" : "Ξ"}
-                  </span>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    className="w-full bg-transparent"
-                    value={metadata.price ?? ""}
-                    onChange={(e) => {
-                      const rawVal = e.target.value;
-                      const parsedVal = parseFloat(rawVal) || 0;
-                      setMetadata((prev) => {
-                        const newMeta = {
-                          ...prev,
-                          price: rawVal === "" ? "" : rawVal,
-                        };
-                        // If price is set, forcefully disable free/codes download methods
-                        if (
-                          parsedVal > 0 &&
-                          (newMeta.download === "free" ||
-                            newMeta.download === "codes")
-                        ) {
-                          newMeta.download = "none";
-                        }
-                        return newMeta;
-                      });
-                    }}
-                    placeholder="10.00"
+            {/* Payment Method Toggle */}
+            <div className="form-control mt-4 mb-4 bg-base-200/50 p-4 rounded-xl border border-white/5">
+              <label className="label cursor-pointer flex flex-col items-start gap-2">
+                <span className="label-text font-bold tracking-widest opacity-70">PAYMENT ROUTING</span>
+                <div className="flex items-center gap-3 mt-2 w-full">
+                  <span className={`text-sm ${metadata.use_nft === false ? 'text-primary font-bold' : 'opacity-50'}`}>Direct Payment</span>
+                  <input 
+                    type="checkbox" 
+                    className="toggle toggle-primary" 
+                    checked={metadata.use_nft !== false} 
+                    onChange={(e) => setMetadata(prev => ({ ...prev, use_nft: e.target.checked }))} 
                   />
-                </label>
-              </div>
+                  <span className={`text-sm ${metadata.use_nft !== false ? 'text-primary font-bold' : 'opacity-50'}`}>Smart Contract (NFT)</span>
+                </div>
+                <span className="text-xs opacity-50 mt-2">
+                  {metadata.use_nft !== false 
+                    ? "Buyers will interact with the Tunecamp smart contract to mint an NFT of the track." 
+                    : "Payments will be sent directly to your configured wallet address. No NFTs will be minted."}
+                </span>
+              </label>
             </div>
 
             {/* Sync Prices Button */}

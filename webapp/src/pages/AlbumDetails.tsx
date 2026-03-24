@@ -382,6 +382,7 @@ export const AlbumDetails = () => {
                                               ? String(album.price)
                                               : "0.005",
                                         walletAddress: (album as any).walletAddress,
+                                        use_nft: (album as any).use_nft,
                                       },
                                     },
                                   }),

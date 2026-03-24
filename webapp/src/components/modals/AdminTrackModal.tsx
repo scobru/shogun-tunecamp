@@ -13,6 +13,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
   const [albumTitle, setAlbumTitle] = useState("");
   const [trackId, setTrackId] = useState<string | null>(null);
   const [trackNum, setTrackNum] = useState<string>("");
+  const [priceUsdc, setPriceUsdc] = useState<string>("");
   const [artworkUrl, setArtworkUrl] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -33,6 +34,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         setArtistName(e.detail.artist_name || "");
         setAlbumTitle(e.detail.album_title || "");
         setTrackNum(e.detail.track_num ? String(e.detail.track_num) : "");
+        setPriceUsdc(e.detail.price_usdc ? String(e.detail.price_usdc) : "");
         setArtworkUrl(e.detail.external_artwork || null);
 
         loadData();
@@ -123,6 +125,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
       const payload: any = {
         title,
         trackNumber: trackNum ? parseInt(trackNum) : undefined,
+        priceUsdc: priceUsdc ? parseFloat(priceUsdc) : undefined,
       };
 
       if (matchedArtist) {
@@ -246,7 +249,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
             </datalist>
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="form-control">
               <label className="label">
                 <span className="label-text">Track Number</span>
@@ -256,6 +259,18 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
                 className="input input-bordered w-full"
                 value={trackNum}
                 onChange={(e) => setTrackNum(e.target.value)}
+              />
+            </div>
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text">Price (USDC)</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                className="input input-bordered w-full"
+                value={priceUsdc}
+                onChange={(e) => setPriceUsdc(e.target.value)}
               />
             </div>
           </div>

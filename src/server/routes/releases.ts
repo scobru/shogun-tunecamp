@@ -19,7 +19,8 @@ interface CreateReleaseBody {
     license?: string;
     visibility?: 'public' | 'private' | 'unlisted';
     download?: string;
-    price?: number;
+    price?: number | string;
+    priceUsdc?: number | string;
     currency?: 'ETH' | 'USD';
     genres?: string[];
     externalLinks?: any[];
@@ -161,7 +162,8 @@ export function createReleaseRouter(
                 cover_path: null,
                 genre: body.genres?.join(", ") || null,
                 download: body.download || null,
-                price: body.price || 0,
+                price: body.price !== undefined ? Number(body.price) : 0,
+                price_usdc: body.priceUsdc !== undefined ? Number(body.priceUsdc) : 0,
                 currency: body.currency || 'ETH',
                 external_links: body.externalLinks ? JSON.stringify(body.externalLinks) : null,
                 published_at: body.visibility === 'public' || body.visibility === 'unlisted' ? new Date().toISOString() : null,

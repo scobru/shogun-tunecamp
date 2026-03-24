@@ -473,7 +473,14 @@ export function createAdminRoutes(
                     if (updates.genre) database.updateAlbumGenre(id, updates.genre);
                     if (updates.visibility) database.updateAlbumVisibility(id, updates.visibility);
                     if (updates.download !== undefined) database.updateAlbumDownload(id, updates.download);
-                    if (updates.price !== undefined) database.updateAlbumPrice(id, updates.price, updates.currency);
+                    if (updates.price !== undefined || updates.price_usdc !== undefined) {
+                         const curr = database.getAlbum(id);
+                         if (curr) {
+                             const p = updates.price !== undefined ? Number(updates.price) : (curr.price ?? 0);
+                             const pu = updates.price_usdc !== undefined ? Number(updates.price_usdc) : (curr.price_usdc ?? 0);
+                             database.updateAlbumPrice(id, p, pu, (updates.currency || curr.currency || 'ETH') as 'ETH' | 'USD');
+                         }
+                    }
                     if (updates.external_links) database.updateAlbumLinks(id, updates.external_links);
                     if (updates.published_to_gundb !== undefined || updates.published_to_ap !== undefined) {
                         database.updateAlbumFederationSettings(id, !!updates.published_to_gundb, !!updates.published_to_ap);
