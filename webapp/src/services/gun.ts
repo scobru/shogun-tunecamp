@@ -436,6 +436,47 @@ export const GunPlaylists = {
     },
 
     /**
+     * Get all public playlists from the community
+     */
+    getPublicPlaylists: (): Promise<UserPlaylist[]> => {
+        return new Promise((resolve) => {
+            const playlists: UserPlaylist[] = [];
+            const seen = new Set<string>();
+
+            gun.get('tunecamp-public-playlists').map().once((data: any, key: string) => {
+                if (!data || !data.id || seen.has(key)) return;
+                seen.add(key);
+
+                let tracks: UserPlaylistTrack[] = [];
+                try {
+                    if (data.tracksJson && typeof data.tracksJson === 'string') {
+                        tracks = JSON.parse(data.tracksJson);
+                    }
+                } catch { /* ignore parse errors */ }
+
+                playlists.push({
+                    id: data.id,
+                    name: data.name || 'Untitled',
+                    description: data.description || '',
+                    coverUrl: data.coverUrl || '',
+                    ownerPub: data.ownerPub || '',
+                    ownerAlias: data.ownerAlias || '',
+                    isPublic: true,
+                    createdAt: data.createdAt || 0,
+                    updatedAt: data.updatedAt || 0,
+                    tracks,
+                    trackCount: tracks.length
+                });
+            });
+
+            setTimeout(() => {
+                playlists.sort((a, b) => b.updatedAt - a.updatedAt);
+                resolve(playlists);
+            }, 1500);
+        });
+    },
+
+    /**
      * Get a single playlist by ID
      */
     getPlaylist: (id: string): Promise<UserPlaylist | null> => {

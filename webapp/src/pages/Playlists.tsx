@@ -3,9 +3,15 @@ import API from "../services/api";
 import { Link } from "react-router-dom";
 import { ListMusic, Globe, Lock, Music } from "lucide-react";
 import type { Playlist } from "../types";
+import { GunPlaylists } from "../services/gun";
+
+// Extended interface to handle both types
+interface UnifiedPlaylist extends Playlist {
+  isUserPlaylist?: boolean;
+}
 
 export const Playlists = () => {
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [playlists, setPlaylists] = useState<UnifiedPlaylist[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,8 +23,39 @@ export const Playlists = () => {
   const loadPlaylists = async () => {
     setLoading(true);
     try {
-      const data = await API.getPlaylists();
-      setPlaylists(data.filter((p) => p.isPublic));
+      // Fetch both SQLite and GunDB public playlists concurrently
+      const [apiData, gunData] = await Promise.all([
+        API.getPlaylists().catch(() => []),
+        GunPlaylists.getPublicPlaylists().catch(() => [])
+      ]);
+
+      // Normalize SQLite playlists
+      const normalizedApi = apiData.filter(p => p.isPublic).map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || "",
+        coverPath: p.coverPath,
+        isPublic: !!p.isPublic,
+        trackCount: (p as any).trackCount || 0,
+        isUserPlaylist: false,
+        createdAt: new Date(p.created_at || 0).getTime()
+      }));
+
+      // Normalize GunDB playlists
+      const normalizedGun = gunData.map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || "",
+        coverPath: p.coverUrl,
+        isPublic: p.isPublic,
+        trackCount: p.trackCount || 0,
+        isUserPlaylist: true,
+        createdAt: p.createdAt || 0
+      }));
+
+      // Merge and sort
+      const merged = [...normalizedApi, ...normalizedGun].sort((a, b) => b.createdAt - a.createdAt);
+      setPlaylists(merged as any);
     } catch (e) {
       console.error(e);
     } finally {
@@ -45,7 +82,7 @@ export const Playlists = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {playlists.map((p) => (
             <Link
-              to={`/playlists/${p.id}`}
+              to={p.isUserPlaylist ? `/my-playlists/${p.id}` : `/playlists/${p.id}`}
               key={p.id}
               className="card bg-base-200 border border-white/5 hover:bg-base-300 transition-all hover:-translate-y-1 group"
             >

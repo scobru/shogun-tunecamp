@@ -88,11 +88,18 @@ export function createAdminRoutes(
                 return res.status(403).json({ error: "Access denied: You can only manage your own content" });
             }
 
+            const isNowPublic = newVisibility === 'public' || newVisibility === 'unlisted';
+
             // Update visibility in DB
             if (release) {
-                database.updateRelease(id, { visibility: newVisibility });
+                database.updateRelease(id, { 
+                    visibility: newVisibility,
+                    published_to_ap: isNowPublic,
+                    published_to_gundb: isNowPublic
+                });
             } else {
                 database.updateAlbumVisibility(id, newVisibility);
+                database.updateAlbumFederationSettings(id, isNowPublic, isNowPublic);
             }
 
             // Use PublishingService to sync
@@ -443,8 +450,17 @@ export function createAdminRoutes(
                 updates.genre = genreStr;
             }
             if (body.externalLinks) updates.external_links = JSON.stringify(body.externalLinks);
-            if (body.publishedToGunDB !== undefined) updates.published_to_gundb = body.publishedToGunDB;
-            if (body.publishedToAP !== undefined) updates.published_to_ap = body.publishedToAP;
+            if (body.publishedToGunDB !== undefined) {
+                updates.published_to_gundb = body.publishedToGunDB;
+            } else if (updates.visibility === 'public' || updates.visibility === 'unlisted') {
+                updates.published_to_gundb = true;
+            }
+            
+            if (body.publishedToAP !== undefined) {
+                updates.published_to_ap = body.publishedToAP;
+            } else if (updates.visibility === 'public' || updates.visibility === 'unlisted') {
+                updates.published_to_ap = true;
+            }
 
             if (Object.keys(updates).length > 0) {
                 if (release) {

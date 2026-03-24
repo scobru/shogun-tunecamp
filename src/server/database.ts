@@ -2664,18 +2664,25 @@ export function createDatabase(dbPath: string): DatabaseService {
             `).all(limit) as PlayHistoryEntry[];
         },
 
-        getTopTracks(limit = 20, days = 30): TrackWithPlayCount[] {
+        getTopTracks(limit = 20, days = 30, filter: 'all' | 'library' | 'releases' = 'all'): TrackWithPlayCount[] {
             const dateLimit = new Date();
             dateLimit.setDate(dateLimit.getDate() - days);
             const dateStr = dateLimit.toISOString();
+
+            let filterClause = '';
+            if (filter === 'releases') filterClause = 'AND al.is_release = 1';
+            else if (filter === 'library') filterClause = 'AND (al.is_release = 0 OR al.id IS NULL)';
 
             // Bolt ⚡: Use CTE to aggregate plays from history table FIRST (filtering by date immediately).
             // This avoids joining the potentially large play_history table with tracks for every single track row.
             return db.prepare(`
                 WITH RecentPlays AS (
                     SELECT track_id, COUNT(*) as play_count
-                    FROM play_history
-                    WHERE played_at >= ?
+                    FROM play_history ph
+                    JOIN tracks t ON ph.track_id = t.id
+                    LEFT JOIN albums al ON t.album_id = al.id
+                    WHERE ph.played_at >= ?
+                    ${filterClause}
                     GROUP BY track_id
                 )
                 SELECT 
@@ -2694,26 +2701,33 @@ export function createDatabase(dbPath: string): DatabaseService {
             `).all(dateStr, limit) as TrackWithPlayCount[];
         },
 
-        getTopArtists(limit = 10, days = 30): ArtistWithPlayCount[] {
+        getTopArtists(limit = 10, days = 30, filter: 'all' | 'library' | 'releases' = 'all'): ArtistWithPlayCount[] {
             const dateLimit = new Date();
             dateLimit.setDate(dateLimit.getDate() - days);
             const dateStr = dateLimit.toISOString();
 
+            let filterClause = '';
+            if (filter === 'releases') filterClause = 'AND al.is_release = 1';
+            else if (filter === 'library') filterClause = 'AND (al.is_release = 0 OR al.id IS NULL)';
+
             // Bolt ⚡: Optimization: Aggregate plays by artist from history table before joining artist details.
             return db.prepare(`
                 WITH RecentPlays AS (
-                    SELECT t.artist_id, COUNT(*) as play_count
+                    SELECT COALESCE(t.artist_id, al.artist_id) as final_artist_id, COUNT(*) as play_count
                     FROM play_history ph
                     JOIN tracks t ON ph.track_id = t.id
+                    LEFT JOIN albums al ON t.album_id = al.id
                     WHERE ph.played_at >= ?
-                    GROUP BY t.artist_id
+                    ${filterClause}
+                    GROUP BY final_artist_id
                 )
                 SELECT 
                     ar.*,
-                    rp.play_count
+                    SUM(rp.play_count) as play_count
                 FROM RecentPlays rp
-                JOIN artists ar ON ar.id = rp.artist_id
-                ORDER BY rp.play_count DESC
+                JOIN artists ar ON ar.id = rp.final_artist_id
+                GROUP BY ar.id
+                ORDER BY play_count DESC
                 LIMIT ?
             `).all(dateStr, limit) as ArtistWithPlayCount[];
         },

@@ -52,7 +52,8 @@ export function createLibraryStatsRoutes(database: DatabaseService): Router {
         try {
             const limit = parseInt(req.query.limit as string, 10) || 20;
             const days = parseInt(req.query.days as string, 10) || 30;
-            const tracks = database.getTopTracks(limit, days);
+            const filter = (req.query.filter as 'all' | 'library' | 'releases') || 'all';
+            const tracks = database.getTopTracks(limit, days, filter);
             res.json(tracks);
         } catch (error) {
             console.error("Error getting top tracks:", error);
@@ -68,7 +69,8 @@ export function createLibraryStatsRoutes(database: DatabaseService): Router {
         try {
             const limit = parseInt(req.query.limit as string, 10) || 10;
             const days = parseInt(req.query.days as string, 10) || 30;
-            const artists = database.getTopArtists(limit, days);
+            const filter = (req.query.filter as 'all' | 'library' | 'releases') || 'all';
+            const artists = database.getTopArtists(limit, days, filter);
             res.json(artists);
         } catch (error) {
             console.error("Error getting top artists:", error);
