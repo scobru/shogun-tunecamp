@@ -17,6 +17,7 @@ import { createArtistsRoutes } from "./routes/artists.js";
 import { createPlaylistsRoutes } from "./routes/playlists.js";
 import { createUploadRoutes } from "./routes/upload.js";
 import { createReleaseRouter } from "./routes/releases.js";
+import { createImportRoutes } from "./routes/import.js";
 import { createStatsRoutes } from "./routes/stats.js";
 import { createUsersRoutes } from "./routes/users.js";
 import { createCommentsRoutes } from "./routes/comments.js";
@@ -183,6 +184,8 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database, config.musicDir));
     app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database, publishingService, config.musicDir, authService));
     app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database));
+
+    app.use("/api/import", authMiddleware.requireUser, createImportRoutes());
 
     app.use("/api/admin/releases", authMiddleware.requireUser, createReleaseRouter(database, scanner, publishingService, authService, config.musicDir));
     app.use("/api/stats", createStatsRoutes(gundbService, database, config));

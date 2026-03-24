@@ -160,6 +160,9 @@ export const API = {
     addTrackToRelease: (releaseId: string, trackId: string) =>
         handleResponse(api.post(`/admin/releases/${releaseId}/tracks/add`, { trackId })),
 
+    importFromBandcamp: (url: string) => 
+        handleResponse(api.post<{ title: string, artist: string, year: number, cover: string, tracks: any[] }>('/import/bandcamp', { url })),
+
     // --- Comments ---
     getComments: (trackId: string) => handleResponse(api.get<any[]>(`/comments/track/${trackId}`)),
     postComment: (trackId: string, data: { text: string, pubKey: string, username: string, signature: string }) => handleResponse(api.post('/comments/track/' + trackId, data)),

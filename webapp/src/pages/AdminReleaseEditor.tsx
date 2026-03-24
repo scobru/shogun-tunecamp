@@ -81,6 +81,7 @@ export default function AdminReleaseEditor() {
   const isReady = useExternalWallet ? isExternalConnected : isWalletReady;
   const [isSyncingPrices, setIsSyncingPrices] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
+  const [importBcUrl, setImportBcUrl] = useState("");
 
   // Metadata State
   const [metadata, setMetadata] = useState<Partial<LocalRelease>>({
@@ -777,6 +778,91 @@ export default function AdminReleaseEditor() {
         <div className="w-full lg:w-[28rem] xl:w-[32rem] bg-base-200/50 backdrop-blur-md p-6 overflow-y-auto border-t lg:border-t-0 lg:border-l border-white/5 scrollbar-thin">
           <div className="space-y-8 pb-12">
             <h3 className="text-sm font-bold uppercase tracking-widest opacity-50 mb-2">Album Metadata</h3>
+
+            {/* Import from Bandcamp */}
+            {isNew && (
+            <div className="form-control mb-6 p-4 border border-primary/20 bg-primary/5 rounded-box">
+              <label className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-2 mb-2">
+                 <Download className="w-3 h-3" /> Import from Bandcamp
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="input input-sm input-bordered flex-1"
+                  placeholder="https://artist.bandcamp.com/album/..."
+                  value={importBcUrl}
+                  onChange={(e) => setImportBcUrl(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={async () => {
+                     if (!importBcUrl) return;
+                     setLoading(true);
+                     try {
+                        const data = await API.importFromBandcamp(importBcUrl);
+                        
+                        setMetadata(prev => ({
+                           ...prev,
+                           title: data.title || prev.title,
+                           year: data.year || prev.year,
+                           tags: prev.tags || "independent",
+                        }));
+
+                        if (data.artist) {
+                           const matchedArtist = artists.find(a => 
+                              a.name.toLowerCase() === data.artist.toLowerCase() ||
+                              a.id.toString() === metadata.artist_id?.toString()
+                           );
+                           if (matchedArtist && matchedArtist.name.toLowerCase() === data.artist.toLowerCase()) {
+                              setMetadata(prev => ({ ...prev, artist_id: parseInt(matchedArtist.id) }));
+                           }
+                        }
+
+                        if (data.cover) {
+                           try {
+                              const res = await fetch(data.cover);
+                              const blob = await res.blob();
+                              const ext = blob.type.split('/')[1] || 'jpg';
+                              const file = new File([blob], `cover.${ext}`, { type: blob.type });
+                              setCoverFile(file);
+                              setCoverPreview(URL.createObjectURL(file));
+                           } catch (e) {
+                              console.error("Failed to parse cover image", e);
+                           }
+                        }
+
+                        if (data.tracks && data.tracks.length > 0) {
+                           const newTracks: LocalTrack[] = data.tracks.map((t: any, idx: number) => ({
+                              id: Date.now() + idx,
+                              title: t.title,
+                              duration: parseFloat(t.duration) || 0,
+                              position: t.position || idx + 1,
+                              price: 0,
+                              currency: "ETH",
+                              file_path: null,
+                              url: null,
+                              service: "local",
+                              isDirty: true
+                           }));
+                           setTracks(prev => [...prev, ...newTracks]);
+                        }
+                        
+                        alert("Import successful! Now upload the audio files and map them to the corresponding tracks by typing their exact filenames or clicking the edit button.");
+                        setImportBcUrl("");
+                     } catch (err: any) {
+                        alert("Failed to import from Bandcamp: " + err.message);
+                     } finally {
+                        setLoading(false);
+                     }
+                  }}
+                  disabled={loading || saving || !importBcUrl}
+                >
+                  Import
+                </button>
+              </div>
+            </div>
+            )}
 
             {/* Auto-Fill Button */}
             <div className="form-control">
