@@ -5,7 +5,7 @@ import md5 from 'md5';
 import path from 'path';
 import fs from 'fs-extra';
 import { resolveSafePath } from '../../utils/fileUtils.js';
-import type { DatabaseService } from '../database';
+import type { DatabaseService, Track } from '../database';
 import type { AuthService } from '../auth';
 import type { GunDBService } from '../gundb';
 
@@ -136,7 +136,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     // --- Formatters ---
 
-    const formatTrack = (track: any, username: string) => {
+    const formatTrack = (track: Track, username: string) => {
         const id = `tr_${track.id}`;
         return {
             '@id': id,
