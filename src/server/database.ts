@@ -1332,6 +1332,22 @@ export function createDatabase(dbPath: string): DatabaseService {
         if (!e.message.includes("duplicate column name")) console.error("Error adding created_at:", e);
     }
 
+    // Migration: Add owner_id to albums and tracks if missing
+    try {
+        db.exec(`ALTER TABLE albums ADD COLUMN owner_id INTEGER REFERENCES artists(id)`);
+        console.log("📦 Migrated database: added owner_id column to albums");
+    } catch (e) { }
+
+    try {
+        db.exec(`ALTER TABLE tracks ADD COLUMN owner_id INTEGER REFERENCES artists(id)`);
+        console.log("📦 Migrated database: added owner_id column to tracks");
+    } catch (e) { }
+
+    try {
+        db.exec(`ALTER TABLE tracks ADD COLUMN hash TEXT`);
+        console.log("📦 Migrated database: added hash column to tracks");
+    } catch (e) { }
+
     // Migration: Backfill ownership tables from owner_id columns
     try {
         db.exec(`
