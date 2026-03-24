@@ -1,5 +1,6 @@
 import { Router } from "express";
 import fetch from "node-fetch";
+import { isSafeUrl } from "../../utils/networkUtils.js";
 
 export function createProxyRoutes(): Router {
     const router = Router();
@@ -12,6 +13,12 @@ export function createProxyRoutes(): Router {
         const url = req.query.url as string;
         if (!url) {
             return res.status(400).send("URL is required");
+        }
+
+        const safe = await isSafeUrl(url);
+        if (!safe) {
+            console.warn(`⚠️ Proxy target blocked: ${url}`);
+            return res.status(403).send("Forbidden: Invalid or unsafe URL");
         }
 
         try {
