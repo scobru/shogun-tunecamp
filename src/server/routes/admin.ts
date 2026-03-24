@@ -678,7 +678,12 @@ export function createAdminRoutes(
     router.get("/system/me", (req: AuthenticatedRequest, res: any) => {
         try {
             const username = req.username || "";
-            res.json({ username, isRootAdmin: !!req.isRootAdmin });
+            res.json({ 
+                username, 
+                isAdmin: !!req.isAdmin,
+                isRootAdmin: !!req.isRootAdmin, 
+                artistId: req.artistId 
+            });
         } catch (error) {
             console.error("Error getting current admin:", error);
             res.status(500).json({ error: "Failed to get current admin" });
