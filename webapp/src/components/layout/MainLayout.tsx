@@ -10,10 +10,13 @@ import { UnlockModal } from "../modals/UnlockModal";
 import { ArtistKeysModal } from "../modals/ArtistKeysModal";
 import { AdminTrackModal } from "../modals/AdminTrackModal";
 import { CheckoutModal } from "../modals/CheckoutModal";
+import { CommandPalette } from "../modals/CommandPalette";
+import { usePlayerStore } from "../../stores/usePlayerStore";
 
 export const MainLayout = () => {
   const [bgUrl, setBgUrl] = useState("");
   const [siteName, setSiteName] = useState("TuneCamp");
+  const dominantColor = usePlayerStore(state => state.dominantColor);
 
   useEffect(() => {
     API.getSiteSettings()
@@ -35,6 +38,13 @@ export const MainLayout = () => {
       <input id="main-drawer" type="checkbox" className="drawer-toggle" />
 
       {/* Global Background */}
+      <div 
+        className="absolute inset-0 z-[1] pointer-events-none transition-colors duration-1000"
+        style={{ 
+          backgroundColor: dominantColor || 'transparent',
+          opacity: dominantColor ? 0.2 : 0 
+        }} 
+      />
       {bgUrl && (
         <div
           className="absolute inset-0 z-0 opacity-40 bg-cover bg-center pointer-events-none"
@@ -94,6 +104,7 @@ export const MainLayout = () => {
       <PlayerBar />
 
       {/* Global Modals */}
+      <CommandPalette />
       <AuthModal />
       <PlaylistModal />
       <UnlockModal />

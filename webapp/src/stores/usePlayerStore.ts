@@ -20,6 +20,7 @@ export interface PlayerState {
     // UI State
     isQueueOpen: boolean;
     isLyricsOpen: boolean;
+    dominantColor: string | null;
 
     // Actions
     playTrack: (track: Track, context?: Track[]) => void;
@@ -36,6 +37,7 @@ export interface PlayerState {
     toggleRepeat: () => void;
     toggleQueue: () => void;
     toggleLyrics: () => void;
+    setDominantColor: (color: string | null) => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -52,6 +54,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     repeatMode: 'none',
     isQueueOpen: false,
     isLyricsOpen: false,
+    dominantColor: null,
 
     playTrack: (track, context) => {
         const queue = context ? [...context] : [track];
@@ -204,4 +207,5 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     toggleQueue: () => set((state) => ({ isQueueOpen: !state.isQueueOpen, isLyricsOpen: false })),
     toggleLyrics: () => set((state) => ({ isLyricsOpen: !state.isLyricsOpen, isQueueOpen: false })),
+    setDominantColor: (color) => set({ dominantColor: color }),
 }));

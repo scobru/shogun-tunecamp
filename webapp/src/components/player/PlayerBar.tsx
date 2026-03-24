@@ -16,6 +16,7 @@ import { Waveform } from "./Waveform";
 import { LyricsPanel } from "./LyricsPanel";
 import { QueuePanel } from "./QueuePanel";
 import { ScrollingText } from "../ui/ScrollingText";
+import { useColor } from "color-thief-react";
 
 export const PlayerBar = () => {
   const {
@@ -37,6 +38,7 @@ export const PlayerBar = () => {
     progress,
     currentTime,
     duration,
+    setDominantColor,
   } = usePlayerStore();
 
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -217,6 +219,22 @@ export const PlayerBar = () => {
     [duration],
   );
 
+  let coverUrl = currentTrack ? (
+    currentTrack.coverImage ||
+    currentTrack.coverUrl ||
+    (currentTrack.albumId ? API.getAlbumCoverUrl(currentTrack.albumId) : "") ||
+    (currentTrack.artistId ? API.getArtistCoverUrl(currentTrack.artistId) : "")
+  ) : "";
+
+  const { data: dominantColor } = useColor(coverUrl || "", "hex", {
+    crossOrigin: "anonymous",
+    quality: 10,
+  });
+
+  useEffect(() => {
+    setDominantColor(dominantColor || null);
+  }, [dominantColor, setDominantColor]);
+
   if (!currentTrack)
     return (
       <div className="fixed bottom-0 w-full h-24 bg-base-200 border-t border-white/5 flex items-center justify-center text-sm opacity-50 z-50">
@@ -224,16 +242,12 @@ export const PlayerBar = () => {
       </div>
     );
 
-  // Resolve cover URL
-  let coverUrl =
-    currentTrack.coverImage ||
-    currentTrack.coverUrl ||
-    (currentTrack.albumId ? API.getAlbumCoverUrl(currentTrack.albumId) : "") ||
-    (currentTrack.artistId ? API.getArtistCoverUrl(currentTrack.artistId) : "");
-
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 lg:h-24 bg-base-200/40 backdrop-blur-xl border-t border-white/5 lg:px-6 flex flex-col lg:flex-row items-center gap-2 lg:gap-4 z-50 shadow-2xl pb-safe lg:pb-0 pt-2 lg:pt-0">
+      <div 
+        className="fixed bottom-0 left-0 right-0 lg:h-24 backdrop-blur-xl border-t border-white/5 lg:px-6 flex flex-col lg:flex-row items-center gap-2 lg:gap-4 z-50 shadow-2xl pb-safe lg:pb-0 pt-2 lg:pt-0 transition-colors duration-1000"
+        style={{ backgroundColor: dominantColor ? `${dominantColor}40` : "oklch(var(--b2) / 0.4)" }}
+      >
         <audio
           ref={audioRef}
           className="hidden"
