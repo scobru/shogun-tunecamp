@@ -38,7 +38,7 @@ export const Playlists = () => {
         isPublic: !!p.isPublic,
         trackCount: (p as any).trackCount || 0,
         isUserPlaylist: false,
-        createdAt: new Date(p.created_at || 0).getTime()
+        createdAt: new Date((p as any).createdAt || (p as any).created_at || 0).getTime()
       }));
 
       // Normalize GunDB playlists
