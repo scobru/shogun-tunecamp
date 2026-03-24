@@ -227,6 +227,15 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 return res.status(403).json({ error: "Restricted admins cannot delete artists" });
             }
 
+            // Check if artist has releases, albums, or tracks
+            const libraryAlbums = database.getAlbumsByArtist(id, false);
+            const formalReleases = database.getReleasesByArtist(id, false);
+            const tracks = database.getTracksByArtist(id, false);
+            
+            if (libraryAlbums.length > 0 || formalReleases.length > 0 || tracks.length > 0) {
+                return res.status(400).json({ error: "Cannot delete artist: they have existing releases, albums, or tracks." });
+            }
+
             database.deleteArtist(id);
             console.log(`🗑️  Deleted artist: ${artist.name}`);
             res.json({ message: "Artist deleted" });
