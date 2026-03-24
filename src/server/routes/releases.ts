@@ -88,30 +88,66 @@ export function createReleaseRouter(
     router.post("/", async (req: any, res) => {
         try {
             const body = req.body as CreateReleaseBody;
+            const isAdmin = req.isAdmin;
+            const userArtistId = req.artistId;
 
             if (!body.title) {
                 return res.status(400).json({ error: "Title is required" });
             }
 
+            // Determine the final Artist ID and ownership logic
             let artistId: number | null = body.artistId || null;
-            if (!artistId && body.artistName) {
-                const existingArtist = database.getArtistByName(body.artistName);
-                if (existingArtist) {
-                    artistId = existingArtist.id;
-                } else {
-                    artistId = database.createArtist(body.artistName);
+            
+            // SECURITY CHECK: Non-admins cannot create releases for other artists or new artists
+            if (!isAdmin) {
+                if (artistId && artistId !== userArtistId) {
+                    return res.status(403).json({ error: "Access denied: You can only create releases for your own artist profile" });
                 }
-            } else if (!artistId && (req as any).artistId) {
-                artistId = (req as any).artistId;
+                if (body.artistName) {
+                    const existingArtist = database.getArtistByName(body.artistName);
+                    if (existingArtist && existingArtist.id !== userArtistId) {
+                         return res.status(403).json({ error: "Access denied: Artist name belongs to another user" });
+                    }
+                    // If artist doesn't exist, we allow creating it ONLY if it matches their intended profile name 
+                    // or if it's a library album (but for publishing platform mode, we prefer forcing their userArtistId)
+                }
+                // Force userArtistId for regular users
+                artistId = userArtistId;
+            } else {
+                // Admin logic: allow creating/assigning to any artist
+                if (!artistId && body.artistName) {
+                    const existingArtist = database.getArtistByName(body.artistName);
+                    if (existingArtist) {
+                        artistId = existingArtist.id;
+                    } else {
+                        artistId = database.createArtist(body.artistName);
+                    }
+                }
             }
 
             const slug = body.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "release";
+
+            // Verify Track Ownership before creating the release association
+            const validatedTrackIds: number[] = [];
+            if (body.track_ids && body.track_ids.length > 0) {
+                for (const trackId of body.track_ids) {
+                    const track = database.getTrack(trackId);
+                    if (track) {
+                        // Admin can add anything, Users can only add their own tracks
+                        if (isAdmin || track.owner_id === userArtistId) {
+                            validatedTrackIds.push(trackId);
+                        } else {
+                            console.warn(`⚠️ User ${req.username} tried to add unauthorized track ${trackId} to release`);
+                        }
+                    }
+                }
+            }
 
             const newReleaseId = database.createRelease({
                 title: body.title,
                 slug: slug,
                 artist_id: artistId,
-                owner_id: (req as any).artistId || artistId,
+                owner_id: userArtistId || artistId, // Owner is the person who created/manages it
                 date: body.date || new Date().toISOString(),
                 description: body.description || null,
                 type: body.type || 'album',
@@ -129,10 +165,9 @@ export function createReleaseRouter(
                 published_to_ap: body.publishedToAP !== undefined ? body.publishedToAP : (body.visibility === 'public' || body.visibility === 'unlisted'),
             });
 
-            if (body.track_ids && body.track_ids.length > 0) {
-                for (const trackId of body.track_ids) {
-                    database.addTrackToRelease(newReleaseId, trackId);
-                }
+            // Associate only validated tracks
+            for (const trackId of validatedTrackIds) {
+                database.addTrackToRelease(newReleaseId, trackId);
             }
 
             publishingService.syncRelease(newReleaseId).catch(e => console.error("Failed to sync new release:", e));
