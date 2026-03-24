@@ -1,15 +1,12 @@
 import { useState, useEffect } from "react";
 import API from "../services/api";
-import { useAuthStore } from "../stores/useAuthStore";
 import { Link } from "react-router-dom";
-import { ListMusic, Plus, Globe, Lock, Music } from "lucide-react";
+import { ListMusic, Globe, Lock, Music } from "lucide-react";
 import type { Playlist } from "../types";
-import { CreatePlaylistModal } from "../components/modals/CreatePlaylistModal";
 
 export const Playlists = () => {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
-  const { isAdminAuthenticated } = useAuthStore();
 
   useEffect(() => {
     loadPlaylists();
@@ -21,7 +18,7 @@ export const Playlists = () => {
     setLoading(true);
     try {
       const data = await API.getPlaylists();
-      setPlaylists(data);
+      setPlaylists(data.filter((p) => p.isPublic));
     } catch (e) {
       console.error(e);
     } finally {
@@ -35,19 +32,6 @@ export const Playlists = () => {
         <h1 className="text-4xl font-bold flex items-center gap-3">
           <ListMusic size={40} className="text-secondary" /> Playlists
         </h1>
-
-        {isAdminAuthenticated && (
-          <button
-            className="btn btn-primary gap-2"
-            onClick={() =>
-              document.dispatchEvent(
-                new CustomEvent("open-create-playlist-modal"),
-              )
-            }
-          >
-            <Plus size={20} /> Create Playlist
-          </button>
-        )}
       </div>
 
       {loading ? (
@@ -102,8 +86,6 @@ export const Playlists = () => {
           ))}
         </div>
       )}
-
-      <CreatePlaylistModal onCreated={loadPlaylists} />
     </div>
   );
 };
