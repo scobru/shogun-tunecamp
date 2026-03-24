@@ -45,7 +45,7 @@ describe("AuthService", () => {
     });
 
     describe("Token Management", () => {
-        const payload = { isAdmin: true, username: "admin", artistId: 1 };
+        const payload = { isAdmin: true, username: "admin", artistId: 1, role: "admin" as const, isActive: true };
         const secret = "secret";
 
         test("generateToken and verifyToken (happy path)", () => {
@@ -57,7 +57,7 @@ describe("AuthService", () => {
         });
 
         test("generateToken and verifyToken with null artistId", () => {
-            const nullArtistPayload = { isAdmin: false, username: "user", artistId: null };
+            const nullArtistPayload = { isAdmin: false, username: "user", artistId: null, role: "user" as const, isActive: true };
             const token = authService.generateToken(nullArtistPayload);
             const decoded = authService.verifyToken(token);
             expect(decoded).toMatchObject(nullArtistPayload);

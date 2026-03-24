@@ -39,7 +39,8 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
                 isAdmin: result.isAdmin || false,
                 username: userToAuth,
                 artistId: result.artistId || null,
-                role: result.role || 'user'
+                role: result.role || 'user',
+                isActive: result.isActive ?? true
             });
 
             res.json({
@@ -83,7 +84,8 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
                 isAdmin: true,
                 username: userToCreate,
                 artistId: null,
-                role: 'admin'
+                role: 'admin',
+                isActive: true
             });
 
             res.json({
@@ -137,7 +139,8 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
                 isAdmin: true,
                 username,
                 artistId,
-                role: req.role || 'admin'
+                role: req.role || 'admin',
+                isActive: req.isActive ?? true
             });
 
             res.json({
