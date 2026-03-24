@@ -32,15 +32,16 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         return undefined;
     };
 
-    const sanitizeJsonKeys = (obj: any): any => {
+    const sanitizeJsonKeys = (obj: unknown): unknown => {
         if (Array.isArray(obj)) {
             return obj.map(item => sanitizeJsonKeys(item));
         } else if (obj !== null && typeof obj === 'object') {
-            const newObj: any = {};
-            for (const key in obj) {
-                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            const newObj: Record<string, unknown> = {};
+            const record = obj as Record<string, unknown>;
+            for (const key in record) {
+                if (Object.prototype.hasOwnProperty.call(record, key)) {
                     const newKey = key.startsWith('@') ? key.substring(1) : key;
-                    newObj[newKey] = sanitizeJsonKeys(obj[key]);
+                    newObj[newKey] = sanitizeJsonKeys(record[key]);
                 }
             }
             return newObj;
@@ -71,7 +72,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     status,
                     version,
                     openSubsonic: true,
-                    ...sanitizeJsonKeys(data) // Remove XML attribute decorators
+                    ...(sanitizeJsonKeys(data) as Record<string, unknown>) // Remove XML attribute decorators
                 }
             });
             return;
