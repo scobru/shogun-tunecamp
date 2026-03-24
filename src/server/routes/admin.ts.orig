@@ -32,9 +32,9 @@ export function createAdminRoutes(
             const showMine = req.query.mine === 'true';
             let albums: any[] = [];
             let releases: any[] = [];
-            
+
             if (req.isAdmin && !showMine) {
-                albums = database.getAlbums(false).map(a => ({ ...a, is_formal_release: false })); 
+                albums = database.getAlbums(false).map(a => ({ ...a, is_formal_release: false }));
                 releases = database.getReleases(false).map(r => ({ ...r, is_formal_release: true }));
             } else if (req.artistId) {
                 albums = database.getAlbumsByOwner(req.artistId, false).map(a => ({ ...a, is_formal_release: false }));
@@ -339,7 +339,7 @@ export function createAdminRoutes(
             }
 
             const result = await scanner.consolidateFiles(musicDir);
-            res.json({ 
+            res.json({
                 message: "File consolidation completed",
                 ...result
             });
@@ -383,9 +383,9 @@ export function createAdminRoutes(
             }
 
             const result = await publishingService.syncCommunityFollows();
-            res.json({ 
+            res.json({
                 message: `Community sync completed. Discovered ${result.discovered} sites, followed ${result.followed} new instances.`,
-                ...result 
+                ...result
             });
         } catch (error: any) {
             console.error("Error syncing community follows:", error);
@@ -468,7 +468,7 @@ export function createAdminRoutes(
             if (body.track_ids && Array.isArray(body.track_ids)) {
                 const newTrackIds = body.track_ids.map((tid: any) => parseInt(tid, 10)).filter((tid: any) => !isNaN(tid));
                 console.log(`   - Received ${newTrackIds.length} track IDs from frontend:`, newTrackIds);
-                
+
                 if (release) {
                     // Update formal release tracks
                     const existingTrackIds = database.getReleaseTrackIds(id);
@@ -495,7 +495,7 @@ export function createAdminRoutes(
                     const existingTracks = database.getTracks(id);
                     const existingTrackIds = existingTracks.map(t => t.id);
                     console.log(`   - Existing library album tracks:`, existingTrackIds);
-                    
+
                     const toAdd = newTrackIds.filter((ntid: number) => !existingTrackIds.includes(ntid));
                     const toRemove = existingTrackIds.filter((etid: number) => !newTrackIds.includes(etid));
 
@@ -540,7 +540,7 @@ export function createAdminRoutes(
         try {
             const id = parseInt(req.params.id, 10);
             const tracks = database.getTracksByReleaseId(id); // Use the more robust unified getter
-            
+
             if (tracks.length === 0) return res.json({ folder: null, files: [] });
 
             const firstWithFile = tracks.find(t => t.file_path);
@@ -560,7 +560,7 @@ export function createAdminRoutes(
             async function walkDir(dir: string, prefix = "") {
                 if (!(await fs.pathExists(dir))) return;
                 const entries = await fs.readdir(dir, { withFileTypes: true });
-                await Promise.all(entries.map(async (entry) => {
+                for (const entry of entries) {
                     const fullPath = path.join(dir, entry.name);
                     if (entry.isDirectory()) {
                         await walkDir(fullPath, `${prefix}${entry.name}/`);
@@ -572,9 +572,9 @@ export function createAdminRoutes(
                             size: stat.size,
                         });
                     }
-                }));
+                }
             }
-            
+
             if (await fs.pathExists(absoluteReleaseDir)) {
                 await walkDir(absoluteReleaseDir);
             }
@@ -768,7 +768,7 @@ export function createAdminRoutes(
             res.status(500).json({ error: "Failed to delete admin" });
         }
     });
-    
+
     /**
      * PUT /api/admin/system/users/:id/status
      * Enable/disable admin user (root admin only)
@@ -780,7 +780,7 @@ export function createAdminRoutes(
             }
             const id = parseInt(req.params.id, 10);
             const { active } = req.body;
-            
+
             authService.toggleUserStatus(id, active);
             res.json({ message: `User ${active ? 'enabled' : 'disabled'} successfully` });
         } catch (error: any) {

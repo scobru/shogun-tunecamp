@@ -1,0 +1,22 @@
+--- src/server/routes/admin.ts
++++ src/server/routes/admin.ts
+@@ -560,17 +560,17 @@
+             async function walkDir(dir: string, prefix = "") {
+                 if (!(await fs.pathExists(dir))) return;
+                 const entries = await fs.readdir(dir, { withFileTypes: true });
+-                for (const entry of entries) {
++                await Promise.all(entries.map(async (entry) => {
+                     const fullPath = path.join(dir, entry.name);
+                     if (entry.isDirectory()) {
+                         await walkDir(fullPath, `${prefix}${entry.name}/`);
+                     } else {
+                         const stat = await fs.stat(fullPath);
+                         files.push({
+                             name: `${prefix}${entry.name}`,
+                             type: path.extname(entry.name).substring(1),
+                             size: stat.size,
+                         });
+                     }
+-                }
++                }));
+             }
