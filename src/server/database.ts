@@ -103,6 +103,8 @@ export interface Track {
     lyrics?: string | null;
     hash?: string | null; // Added for deduplication
     created_at: string;
+    year?: number;
+    genre?: string;
 }
 
 export interface Release {
