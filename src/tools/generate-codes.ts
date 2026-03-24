@@ -78,8 +78,9 @@ function loadKeyPair(keypairPath: string): SEAKeyPair {
             epub: parsed.epub,
             epriv: parsed.epriv,
         };
-    } catch (error: any) {
-        throw new Error(`Failed to load keypair from ${keypairPath}: ${error.message}`);
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to load keypair from ${keypairPath}: ${errorMessage}`);
     }
 }
 
@@ -131,8 +132,9 @@ async function generateCodes(options: CodeOptions): Promise<string[]> {
         try {
             await authenticateGunDB(gun, keypair);
             console.log(`✅ Authenticated successfully`);
-        } catch (error: any) {
-            console.error(`❌ Authentication failed: ${error.message}`);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error(`❌ Authentication failed: ${errorMessage}`);
             throw error;
         }
     }
@@ -226,8 +228,9 @@ Examples:
     if (keypairPath) {
         try {
             keypair = loadKeyPair(keypairPath);
-        } catch (error: any) {
-            console.error(`\n❌ Error loading keypair: ${error.message}`);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error(`\n❌ Error loading keypair: ${errorMessage}`);
             console.error(`\n💡 Generate a new keypair with:`);
             console.error(`   npx ts-node src/tools/generate-sea-pair.ts`);
             process.exit(1);
