@@ -13,11 +13,18 @@ const JWT_EXPIRES_IN = "7d";
 
 export type UserRole = 'admin' | 'user';
 
+export interface TokenPayload {
+    isAdmin: boolean;
+    username: string;
+    artistId: number | null;
+    role: UserRole;
+}
+
 export interface AuthService {
     hashPassword(password: string): Promise<string>;
     verifyPassword(password: string, hash: string): Promise<boolean>;
-    generateToken(payload: { isAdmin: boolean; username: string; artistId: number | null; role: UserRole }): string;
-    verifyToken(token: string): { isAdmin: boolean; username: string; artistId: number | null; role: UserRole } | null;
+    generateToken(payload: TokenPayload): string;
+    verifyToken(token: string): TokenPayload | null;
     // Multi-user management
     authenticateUser(username: string, password: string, pubKey?: string, proof?: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; pair?: any } | false>;
     verifyGunSignature(message: any, pubKey: string, proof: string): Promise<boolean>;
@@ -199,13 +206,13 @@ export function createAuthService(
             return bcrypt.compare(password, hash);
         },
 
-        generateToken(payload: { isAdmin: boolean; username: string; artistId: number | null; role: UserRole }): string {
+        generateToken(payload: TokenPayload): string {
             return jwt.sign(payload, jwtSecret, { expiresIn: JWT_EXPIRES_IN });
         },
 
-        verifyToken(token: string): { isAdmin: boolean; username: string; artistId: number | null; role: UserRole } | null {
+        verifyToken(token: string): TokenPayload | null {
             try {
-                const decoded = jwt.verify(token, jwtSecret) as any;
+                const decoded = jwt.verify(token, jwtSecret) as TokenPayload;
                 return {
                     isAdmin: decoded.isAdmin ?? (decoded.role === 'admin'),
                     username: decoded.username,
