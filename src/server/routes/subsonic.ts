@@ -1,7 +1,6 @@
 
 import { Router, Request, Response } from 'express';
 import { create } from 'xmlbuilder2';
-import md5 from 'md5';
 import path from 'path';
 import fs from 'fs-extra';
 import { resolveSafePath } from '../../utils/fileUtils.js';
