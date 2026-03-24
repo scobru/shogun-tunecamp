@@ -58,14 +58,14 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                     return res.json(myTracks);
                 }
 
-                const publicTracks = database.getTracks(undefined, true).map(mapTrack);
+                const publicTracksRaw = database.getTracks(undefined, true);
                 
                 // Deduplicate if any of my tracks are also in the public tracks (though unlikely they'd be duplicates in the array)
                 const seenIds = new Set(myTracks.map(t => t.id));
                 const combined = [...myTracks];
-                for (const t of publicTracks) {
+                for (const t of publicTracksRaw) {
                     if (!seenIds.has(t.id)) {
-                        combined.push(t);
+                        combined.push(mapTrack(t));
                     }
                 }
                 return res.json(combined);
