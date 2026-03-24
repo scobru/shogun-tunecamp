@@ -115,14 +115,14 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             let album: any;
 
             if (/^\d+$/.test(param)) {
-                album = database.getAlbum(parseInt(param, 10));
+                album = database.getRelease(parseInt(param, 10));
                 if (!album) {
-                    album = database.getRelease(parseInt(param, 10));
+                    album = database.getAlbum(parseInt(param, 10));
                 }
             } else {
-                album = database.getAlbumBySlug(param);
+                album = database.getReleaseBySlug(param);
                 if (!album) {
-                    album = database.getReleaseBySlug(param);
+                    album = database.getAlbumBySlug(param);
                 }
             }
 
@@ -171,9 +171,9 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             let album: any;
 
             if (/^\d+$/.test(param)) {
-                album = database.getAlbum(parseInt(param, 10)) || database.getRelease(parseInt(param, 10));
+                album = database.getRelease(parseInt(param, 10)) || database.getAlbum(parseInt(param, 10));
             } else {
-                album = database.getAlbumBySlug(param) || database.getReleaseBySlug(param);
+                album = database.getReleaseBySlug(param) || database.getAlbumBySlug(param);
             }
 
             if (!album || !album.cover_path) {
@@ -214,9 +214,9 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             let album: any;
 
             if (/^\d+$/.test(param)) {
-                album = database.getAlbum(parseInt(param, 10)) || database.getRelease(parseInt(param, 10));
+                album = database.getRelease(parseInt(param, 10)) || database.getAlbum(parseInt(param, 10));
             } else {
-                album = database.getAlbumBySlug(param) || database.getReleaseBySlug(param);
+                album = database.getReleaseBySlug(param) || database.getAlbumBySlug(param);
             }
 
             if (!album) {

@@ -259,9 +259,19 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             const libraryAlbums = database.getAlbumsByArtist(artist.id, req.isAdmin !== true);
             const formalReleases = database.getReleasesByArtist(artist.id, req.isAdmin !== true);
             
+            // Create a Set of lowercased formal release titles
+            const formalReleaseTitles = new Set(
+                formalReleases.map(r => (r.title || "").toLowerCase().trim())
+            );
+
+            // Filter out library albums that have the same title as a formal release
+            const filteredLibraryAlbums = libraryAlbums.filter(
+                a => !formalReleaseTitles.has((a.title || "").toLowerCase().trim())
+            );
+
             // Combine and sort by date
             const albums = [
-                ...libraryAlbums.map(a => ({ ...a, is_formal_release: false })),
+                ...filteredLibraryAlbums.map(a => ({ ...a, is_formal_release: false })),
                 ...formalReleases.map(r => ({ ...r, is_formal_release: true }))
             ].sort((a, b) => {
                 const dateA = new Date(a.date || a.created_at || 0).getTime();
@@ -351,9 +361,12 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 }
             }
 
-            // Fallback to first album cover
-            const albums = database.getAlbumsByArtist(artist.id, false);
-            for (const album of albums) {
+            // Fallback to first formal release or album cover
+            const libraryAlbums = database.getAlbumsByArtist(artist.id, false);
+            const formalReleases = database.getReleasesByArtist(artist.id, false);
+            const allAlbums = [...formalReleases, ...libraryAlbums]; // check formal releases first
+            
+            for (const album of allAlbums) {
                 if (album.cover_path) {
                     const coverPath = path.join(musicDir, album.cover_path);
                     if (await fs.pathExists(coverPath)) {
