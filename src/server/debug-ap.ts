@@ -7,19 +7,14 @@ import path from "path";
 import fs from "fs-extra";
 
 async function main() {
-    const musicDir = "d:\\shogun-2\\tunecamp\\music"; // Adjust if needed
-    const dbPath = path.join(musicDir, "tunecamp.db");
+    const config = loadConfig();
+    const dbPath = config.dbPath;
 
     console.log(`📂 DB Path: ${dbPath}`);
     if (!fs.existsSync(dbPath)) {
         console.error("❌ DB not found!");
         return;
     }
-
-    const config = loadConfig();
-    // Mock config if loadConfig fails or needs env vars
-    config.dbPath = dbPath;
-    config.musicDir = musicDir;
 
     const db = createDatabase(dbPath);
     const federation = createFedify(db, config);
