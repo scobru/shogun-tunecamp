@@ -477,6 +477,8 @@ export function createAdminRoutes(
                     const toAdd = newTrackIds.filter((ntid: number) => !existingTrackIds.includes(ntid));
                     const toRemove = existingTrackIds.filter((etid: number) => !newTrackIds.includes(etid));
 
+                    database.cleanUpGhostTracks(id);
+
                     console.log(`   - Formal Release Sync: existing=${existingTrackIds.length}, toAdd=${toAdd.length}, toRemove=${toRemove.length}`);
 
                     for (const trackId of toAdd) {

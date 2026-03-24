@@ -294,6 +294,7 @@ export interface DatabaseService {
     removeTrackFromRelease(releaseId: number, trackId: number): void; // Old version by IDs
     deleteReleaseTrack(id: number): void; // New version by record ID
     updateReleaseTracksOrder(releaseId: number, trackIds: number[]): void;
+    cleanUpGhostTracks(releaseId: number): void;
 
     // Legacy/Library Albums
     getAlbums(publicOnly?: boolean): Album[];
@@ -1630,6 +1631,11 @@ export function createDatabase(dbPath: string): DatabaseService {
             // Get base metadata from library track if not provided
             const libraryTrack = trackId ? this.getTrack(trackId) : null;
             
+            if (trackId && !libraryTrack) {
+                console.warn(`⚠️ Attempted to add non-existent library track ${trackId} to release ${releaseId}. Avoiding ghost track.`);
+                return 0;
+            }
+
             // SECURITY: If trackId was provided but track doesn't exist, use NULL for track_id column
             // to avoid FOREIGN KEY constraint failure, but keep the metadata.
             const effectiveTrackId = libraryTrack ? trackId : null;
@@ -1703,6 +1709,10 @@ export function createDatabase(dbPath: string): DatabaseService {
                     stmt.run(index + 1, releaseId, trackId);
                 });
             })();
+        },
+
+        cleanUpGhostTracks(releaseId: number): void {
+            db.prepare("DELETE FROM release_tracks WHERE release_id = ? AND track_id IS NULL").run(releaseId);
         },
 
         // OAuth
