@@ -10,7 +10,6 @@ async function main() {
     const musicDir = "d:\\shogun-2\\tunecamp\\music"; // Adjust if needed
     const dbPath = path.join(musicDir, "tunecamp.db");
 
-    console.log(`📂 DB Path: ${dbPath}`);
     if (!fs.existsSync(dbPath)) {
         console.error("❌ DB not found!");
         return;
