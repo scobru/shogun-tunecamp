@@ -28,7 +28,7 @@ export const MainLayout = () => {
   }, []);
 
   return (
-    <div className="drawer lg:drawer-open h-screen bg-black text-white font-sans overflow-hidden">
+    <div className="drawer lg:drawer-open h-screen bg-white text-black font-sans overflow-hidden">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] btn btn-primary btn-sm"
@@ -54,7 +54,7 @@ export const MainLayout = () => {
 
       <div className="drawer-content relative z-10 flex flex-col h-full overflow-hidden">
         {/* Mobile Header */}
-        <div className="navbar lg:hidden bg-base-100/60 backdrop-blur-md border-b border-white/5 min-h-16">
+        <div className="navbar lg:hidden bg-base-100/60 bg-white border-b border-black min-h-16">
           <div className="flex-none">
             <label
               htmlFor="main-drawer"
@@ -84,7 +84,7 @@ export const MainLayout = () => {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 bg-base-100/40 relative flex flex-col h-full lg:rounded-tl-2xl border-t border-l border-white/5 lg:mr-2 lg:mt-2 lg:mb-24 shadow-2xl overflow-hidden backdrop-blur-3xl focus:outline-none"
+          className="flex-1 bg-white relative flex flex-col h-full lg:rounded-none border-t border-l border-black lg:mr-2 lg:mt-2 lg:mb-24  overflow-hidden backdrop-blur-3xl focus:outline-none"
         >
           <div className="flex-1 overflow-y-auto pb-32 scroll-smooth p-6">
             <Outlet />

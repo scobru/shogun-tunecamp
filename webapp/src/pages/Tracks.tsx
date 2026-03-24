@@ -92,7 +92,7 @@ export const Tracks = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Music size={32} className="text-primary" /> Tracks
+          <Music size={32} className="text-black" /> Tracks
         </h1>
 
         <div className="relative">
@@ -111,10 +111,10 @@ export const Tracks = () => {
         </div>
       </div>
 
-      <div className="overflow-x-auto bg-base-200/30 rounded-xl border border-white/5 min-h-[400px]">
+      <div className="overflow-x-auto bg-white border border-black rounded-none rounded-none border border-black min-h-[400px]">
         <table className="table w-full table-sm md:table-md">
           <thead>
-            <tr className="border-b border-white/10 text-xs uppercase opacity-50">
+            <tr className="border-b border-black text-xs uppercase opacity-50">
               <th className="w-12 text-center">#</th>
               <th>Title</th>
               <th>Album</th>
@@ -130,7 +130,7 @@ export const Tracks = () => {
               return (
                 <tr
                   key={track.id}
-                  className="hover:bg-white/5 group border-b border-white/5 last:border-0 transition-colors focus-within:bg-white/5"
+                  className="hover:bg-gray-100 group border-b border-black last:border-0 transition-colors focus-within:bg-gray-100"
                 >
                   <td className="text-center font-mono w-12 relative">
                     <span className="opacity-50 group-hover:opacity-0 group-focus-within:opacity-0 transition-opacity absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -139,7 +139,7 @@ export const Tracks = () => {
                     <button
                       onClick={() => playTrack(track, filteredTracks)}
                       aria-label={`Play ${track.title}`}
-                      className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center text-primary w-full h-full"
+                      className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center text-black w-full h-full"
                     >
                       <Play size={12} fill="currentColor" />
                     </button>
@@ -162,7 +162,7 @@ export const Tracks = () => {
                       {(track.liked || likedTrackIds.has(String(track.id))) && (
                         <Heart
                           size={12}
-                          className="text-primary"
+                          className="text-black"
                           fill="currentColor"
                         />
                       )}
@@ -183,13 +183,13 @@ export const Tracks = () => {
                         role="button"
                         tabIndex={0}
                         aria-label={`More actions for ${track.title}`}
-                        className="btn btn-ghost btn-xs btn-circle"
+                        className="btn btn-ghost btn-xs rounded-none"
                       >
                         <MoreHorizontal size={16} />
                       </div>
                       <ul
                         tabIndex={0}
-                        className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
+                        className="dropdown-content z-[1] menu p-2 shadow bg-gray-100 border border-black rounded-none w-52 text-sm border border-black"
                       >
                         <li>
                           <a onClick={() => handleLike(track)}>
@@ -197,7 +197,7 @@ export const Tracks = () => {
                               size={16}
                               className={clsx(
                                 (track.liked || likedTrackIds.has(String(track.id))) &&
-                                  "text-primary",
+                                  "text-black",
                               )}
                               fill={
                                 track.liked || likedTrackIds.has(String(track.id))
@@ -248,7 +248,7 @@ export const Tracks = () => {
                               href={`/api/albums/${String(track.albumId)}/download`}
                               target="_blank"
                             >
-                              <Download size={16} className="text-primary" />{" "}
+                              <Download size={16} className="text-black" />{" "}
                               Download Track (Free)
                             </a>
                           ) : (
@@ -288,7 +288,7 @@ export const Tracks = () => {
                           )}
                         </li>
                         {isAdminAuthenticated && (
-                          <li className="border-t border-white/5 mt-1 pt-1 opacity-70 hover:opacity-100">
+                          <li className="border-t border-black mt-1 pt-1 opacity-70 hover:opacity-100">
                             <a onClick={() => setMatchingTrack(track)}>
                               <Search size={16} /> Match Metadata
                             </a>

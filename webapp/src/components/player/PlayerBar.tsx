@@ -237,7 +237,7 @@ export const PlayerBar = () => {
 
   if (!currentTrack)
     return (
-      <div className="fixed bottom-0 w-full h-24 bg-base-200 border-t border-white/5 flex items-center justify-center text-sm opacity-50 z-50">
+      <div className="fixed bottom-0 w-full h-24 bg-white border-t border-black flex items-center justify-center text-sm opacity-50 z-50">
         Select a track to play
       </div>
     );
@@ -245,8 +245,8 @@ export const PlayerBar = () => {
   return (
     <>
       <div 
-        className="fixed bottom-0 left-0 right-0 lg:h-24 backdrop-blur-xl border-t border-white/5 lg:px-6 flex flex-col lg:flex-row items-center gap-2 lg:gap-4 z-50 shadow-2xl pb-safe lg:pb-0 pt-2 lg:pt-0 transition-colors duration-1000"
-        style={{ backgroundColor: dominantColor ? `${dominantColor}40` : "oklch(var(--b2) / 0.4)" }}
+        className="fixed bottom-0 left-0 right-0 lg:h-24 bg-white border-t border-black lg:px-6 flex flex-col lg:flex-row items-center gap-2 lg:gap-4 z-50  pb-safe lg:pb-0 pt-2 lg:pt-0 transition-colors duration-1000"
+        style={{ backgroundColor: "white" }}
       >
         <audio
           ref={audioRef}
@@ -266,10 +266,10 @@ export const PlayerBar = () => {
               <img
                 src={coverUrl}
                 alt="Cover"
-                className="w-10 h-10 lg:w-14 lg:h-14 rounded-lg bg-base-300 shadow-lg object-cover"
+                className="w-10 h-10 lg:w-14 lg:h-14 rounded-none bg-base-300 shadow-lg object-cover"
               />
             ) : (
-              <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-lg bg-base-300 shadow-lg flex items-center justify-center">
+              <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-none bg-base-300 shadow-lg flex items-center justify-center">
                 <span className="text-xs opacity-50">?</span>
               </div>
             )}
@@ -279,7 +279,7 @@ export const PlayerBar = () => {
             <ScrollingText className="font-bold text-sm lg:text-base">
               {currentTrack.title}
             </ScrollingText>
-            <ScrollingText className="text-xs lg:text-sm opacity-60 text-primary">
+            <ScrollingText className="text-xs lg:text-sm opacity-60 text-black">
               {currentTrack.artistName}
             </ScrollingText>
           </div>
@@ -292,7 +292,7 @@ export const PlayerBar = () => {
             <div className="tooltip" data-tip="Shuffle">
               <button
                 aria-label="Toggle shuffle"
-                className={`btn btn-ghost btn-circle btn-xs ${isShuffled ? "text-primary" : "opacity-50"}`}
+                className={`btn btn-ghost rounded-none btn-xs ${isShuffled ? "text-black" : "opacity-50"}`}
                 onClick={toggleShuffle}
               >
                 <Shuffle size={16} />
@@ -302,7 +302,7 @@ export const PlayerBar = () => {
             <div className="tooltip" data-tip="Previous">
               <button
                 aria-label="Previous track"
-                className="btn btn-ghost btn-circle btn-sm"
+                className="btn btn-ghost rounded-none btn-sm"
                 onClick={prev}
               >
                 <SkipBack size={20} />
@@ -312,7 +312,7 @@ export const PlayerBar = () => {
             <div className="tooltip" data-tip={isPlaying ? "Pause" : "Play"}>
               <button
                 aria-label={isPlaying ? "Pause" : "Play"}
-                className="btn btn-circle btn-primary text-primary-content shadow-lg shadow-primary/20 lg:scale-110 hover:scale-110 transition-transform"
+                className="btn rounded-none btn-primary text-black-content shadow-lg shadow-primary/20 lg:scale-110 hover:scale-110 transition-transform"
                 onClick={togglePlay}
               >
                 {isPlaying ? (
@@ -326,7 +326,7 @@ export const PlayerBar = () => {
             <div className="tooltip" data-tip="Next">
               <button
                 aria-label="Next track"
-                className="btn btn-ghost btn-circle btn-sm"
+                className="btn btn-ghost rounded-none btn-sm"
                 onClick={next}
               >
                 <SkipForward size={20} />
@@ -336,7 +336,7 @@ export const PlayerBar = () => {
             <div className="tooltip" data-tip={`Repeat: ${repeatMode}`}>
               <button
                 aria-label={`Repeat mode: ${repeatMode}`}
-                className={`btn btn-ghost btn-circle btn-xs ${repeatMode !== "none" ? "text-primary" : "opacity-50"}`}
+                className={`btn btn-ghost rounded-none btn-xs ${repeatMode !== "none" ? "text-black" : "opacity-50"}`}
                 onClick={toggleRepeat}
               >
                 <Repeat size={16} />
@@ -397,11 +397,11 @@ export const PlayerBar = () => {
             <button
               aria-label={volume === 0 ? "Unmute" : "Mute"}
               onClick={() => setVolume(volume === 0 ? 1 : 0)}
-              className="btn btn-ghost btn-circle btn-xs"
+              className="btn btn-ghost rounded-none btn-xs"
             >
               <Volume2
                 size={18}
-                className={`opacity-70 group-hover:text-primary transition-colors ${volume === 0 ? "text-error" : ""}`}
+                className={`opacity-70 group-hover:text-black transition-colors ${volume === 0 ? "text-error" : ""}`}
               />
             </button>
             <input
@@ -419,7 +419,7 @@ export const PlayerBar = () => {
             <div className="tooltip tooltip-left" data-tip="Lyrics">
               <button
                 aria-label="Toggle lyrics"
-                className="btn btn-ghost btn-circle btn-sm"
+                className="btn btn-ghost rounded-none btn-sm"
                 onClick={toggleLyrics}
               >
                 <Mic2 size={18} />
@@ -428,7 +428,7 @@ export const PlayerBar = () => {
             <div className="tooltip tooltip-left" data-tip="Queue">
               <button
                 aria-label="Toggle queue"
-                className="btn btn-ghost btn-circle btn-sm"
+                className="btn btn-ghost rounded-none btn-sm"
                 onClick={toggleQueue}
               >
                 <ListMusic size={18} />

@@ -59,10 +59,10 @@ export const Sidebar = () => {
       <Link
         to={to}
         className={clsx(
-          "flex items-center justify-center p-2 rounded-lg transition-colors aspect-square",
+          "flex items-center justify-center p-2 rounded-none transition-colors aspect-square",
           isActive(to)
-            ? "bg-primary/10 text-primary active"
-            : "hover:bg-base-200",
+            ? "bg-black text-white active"
+            : "hover:bg-gray-200",
         )}
       >
         <Icon size={24} />
@@ -71,28 +71,28 @@ export const Sidebar = () => {
   );
  
   return (
-    <div className="menu p-2 w-20 min-h-full bg-base-100/20 backdrop-blur-md text-base-content border-r border-white/5 flex flex-col gap-2 pb-28 items-center">
+    <div className="menu p-2 w-20 min-h-full bg-white bg-white text-base-content border-r border-black flex flex-col gap-2 pb-28 items-center">
       {/* Brand */}
       <div
         className="flex items-center justify-center p-2 mb-2 tooltip tooltip-right z-50"
         data-tip={siteName}
       >
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20">
-          <Music className="text-white w-6 h-6" />
+        <div className="w-10 h-10 rounded-none bg-black flex items-center justify-center shadow-none">
+          <Music className="text-black w-6 h-6" />
         </div>
       </div>
  
       {/* Main Nav */}
-      <ul className="menu bg-base-200/50 rounded-box w-full gap-1 p-1 font-medium items-center">
+      <ul className="menu bg-white border border-black rounded-none w-full gap-1 p-1 font-medium items-center">
         <NavItem to="/" icon={Home} label="Home" />
         <NavItem to="/search" icon={Search} label="Search" />
         <NavItem to="/network" icon={Globe} label="Network" />
       </ul>
  
       {/* Library Nav */}
-      <div className="w-full h-px bg-white/5 my-2"></div>
+      <div className="w-full h-px bg-black my-2"></div>
  
-      <ul className="menu bg-base-200/50 rounded-box w-full gap-1 p-1 font-medium flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin items-center no-scrollbar">
+      <ul className="menu bg-white border border-black rounded-none w-full gap-1 p-1 font-medium flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin items-center no-scrollbar">
         <NavItem to="/albums" icon={Disc} label="Releases" />
         <NavItem to="/artists" icon={User} label="Artists" />
         <NavItem to="/tracks" icon={Music} label="Tracks" />
@@ -111,12 +111,12 @@ export const Sidebar = () => {
         )}
       </ul>
  
-      <ul className="menu bg-base-200/50 rounded-box w-full gap-1 p-1 font-medium mt-auto mb-2 items-center">
+      <ul className="menu bg-white border border-black rounded-none w-full gap-1 p-1 font-medium mt-auto mb-2 items-center">
         <NavItem to="/support" icon={LifeBuoy} label="Support" />
       </ul>
  
       {/* User Footer */}
-      <div className="flex flex-col items-center gap-3 p-2 border-t border-white/5 w-full">
+      <div className="flex flex-col items-center gap-3 p-2 border-t border-black w-full">
         {isAuthenticated ? (
           <div className="flex flex-col items-center gap-3 w-full">
             <Link
@@ -124,7 +124,7 @@ export const Sidebar = () => {
               className="avatar placeholder tooltip tooltip-right z-50"
               data-tip={user?.username || "Profile"}
             >
-              <div className="bg-neutral text-neutral-content rounded-full w-10 ring ring-primary ring-offset-base-100 ring-offset-2 cursor-pointer hover:scale-105 transition-transform overflow-hidden">
+              <div className="bg-neutral text-neutral-content rounded-none w-10 border border-black cursor-pointer hover:scale-105 transition-transform overflow-hidden">
                 {user?.gunProfile?.profile?.avatar ? (
                   <img
                     src={user.gunProfile.profile.avatar}
@@ -146,7 +146,7 @@ export const Sidebar = () => {
               {isAdmin && (
                 <Link
                   to="/admin"
-                  className="btn btn-ghost btn-sm btn-circle text-primary tooltip tooltip-right z-50"
+                  className="btn btn-ghost btn-sm btn-circle text-black tooltip tooltip-right z-50"
                   data-tip="Admin Settings"
                 >
                   <Settings size={20} />
@@ -165,7 +165,7 @@ export const Sidebar = () => {
         ) : (
           <div className="w-full flex justify-center">
             <button
-              className="btn btn-primary btn-circle btn-sm tooltip tooltip-right z-50"
+              className="btn bg-black text-white hover:bg-gray-800 border border-black rounded-none btn-circle btn-sm tooltip tooltip-right z-50"
               data-tip="Login"
               onClick={() =>
                 document.dispatchEvent(new CustomEvent("open-auth-modal"))

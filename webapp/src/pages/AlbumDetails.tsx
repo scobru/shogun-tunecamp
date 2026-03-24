@@ -117,7 +117,7 @@ export const AlbumDetails = () => {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col md:flex-row gap-8 items-end md:items-center bg-gradient-to-b from-white/5 to-transparent p-6 rounded-2xl border border-white/5 relative overflow-hidden">
+      <div className="flex flex-col md:flex-row gap-8 items-end md:items-center bg-white p-6 rounded-none border border-black relative overflow-hidden">
         {/* Background Blur */}
         <div className="absolute inset-0 z-0">
           {album.coverImage && (
@@ -132,7 +132,7 @@ export const AlbumDetails = () => {
           <img
             src={API.getAlbumCoverUrl(album.id, coverVersion)}
             alt={album.title}
-            className="w-48 h-48 md:w-64 md:h-64 rounded-xl shadow-2xl object-cover"
+            className="w-48 h-48 md:w-64 md:h-64 rounded-none shadow-none object-cover"
             onError={(e) => {
               (e.target as HTMLImageElement).src =
                 "https://via.placeholder.com/500?text=No+Cover";
@@ -168,18 +168,18 @@ export const AlbumDetails = () => {
 
           <div className="flex flex-wrap gap-3 pt-4 items-center">
             <button
-              className="btn btn-primary btn-lg gap-2 shadow-xl hover:scale-105 transition-transform"
+              className="btn bg-black text-white hover:bg-gray-800 border border-black rounded-none btn-lg gap-2 shadow-none hover:scale-105 transition-transform"
               onClick={handlePlay}
             >
               <Play fill="currentColor" /> Play
             </button>
 
             {(album.download === "free" || album.download === "codes") && (
-              <div className="join shadow-xl">
+              <div className="join shadow-none">
                 {album.download === "free" && (
                   <a
                     href={`/api/albums/${album.slug || album.id}/download?format=${downloadFormat}`}
-                    className="btn btn-secondary btn-lg gap-2 join-item"
+                    className="btn bg-white text-black hover:bg-gray-200 border border-black rounded-none btn-lg gap-2 join-item"
                     target="_blank"
                   >
                     <Download size={20} /> Free Download
@@ -188,7 +188,7 @@ export const AlbumDetails = () => {
 
                 {album.download === "codes" && (
                   <button
-                    className="btn btn-secondary btn-lg gap-2 join-item"
+                    className="btn bg-white text-black hover:bg-gray-200 border border-black rounded-none btn-lg gap-2 join-item"
                     onClick={handleUnlock}
                   >
                     <Unlock size={20} /> Unlock Download
@@ -197,7 +197,7 @@ export const AlbumDetails = () => {
 
                 {hasLossless && (
                   <select
-                    className="select select-secondary select-lg join-item border-l-white/20 focus:outline-none"
+                    className="select bg-white text-black border border-black rounded-none select-lg join-item border-l-white/20 focus:outline-none"
                     value={downloadFormat}
                     onChange={(e) => setDownloadFormat(e.target.value)}
                   >
@@ -213,7 +213,7 @@ export const AlbumDetails = () => {
                 key={i}
                 href={link.url}
                 target="_blank"
-                className="btn btn-outline btn-lg gap-2"
+                className="btn bg-white text-black border border-black hover:bg-black hover:text-white rounded-none btn-lg gap-2"
               >
                 <ExternalLink size={20} /> {link.label}
               </a>
@@ -221,7 +221,7 @@ export const AlbumDetails = () => {
 
             {isAdmin && !album.is_release && (
               <button
-                className="btn btn-warning btn-outline btn-lg gap-2"
+                className="btn bg-white text-black border border-black hover:bg-black hover:text-white rounded-none bg-white text-black border border-black hover:bg-black hover:text-white rounded-none btn-lg gap-2"
                 onClick={handlePromote}
               >
                 <Shield size={20} /> Promote
@@ -235,7 +235,7 @@ export const AlbumDetails = () => {
       <div className="overflow-x-auto min-h-[400px]">
         <table className="table w-full">
           <thead>
-            <tr className="border-b border-white/10 text-xs uppercase opacity-50">
+            <tr className="border-b border-black text-xs uppercase opacity-50">
               <th className="w-12 text-center">#</th>
               <th>Title</th>
               <th className="hidden md:table-cell">Plays</th>
@@ -251,7 +251,7 @@ export const AlbumDetails = () => {
               return (
                 <tr
                   key={track.id}
-                  className="hover:bg-white/5 group border-b border-white/5 last:border-0 transition-colors"
+                  className="hover:bg-gray-100 group border-b border-black last:border-0 transition-colors"
                 >
                   <td className="text-center opacity-50 font-mono w-12 group-hover:text-primary">
                     <span className="group-hover:hidden">{i + 1}</span>
@@ -298,13 +298,13 @@ export const AlbumDetails = () => {
                     <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100 transition-opacity">
                       <label
                         tabIndex={0}
-                        className="btn btn-ghost btn-xs btn-circle"
+                        className="btn bg-transparent text-black hover:bg-gray-200 rounded-none btn-xs btn-circle"
                       >
                         <MoreHorizontal size={16} />
                       </label>
                       <ul
                         tabIndex={0}
-                        className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
+                        className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-black"
                       >
                         <li>
                           {isTrackUnlocked(track) ? (
@@ -421,7 +421,7 @@ export const AlbumDetails = () => {
       </div>
 
       {/* License and Footer Info */}
-      <div className="bg-white/5 p-6 rounded-xl border border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-sm opacity-70">
+      <div className="bg-white p-6 rounded-none border border-black flex flex-col md:flex-row justify-between items-center gap-4 text-sm opacity-70">
         <div className="flex items-center gap-2">
             <Copyright size={16} />
             <span>

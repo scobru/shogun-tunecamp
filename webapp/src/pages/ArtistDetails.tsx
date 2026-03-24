@@ -57,19 +57,19 @@ export const ArtistDetails = () => {
     return (
         <div className="space-y-12 animate-fade-in">
              {/* Header */}
-             <div className="relative h-80 rounded-2xl overflow-hidden flex items-end p-8 border border-white/5">
+             <div className="relative h-80 rounded-none border border-black overflow-hidden flex items-end p-8 border border-black">
                 {/* Background Image ideally from artist cover or generic */}
                  <div className="absolute inset-0 z-0">
                      {artist.coverImage ? (
                         <img src={API.getArtistCoverUrl(artist.id, coverVersion)} className="w-full h-full object-cover opacity-30 blur-sm scale-105" />
                      ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 h-full w-full"/>
+                          <div className="w-full h-full bg-gray-100 h-full w-full"/>
                      )}
-                     <div className="absolute inset-0 bg-gradient-to-t from-base-100 via-base-100/50 to-transparent"></div>
+                     <div className="absolute inset-0 bg-white/80"></div>
                 </div>
 
                 <div className="relative z-10 flex gap-6 items-end w-full">
-                     <figure className="w-40 h-40 rounded-full shadow-2xl border-4 border-base-100 overflow-hidden shrink-0">
+                     <figure className="w-40 h-40 rounded-none shadow-none border-4 border-black overflow-hidden shrink-0">
                          {artist.coverImage ? (
                              <img src={API.getArtistCoverUrl(artist.id, coverVersion)} className="w-full h-full object-cover"/>
                          ) : (
@@ -87,11 +87,11 @@ export const ArtistDetails = () => {
                      </div>
                      <div className="flex gap-2">
                         {artist.links?.map((link, i) => (
-                            <a href={link.url} key={i} target="_blank" rel="noopener noreferrer" className="btn btn-circle btn-ghost bg-white/5">
+                            <a href={link.url} key={i} target="_blank" rel="noopener noreferrer" className="btn rounded-none btn-ghost bg-white border border-black hover:bg-gray-100">
                                 <Globe size={20}/>
                             </a>
                         ))}
-                         <button className="btn btn-primary btn-circle btn-lg text-white shadow-xl hover:scale-105 transition-transform" onClick={handlePlay}>
+                         <button className="btn bg-black  hover:bg-gray-800 border border-black rounded-none rounded-none btn-lg  shadow-none hover:scale-105 transition-transform" onClick={handlePlay}>
                              <Play fill="currentColor" size={28}/>
                          </button>
                      </div>
@@ -101,17 +101,17 @@ export const ArtistDetails = () => {
              {/* Posts / News */}
              {posts.length > 0 && (
                 <section>
-                    <div className="flex items-center gap-2 mb-6 opacity-80 border-b border-white/5 pb-2">
+                    <div className="flex items-center gap-2 mb-6 opacity-80 border-b border-black pb-2">
                         <Globe size={20}/>
                         <h2 className="text-xl font-bold">Latest News</h2>
                     </div>
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {posts.map(post => (
-                            <div key={post.id} className="card bg-base-200 border border-white/5 p-6 space-y-4 relative group">
+                            <div key={post.id} className="card bg-white border border-black rounded-none border border-black p-6 space-y-4 relative group">
                                 <div className="flex items-center justify-between gap-3 mb-2">
                                     <div className="flex items-center gap-3">
                                         <div className="avatar placeholder">
-                                            <div className="bg-neutral text-neutral-content rounded-full w-8">
+                                            <div className="bg-neutral text-neutral-content rounded-none w-8">
                                                 <span>{artist?.name[0]}</span>
                                             </div>
                                         </div>
@@ -127,7 +127,7 @@ export const ArtistDetails = () => {
                                     {isAdminAuthenticated && (
                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button 
-                                                className="btn btn-xs btn-circle btn-ghost text-error"
+                                                className="btn btn-xs rounded-none btn-ghost text-error"
                                                 onClick={() => handleDeletePost(post.id)}
                                                 title="Delete Post"
                                             >
@@ -145,7 +145,7 @@ export const ArtistDetails = () => {
 
              {/* Discography */}
              <section>
-                <div className="flex items-center gap-2 mb-6 opacity-80 border-b border-white/5 pb-2">
+                <div className="flex items-center gap-2 mb-6 opacity-80 border-b border-black pb-2">
                     <Disc/>
                     <h2 className="text-xl font-bold">Discography</h2>
                 </div>

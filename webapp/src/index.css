@@ -4,76 +4,74 @@
 @plugin "daisyui/theme" {
   name: "tunecamp";
   default: true;
-  prefersdark: true;
-  color-scheme: dark;
+  prefersdark: false;
+  color-scheme: light;
 
-  /* Material Expressive 3 - Dark Theme */
-  /* Surface tones with slight Primary tint (Deep Violet/Black) */
-  --color-base-100: oklch(12% 0.01 280); /* Surface */
-  --color-base-200: oklch(17% 0.02 280); /* Surface Container Low */
-  --color-base-300: oklch(22% 0.03 280); /* Surface Container */
-  --color-base-content: oklch(98% 0.005 280);
+  /* MONOCHROME Aesthetic - Brutalist & Minimalist */
+  /* Surface tones with extreme contrast */
+  --color-base-100: oklch(98% 0 0); /* Pure White Surface */
+  --color-base-200: oklch(95% 0 0); /* Slightly off-white */
+  --color-base-300: oklch(90% 0 0); /* Darker off-white */
+  --color-base-content: oklch(10% 0 0); /* Near Black Text */
 
-  /* Primary - Vivid Violet (Key Color) */
-  --color-primary: oklch(65% 0.28 290);
-  --color-primary-content: oklch(10% 0.1 290);
+  /* Primary - Absolute Black */
+  --color-primary: oklch(0% 0 0);
+  --color-primary-content: oklch(100% 0 0);
 
-  /* Secondary - Pink/Magenta (Analogous) */
-  --color-secondary: oklch(70% 0.25 330);
-  --color-secondary-content: oklch(10% 0.1 330);
+  /* Secondary - Same as Primary for monochrome */
+  --color-secondary: oklch(0% 0 0);
+  --color-secondary-content: oklch(100% 0 0);
 
-  /* Accent/Tertiary - Electric Cyan (Contrasting) */
-  --color-accent: oklch(75% 0.22 190);
-  --color-accent-content: oklch(10% 0.08 190);
+  /* Accent/Tertiary - Dark Grey for subtle hierarchy */
+  --color-accent: oklch(30% 0 0);
+  --color-accent-content: oklch(100% 0 0);
 
   /* Functional Colors */
-  --color-neutral: oklch(30% 0.02 280);
-  --color-neutral-content: oklch(98% 0.005 280);
-  --color-info: oklch(70% 0.18 240);
-  --color-success: oklch(68% 0.22 145);
-  --color-warning: oklch(85% 0.2 85);
-  --color-error: oklch(65% 0.25 30);
+  --color-neutral: oklch(50% 0 0);
+  --color-neutral-content: oklch(100% 0 0);
+  --color-info: oklch(30% 0 0);
+  --color-success: oklch(10% 0 0);
+  --color-warning: oklch(30% 0 0);
+  --color-error: oklch(10% 0 0);
 
-  /* Material 3 Shapes */
-  --radius-selector: 0.5rem; /* Small components */
-  --radius-field: 1rem; /* Text fields */
-  --radius-box: 1.5rem; /* Cards/Large containers */
+  /* Shapes - Brutalist (No rounded corners) */
+  --radius-selector: 0px;
+  --radius-field: 0px;
+  --radius-box: 0px;
 
-  /* M3 Specifics */
-  --rounded-btn: 1.9rem; /* Capsule shape for buttons */
-  --rounded-badge: 1rem;
-  --tab-radius: 0.5rem;
+  /* Specifics */
+  --rounded-btn: 0px;
+  --rounded-badge: 0px;
+  --tab-radius: 0px;
 
-  --border-btn: 0px; /* M3 buttons usually don't have borders unless outlined */
-  --animation-btn: 0.25s;
+  --border-btn: 1px;
+  --animation-btn: 0.1s;
   --btn-focus-scale: 0.98;
 
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
+  --size-selector: 0px;
+  --size-field: 0px;
 
   --border: 1px;
-  --depth: 1;
+  --depth: 0;
   --noise: 0;
 }
 
 @theme {
-  --font-sans: "Outfit", sans-serif;
+  --font-sans: "Inter", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  /* Legacy Color mappings for existing code using specific utils */
-  --color-tunecamp-bg: oklch(15% 0.02 240);
-  --color-tunecamp-surface: oklch(20% 0.02 240);
+  /* Legacy Color mappings */
+  --color-tunecamp-bg: oklch(98% 0 0);
+  --color-tunecamp-surface: oklch(95% 0 0);
 
-  /* Material 3 Elevation Shadows */
-  --shadow-m3-1:
-    0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
-  --shadow-m3-2:
-    0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+  /* Shadows - Flat & Hard */
+  --shadow-m3-1: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+  --shadow-m3-2: 8px 8px 0px 0px rgba(0, 0, 0, 1);
 }
 
 /* Custom Utilities */
 @utility glass-effect {
-  @apply backdrop-blur-md bg-base-200/70 border border-white/5;
+  @apply bg-white border border-black;
 }
 
 @utility scrollbar-thin {
@@ -83,13 +81,14 @@
     height: 6px;
   }
   &::-webkit-scrollbar-track {
-    background: transparent;
+    background: white;
+    border-left: 1px solid black;
   }
   &::-webkit-scrollbar-thumb {
-    @apply bg-white/10 rounded-full;
+    @apply bg-black rounded-none;
   }
   &::-webkit-scrollbar-thumb:hover {
-    @apply bg-white/20;
+    @apply bg-gray-800;
   }
 }
 
@@ -109,22 +108,22 @@
 }
 
 @layer components {
-  /* Cards Material 3 senza bordo ma con ombra morbida (Elevation 1) */
+  /* Brutalist Cards */
   .card-m3 {
-    @apply bg-base-100 shadow-m3-1 text-base-content transition-shadow duration-200;
+    @apply bg-white border border-black shadow-m3-1 text-black transition-all duration-100 rounded-none;
   }
 
   .card-m3:hover {
-    @apply shadow-m3-2;
+    @apply shadow-m3-2 -translate-y-1 -translate-x-1;
   }
 
-  /* I bottoni "Tonal" di Material 3 (Secondary container) */
+  /* Monochrome Buttons */
   .btn-tonal {
-    @apply bg-base-200 text-base-content border-none hover:bg-base-300;
+    @apply bg-white text-black border border-black hover:bg-black hover:text-white rounded-none;
   }
 
-  /* Stile per i text input stile "Filled" di Material 3 */
+  /* Structural Inputs */
   .input-m3-filled {
-    @apply bg-base-200 border-b-2 border-b-neutral border-transparent rounded-t-md rounded-b-none focus:outline-none focus:border-b-primary focus:bg-base-300 transition-colors;
+    @apply bg-transparent border-b border-b-black border-transparent rounded-none focus:outline-none focus:border-b-2 focus:bg-gray-100 transition-colors;
   }
 }

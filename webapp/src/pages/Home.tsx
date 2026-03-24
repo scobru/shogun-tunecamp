@@ -34,20 +34,20 @@ export const Home = () => {
     return (
       <div className="p-4 lg:p-8 space-y-8">
         <div className="space-y-4">
-          <div className="skeleton h-32 w-full rounded-3xl"></div>
+          <div className="skeleton h-32 w-full rounded-none"></div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="skeleton h-24 rounded-box"></div>
-          <div className="skeleton h-24 rounded-box"></div>
-          <div className="skeleton h-24 rounded-box"></div>
+          <div className="skeleton h-24 rounded-none"></div>
+          <div className="skeleton h-24 rounded-none"></div>
+          <div className="skeleton h-24 rounded-none"></div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
             <div
               key={i}
-              className="card bg-base-200 border border-white/5 shadow-xl"
+              className="card bg-white border border-black shadow-xl"
             >
               <figure className="aspect-square w-full">
                 <div className="skeleton w-full h-full rounded-none"></div>
@@ -77,15 +77,15 @@ export const Home = () => {
   return (
     <section className="p-4 lg:p-8">
       <div
-        className={`hero min-h-[40vh] rounded-3xl overflow-hidden mb-12 relative border border-white/5 ${!siteSettings?.coverImage ? "bg-gradient-to-br from-primary/10 to-secondary/10" : ""}`}
+        className={`hero min-h-[40vh] rounded-none overflow-hidden mb-12 relative border border-black ${!siteSettings?.coverImage ? "bg-gray-100" : ""}`}
         style={heroStyle}
       >
         {siteSettings?.coverImage && (
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+          <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]"></div>
         )}
-        <div className="hero-content text-center text-neutral-content z-10 w-full">
+        <div className="hero-content text-center text-black z-10 w-full">
           <div className="max-w-md">
-            <h1 className="mb-5 text-5xl font-bold text-white">
+            <h1 className="mb-5 text-5xl font-bold text-black">
               {welcomeTitle}
             </h1>
             <p className="mb-5 text-lg opacity-80">
@@ -94,7 +94,7 @@ export const Home = () => {
             </p>
             <div className="flex gap-2 justify-center">
               <button
-                className="btn btn-primary"
+                className="btn bg-black text-white hover:bg-gray-800 border border-black rounded-none h-12 px-6"
                 onClick={() =>
                   document
                     .getElementById("recent-releases")
@@ -103,7 +103,7 @@ export const Home = () => {
               >
                 Start Listening
               </button>
-              <a href="#/about" className="btn btn-ghost">
+              <a href="#/about" className="btn bg-white text-black hover:bg-gray-200 border border-black rounded-none h-12 px-6">
                 Learn More
               </a>
             </div>
@@ -112,15 +112,15 @@ export const Home = () => {
         {/* Decorative blobs - only show if no cover image to keep it clean */}
         {!siteSettings?.coverImage && (
           <>
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
-            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-secondary/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-gray-200 rounded-none blur-3xl pointer-events-none"></div>
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-gray-200 rounded-none blur-3xl pointer-events-none"></div>
           </>
         )}
       </div>
 
-      <div className="stats stats-vertical lg:stats-horizontal shadow-lg bg-base-200/50 backdrop-blur border border-white/5 w-full mb-12">
+      <div className="stats stats-vertical lg:stats-horizontal shadow-lg bg-white/50 backdrop-blur border border-black w-full mb-12">
         <div className="stat">
-          <div className="stat-figure text-primary">
+          <div className="stat-figure text-black">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -136,7 +136,7 @@ export const Home = () => {
             </svg>
           </div>
           <div className="stat-title">Albums</div>
-          <div className="stat-value text-primary font-mono">
+          <div className="stat-value text-black font-mono">
             {stats.albums || 0}
           </div>
           <div className="stat-desc">Curated releases</div>
@@ -194,10 +194,10 @@ export const Home = () => {
         className="flex items-center justify-between mb-6"
       >
         <h2 className="text-2xl font-bold flex items-center gap-2">
-          <span className="w-2 h-8 bg-primary rounded-full"></span>
+          <span className="w-2 h-8 bg-primary rounded-none"></span>
           Recent Releases
         </h2>
-        <a href="#/albums" className="btn btn-ghost btn-sm group">
+        <a href="#/albums" className="btn bg-white text-black hover:bg-gray-200 border border-black rounded-none btn-sm group">
           View All
           <span className="group-hover:translate-x-1 transition-transform">
             →
@@ -211,7 +211,7 @@ export const Home = () => {
           return (
             <div
               key={album.id}
-              className="card bg-base-200/50 hover:bg-base-200 border border-transparent hover:border-white/10 transition-all duration-300 shadow-lg hover:shadow-2xl group cursor-pointer"
+              className="card bg-white/50 hover:bg-white border border-transparent hover:border-white/10 transition-all duration-300 shadow-lg hover:shadow-2xl group cursor-pointer"
               onClick={() =>
                 (window.location.hash = `#/albums/${album.slug || album.id}`)
               }
@@ -223,9 +223,9 @@ export const Home = () => {
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
                 {/* Play overlay */}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
                   <button
-                    className="btn btn-circle btn-lg btn-primary text-white shadow-xl scale-90 hover:scale-105 transition-transform border-none"
+                    className="btn btn-circle btn-lg bg-black text-white hover:bg-gray-800 border border-black rounded-none text-black shadow-xl scale-90 hover:scale-105 transition-transform border-none"
                     onClick={async (e) => {
                       e.preventDefault();
                       e.stopPropagation();

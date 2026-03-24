@@ -40,13 +40,13 @@ export const Albums = () => {
         <div className="space-y-6 animate-fade-in">
              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <h1 className="text-3xl font-bold flex items-center gap-3">
-                    <Disc size={32} className="text-primary"/> Catalog
+                    <Disc size={32} className="text-black"/> Catalog
                 </h1>
                 
-                <div role="tablist" className="tabs tabs-boxed bg-base-200/50 p-1 border border-white/5">
+                <div role="tablist" className="tabs tabs-boxed bg-white p-1 border border-black">
                     <button 
                         role="tab" 
-                        className={clsx("tab tab-sm md:tab-md transition-all gap-2", activeTab === 'releases' && "tab-active !bg-primary !text-primary-content")}
+                        className={clsx("tab tab-sm md:tab-md transition-all gap-2", activeTab === 'releases' && "tab-active !bg-black !text-black-content")}
                         onClick={() => setActiveTab('releases')}
                     >
                         <Disc size={16}/> Formal Releases
@@ -56,7 +56,7 @@ export const Albums = () => {
                     </button>
                     <button 
                         role="tab" 
-                        className={clsx("tab tab-sm md:tab-md transition-all gap-2", activeTab === 'library' && "tab-active !bg-primary !text-primary-content")}
+                        className={clsx("tab tab-sm md:tab-md transition-all gap-2", activeTab === 'library' && "tab-active !bg-black !text-black-content")}
                         onClick={() => setActiveTab('library')}
                     >
                         <Library size={16}/> File Library
@@ -71,7 +71,7 @@ export const Albums = () => {
                 {currentItems.map(album => {
                     if (!album) return null;
                     return (
-                        <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group card bg-base-200 hover:bg-base-300 transition-all hover:-translate-y-1 duration-300 shadow-xl border border-white/5">
+                        <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group card bg-white border border-black rounded-none-none hover:bg-gray-100 transition-all hover:-translate-y-1 duration-300 shadow-xl border border-black">
                             <figure className="aspect-square relative overflow-hidden">
                                 {album.coverImage || (album as any).cover_path ? (
                                     <img 
@@ -84,7 +84,7 @@ export const Albums = () => {
                                     <div className="w-full h-full bg-neutral flex items-center justify-center opacity-30"><Disc size={48}/></div>
                                 )}
                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <span className="btn btn-circle btn-primary btn-sm scale-0 group-hover:scale-100 transition-transform delay-75">
+                                    <span className="btn rounded-none bg-black text-white hover:bg-gray-800 border border-black rounded-none btn-sm scale-0 group-hover:scale-100 transition-transform delay-75">
                                         <Disc size={16}/>
                                     </span>
                                 </div>
@@ -94,7 +94,7 @@ export const Albums = () => {
                                 <p className="text-sm opacity-60 truncate">{album.artistName || (album as any).artist_name}</p>
                                 <div className="flex justify-between items-center mt-2 opacity-40 text-xs font-mono">
                                     <span>{album.year}</span>
-                                    <span className="uppercase border border-white/20 px-1 rounded text-[10px]">{album.type}</span>
+                                    <span className="uppercase border border-black px-1 rounded-none text-[10px]">{album.type}</span>
                                 </div>
                             </div>
                         </Link>

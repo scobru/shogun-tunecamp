@@ -156,14 +156,14 @@ export const MyPlaylistDetails = () => {
       {/* Back button */}
       <button
         onClick={() => navigate("/my-playlists")}
-        className="btn btn-ghost btn-sm gap-2 -ml-2 opacity-60 hover:opacity-100"
+        className="btn bg-white text-black hover:bg-gray-200 border border-black rounded-none btn-sm gap-2 -ml-2 opacity-60 hover:opacity-100"
       >
         <ArrowLeft size={16} /> My Playlists
       </button>
 
       {/* Hero */}
       <div className="flex flex-col md:flex-row gap-8 items-end">
-        <div className="w-52 h-52 bg-gradient-to-br from-pink-500/30 to-purple-500/30 rounded-2xl shadow-2xl flex items-center justify-center shrink-0 overflow-hidden relative group">
+        <div className="w-52 h-52 bg-gradient-to-br from-pink-500/30 to-purple-500/30 rounded-none shadow-none flex items-center justify-center shrink-0 overflow-hidden relative group">
           {playlist.coverUrl ? (
             <img
               src={playlist.coverUrl}
@@ -174,9 +174,9 @@ export const MyPlaylistDetails = () => {
             <Heart size={64} className="text-pink-300/50" />
           )}
           {isOwner && (
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+            <div className="absolute inset-0 bg-white/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
               <button
-                className="btn btn-sm btn-circle btn-ghost text-white"
+                className="btn btn-sm rounded-none bg-white text-black hover:bg-gray-200 border border-black rounded-none text-black"
                 onClick={handleEditCover}
                 title="Edit Cover"
               >
@@ -211,7 +211,7 @@ export const MyPlaylistDetails = () => {
             {isOwner && (
               <>
                 <button
-                  className="btn btn-sm btn-primary gap-2"
+                  className="btn btn-sm bg-black text-white hover:bg-gray-800 border border-black rounded-none gap-2"
                   onClick={() =>
                     document.dispatchEvent(
                       new CustomEvent("open-add-track-to-user-playlist-modal"),
@@ -221,13 +221,13 @@ export const MyPlaylistDetails = () => {
                   <Plus size={16} /> Add Tracks
                 </button>
                 <button
-                  className="btn btn-error btn-sm btn-outline gap-2"
+                  className="btn bg-white text-black border border-black hover:bg-black hover:text-white rounded-none btn-sm bg-white text-black border border-black hover:bg-black hover:text-white rounded-none gap-2"
                   onClick={handleDelete}
                 >
                   <Trash2 size={16} /> Delete Playlist
                 </button>
                 <button
-                  className={`btn btn-sm btn-outline gap-2 ${playlist.isPublic ? "btn-success" : "text-opacity-70"}`}
+                  className={`btn btn-sm bg-white text-black border border-black hover:bg-black hover:text-white rounded-none gap-2 ${playlist.isPublic ? "btn-success" : "text-opacity-70"}`}
                   onClick={handleToggleVisibility}
                   title={
                     playlist.isPublic
@@ -245,7 +245,7 @@ export const MyPlaylistDetails = () => {
               </>
             )}
             <button
-              className="btn btn-sm btn-outline gap-2"
+              className="btn btn-sm bg-white text-black border border-black hover:bg-black hover:text-white rounded-none gap-2"
               onClick={() => {
                 navigator.clipboard.writeText(window.location.href);
                 // Optional: show a quick toast/alert
@@ -257,7 +257,7 @@ export const MyPlaylistDetails = () => {
         </div>
 
         <button
-          className="btn btn-primary btn-circle btn-lg shadow-xl hover:scale-105 transition-transform"
+          className="btn bg-black text-white hover:bg-gray-800 border border-black rounded-none rounded-none btn-lg shadow-none hover:scale-105 transition-transform"
           onClick={handlePlayAll}
           disabled={!playlist.tracks || playlist.tracks.length === 0}
         >
@@ -266,10 +266,10 @@ export const MyPlaylistDetails = () => {
       </div>
 
       {/* Track list */}
-      <div className="overflow-x-auto bg-base-200/30 rounded-xl border border-white/5">
+      <div className="overflow-x-auto bg-white border border-black rounded-none border border-black">
         <table className="table w-full">
           <thead>
-            <tr className="border-b border-white/10 text-xs uppercase opacity-50">
+            <tr className="border-b border-black text-xs uppercase opacity-50">
               <th className="w-12 text-center">#</th>
               <th>Title</th>
               <th>Source</th>
@@ -284,9 +284,9 @@ export const MyPlaylistDetails = () => {
               playlist.tracks.map((track, i) => (
                 <tr
                   key={`${track.id}-${i}`}
-                  className="hover:bg-white/5 group border-b border-white/5 last:border-0"
+                  className="hover:bg-gray-100 group border-b border-black last:border-0"
                 >
-                  <td className="text-center opacity-50 font-mono w-12 group-hover:text-primary">
+                  <td className="text-center opacity-50 font-mono w-12 group-hover:text-black">
                     <span className="group-hover:hidden">{i + 1}</span>
                     <button
                       onClick={() => handlePlayTrack(track)}
@@ -333,13 +333,13 @@ export const MyPlaylistDetails = () => {
                       <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100">
                         <label
                           tabIndex={0}
-                          className="btn btn-ghost btn-xs btn-circle"
+                          className="btn bg-white text-black hover:bg-gray-200 border border-black rounded-none btn-xs rounded-none"
                         >
                           <MoreHorizontal size={16} />
                         </label>
                         <ul
                           tabIndex={0}
-                          className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
+                          className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-black"
                         >
                           <li>
                             <button
@@ -361,7 +361,7 @@ export const MyPlaylistDetails = () => {
                   <Music size={32} className="mx-auto mb-3 opacity-40" />
                   <p>No tracks in this playlist yet.</p>
                   <button
-                    className="btn btn-primary btn-sm gap-2 mt-4"
+                    className="btn bg-black text-white hover:bg-gray-800 border border-black rounded-none btn-sm gap-2 mt-4"
                     onClick={() =>
                       document.dispatchEvent(
                         new CustomEvent(
