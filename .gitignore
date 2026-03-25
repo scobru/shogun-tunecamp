@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 
+tunecamp.db
+
 
 # Build output
 dist/
