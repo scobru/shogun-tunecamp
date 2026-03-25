@@ -104,6 +104,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const transformedUser = status.user || (status.username ? { 
                 username: status.username, 
                 isAdmin: status.role === 'admin', 
+                isRootAdmin: !!status.isRootAdmin,
                 id: String(status.artistId || '0'), 
                 artistId: String(status.artistId),
                 isActive: status.isActive
@@ -207,6 +208,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const transformedUser = result.user || { 
                 username, 
                 isAdmin: result.role === 'admin', 
+                isRootAdmin: !!result.isRootAdmin,
                 id: String(result.artistId || '0'),
                 artistId: String(result.artistId),
                 isActive: result.isActive

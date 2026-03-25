@@ -162,6 +162,7 @@ export interface AuthStatus {
     user?: User;
     role?: string;
     artistId?: string | number;
+    isRootAdmin?: boolean;
     firstRun?: boolean;
     mustChangePassword?: boolean;
     pair?: any; // Added GunDB identity pair

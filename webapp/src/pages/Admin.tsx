@@ -18,9 +18,11 @@ import { ActivityPubPanel } from "../components/admin/ActivityPubPanel";
 import { BackupPanel } from "../components/admin/BackupPanel";
 
 export const Admin = () => {
-  const { isAuthenticated, isLoading, role } = useAuthStore();
+  const { isAuthenticated, isLoading, role, user } = useAuthStore();
   const navigate = useNavigate();
   const isAdmin = role === 'admin';
+  const isRootAdmin = !!user?.isRootAdmin;
+  
   const [activeTab, setActiveTab] = useState<
     | "releases"
     | "users"
@@ -29,7 +31,7 @@ export const Admin = () => {
     | "identity"
     | "activitypub"
     | "backup"
-  >(isAdmin ? "users" : "releases");
+  >(isRootAdmin ? "users" : (isAdmin ? "users" : "releases"));
   const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
