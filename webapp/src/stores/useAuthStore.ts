@@ -14,6 +14,7 @@ interface AuthState {
     mustChangePassword?: boolean;
     role: UserRole;
     error: string | null;
+    isAuthenticating: boolean;
 
     // Actions
     init: () => Promise<void>;
@@ -42,6 +43,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     mustChangePassword: false,
     role: null,
     error: null,
+    isAuthenticating: false,
 
     // Compat helpers
     adminUser: null,
@@ -135,7 +137,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     login: async (username, password) => {
-        set({ error: null, isLoading: true });
+        if (get().isAuthenticating) return;
+        set({ error: null, isLoading: true, isAuthenticating: true });
         try {
             let pubKey: string | undefined;
             let proof: string | undefined;
@@ -210,8 +213,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 isInitializing: false // compat
             });
         } catch (e: any) {
-            set({ error: e.message, isLoading: false });
+            set({ error: e.message, isLoading: false, isAuthenticating: false });
             throw e;
+        } finally {
+            set({ isAuthenticating: false });
         }
     },
 
@@ -221,7 +226,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     loginWithPair: async (pair: any) => {
-        set({ error: null, isLoading: true, isAdminLoading: true, isInitializing: true });
+        if (get().isAuthenticating) return;
+        set({ error: null, isLoading: true, isAdminLoading: true, isInitializing: true, isAuthenticating: true });
         try {
             console.log("🔐 GunDB-First Login: Verifying identity on peer network using Gun Pair...");
             const gunProfile = await GunAuth.loginWithPair(pair);
@@ -292,12 +298,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     isAuthenticated: true,
                     isLoading: false,
                     isAdminLoading: false,
-                    isInitializing: false
+                    isInitializing: false,
+                    isAuthenticating: false
                 }));
             }
         } catch (e: any) {
-            set({ error: e.message, isLoading: false, isAdminLoading: false, isInitializing: false });
+            set({ error: e.message, isLoading: false, isAdminLoading: false, isInitializing: false, isAuthenticating: false });
             throw e;
+        } finally {
+            set({ isAuthenticating: false });
         }
     },
 
@@ -310,7 +319,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     register: async (username, password) => {
-        set({ error: null, isLoading: true });
+        if (get().isAuthenticating) return;
+        set({ error: null, isLoading: true, isAuthenticating: true });
         try {
             // 1. Register on GunDB first (Decentralized Identity)
             console.log("🆕 GunDB-First Registration: Creating identity on peer network...");
@@ -331,10 +341,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             // 5. Success - updates the store state
             await get().checkAuth();
 
-            set({ isLoading: false });
+            set({ isLoading: false, isAuthenticating: false });
         } catch (e: any) {
-            set({ error: e.message, isLoading: false });
+            set({ error: e.message, isLoading: false, isAuthenticating: false });
             throw e;
+        } finally {
+            set({ isAuthenticating: false });
         }
     },
 
