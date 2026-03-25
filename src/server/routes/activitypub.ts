@@ -386,15 +386,31 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     });
 
     // List published content for artist
-    router.get("/published/:artistId", (req, res) => {
+    router.get("/published/:artistId", authMiddleware.requireUser, (req: any, res) => {
         const { artistId } = req.params;
+        const request = req as AuthenticatedRequest;
+        
+        // Security: Non-admin users can only see their own artist's data
+        if (!request.isAdmin && request.artistId !== Number(artistId)) {
+            console.warn(`⛔ Access Denied: User ${request.username} tried to access AP published content for Artist ${artistId}`);
+            return res.status(403).json({ error: "Access denied" });
+        }
+        
         const notes = db.getApNotes(Number(artistId));
         res.json(notes);
     });
 
     // Get followers for artist with actor details
-    router.get("/followers/:artistId", (req, res) => {
+    router.get("/followers/:artistId", authMiddleware.requireUser, (req: any, res) => {
         const { artistId } = req.params;
+        const request = req as AuthenticatedRequest;
+
+        // Security: Non-admin users can only see their own artist's data
+        if (!request.isAdmin && request.artistId !== Number(artistId)) {
+            console.warn(`⛔ Access Denied: User ${request.username} tried to access AP followers for Artist ${artistId}`);
+            return res.status(403).json({ error: "Access denied" });
+        }
+
         const followers = db.getFollowers(Number(artistId));
 
         const enrichedFollowers = followers.map(f => {

@@ -36,7 +36,7 @@ export const Admin = () => {
 
   useEffect(() => {
     if (isLoading) return;
-    if (!isAuthenticated || (role !== 'admin' && role !== 'user')) {
+    if (!isAuthenticated || role !== 'admin') {
       navigate("/");
       return;
     }
@@ -81,7 +81,7 @@ export const Admin = () => {
     }
   };
 
-  if (!isAuthenticated || (role !== 'admin' && role !== 'user')) return null;
+  if (!isAuthenticated || role !== 'admin') return null;
 
   return (
     <div className="space-y-8 animate-fade-in">

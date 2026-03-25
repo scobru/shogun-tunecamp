@@ -13,6 +13,9 @@ const mockDb = {
     updateAlbumVisibility: jest.fn(),
     updatePost: jest.fn(),
     getArtistBySlug: jest.fn(),
+    getApNotes: jest.fn(),
+    getFollowers: jest.fn(),
+    getRemoteActor: jest.fn(),
 } as unknown as DatabaseService;
 
 const mockApService = {
@@ -42,6 +45,27 @@ const mockAuthMiddleware = {
              // Default generic admin for existing tests compatibility, or treat as restricted?
              // Let's treat as root for 'validtoken' to keep existing test passing (mostly)
              req.isAdmin = true;
+        }
+        next();
+    },
+    requireUser: (req: any, res: any, next: any) => {
+        const token = req.headers.authorization;
+        if (!token) {
+            return res.status(401).json({ error: "No token provided" });
+        }
+        
+        if (token === 'Bearer root') {
+            req.isAdmin = true;
+            req.isRootAdmin = true;
+        } else if (token === 'Bearer artist1') {
+            req.isAdmin = false;
+            req.artistId = 1;
+        } else if (token === 'Bearer artist2') {
+            req.isAdmin = false;
+            req.artistId = 2;
+        } else if (token === 'Bearer user_no_artist') {
+            req.isAdmin = false;
+            req.artistId = null;
         }
         next();
     },
@@ -108,5 +132,40 @@ describe('ActivityPub Security', () => {
             .set('Authorization', 'Bearer artist1');
 
         expect(response.status).toBe(403);
+    });
+
+    test('GET /published/:artistId should require authentication', async () => {
+        const response = await request(app).get('/ap/published/1');
+        expect(response.status).toBe(401);
+    });
+
+    test('GET /published/:artistId should deny access if artist does not own the data', async () => {
+        const response = await request(app)
+            .get('/ap/published/2')
+            .set('Authorization', 'Bearer artist1');
+        expect(response.status).toBe(403);
+    });
+
+    test('GET /published/:artistId should allow access for the artist who owns the data', async () => {
+        const mockNotes = [{ id: 1, title: 'Test Note' }];
+        (mockDb.getApNotes as jest.Mock).mockReturnValue(mockNotes);
+
+        const response = await request(app)
+            .get('/ap/published/1')
+            .set('Authorization', 'Bearer artist1');
+        
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual(mockNotes);
+    });
+
+    test('GET /published/:artistId should allow access for root admin', async () => {
+        const mockNotes = [{ id: 1, title: 'Test Note' }];
+        (mockDb.getApNotes as jest.Mock).mockReturnValue(mockNotes);
+
+        const response = await request(app)
+            .get('/ap/published/2')
+            .set('Authorization', 'Bearer root');
+        
+        expect(response.status).toBe(200);
     });
 });

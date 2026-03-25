@@ -27,13 +27,13 @@ interface Follower {
 }
 
 export const ArtistFediversePanel = () => {
-    const { adminUser } = useAuthStore();
+    const { adminUser, user } = useAuthStore();
     const [notes, setNotes] = useState<ApNote[]>([]);
     const [followers, setFollowers] = useState<Follower[]>([]);
     const [loading, setLoading] = useState(false);
     const [processingId, setProcessingId] = useState<number | null>(null);
-
-    const artistId = adminUser?.artistId?.toString();
+    const rawArtistId = adminUser?.artistId ?? user?.artistId;
+    const artistId = rawArtistId && rawArtistId !== 'null' && rawArtistId !== 'undefined' ? String(rawArtistId) : undefined;
 
     useEffect(() => {
         if (artistId) {

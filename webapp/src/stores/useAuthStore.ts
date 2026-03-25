@@ -105,8 +105,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 username: status.username, 
                 isAdmin: status.role === 'admin', 
                 isRootAdmin: !!status.isRootAdmin,
-                id: String(status.artistId || '0'), 
-                artistId: String(status.artistId),
+                id: String(status.artistId ?? '0'), 
+                artistId: status.artistId != null ? String(status.artistId) : undefined,
                 isActive: status.isActive
             } as User : null);
 
@@ -209,8 +209,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 username, 
                 isAdmin: result.role === 'admin', 
                 isRootAdmin: !!result.isRootAdmin,
-                id: String(result.artistId || '0'),
-                artistId: String(result.artistId),
+                id: String(result.artistId ?? '0'),
+                artistId: result.artistId != null ? String(result.artistId) : undefined,
                 isActive: result.isActive
             } as User;
 
@@ -265,8 +265,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 const transformedUser = result.user || { 
                     username, 
                     isAdmin: result.role === 'admin', 
-                    id: String(result.artistId || '0'),
-                    artistId: String(result.artistId),
+                    id: String(result.artistId ?? '0'),
+                    artistId: result.artistId != null ? String(result.artistId) : undefined,
                     isActive: result.isActive
                 } as User;
                 
