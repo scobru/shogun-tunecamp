@@ -45,161 +45,140 @@ export const PlayerBar = () => {
   const [localWaveform, setLocalWaveform] = useState<string | number[] | null>(
     null,
   );
+  
+  // Track if the pause/play was triggered by our own code to avoid event loops
+  const isInternalChange = useRef(false);
+  const lastTrackId = useRef<string | number | null>(null);
 
-  // ─── Unified Playback Control (local audio) ────────────────────────────
+  // ─── Unified Audio Source and Playback Effect ────────────────────────
   useEffect(() => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || !currentTrack) return;
+    const audio = audioRef.current;
 
-    if (isPlaying && audioRef.current.paused) {
-      const playPromise = audioRef.current.play();
+    // 1. Determine Source URL
+    const isLosslessFormat =
+      currentTrack.format &&
+      ["wav", "flac", "lossless"].includes(currentTrack.format.toLowerCase());
+    const isLosslessExt =
+      currentTrack.filename &&
+      (currentTrack.filename.toLowerCase().endsWith(".wav") ||
+        currentTrack.filename.toLowerCase().endsWith(".flac"));
+    const forceMp3 =
+      !currentTrack.streamUrl && (isLosslessFormat || isLosslessExt);
+
+    let newSrc = API.getStreamUrl(currentTrack.id, forceMp3 ? 'mp3' : undefined);
+    if (currentTrack.streamUrl) {
+      try {
+        const streamUrlObj = new URL(currentTrack.streamUrl);
+        const isLocalOrigin = streamUrlObj.origin === window.location.origin;
+        newSrc = isLocalOrigin 
+          ? currentTrack.streamUrl 
+          : `/api/proxy/stream?url=${encodeURIComponent(currentTrack.streamUrl)}`;
+      } catch (e) {
+        newSrc = `/api/proxy/stream?url=${encodeURIComponent(currentTrack.streamUrl)}`;
+      }
+    }
+
+    // 2. Update Source if changed
+    const srcChanged = audio.src !== newSrc && !audio.src.endsWith(newSrc) && audio.src !== newSrc + "/";
+    if (srcChanged) {
+      console.log("Player: Changing source to", newSrc);
+      isInternalChange.current = true;
+      audio.src = newSrc;
+      // When source changes, browser automatically pauses.
+      // We don't want the onPause event to toggle the store's isPlaying to false.
+    }
+
+    // 3. Sync Play/Pause State
+    if (isPlaying && audio.paused) {
+      isInternalChange.current = true;
+      const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
           if (err.name !== "AbortError") {
-            console.error("[Player] Local playback failed:", err);
+            console.error("[Player] Playback failed:", err);
+            isInternalChange.current = true;
             setIsPlaying(false);
           }
         });
       }
-    } else if (!isPlaying && !audioRef.current.paused) {
-      audioRef.current.pause();
+    } else if (!isPlaying && !audio.paused) {
+      isInternalChange.current = true;
+      audio.pause();
     }
-  }, [isPlaying, currentTrack, setIsPlaying]);
 
-  // Seed duration from track metadata so seeking works on transcoded streams
-  // (where the browser can't determine duration from the chunked response)
+    isInternalChange.current = false;
+  }, [currentTrack?.id, isPlaying, setIsPlaying]); // Sensitive to track changes and play/pause state
+
+  // ─── Event Listeners and Metadata ──────────────────────────────────────
   useEffect(() => {
-    if (
-      currentTrack?.duration &&
-      Number.isFinite(currentTrack.duration) &&
-      currentTrack.duration > 0
-    ) {
-      setProgress(0, currentTrack.duration);
-    }
-  }, [currentTrack?.id]); // Only when track changes
+    if (!audioRef.current || !currentTrack) return;
+    const audio = audioRef.current;
 
+    const handlePlay = () => {
+      if (!isInternalChange.current) {
+        setIsPlaying(true);
+      }
+    };
+
+    const handlePause = () => {
+      // Only update store if the pause wasn't triggered by our own code (like track switching)
+      if (!isInternalChange.current) {
+        setIsPlaying(false);
+      }
+    };
+
+    const updateTime = () => {
+      const d = audio.duration && Number.isFinite(audio.duration) ? audio.duration : (currentTrack.duration || 0);
+      setProgress(audio.currentTime, d);
+    };
+
+    const handleEnded = () => next();
+    
+    const syncDuration = () => {
+      if (audio.duration && Number.isFinite(audio.duration)) {
+        setProgress(audio.currentTime, audio.duration);
+      }
+    };
+
+    audio.addEventListener("timeupdate", updateTime);
+    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("play", handlePlay);
+    audio.addEventListener("pause", handlePause);
+    audio.addEventListener("durationchange", syncDuration);
+    audio.addEventListener("loadedmetadata", syncDuration);
+
+    // Reset progress on track change
+    if (lastTrackId.current !== currentTrack.id) {
+        setProgress(0, currentTrack.duration || 0);
+        lastTrackId.current = currentTrack.id;
+    }
+
+    return () => {
+      audio.removeEventListener("timeupdate", updateTime);
+      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("pause", handlePause);
+      audio.removeEventListener("durationchange", syncDuration);
+      audio.removeEventListener("loadedmetadata", syncDuration);
+    };
+  }, [currentTrack?.id, setIsPlaying, setProgress, next]);
+
+  // Waveform fetching
   useEffect(() => {
     if (!currentTrack) return;
-
-    if (audioRef.current) {
-      const audio = audioRef.current;
-
-      const isLosslessFormat =
-        currentTrack.format &&
-        ["wav", "flac", "lossless"].includes(currentTrack.format.toLowerCase());
-      const isLosslessExt =
-        currentTrack.filename &&
-        (currentTrack.filename.toLowerCase().endsWith(".wav") ||
-          currentTrack.filename.toLowerCase().endsWith(".flac"));
-      const forceMp3 =
-        !currentTrack.streamUrl && (isLosslessFormat || isLosslessExt);
-
-      let newSrc = API.getStreamUrl(currentTrack.id, forceMp3 ? 'mp3' : undefined);
-      if (currentTrack.streamUrl) {
-        try {
-          const streamUrlObj = new URL(currentTrack.streamUrl);
-          const isLocalOrigin = streamUrlObj.origin === window.location.origin;
-          newSrc = isLocalOrigin 
-            ? currentTrack.streamUrl 
-            : `/api/proxy/stream?url=${encodeURIComponent(currentTrack.streamUrl)}`;
-        } catch (e) {
-          newSrc = `/api/proxy/stream?url=${encodeURIComponent(currentTrack.streamUrl)}`;
-        }
-      }
-
-      if (
-        audio.src !== newSrc &&
-        !audio.src.endsWith(newSrc) &&
-        audio.src !== newSrc + "/"
-      ) {
-        console.log("Playing Local:", newSrc);
-        audio.src = newSrc;
-        if (isPlaying) {
-          const playPromise = audio.play();
-          if (playPromise !== undefined) {
-            playPromise.catch((error) => {
-              if (error.name !== "AbortError") {
-                console.error("Playback failed:", error);
-                setIsPlaying(false);
-              }
-            });
-          }
-        }
-      }
-    }
-
-    // Fetch Waveform SVG asynchronously if not already present
     if (!currentTrack.waveform && currentTrack.id) {
+      setLocalWaveform(null);
       fetch(`/api/waveform/${encodeURIComponent(String(currentTrack.id))}`)
-        .then((res) => {
-          if (res.ok) return res.text();
-          return null;
-        })
+        .then((res) => (res.ok ? res.text() : null))
         .then((svg) => {
-          if (svg && svg.startsWith("<svg")) {
-            setLocalWaveform(svg);
-          }
+          if (svg && svg.startsWith("<svg")) setLocalWaveform(svg);
         })
         .catch((err) => console.error("Error fetching waveform:", err));
     } else {
       setLocalWaveform(currentTrack.waveform || null);
     }
-
-    if (audioRef.current) {
-      const audio = audioRef.current;
-      const updateTime = () => {
-        const d =
-          audio.duration && Number.isFinite(audio.duration)
-            ? audio.duration
-            : currentTrack.duration &&
-                Number.isFinite(currentTrack.duration) &&
-                currentTrack.duration > 0
-              ? currentTrack.duration
-              : audio.duration;
-        setProgress(audio.currentTime, d);
-      };
-      const handleEnded = () => next();
-      const handlePlay = () => setIsPlaying(true);
-      const handlePause = () => setIsPlaying(false);
-      const handleDurationChange = () => {
-        if (audio.duration && Number.isFinite(audio.duration)) {
-          setProgress(audio.currentTime, audio.duration);
-        } else if (
-          currentTrack.duration &&
-          Number.isFinite(currentTrack.duration) &&
-          currentTrack.duration > 0
-        ) {
-          setProgress(audio.currentTime, currentTrack.duration);
-        }
-      };
-      const handleLoadedMetadata = () => {
-        if (audio.duration && Number.isFinite(audio.duration)) {
-          setProgress(audio.currentTime, audio.duration);
-        } else if (
-          currentTrack.duration &&
-          Number.isFinite(currentTrack.duration) &&
-          currentTrack.duration > 0
-        ) {
-          setProgress(audio.currentTime, currentTrack.duration);
-        }
-      };
-
-      audio.addEventListener("timeupdate", updateTime);
-      audio.addEventListener("ended", handleEnded);
-      audio.addEventListener("play", handlePlay);
-      audio.addEventListener("pause", handlePause);
-      audio.addEventListener("durationchange", handleDurationChange);
-      audio.addEventListener("loadedmetadata", handleLoadedMetadata);
-
-      return () => {
-        audio.removeEventListener("timeupdate", updateTime);
-        audio.removeEventListener("ended", handleEnded);
-        audio.removeEventListener("play", handlePlay);
-        audio.removeEventListener("pause", handlePause);
-        audio.removeEventListener("durationchange", handleDurationChange);
-        audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      };
-    }
-  }, [currentTrack, setIsPlaying, setProgress, next]);
+  }, [currentTrack?.id]);
 
   // Sync volume
   useEffect(() => {
@@ -210,17 +189,9 @@ export const PlayerBar = () => {
   const handleSeek = useCallback(
     (percent: number) => {
       if (audioRef.current) {
-        const d =
-          Number.isFinite(duration) && duration > 0
-            ? duration
-            : audioRef.current.duration;
+        const d = Number.isFinite(duration) && duration > 0 ? duration : audioRef.current.duration;
         if (Number.isFinite(d) && d > 0) {
           audioRef.current.currentTime = percent * d;
-        } else {
-          console.warn("Cannot seek: duration not available", {
-            duration,
-            audioDuration: audioRef.current.duration,
-          });
         }
       }
     },
@@ -240,7 +211,7 @@ export const PlayerBar = () => {
   });
 
   useEffect(() => {
-    setDominantColor(dominantColor || null);
+    if (dominantColor) setDominantColor(dominantColor);
   }, [dominantColor, setDominantColor]);
 
   if (!currentTrack)
@@ -260,10 +231,7 @@ export const PlayerBar = () => {
           ref={audioRef}
           className="hidden"
           onError={(e) => {
-            console.error(
-              "[Player] Audio Element Error:",
-              e.currentTarget.error,
-            );
+            console.error("[Player] Audio Element Error:", e.currentTarget.error);
           }}
         />
 
@@ -295,78 +263,61 @@ export const PlayerBar = () => {
 
         {/* Controls & Waveform */}
         <div className="flex flex-col items-center flex-1 max-w-2xl mx-auto gap-1 w-full px-2 lg:px-0">
-          {/* Buttons */}
           <div className="flex items-center gap-4 lg:gap-6">
-            <div className="tooltip" data-tip="Shuffle">
-              <button
-                aria-label="Toggle shuffle"
-                className={`btn btn-ghost btn-circle btn-xs ${isShuffled ? "text-primary" : "opacity-50"}`}
-                onClick={toggleShuffle}
-              >
-                <Shuffle size={16} />
-              </button>
-            </div>
+            <button
+              aria-label="Toggle shuffle"
+              className={`btn btn-ghost btn-circle btn-xs ${isShuffled ? "text-primary" : "opacity-50"}`}
+              onClick={toggleShuffle}
+            >
+              <Shuffle size={16} />
+            </button>
 
-            <div className="tooltip" data-tip="Previous">
-              <button
-                aria-label="Previous track"
-                className="btn btn-ghost btn-circle btn-sm"
-                onClick={prev}
-              >
-                <SkipBack size={20} />
-              </button>
-            </div>
+            <button
+              aria-label="Previous track"
+              className="btn btn-ghost btn-circle btn-sm"
+              onClick={prev}
+            >
+              <SkipBack size={20} />
+            </button>
 
-            <div className="tooltip" data-tip={isPlaying ? "Pause" : "Play"}>
-              <button
-                aria-label={isPlaying ? "Pause" : "Play"}
-                className="btn btn-circle btn-primary text-primary-content shadow-lg shadow-primary/20 lg:scale-110 hover:scale-110 transition-transform"
-                onClick={togglePlay}
-              >
-                {isPlaying ? (
-                  <Pause size={24} fill="currentColor" />
-                ) : (
-                  <Play size={24} fill="currentColor" />
-                )}
-              </button>
-            </div>
+            <button
+              aria-label={isPlaying ? "Pause" : "Play"}
+              className="btn btn-circle btn-primary text-primary-content shadow-lg shadow-primary/20 lg:scale-110 hover:scale-110 transition-transform"
+              onClick={togglePlay}
+            >
+              {isPlaying ? (
+                <Pause size={24} fill="currentColor" />
+              ) : (
+                <Play size={24} fill="currentColor" />
+              )}
+            </button>
 
-            <div className="tooltip" data-tip="Next">
-              <button
-                aria-label="Next track"
-                className="btn btn-ghost btn-circle btn-sm"
-                onClick={next}
-              >
-                <SkipForward size={20} />
-              </button>
-            </div>
+            <button
+              aria-label="Next track"
+              className="btn btn-ghost btn-circle btn-sm"
+              onClick={next}
+            >
+              <SkipForward size={20} />
+            </button>
 
-            <div className="tooltip" data-tip={`Repeat: ${repeatMode}`}>
-              <button
-                aria-label={`Repeat mode: ${repeatMode}`}
-                className={`btn btn-ghost btn-circle btn-xs ${repeatMode !== "none" ? "text-primary" : "opacity-50"}`}
-                onClick={toggleRepeat}
-              >
-                <Repeat size={16} />
-                {repeatMode === "one" && (
-                  <span className="absolute text-[8px] font-bold bottom-1 right-1">
-                    1
-                  </span>
-                )}
-              </button>
-            </div>
+            <button
+              aria-label={`Repeat mode: ${repeatMode}`}
+              className={`btn btn-ghost btn-circle btn-xs ${repeatMode !== "none" ? "text-primary" : "opacity-50"}`}
+              onClick={toggleRepeat}
+            >
+              <Repeat size={16} />
+              {repeatMode === "one" && (
+                <span className="absolute text-[8px] font-bold bottom-1 right-1">1</span>
+              )}
+            </button>
           </div>
 
-          {/* Progress Bar + Decorative Waveform */}
           <div className="w-full flex items-center gap-3 text-xs font-mono h-8 relative group px-1">
             <span className="w-10 text-right opacity-50 z-10 tabular-nums">
-              {Number.isFinite(currentTime)
-                ? new Date(currentTime * 1000).toISOString().substr(14, 5)
-                : "0:00"}
+              {Number.isFinite(currentTime) ? new Date(currentTime * 1000).toISOString().substr(14, 5) : "0:00"}
             </span>
 
             <div className="flex-1 relative h-full flex items-center">
-              {/* Decorative waveform background */}
               {(localWaveform || currentTrack.waveform) && (
                 <div className="absolute inset-0 opacity-20 pointer-events-none flex items-center">
                   <Waveform
@@ -392,9 +343,7 @@ export const PlayerBar = () => {
             </div>
 
             <span className="w-10 opacity-50 z-10 tabular-nums">
-              {Number.isFinite(duration) && duration > 0
-                ? new Date(duration * 1000).toISOString().substr(14, 5)
-                : "0:00"}
+              {Number.isFinite(duration) && duration > 0 ? new Date(duration * 1000).toISOString().substr(14, 5) : "0:00"}
             </span>
           </div>
         </div>
@@ -424,29 +373,24 @@ export const PlayerBar = () => {
             />
           </div>
           <div className="border-l border-white/10 pl-4 flex gap-2">
-            <div className="tooltip tooltip-left" data-tip="Lyrics">
-              <button
-                aria-label="Toggle lyrics"
-                className="btn btn-ghost btn-circle btn-sm"
-                onClick={toggleLyrics}
-              >
-                <Mic2 size={18} />
-              </button>
-            </div>
-            <div className="tooltip tooltip-left" data-tip="Queue">
-              <button
-                aria-label="Toggle queue"
-                className="btn btn-ghost btn-circle btn-sm"
-                onClick={toggleQueue}
-              >
-                <ListMusic size={18} />
-              </button>
-            </div>
+            <button
+              aria-label="Toggle lyrics"
+              className="btn btn-ghost btn-circle btn-sm"
+              onClick={toggleLyrics}
+            >
+              <Mic2 size={18} />
+            </button>
+            <button
+              aria-label="Toggle queue"
+              className="btn btn-ghost btn-circle btn-sm"
+              onClick={toggleQueue}
+            >
+              <ListMusic size={18} />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Panels */}
       <LyricsPanel />
       <QueuePanel />
     </>
