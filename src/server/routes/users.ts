@@ -57,15 +57,17 @@ export function createUsersRoutes(
 
             // 1. Verify GunDB signature if provided (GunDB-first proof)
             if (pubKey && signature) {
+                console.log(`🔐 [AUTH] Verifying registration signature for ${username}...`);
                 const isValid = await authService.verifyGunSignature(username, pubKey, signature);
-                if (!isValid) {
-                    return res.status(401).json({ error: "Invalid GunDB signature" });
-                }
-                
-                // Also ensure GunDB metadata is populated
-                const existingUser = await gundbService.getUser(pubKey);
-                if (!existingUser || !existingUser.username) {
-                    await gundbService.registerUser(pubKey, username);
+                if (isValid) {
+                    console.log(`✅ [AUTH] GunDB signature verified for registration of ${username}`);
+                    // Also ensure GunDB metadata is populated
+                    const existingUser = await gundbService.getUser(pubKey);
+                    if (!existingUser || !existingUser.username) {
+                        await gundbService.registerUser(pubKey, username);
+                    }
+                } else {
+                    console.warn(`⚠️ [AUTH] GunDB signature invalid for registration of ${username}. Proceeding with password-only auth.`);
                 }
             }
 
