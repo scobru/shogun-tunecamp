@@ -395,25 +395,42 @@ export function createAuthService(
             try {
                 if (!proof || !pubKey) return false;
 
-                // Ensure proof is in the right format. If it's a string that looks like JSON, parse it.
-                // (Some browser/client setups double-stringify objects sent in POST bodies)
+                // Ensure proof is in the right format.
                 let parsedProof = proof;
                 if (typeof proof === 'string' && proof.trim().startsWith('{')) {
                     try {
                         parsedProof = JSON.parse(proof);
-                        console.log("[DEBUG] verifyGunSignature - Parsed string proof into object");
-                    } catch (e) {
-                        // Not valid JSON, continue with original string
-                    }
+                    } catch (e) {}
                 }
 
                 // Diagnostic logs
                 console.log(`[DEBUG] verifyGunSignature - Expected Message: "${message}"`);
                 console.log(`[DEBUG] verifyGunSignature - PubKey: "${pubKey}"`);
-                console.log(`[DEBUG] verifyGunSignature - Proof type: ${typeof parsedProof}`);
                 
-                // @ts-ignore
-                const verified = await Gun.SEA.verify(parsedProof, pubKey);
+                // Gun.SEA.verify can be tricky in different Node environments. 
+                // We wrap it in a Promise to handle both sync/callback/promise behaviors.
+                const verified = await new Promise((resolve) => {
+                    try {
+                        const result = (Gun.SEA as any).verify(parsedProof, pubKey, (val: any) => {
+                            resolve(val);
+                        });
+                        // If it returned a promise, handle it
+                        if (result && typeof result.then === 'function') {
+                            result.then(resolve).catch((err: any) => {
+                                console.error("[DEBUG] SEA.verify Promise Error:", err);
+                                resolve(undefined);
+                            });
+                        } else if (result !== undefined) {
+                            // If it returned synchronously
+                            resolve(result);
+                        }
+                    } catch (err) {
+                        console.error("[DEBUG] SEA.verify Execution Error:", err);
+                        resolve(undefined);
+                    }
+                    // Timeout safety
+                    setTimeout(() => resolve(undefined), 3000);
+                });
                 
                 // Case-insensitive/Trimmed comparison if it's a string
                 const normalizedVerified = typeof verified === 'string' ? verified.trim() : verified;
@@ -425,8 +442,6 @@ export function createAuthService(
                     console.warn(`❌ GunDB signature verification failed for ${message}.`);
                     console.warn(`   Verified Result: ${JSON.stringify(verified)} (${typeof verified})`);
                     console.warn(`   Expected Message: ${JSON.stringify(normalizedMessage)} (${typeof normalizedMessage})`);
-                    console.warn(`   PubKey Provided: ${pubKey}`);
-                    console.warn(`   Proof Format: ${typeof proof} (Starts with: ${typeof proof === 'string' ? proof.substring(0, 10) : 'n/a'})`);
                 } else {
                     console.log(`✅ GunDB signature verified for ${message}`);
                 }
