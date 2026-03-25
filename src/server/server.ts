@@ -72,6 +72,28 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const gundbService = createGunDBService(database, server, config.gunPeers);
     await gundbService.init();
 
+    // ----------------------------------------------------
+    // DIAGNOSTIC STARTUP TEST FOR Gun.SEA
+    // ----------------------------------------------------
+    try {
+        const Gun = (await import("gun")).default;
+        await import("gun/sea.js");
+        
+        console.log("🧪 [AUTH] Running diagnostic test for Gun.SEA...");
+        const testPair = await Gun.SEA.pair();
+        const testMsg = "test-message";
+        const testProof = await Gun.SEA.sign(testMsg, testPair);
+        const testVerified = await Gun.SEA.verify(testProof, testPair.pub);
+        if (testVerified === testMsg) {
+            console.log("✅ [AUTH] Diagnostic SEA test PASSED.");
+        } else {
+            console.log(`❌ [AUTH] Diagnostic SEA test FAILED. Expected: ${testMsg}, Got: ${testVerified}`);
+        }
+    } catch (e) {
+        console.error("❌ [AUTH] Diagnostic SEA test EXCEPTION:", e);
+    }
+    // ----------------------------------------------------
+
     // Initialize Fedify (Must be before AP Service)
     const federation = createFedify(database, config);
 

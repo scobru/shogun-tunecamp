@@ -7,6 +7,12 @@ import Gun from "gun";
 import "gun/sea.js";
 import { isSafeUrl } from "../utils/networkUtils.js";
 
+// Polyfill WebCrypto for Gun.SEA in Node.js ESM
+if (typeof global !== 'undefined' && !global.crypto) {
+    // @ts-ignore
+    global.crypto = crypto;
+}
+
 const SALT_ROUNDS = 10;
 const JWT_EXPIRES_IN = "7d";
 
