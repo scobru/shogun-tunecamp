@@ -145,27 +145,31 @@ export const Admin = () => {
             >
               System
             </a>
-            <a
-              role="tab"
-              className={`tab ${activeTab === "identity" ? "tab-active" : ""}`}
-              onClick={() => setActiveTab("identity")}
-            >
-              Identity
-            </a>
-            <a
-              role="tab"
-              className={`tab ${activeTab === "activitypub" ? "tab-active" : ""}`}
-              onClick={() => setActiveTab("activitypub")}
-            >
-              ActivityPub
-            </a>
-            <a
-              role="tab"
-              className={`tab ${activeTab === "backup" ? "tab-active" : ""}`}
-              onClick={() => setActiveTab("backup")}
-            >
-              Backup
-            </a>
+            {isRootAdmin && (
+              <>
+                <a
+                  role="tab"
+                  className={`tab ${activeTab === "identity" ? "tab-active" : ""}`}
+                  onClick={() => setActiveTab("identity")}
+                >
+                  Identity
+                </a>
+                <a
+                  role="tab"
+                  className={`tab ${activeTab === "activitypub" ? "tab-active" : ""}`}
+                  onClick={() => setActiveTab("activitypub")}
+                >
+                  ActivityPub
+                </a>
+                <a
+                  role="tab"
+                  className={`tab ${activeTab === "backup" ? "tab-active" : ""}`}
+                  onClick={() => setActiveTab("backup")}
+                >
+                  Backup
+                </a>
+              </>
+            )}
           </>
         )}
       </div>
