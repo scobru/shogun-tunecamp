@@ -21,6 +21,7 @@ const mockDb = {
 const mockApService = {
     broadcastDelete: jest.fn(),
     broadcastPostDelete: jest.fn(),
+    syncArtistContent: jest.fn(),
 } as unknown as ActivityPubService;
 
 const mockAuthMiddleware = {
@@ -164,6 +165,40 @@ describe('ActivityPub Security', () => {
 
         const response = await request(app)
             .get('/ap/published/2')
+            .set('Authorization', 'Bearer root');
+        
+        expect(response.status).toBe(200);
+    });
+    
+    test('POST /ap/sync/artist/:artistId should require authentication', async () => {
+        const response = await request(app).post('/ap/sync/artist/1');
+        expect(response.status).toBe(401);
+    });
+
+    test('POST /ap/sync/artist/:artistId should deny access if artist does not own the data', async () => {
+        const response = await request(app)
+            .post('/ap/sync/artist/2')
+            .set('Authorization', 'Bearer artist1');
+        expect(response.status).toBe(403);
+    });
+
+    test('POST /ap/sync/artist/:artistId should allow access for the artist who owns the data', async () => {
+        (mockApService.syncArtistContent as jest.Mock).mockReturnValue({ notes: 5 });
+
+        const response = await request(app)
+            .post('/ap/sync/artist/1')
+            .set('Authorization', 'Bearer artist1');
+        
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({ message: "ActivityPub synchronization complete", notes: 5 });
+        expect(mockApService.syncArtistContent).toHaveBeenCalledWith(1);
+    });
+
+    test('POST /ap/sync/artist/:artistId should allow access for root admin', async () => {
+        (mockApService.syncArtistContent as jest.Mock).mockReturnValue({ notes: 5 });
+
+        const response = await request(app)
+            .post('/ap/sync/artist/2')
             .set('Authorization', 'Bearer root');
         
         expect(response.status).toBe(200);
