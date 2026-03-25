@@ -232,6 +232,7 @@ export function createAuthService(
 
             // 1. Verify GunDB identity if provided
             if (pubKey && proof) {
+                console.log(`🔐 Verifying GunDB proof for ${username}...`);
                 const isValid = await this.verifyGunSignature(username, pubKey, proof);
                 if (isValid) {
                     console.log(`✨ GunDB proof verified for ${username} (pub: ${pubKey.slice(0, 8)}...)`);
@@ -257,7 +258,11 @@ export function createAuthService(
                     // Only allow proof to bypass password if it matches the linked pubKey (if any)
                     if (user && (!user.gun_pub || user.gun_pub === pubKey)) {
                         gunVerified = true;
+                    } else {
+                        console.warn(`⚠️ GunDB pubKey mismatch for ${username}. Database: ${user?.gun_pub}, Provided: ${pubKey}`);
                     }
+                } else {
+                    console.warn(`❌ GunDB signature invalid for ${username}`);
                 }
             }
 
@@ -265,9 +270,18 @@ export function createAuthService(
 
             // 2. Verification check: Either GunDB proof was verified OR local password must match
             if (!gunVerified) {
-                if (!password) return false;
+                console.log(`🔍 GunDB verification failed for ${username}, checking password...`);
+                if (!password) {
+                    console.log(`❌ No password provided for ${username}`);
+                    return false;
+                }
                 const valid = await this.verifyPassword(password, user.password_hash);
-                if (!valid) return false;
+                if (!valid) {
+                    console.log(`❌ Password mismatch for ${username}`);
+                    return false;
+                }
+            } else {
+                console.log(`✅ GunDB verification succeeded for ${username}`);
             }
 
             const userRole: UserRole = user.role || 'admin';
