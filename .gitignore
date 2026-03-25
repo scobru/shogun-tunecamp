@@ -58,4 +58,8 @@ gundb-keypair.json
 *.db-shm
 *.db-wal
 
+*.lock
+package-lock.json
+pnpm-lock.yaml
+
 benchmark/

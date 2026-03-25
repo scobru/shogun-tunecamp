@@ -13,8 +13,7 @@ const REGISTRY_PEERS = [
     "https://shogun-relay.scobrudot.dev/gun",
     "https://gun.defucc.me/gun",
     "https://gun.o8.is/gun",
-    "https://relay.peer.ooo/gun",
-    "http://localhost:1970/gun"
+    "https://relay.peer.ooo/gun"
 ];
 
 const REGISTRY_ROOT = "shogun";
@@ -126,9 +125,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 localStorage: false,
                 radisk: true,
                 file: "./radata",
-                web: server,
-                axe: false,
-                wire: true
+                web: server
             });
 
             // Initialize User Auth (SEA)

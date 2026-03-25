@@ -9,14 +9,15 @@ import type { UserPlaylist, UserPlaylistTrack, Track } from '../types';
 
 
 const defaultPeers = [
-    "https://shogun-relay.scobrudot.dev/gun",
-    "https://gun.defucc.me/gun",
-    "https://gun.o8.is/gun",
-    "https://relay.peer.ooo/gun"
+    "ws://localhost:1970/gun",
+    "wss://shogun-relay.scobrudot.dev/gun",
+    "wss://gun.defucc.me/gun",
+    "wss://gun.o8.is/gun",
+    "wss://relay.peer.ooo/gun"
 ];
 
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    defaultPeers.push("http://localhost:1970/gun");
+    defaultPeers.push("ws://localhost:1970/gun");
 }
 
 const envPeers = (window as any).TUNECAMP_CONFIG?.gunPeers;
@@ -26,9 +27,7 @@ const PEERS = envPeers ? envPeers.split(',') : defaultPeers;
 const gun = Gun({
     peers: PEERS,
     localStorage: false,
-    radisk: false,
-    wire: true,
-    axe: false
+    radisk: false
 });
 
 const user = gun.user().recall({ sessionStorage: true });
