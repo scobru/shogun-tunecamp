@@ -33,7 +33,24 @@ export const ArtistFediversePanel = () => {
     const [loading, setLoading] = useState(false);
     const [processingId, setProcessingId] = useState<number | null>(null);
     const rawArtistId = adminUser?.artistId ?? user?.artistId;
-    const artistId = rawArtistId && rawArtistId !== 'null' && rawArtistId !== 'undefined' ? String(rawArtistId) : undefined;
+    const artistId: string | undefined = rawArtistId && rawArtistId !== 'null' && rawArtistId !== 'undefined' ? String(rawArtistId) : undefined;
+
+    const handleSync = async () => {
+        if (!artistId) return; 
+        if (!confirm('This will re-broadcast all your public releases and posts to the Fediverse (Mastodon, etc) to ensure they are in sync. Continue?')) return;
+        
+        setLoading(true);
+        try {
+            await API.syncArtistActivityPub(artistId);
+            alert('Synchronization complete.');
+            loadData(artistId); // Changed from loadNotes to loadData
+        } catch (e: any) {
+            console.error(e);
+            alert('Failed to synchronize: ' + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (artistId) {
@@ -72,25 +89,41 @@ export const ArtistFediversePanel = () => {
         }
     };
 
-    if (!artistId) {
-        return <div className="p-8 text-center opacity-50">No artist associated with this account.</div>;
+    if (!artistId || artistId === 'null') {
+        return (
+            <div className="text-center py-12 opacity-50">
+                <AlertTriangle className="mx-auto mb-2 opacity-50"/>
+                <p>No artist profile associated with this account.</p>
+            </div>
+        );
     }
 
     return (
-        <div className="space-y-8">
-            <div className="flex justify-between items-center">
+        <div className="space-y-6">
+            <div className="flex flex-col md:flex-row gap-4 items-end md:items-center justify-between">
                 <div>
-                     <h2 className="text-2xl font-bold flex items-center gap-2">Fediverse Community</h2>
-                     <p className="opacity-70 text-sm">Manage your followers and content published to the Fediverse (Mastodon, etc)</p>
+                     <h2 className="text-2xl font-bold flex items-center gap-2">Community Status</h2>
+                     <p className="opacity-70 text-sm">Manage your content on the Fediverse (Mastodon, etc)</p>
                 </div>
-                <button
-                    className="btn btn-square btn-ghost"
-                    onClick={() => loadData(artistId)}
-                    disabled={loading}
-                    title="Refresh list"
-                >
-                    <RefreshCw size={20} className={loading && !processingId ? 'animate-spin' : ''}/>
-                </button>
+                
+                <div className="flex gap-2">
+                    <button 
+                        className="btn btn-primary btn-outline gap-2"
+                        onClick={handleSync}
+                        disabled={loading}
+                        title="Synchronize with Fediverse"
+                    >
+                        <RefreshCw size={20} className={loading ? 'animate-spin' : ''}/> Sync
+                    </button>
+                    <button 
+                        className="btn btn-square btn-ghost"
+                        onClick={() => loadData(artistId)}
+                        disabled={loading}
+                        title="Refresh list"
+                    >
+                        <RefreshCw size={20} className={loading && !processingId ? 'animate-spin' : ''}/>
+                    </button>
+                </div>
             </div>
 
             {/* Followers Section */}

@@ -147,6 +147,7 @@ export const API = {
     getPublishedContent: (artistId: string | number) => handleResponse(api.get<any[]>(`/ap/published/${artistId}`)),
     getArtistFollowers: (artistId: string | number) => handleResponse(api.get<any[]>(`/ap/followers/${artistId}`)),
     deletePublishedContent: (noteId: string) => handleResponse(api.delete(`/ap/note?id=${encodeURIComponent(noteId)}`)),
+    syncArtistActivityPub: (artistId: string | number) => handleResponse(api.post(`/ap/sync/artist/${artistId}`)),
 
     // --- Network ---
     getNetworkSites: () => handleResponse(api.get<NetworkSite[]>('/stats/network/sites')),

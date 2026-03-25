@@ -691,8 +691,6 @@ export class ActivityPubService {
 
         console.log(`📢 Broadcasting release "${album.title}" to followers`);
 
-        const publicUrl = this.db.getSetting("publicUrl") || this.config.publicUrl;
-        if (!publicUrl) return;
         const baseUrl = this.getBaseUrl();
         const artistActorUrl = `${baseUrl}/users/${artist.slug}`;
 
@@ -884,6 +882,46 @@ export class ActivityPubService {
             await Promise.all(postPromises);
         }
         return { artists: artistCount, notes: noteCount };
+    }
+
+    public async syncArtistContent(artistId: number): Promise<{ notes: number }> {
+        const artist = this.db.getArtist(artistId);
+        if (!artist) throw new Error("Artist not found");
+
+        let noteCount = 0;
+        console.log(`🔄 Syncing ActivityPub content for artist: ${artist.name} (ID: ${artistId})`);
+
+        // Sync Releases
+        const releases = this.db.getReleasesByArtist(artistId);
+        if (releases.length > 0) {
+            console.log(`  📦 Syncing ${releases.length} releases...`);
+            const releasePromises = releases.map(async (release) => {
+                noteCount++;
+                if (release.visibility === 'public' || release.visibility === 'unlisted') {
+                    await this.broadcastRelease(release as any).catch(e => console.error(`❌ Sync release "${release.title}" failed:`, e));
+                } else {
+                    await this.broadcastDelete(release as any).catch(e => console.error(`❌ Sync delete release "${release.title}" failed:`, e));
+                }
+            });
+            await Promise.all(releasePromises);
+        }
+
+        // Sync Posts
+        const posts = this.db.getPostsByArtist(artistId);
+        if (posts.length > 0) {
+            console.log(`  📝 Syncing ${posts.length} posts...`);
+            const postPromises = posts.map(async (post) => {
+                noteCount++;
+                if (post.visibility === 'public') {
+                    await this.broadcastPost(post).catch(e => console.error(`❌ Sync post failed:`, e));
+                } else {
+                    await this.broadcastPostDelete(post).catch(e => console.error(`❌ Sync delete post failed:`, e));
+                }
+            });
+            await Promise.all(postPromises);
+        }
+
+        return { notes: noteCount };
     }
 
     public async sendActivity(actor: Artist | { slug: string, private_key?: string, public_key?: string }, inboxUri: string, activity: any): Promise<void> {

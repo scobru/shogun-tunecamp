@@ -429,8 +429,28 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
         res.json(enrichedFollowers);
     });
 
+    // Sync all content for a specific artist
+    router.post("/sync/artist/:artistId", authMiddleware.requireUser, async (req: any, res) => {
+        const { artistId } = req.params;
+        const request = req as AuthenticatedRequest;
+        
+        // Security: Non-admin users can only sync their own data
+        if (!request.isAdmin && request.artistId !== Number(artistId)) {
+            console.warn(`⛔ Access Denied: User ${request.username} tried to sync AP for Artist ${artistId}`);
+            return res.status(403).json({ error: "Access denied" });
+        }
+        
+        try {
+            const result = await apService.syncArtistContent(Number(artistId));
+            res.json({ message: "ActivityPub synchronization complete", ...result });
+        } catch (e: any) {
+            console.error("Failed to sync AP for artist:", e);
+            res.status(500).json({ error: e.message || "Sync failed" });
+        }
+    });
+
     // Delete published note
-    router.delete("/note", authMiddleware.requireAdmin, async (req: any, res) => {
+    router.delete("/note", authMiddleware.requireUser, async (req: any, res) => {
         const noteId = req.query.id as string;
         if (!noteId) return res.status(400).send("Missing id");
 
