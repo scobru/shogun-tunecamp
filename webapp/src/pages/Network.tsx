@@ -24,49 +24,136 @@ const getHostname = (url: string) => {
   }
 };
 
-const SiteCard = memo(({ site }: { site: any }) => (
-  <a
-    href={site.url}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="card bg-base-200 border border-white/5 hover:border-primary/30 transition-all hover:scale-[1.01] group"
-  >
-    <figure className="h-32 bg-base-300 relative overflow-hidden">
-      {site.coverImage ? (
-        <img
-          src={site.coverImage}
-          className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-          alt={site.name}
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center text-4xl opacity-20 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
-          <span>🏠</span>
+const SiteCard = memo(({ site }: { site: any }) => {
+  const isLocal = site.federation === "local";
+  return (
+    <a
+      href={site.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`card bg-base-200 border ${isLocal ? 'border-primary/50' : 'border-white/5'} hover:border-primary/30 transition-all hover:scale-[1.01] group`}
+    >
+      <figure className="h-32 bg-base-300 relative overflow-hidden">
+        {site.coverImage ? (
+          <img
+            src={site.coverImage}
+            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+            alt={site.name}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-4xl opacity-20 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+            <span>{isLocal ? "🏠" : "🏢"}</span>
+          </div>
+        )}
+        <div className="absolute bottom-2 right-2 badge badge-neutral badge-sm bg-black/50 border-none backdrop-blur-md">
+          {isLocal ? "LOCAL" : getHostname(site.url)}
         </div>
-      )}
-      <div className="absolute bottom-2 right-2 badge badge-neutral badge-sm bg-black/50 border-none backdrop-blur-md">
-        {getHostname(site.url)}
-      </div>
-    </figure>
-    <div className="card-body p-4">
-      <h3 className="font-bold text-lg group-hover:text-primary transition-colors flex items-center gap-2">
-        {site.name}
-        <ExternalLink size={12} className="opacity-50" />
-      </h3>
-      <p className="text-sm opacity-60 line-clamp-2">
-        {site.description || "No description provided."}
-      </p>
+        {isLocal && (
+          <div className="absolute top-2 left-2 badge badge-primary badge-xs">
+            YOU
+          </div>
+        )}
+      </figure>
+      <div className="card-body p-4">
+        <h3 className="font-bold text-lg group-hover:text-primary transition-colors flex items-center gap-2">
+          {site.name}
+          <ExternalLink size={12} className="opacity-50" />
+        </h3>
+        <p className="text-sm opacity-60 line-clamp-2">
+          {site.description || "No description provided."}
+        </p>
 
-      <div className="flex items-center justify-between text-xs font-mono opacity-50 border-t border-white/5 pt-4 mt-2">
-        <span>v{site.version}</span>
-        <span>
-          {StringUtils.formatTimeAgo(
-            new Date(site.lastSeen).getTime(),
-          )}
-        </span>
+        <div className="flex items-center justify-between text-xs font-mono opacity-50 border-t border-white/5 pt-4 mt-2">
+          <span>{site.version}</span>
+          <span>
+            {site.lastSeen ? StringUtils.formatTimeAgo(new Date(site.lastSeen).getTime()) : "Never"}
+          </span>
+        </div>
+      </div>
+    </a>
+  );
+});
+
+const PostCard = memo(({ 
+  item, 
+  onToggleVisibility, 
+  isHidden, 
+  isAdmin 
+}: { 
+  item: NetworkTrack; 
+  onToggleVisibility: (id: string) => void;
+  isHidden: boolean;
+  isAdmin: boolean;
+}) => {
+  const uniqueId = item.slug || "";
+  const siteUrl = item.siteUrl;
+
+  return (
+    <div
+      className={`card border hover:bg-base-200 transition-all group shadow-sm hover:shadow-md ${isHidden ? "bg-error/10 border-error/20 opacity-70" : "bg-base-200/50 border-white/5"}`}
+    >
+      <div className="p-4 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary overflow-hidden">
+              {item.coverUrl ? (
+                <img src={item.coverUrl} className="w-full h-full object-cover" alt={item.artistName} />
+              ) : (
+                <span>{item.artistName?.charAt(0)}</span>
+              )}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-bold">{item.artistName}</span>
+              <span className="text-[10px] opacity-50">
+                {item.published_at ? StringUtils.formatTimeAgo(new Date(item.published_at).getTime()) : ""}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+             <span className={`badge badge-xs ${item.federation === 'local' ? 'badge-primary' : 'badge-ghost opacity-50'}`}>
+                {item.federation?.toUpperCase()}
+             </span>
+             {isAdmin && (
+              <button
+                className={`btn btn-xs btn-ghost btn-circle ${isHidden ? "text-primary" : "text-error opacity-0 group-hover:opacity-100"}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleVisibility(uniqueId);
+                }}
+              >
+                {isHidden ? "👁️" : "🗑️"}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="text-sm opacity-80 line-clamp-4 prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: item.content || "" }}>
+        </div>
+
+        <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5">
+          <a
+            href={siteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] opacity-40 hover:text-primary transition-colors flex items-center gap-1"
+          >
+            <Globe size={10} />
+            {getHostname(siteUrl)}
+          </a>
+          <a
+            href={siteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-xs btn-primary btn-outline gap-1"
+          >
+            View Post
+            <ExternalLink size={10} />
+          </a>
+        </div>
       </div>
     </div>
-  </a>
-));
+  );
+});
 
 const TrackCard = memo(({ 
     item, 
@@ -81,7 +168,7 @@ const TrackCard = memo(({
     isHidden: boolean;
     isAdmin: boolean;
 }) => {
-  const isAP = item.federation === "activitypub";
+  const isAP = item.federation === "activitypub" || item.federation === "local";
   
   if (isAP) {
     const uniqueId = item.slug || "";
@@ -118,6 +205,9 @@ const TrackCard = memo(({
                 <span className="badge badge-error badge-xs">
                   Hidden
                 </span>
+              )}
+              {item.federation === 'local' && (
+                <span className="badge badge-primary badge-xs">Local</span>
               )}
             </div>
             <div className="text-xs opacity-60 truncate flex items-center gap-1">
@@ -457,21 +547,20 @@ export const Network = () => {
       </div>
     );
 
-  const filteredTracks = tracks.filter((item: NetworkTrack) => {
+  const filteredItems = tracks.filter((item: NetworkTrack) => {
     if (!item) return false;
-    const uniqueId =
-      item.federation === "activitypub"
-        ? item.slug || ""
-        : item.siteUrl + "::" + item.track?.id;
+    const uniqueId = item.slug || (item.siteUrl + "::" + item.track?.id);
 
     if (showHidden) return true;
     return !hiddenTracks.includes(uniqueId);
   });
 
-  const gunDbTracks = filteredTracks.filter(t => t.federation !== "activitypub");
-  const apTracks = filteredTracks.filter(t => t.federation === "activitypub");
-  const gunDbSites = sites.filter(s => s.federation !== "activitypub");
-  const apSites = sites.filter(s => s.federation === "activitypub");
+  const gunDbTracks = filteredItems.filter(t => t.federation === "gundb" && (!t.type || t.type === 'release'));
+  const apTracks = filteredItems.filter(t => (t.federation === "activitypub" || t.federation === "local") && (!t.type || t.type === 'release'));
+  const allPosts = filteredItems.filter(t => t.type === 'post');
+
+  const gunDbSites = sites.filter(s => s.federation === "gundb");
+  const federatedSites = sites.filter(s => s.federation === "activitypub" || s.federation === "local");
 
   return (
     <div className="space-y-12 animate-fade-in pb-12">
@@ -609,8 +698,8 @@ export const Network = () => {
           <div className="flex items-center gap-3">
             <Globe size={24} className="text-accent" />
             <div>
-              <h2 className="text-2xl font-bold">ActivityPub Feed</h2>
-              <p className="text-sm opacity-50">Content discovered across the wider Fediverse.</p>
+              <h2 className="text-2xl font-bold">ActivityPub & Local Feed</h2>
+              <p className="text-sm opacity-50">Content discovered across the wider Fediverse and this instance.</p>
             </div>
             <div
               className={`px-3 py-1 rounded-full border text-[10px] font-bold flex items-center gap-2 ml-4 ${status?.activitypub?.enabled ? "bg-blue-500/10 border-blue-500/30 text-blue-400" : "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"}`}
@@ -625,7 +714,7 @@ export const Network = () => {
 
         <div>
           <h3 className="text-lg font-bold mb-4 opacity-80 flex items-center gap-2">
-            <Music size={18} /> Federated Tracks
+            <Music size={18} /> Federated Releases
             <span className="badge badge-accent badge-outline badge-sm">{apTracks.length}</span>
           </h3>
           {apTracks.length > 0 ? (
@@ -651,14 +740,38 @@ export const Network = () => {
           )}
         </div>
 
-        {apSites.length > 0 && (
+        <div>
+          <h3 className="text-lg font-bold mb-4 opacity-80 flex items-center gap-2">
+            <Globe size={18} /> Community Posts
+            <span className="badge badge-accent badge-outline badge-sm">{allPosts.length}</span>
+          </h3>
+          {allPosts.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {allPosts.map((item, i) => (
+                <PostCard 
+                  key={item.slug || i} 
+                  item={item} 
+                  onToggleVisibility={toggleTrackVisibility}
+                  isHidden={hiddenTracks.includes(item.slug || "")}
+                  isAdmin={isAdminAuthenticated}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 opacity-40 border border-dashed border-white/10 rounded-xl text-sm">
+              No community posts found.
+            </div>
+          )}
+        </div>
+
+        {federatedSites.length > 0 && (
           <div>
             <h3 className="text-lg font-bold mb-4 opacity-80 flex items-center gap-2">
-              <Globe size={18} /> Remote Actors
-              <span className="badge badge-accent badge-outline badge-sm">{apSites.length}</span>
+              <Globe size={18} /> Federated Instances
+              <span className="badge badge-accent badge-outline badge-sm">{federatedSites.length}</span>
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {apSites.map((site, i) => (
+              {federatedSites.map((site, i) => (
                 <SiteCard key={site.url || i} site={site} />
               ))}
             </div>

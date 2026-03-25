@@ -34,7 +34,8 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         albumPrice: t.album_price,
         artistName: t.artist_name,
         path: t.file_path,
-        filename: t.file_path ? path.basename(t.file_path) : undefined
+        filename: t.file_path ? path.basename(t.file_path) : undefined,
+        coverUrl: t.external_artwork || (t.album_id ? `/api/albums/${t.album_id}/cover` : null)
     });
 
     /**

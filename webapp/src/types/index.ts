@@ -212,22 +212,25 @@ export interface NetworkSite {
     version: string;
     lastSeen: string;
     coverImage?: string;
-    federation?: 'gundb' | 'activitypub';
+    federation?: 'gundb' | 'activitypub' | 'local';
 }
 
 export interface NetworkTrack {
     track: Track;
     siteName: string;
     siteUrl: string;
-    federation?: 'gundb' | 'activitypub';
-    // For ActivityPub tracks (flattened structure)
+    federation?: 'gundb' | 'activitypub' | 'local';
+    // For ActivityPub/Local tracks/posts (flattened structure)
+    type?: 'release' | 'post';
     audioUrl?: string;
     title?: string;
     artistName?: string;
     slug?: string;
+    content?: string;
     duration?: number;
     coverUrl?: string;
     releaseTitle?: string;
+    published_at?: string;
 }
 
 export interface AdminStats {

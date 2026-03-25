@@ -177,6 +177,15 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             }
 
             if (!album || !album.cover_path) {
+                // FALLBACK: If no cover_path, check associated tracks for external_artwork
+                if (album) {
+                    const tracks = album.is_release ? database.getTracksByReleaseId(album.id) : database.getTracks(album.id);
+                    const externalCover = tracks.find(t => t.external_artwork)?.external_artwork;
+                    if (externalCover) {
+                        return res.redirect(externalCover);
+                    }
+                }
+
                 const svg = getPlaceholderSVG(album ? album.title : "No Cover");
                 res.setHeader("Content-Type", "image/svg+xml");
                 res.setHeader("Cache-Control", "public, max-age=0");
@@ -187,6 +196,13 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             const resolvedPath = path.join(musicDir, album.cover_path);
 
             if (!await fs.pathExists(resolvedPath)) {
+                // FALLBACK: Even if cover_path exists in DB, if file is missing, check tracks
+                const tracks = album.is_release ? database.getTracksByReleaseId(album.id) : database.getTracks(album.id);
+                const externalCover = tracks.find(t => t.external_artwork)?.external_artwork;
+                if (externalCover) {
+                    return res.redirect(externalCover);
+                }
+
                 const svg = getPlaceholderSVG(album.title);
                 res.setHeader("Content-Type", "image/svg+xml");
                 res.setHeader("Cache-Control", "public, max-age=0");
