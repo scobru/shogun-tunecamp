@@ -119,9 +119,17 @@ export const GunAuth = {
             user.create(username, pass, (ack: any) => {
                 clearTimeout(timeout);
                 if (ack.err) {
-                    reject(new Error(ack.err));
+                    // "User already created!" means the GunDB identity exists (e.g. from a
+                    // prior partial registration). Fall back to login so the caller can still
+                    // generate a proof and complete the backend registration step.
+                    if (typeof ack.err === 'string' && ack.err.toLowerCase().includes('already created')) {
+                        console.warn(`⚠️ GunDB user already exists, falling back to login for ${username}`);
+                        GunAuth.login(username, pass).then(() => resolve()).catch(reject);
+                    } else {
+                        reject(new Error(ack.err));
+                    }
                 } else {
-                    // Auto login
+                    // Auto login after successful creation
                     GunAuth.login(username, pass).then(() => resolve()).catch(reject);
                 }
             });
