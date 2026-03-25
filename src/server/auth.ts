@@ -385,14 +385,44 @@ export function createAuthService(
             return false;
         },
 
-        async verifyGunSignature(message: any, pubKey: string, proof: string): Promise<boolean> {
+        async verifyGunSignature(message: any, pubKey: string, proof: any): Promise<boolean> {
             try {
-                // @ts-ignore
-                const verified = await Gun.SEA.verify(proof, pubKey);
-                const isValid = verified === message;
-                if (!isValid) {
-                    console.warn(`❌ GunDB signature verification failed for ${message}. Verified data: '${verified}', expected: '${message}'`);
+                if (!proof || !pubKey) return false;
+
+                // Ensure proof is in the right format. If it's a string that looks like JSON, parse it.
+                // (Some browser/client setups double-stringify objects sent in POST bodies)
+                let parsedProof = proof;
+                if (typeof proof === 'string' && proof.trim().startsWith('{')) {
+                    try {
+                        parsedProof = JSON.parse(proof);
+                        console.log("[DEBUG] verifyGunSignature - Parsed string proof into object");
+                    } catch (e) {
+                        // Not valid JSON, continue with original string
+                    }
                 }
+
+                // Diagnostic logs
+                console.log(`[DEBUG] verifyGunSignature - Expected Message: "${message}"`);
+                console.log(`[DEBUG] verifyGunSignature - PubKey: "${pubKey}"`);
+                console.log(`[DEBUG] verifyGunSignature - Proof type: ${typeof parsedProof}`);
+                
+                // @ts-ignore
+                const verified = await Gun.SEA.verify(parsedProof, pubKey);
+                
+                // Case-insensitive/Trimmed comparison if it's a string
+                const normalizedVerified = typeof verified === 'string' ? verified.trim() : verified;
+                const normalizedMessage = typeof message === 'string' ? message.trim() : message;
+                
+                const isValid = normalizedVerified === normalizedMessage;
+                
+                if (!isValid) {
+                    console.warn(`❌ GunDB signature verification failed for ${message}.`);
+                    console.warn(`   Verified Result: ${JSON.stringify(verified)} (${typeof verified})`);
+                    console.warn(`   Expected Message: ${JSON.stringify(normalizedMessage)} (${typeof normalizedMessage})`);
+                } else {
+                    console.log(`✅ GunDB signature verified for ${message}`);
+                }
+                
                 return isValid;
             } catch (e) {
                 console.error("❌ GunDB signature verification error:", e);

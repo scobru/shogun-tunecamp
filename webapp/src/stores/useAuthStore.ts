@@ -145,14 +145,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             if (password) {
                 try {
-                    console.log("🔐 GunDB-First Login: Verifying identity on peer network...");
+                    console.log(`🔐 GunDB-First Login: Verifying identity for ${username}...`);
                     const gunProfile = await GunAuth.login(username, password);
                     pubKey = gunProfile.pub;
                     
                     // Generate proof-of-possession for the backend
                     // We sign the username to prove we own the pubKey
+                    console.log("Generating proof of identity...");
                     proof = await GunAuth.sign(username);
-                    console.log("✨ Proof of identity generated.");
+                    console.log("✨ Proof of identity generated:", typeof proof === 'object' ? 'object' : 'string');
                 } catch (gunErr) {
                     console.warn("⚠️ GunDB authentication failed (maybe offline or wrong pass), falling back to local-only proof:", gunErr);
                 }
@@ -332,10 +333,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             // 2. Generate proof for backend
             const proof = await GunAuth.sign(username);
+            console.log("✨ Proof of identity generated for registration:", typeof proof === 'object' ? 'object' : 'string');
 
             let token: string;
             try {
                 // 3. Register on backend with proof
+                console.log(`🔐 Registering ${username} on backend...`);
                 const result = await API.registerUser(username, password, gunProfile.pub, proof);
                 token = result.token;
             } catch (regErr: any) {
