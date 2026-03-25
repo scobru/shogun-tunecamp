@@ -387,23 +387,27 @@ export function createAuthService(
 
         async verifyGunSignature(message: any, pubKey: string, proof: string): Promise<boolean> {
             try {
+                // @ts-ignore
                 const verified = await Gun.SEA.verify(proof, pubKey);
-                // The proof should be the signed message (the username in our case)
-                return verified === message;
+                const isValid = verified === message;
+                if (!isValid) {
+                    console.warn(`❌ GunDB signature verification failed for ${message}. Verified data: '${verified}', expected: '${message}'`);
+                }
+                return isValid;
             } catch (e) {
-                console.error("❌ GunDB signature verification failed:", e);
+                console.error("❌ GunDB signature verification error:", e);
                 return false;
             }
         },
 
         async createAdmin(username: string, password: string, artistId: number | null = null): Promise<void> {
             const hash = await this.hashPassword(password);
-            db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota) VALUES (?, ?, ?, 'admin', 0)").run(username, hash, artistId);
+            db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota, is_active) VALUES (?, ?, ?, 'admin', 0, 1)").run(username, hash, artistId);
         },
 
         async createUser(username: string, password: string, artistId: number, storageQuota: number = 1024 * 1024 * 1024, pubKey?: string): Promise<{ id: number }> {
             const hash = await this.hashPassword(password);
-            const result = db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota, storage_used, gun_pub, is_active) VALUES (?, ?, ?, 'user', ?, 0, ?, 0)").run(username, hash, artistId, storageQuota, pubKey || null);
+            const result = db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota, storage_used, gun_pub, is_active) VALUES (?, ?, ?, 'user', ?, 0, ?, 1)").run(username, hash, artistId, storageQuota, pubKey || null);
             return { id: Number(result.lastInsertRowid) };
         },
 
