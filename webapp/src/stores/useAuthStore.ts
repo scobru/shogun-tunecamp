@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import API from '../services/api';
+import API, { ApiError } from '../services/api';
 import { GunAuth, type GunProfile } from '../services/gun';
 import type { User } from '../types';
 import { useWalletStore } from './useWalletStore';
@@ -323,6 +323,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ error: null, isLoading: true, isAuthenticating: true });
         try {
             // 1. Register on GunDB first (Decentralized Identity)
+            // GunAuth.register falls back to login if the user already exists in the peer network
             console.log("🆕 GunDB-First Registration: Creating identity on peer network...");
             await GunAuth.register(username, password);
             const gunProfile = GunAuth.getProfile();
@@ -332,11 +333,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             // 2. Generate proof for backend
             const proof = await GunAuth.sign(username);
 
-            // 3. Register on backend with proof
-            const result = await API.registerUser(username, password, gunProfile.pub, proof);
-            
+            let token: string;
+            try {
+                // 3. Register on backend with proof
+                const result = await API.registerUser(username, password, gunProfile.pub, proof);
+                token = result.token;
+            } catch (regErr: any) {
+                // 409 = username already in DB (prior partial registration succeeded on server)
+                // Fall through to login flow using the GunDB proof
+                if ((regErr instanceof ApiError && regErr.status === 409) || regErr?.message?.includes('already taken')) {
+                    console.warn("⚠️ Username already registered on server, falling back to login...");
+                    const loginResult = await API.login(username, password, gunProfile.pub, proof);
+                    token = loginResult.token;
+                } else {
+                    throw regErr;
+                }
+            }
+
             // 4. Auto-login with the JWT token
-            API.setToken(result.token);
+            API.setToken(token);
 
             // 5. Success - updates the store state
             await get().checkAuth();

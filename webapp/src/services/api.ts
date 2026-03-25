@@ -19,13 +19,24 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
+/** Error subclass that preserves the HTTP response status code. */
+export class ApiError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+    }
+}
+
 // Helper to handle response
 const handleResponse = async <T>(request: Promise<{ data: T }>): Promise<T> => {
     try {
         const response = await request;
         return response.data;
     } catch (error: any) {
-        if (error.response?.status === 401) {
+        const status: number = error.response?.status ?? 0;
+        if (status === 401) {
             // Token expired or invalid
             localStorage.removeItem('tunecamp_token');
             // Trigger an event so the app knows to update auth state
@@ -33,9 +44,10 @@ const handleResponse = async <T>(request: Promise<{ data: T }>): Promise<T> => {
         }
         const errorData = error.response?.data;
         const errorMessage = errorData?.error || errorData?.message || (typeof errorData === 'string' ? errorData : null) || error.message;
-        throw new Error(errorMessage);
+        throw new ApiError(errorMessage, status);
     }
 };
+
 
 export const API = {
     getToken: () => localStorage.getItem('tunecamp_token'),
