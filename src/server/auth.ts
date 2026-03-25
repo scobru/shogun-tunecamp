@@ -226,20 +226,21 @@ export function createAuthService(
         },
 
         async authenticateUser(username: string, password: string, pubKey?: string, proof?: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; isActive: boolean; pair?: any } | false> {
+            console.log(`[AUTH] Attempting login for user: ${username} (hasPubKey: ${!!pubKey}, hasProof: ${!!proof}, hasPassword: ${!!password})`);
             let user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv, is_active FROM admin WHERE username = ?").get(username) as { id: number; password_hash: string; artist_id: number | null; role: UserRole; gun_pub: string | null; gun_priv: string | null; is_active: number } | undefined;
             
             let gunVerified = false;
 
             // 1. Verify GunDB identity if provided
             if (pubKey && proof) {
-                console.log(`🔐 Verifying GunDB proof for ${username}...`);
+                console.log(`🔐 [AUTH] Verifying GunDB proof for ${username}...`);
                 const isValid = await this.verifyGunSignature(username, pubKey, proof);
                 if (isValid) {
-                    console.log(`✨ GunDB proof verified for ${username} (pub: ${pubKey.slice(0, 8)}...)`);
+                    console.log(`✨ [AUTH] GunDB proof verified for ${username} (pub: ${pubKey.slice(0, 8)}...)`);
                     
                     // If user doesn't exist locally, lazy-create (Roaming)
                     if (!user) {
-                        console.log(`📡 Roaming: Lazily creating local account for GunDB user ${username}`);
+                        console.log(`📡 [AUTH] Roaming: Lazily creating local account for GunDB user ${username}`);
                         const tempPass = crypto.randomBytes(32).toString('hex');
                         const { id } = await this.createUser(username, tempPass, null as any); // artist creation below
                         
@@ -250,38 +251,43 @@ export function createAuthService(
                         user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv, is_active FROM admin WHERE id = ?").get(id) as any;
                     } else if (!user.gun_pub) {
                         // User exists but has no GunDB link yet - link it now
-                        console.log(`🔗 Linking existing local user ${username} to GunDB identity`);
+                        console.log(`🔗 [AUTH] Linking existing local user ${username} to GunDB identity`);
                         db.prepare("UPDATE admin SET gun_pub = ? WHERE id = ?").run(pubKey, user.id);
                         user.gun_pub = pubKey;
                     }
 
                     // Only allow proof to bypass password if it matches the linked pubKey (if any)
                     if (user && (!user.gun_pub || user.gun_pub === pubKey)) {
+                        console.log(`✅ [AUTH] GunDB verified and pubKey matches for ${username}`);
                         gunVerified = true;
                     } else {
-                        console.warn(`⚠️ GunDB pubKey mismatch for ${username}. Database: ${user?.gun_pub}, Provided: ${pubKey}`);
+                        console.warn(`⚠️ [AUTH] GunDB pubKey mismatch for ${username}. Database: ${user?.gun_pub?.slice(0, 8)}, Provided: ${pubKey.slice(0, 8)}`);
                     }
                 } else {
-                    console.warn(`❌ GunDB signature invalid for ${username}`);
+                    console.warn(`❌ [AUTH] GunDB signature invalid for ${username}`);
                 }
             }
 
-            if (!user) return false;
+            if (!user) {
+                console.log(`❌ [AUTH] User not found and no valid roaming proof for: ${username}`);
+                return false;
+            }
 
             // 2. Verification check: Either GunDB proof was verified OR local password must match
             if (!gunVerified) {
-                console.log(`🔍 GunDB verification failed for ${username}, checking password...`);
+                console.log(`🔍 [AUTH] GunDB verification failed or skipped for ${username}, checking password...`);
                 if (!password) {
-                    console.log(`❌ No password provided for ${username}`);
+                    console.log(`❌ [AUTH] No password provided and GunDB verification failed for: ${username}`);
                     return false;
                 }
                 const valid = await this.verifyPassword(password, user.password_hash);
                 if (!valid) {
-                    console.log(`❌ Password mismatch for ${username}`);
+                    console.log(`❌ [AUTH] Password mismatch for ${username}`);
                     return false;
                 }
+                console.log(`✅ [AUTH] Password verified for ${username}`);
             } else {
-                console.log(`✅ GunDB verification succeeded for ${username}`);
+                console.log(`✅ [AUTH] GunDB verification succeeded for ${username}, skipping password check`);
             }
 
             const userRole: UserRole = user.role || 'admin';
