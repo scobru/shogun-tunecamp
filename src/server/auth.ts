@@ -419,6 +419,8 @@ export function createAuthService(
                     console.warn(`❌ GunDB signature verification failed for ${message}.`);
                     console.warn(`   Verified Result: ${JSON.stringify(verified)} (${typeof verified})`);
                     console.warn(`   Expected Message: ${JSON.stringify(normalizedMessage)} (${typeof normalizedMessage})`);
+                    console.warn(`   PubKey Provided: ${pubKey}`);
+                    console.warn(`   Proof Format: ${typeof proof} (Starts with: ${typeof proof === 'string' ? proof.substring(0, 10) : 'n/a'})`);
                 } else {
                     console.log(`✅ GunDB signature verified for ${message}`);
                 }
