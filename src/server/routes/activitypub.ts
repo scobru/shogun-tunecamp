@@ -291,9 +291,17 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     // Resolve individual Activity (Release)
     router.get("/activity/release/:slug", async (req, res) => {
         const { slug } = req.params;
-        const album = db.getAlbumBySlug(slug);
+        let album: any = db.getAlbumBySlug(slug);
 
-        if (!album || !album.is_release || !album.is_public) {
+        // Fallback to releases table if not found or not marked as release in albums table
+        if (!album || !album.is_release) {
+            const release = db.getReleaseBySlug(slug);
+            if (release) {
+                album = release;
+            }
+        }
+
+        if (!album || (album.visibility !== 'public' && !album.is_public)) {
             return res.status(404).send("Not found");
         }
 
@@ -320,16 +328,24 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     // Resolve individual Object (Release Note)
     router.get("/note/release/:slug/:timestamp?", async (req, res) => {
         const { slug } = req.params;
-        const album = db.getAlbumBySlug(slug);
+        let album: any = db.getAlbumBySlug(slug);
 
-        if (!album || !album.is_release || !album.is_public) {
+        // Fallback to releases table
+        if (!album || !album.is_release) {
+            const release = db.getReleaseBySlug(slug);
+            if (release) {
+                album = release;
+            }
+        }
+
+        if (!album || (album.visibility !== 'public' && !album.is_public)) {
             return res.status(404).send("Not found");
         }
 
         const artist = db.getArtist(album.artist_id!);
         if (!artist) return res.status(404).send("Artist not found");
 
-        const tracks = db.getTracks(album.id);
+        const tracks = album.is_release ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
         const note = apService.generateNote(album, artist, tracks);
 
         res.setHeader("Content-Type", "application/activity+json");
