@@ -41,7 +41,10 @@ async function testFallback() {
         if (!album.cover_path || !localFileExists) {
             console.log("🚀 Testing Fallback Logic...");
             
-            const tracks = album.is_release ? database.getTracksByReleaseId(album.id) : database.getTracks(album.id);
+            // Fix: Release type doesn't have is_release property because it is a release by definition.
+            // Album type has is_release to distinguish from library albums.
+            const isRelease = ("is_release" in album) ? (album as any).is_release : true;
+            const tracks = isRelease ? database.getTracksByReleaseId(album.id) : database.getTracks(album.id);
             const externalCover = tracks.find(t => t.external_artwork)?.external_artwork;
             
             if (externalCover) {
