@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type {
     AuthStatus, Track, Album, Artist, Playlist, SiteSettings, User,
-    Release, Post, UnlockCode, NetworkSite, NetworkTrack, AdminStats
+    Release, Post, UnlockCode, NetworkSite, NetworkTrack, AdminStats, NetworkStatus
 } from '../types';
 
 const API_URL = '/api';
@@ -152,7 +152,7 @@ export const API = {
     // --- Network ---
     getNetworkSites: () => handleResponse(api.get<NetworkSite[]>('/stats/network/sites')),
     getNetworkTracks: () => handleResponse(api.get<NetworkTrack[]>('/stats/network/tracks')),
-    getNetworkStatus: () => handleResponse(api.get<{ sites: number, tracks: number, lastUpdate: string }>('/stats/network/status')),
+    getNetworkStatus: () => handleResponse(api.get<NetworkStatus>('/stats/network/status')),
     getFollowedPeers: () => handleResponse(api.get<any[]>('/admin/network/ap/peers')),
     followRemoteActor: (url: string) => handleResponse(api.post('/admin/network/ap/follow', { url })),
     unfollowRemoteActor: (url: string) => handleResponse(api.post('/admin/network/ap/unfollow', { url })),

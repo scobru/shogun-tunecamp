@@ -260,10 +260,21 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
             const apTracks = dbService.getRemoteTracks();
             const localReleases = dbService.getReleases(true);
 
+            // Check if ActivityPub is enabled (if publicUrl is set)
+            const publicUrl = dbService.getSetting("publicUrl") || config.publicUrl;
+            const apEnabled = !!publicUrl;
+
             res.json({
                 sites: gunSites.length + apActors.length + 1, // +1 for local
                 tracks: gunTracks.length + apTracks.length + localReleases.length,
-                lastUpdate: new Date().toISOString()
+                lastUpdate: new Date().toISOString(),
+                gundb: {
+                    connected: gundbService.getPeerCount() > 0,
+                    peers: gundbService.getPeerCount()
+                },
+                activitypub: {
+                    enabled: apEnabled
+                }
             });
         } catch (error) {
             console.error("Error getting network status:", error);

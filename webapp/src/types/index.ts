@@ -290,6 +290,9 @@ export interface UserPlaylist {
 }
 
 export interface NetworkStatus {
+    sites: number;
+    tracks: number;
+    lastUpdate: string;
     gundb?: {
         connected: boolean;
         peers: number;
