@@ -1,6 +1,6 @@
 import Gun from 'gun';
+import "gun/lib/yson.js";
 import 'gun/sea';
-import "gun/lib/yson.js"
 import 'gun/lib/radix';
 import 'gun/lib/radisk';
 import 'gun/lib/rindexed';

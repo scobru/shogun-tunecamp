@@ -426,9 +426,7 @@ export const Network = () => {
         const [sitesData, tracksData, statusData] = await Promise.all([
           API.getNetworkSites(),
           API.getNetworkTracks(),
-          fetch("/api/stats/network/status")
-            .then((res) => res.json())
-            .catch(() => null),
+          API.getNetworkStatus().catch(() => null),
         ]);
         setStatus(statusData);
 

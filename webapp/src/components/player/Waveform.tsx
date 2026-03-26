@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useCallback } from 'react';
 
 interface WaveformProps {
     data: number[] | string | null | undefined;
@@ -15,6 +15,9 @@ export const Waveform = ({
     colorPlayed = '#1db954',
     colorRemaining = 'rgba(255, 255, 255, 0.15)' 
 }: WaveformProps) => {
+    // 1. All Hooks at the top
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
     // Memoize the SVG background image if data is an SVG string
     const bgImage = useMemo(() => {
         if (typeof data === 'string' && data.includes('<svg')) {
@@ -24,46 +27,6 @@ export const Waveform = ({
         return null;
     }, [data]);
     
-    // Render SVG Waveform if memoized bgImage is available
-    if (bgImage) {
-       return (
-            <div className="w-full h-full relative" style={{ height: `${height}px` }}>
-                {/* Base layer (Remaining) */}
-                <div 
-                    className="absolute inset-0 w-full h-full"
-                    style={{
-                        maskImage: bgImage,
-                        maskSize: '100% 100%',
-                        WebkitMaskImage: bgImage,
-                        WebkitMaskSize: '100% 100%',
-                        backgroundColor: colorRemaining
-                    }}
-                />
-
-                {/* Progress layer (Played) */}
-                <div 
-                    className="absolute inset-0 h-full overflow-hidden"
-                    style={{ width: `${progress * 100}%` }}
-                >
-                     <div 
-                        className="absolute inset-0 h-full"
-                        style={{
-                            width: `${100 / (progress || 0.001)}%`, // Counteract the width crop
-                            maskImage: bgImage,
-                            maskSize: '100% 100%',
-                            WebkitMaskImage: bgImage,
-                            WebkitMaskSize: '100% 100%',
-                            backgroundColor: colorPlayed
-                        }}
-                    />
-                </div>
-            </div>
-       );
-    }
-
-    // Fallback to Canvas for legacy numeric data
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    // ... (rest of existing canvas logic)
     // Parse data safely and memoize
     const waveformData = useMemo(() => {
         if (!data) return null;
@@ -75,13 +38,12 @@ export const Waveform = ({
         }
     }, [data]);
 
-    const draw = () => {
-         // ... existing draw code ...
+    const draw = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        // ...
+
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.getBoundingClientRect();
         
@@ -120,14 +82,51 @@ export const Waveform = ({
             ctx.roundRect(x, y, barWidth, barHeight, radius);
             ctx.fill();
         }
-    };
+    }, [waveformData, progress, colorPlayed, colorRemaining]);
 
     useEffect(() => {
         if (!data || (typeof data === 'string' && data.includes('<svg'))) return;
         draw();
-    }, [waveformData, progress, colorPlayed, colorRemaining]);
+    }, [data, draw]);
 
+    // 2. Conditional rendering AFTER all hooks
     if (!data) return null;
+
+    if (bgImage) {
+       return (
+            <div className="w-full h-full relative" style={{ height: `${height}px` }}>
+                {/* Base layer (Remaining) */}
+                <div 
+                    className="absolute inset-0 w-full h-full"
+                    style={{
+                        maskImage: bgImage,
+                        maskSize: '100% 100%',
+                        WebkitMaskImage: bgImage,
+                        WebkitMaskSize: '100% 100%',
+                        backgroundColor: colorRemaining
+                    }}
+                />
+
+                {/* Progress layer (Played) */}
+                <div 
+                    className="absolute inset-0 h-full overflow-hidden"
+                    style={{ width: `${progress * 100}%` }}
+                >
+                     <div 
+                        className="absolute inset-0 h-full"
+                        style={{
+                            width: `${100 / (progress || 0.001)}%`, // Counteract the width crop
+                            maskImage: bgImage,
+                            maskSize: '100% 100%',
+                            WebkitMaskImage: bgImage,
+                            WebkitMaskSize: '100% 100%',
+                            backgroundColor: colorPlayed
+                        }}
+                    />
+                </div>
+            </div>
+       );
+    }
 
     return (
         <canvas 

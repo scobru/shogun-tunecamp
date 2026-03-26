@@ -234,12 +234,12 @@ export function createAdminRoutes(
 
     /**
      * POST /api/admin/network/ap/follow
-     * Follow a remote ActivityPub instance/actor (Root Admin only)
+     * Follow a remote ActivityPub instance/actor (Any Admin)
      */
     router.post("/network/ap/follow", async (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!req.isRootAdmin) {
-                return res.status(403).json({ error: "Only root admin can follow remote instances" });
+            if (!req.isAdmin) {
+                return res.status(403).json({ error: "Only admin can follow remote instances" });
             }
             const { url } = req.body;
             if (!url) {
@@ -256,7 +256,7 @@ export function createAdminRoutes(
 
     /**
      * GET /api/admin/system/identity
-     * Get server identity keypair (ADMIN ONLY)
+     * Get server identity keypair (ROOT ADMIN ONLY)
      */
     router.get("/system/identity", async (req: AuthenticatedRequest, res: any) => {
         try {
@@ -274,7 +274,7 @@ export function createAdminRoutes(
 
     /**
      * GET /api/admin/system/ap-identity
-     * Get site actor ActivityPub identity keypair (ADMIN ONLY)
+     * Get site actor ActivityPub identity keypair (ROOT ADMIN ONLY)
      */
     router.get("/system/ap-identity", async (req: AuthenticatedRequest, res: any) => {
         try {
@@ -293,7 +293,7 @@ export function createAdminRoutes(
 
     /**
      * POST /api/admin/system/identity
-     * Import server identity keypair (ADMIN ONLY)
+     * Import server identity keypair (ROOT ADMIN ONLY)
      */
     router.post("/system/identity", async (req: AuthenticatedRequest, res: any) => {
         try {
@@ -315,13 +315,13 @@ export function createAdminRoutes(
 
     /**
      * POST /api/admin/system/sync
-     * Force sync with GunDB network
+     * Force sync with GunDB network (Any Admin)
      */
     router.post("/system/sync", async (req: AuthenticatedRequest, res: any) => {
         try {
-            // Only root admin can force sync
-            if (!req.isRootAdmin) {
-                return res.status(403).json({ error: "Only root admin can force sync" });
+            // Only admin can force sync
+            if (!req.isAdmin) {
+                return res.status(403).json({ error: "Only admin can force sync" });
             }
             await gundbService.syncNetwork();
             res.json({ message: "Network sync completed" });
@@ -333,13 +333,13 @@ export function createAdminRoutes(
 
     /**
      * POST /api/admin/system/consolidate
-     * Consolidate files in the filesystem based on DB tags
+     * Consolidate files in the filesystem based on DB tags (Any Admin)
      */
     router.post("/system/consolidate", async (req: AuthenticatedRequest, res: any) => {
         try {
-            // Only root admin can trigger consolidation
-            if (!req.isRootAdmin) {
-                return res.status(403).json({ error: "Only root admin can trigger file consolidation" });
+            // Only admin can trigger consolidation
+            if (!req.isAdmin) {
+                return res.status(403).json({ error: "Only admin can trigger file consolidation" });
             }
 
             const result = await scanner.consolidateFiles(musicDir);
@@ -355,13 +355,13 @@ export function createAdminRoutes(
 
     /**
      * POST /api/admin/network/cleanup
-     * Force global cleanup of unreachable sites in GunDB network
+     * Force global cleanup of unreachable sites in GunDB network (Any Admin)
      */
     router.post("/network/cleanup", async (req: AuthenticatedRequest, res: any) => {
         try {
-            // Only root admin can trigger global cleanup
-            if (!req.isRootAdmin) {
-                return res.status(403).json({ error: "Only root admin can trigger global network cleanup" });
+            // Only admin can trigger global cleanup
+            if (!req.isAdmin) {
+                return res.status(403).json({ error: "Only admin can trigger global network cleanup" });
             }
 
             // This can take a while, so we don't await it here if we want to return immediately,
@@ -378,12 +378,12 @@ export function createAdminRoutes(
 
     /**
      * POST /api/admin/network/sync-community
-     * Discover other Tunecamp instances via GunDB and follow them via ActivityPub (Root Admin only)
+     * Discover other Tunecamp instances via GunDB and follow them via ActivityPub (Any Admin)
      */
     router.post("/network/sync-community", async (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!req.isRootAdmin) {
-                return res.status(403).json({ error: "Only root admin can sync community" });
+            if (!req.isAdmin) {
+                return res.status(403).json({ error: "Only admin can sync community" });
             }
 
             const result = await publishingService.syncCommunityFollows();
@@ -723,9 +723,9 @@ export function createAdminRoutes(
      */
     router.get("/system/users", (req: AuthenticatedRequest, res: any) => {
         try {
-            // Only root admin can list users
-            if (!req.isRootAdmin) {
-                return res.status(403).json({ error: "Only root admin can list users" });
+            // Only admin can list users
+            if (!req.isAdmin) {
+                return res.status(403).json({ error: "Only admin can list users" });
             }
             const admins = authService.listAdmins();
             res.json(admins);
@@ -830,6 +830,7 @@ export function createAdminRoutes(
             res.status(500).json({ error: error.message || "Failed to toggle user status" });
         }
     });
+
 
     /**
      * PUT /api/admin/system/users/:id/password
@@ -968,8 +969,8 @@ export function createAdminRoutes(
      */
     router.get("/network/ap/peers", async (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!req.isRootAdmin) {
-                return res.status(403).json({ error: "Only root admin can view peers" });
+            if (!req.isAdmin) {
+                return res.status(403).json({ error: "Only admin can view peers" });
             }
             const peers = database.getFollowedActors();
             res.json(peers);
@@ -985,8 +986,8 @@ export function createAdminRoutes(
      */
     router.post("/network/ap/unfollow", async (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!req.isRootAdmin) {
-                return res.status(403).json({ error: "Only root admin can unfollow peers" });
+            if (!req.isAdmin) {
+                return res.status(403).json({ error: "Only admin can unfollow peers" });
             }
             const { url } = req.body;
             if (!url) {
@@ -1007,8 +1008,8 @@ export function createAdminRoutes(
      */
     router.post("/network/ap/sync", async (req: AuthenticatedRequest, res: any) => {
         try {
-             if (!req.isRootAdmin) {
-                return res.status(403).json({ error: "Only root admin can sync peers" });
+             if (!req.isAdmin) {
+                return res.status(403).json({ error: "Only admin can sync peers" });
             }
             const { url } = req.body;
             if (url) {
@@ -1026,6 +1027,7 @@ export function createAdminRoutes(
             res.status(500).json({ error: error.message || "Failed to sync remote actors" });
         }
     });
+
 
     return router;
 }

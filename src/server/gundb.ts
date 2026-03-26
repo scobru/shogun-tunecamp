@@ -1,6 +1,6 @@
 import Gun from "gun";
+import "gun/lib/yson.js";
 import "gun/sea.js";
-import "gun/lib/yson.js"
 
 import type { DatabaseService, Album, Track } from "./database.js";
 import { generateTrackSlug, normalizeUrl } from "../utils/audioUtils.js";
@@ -688,7 +688,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 // Update Cache
                 cache.sites = { data: sites, timestamp: Date.now() };
                 resolve(sites);
-            }, 6000);
+            }, 3000); // Reduced from 6000
         });
     }
 
@@ -821,7 +821,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             // Wait for data to collect
             setTimeout(() => {
                 console.log(`⏱️ Network scan finished. Raw tracks found: ${tracks.length}`);
-                // Deduplicate by slug (prefer secure)
+                // Deduplicate by slug (prefer secure) and limit to 500 tracks
                 const uniqueTracks = new Map();
                 for (const item of tracks) {
                     const track = item.track;
@@ -829,6 +829,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     if (!uniqueTracks.has(key) || item._secure) {
                         uniqueTracks.set(key, item);
                     }
+                    if (uniqueTracks.size >= 500) break;
                 }
                 const result = Array.from(uniqueTracks.values());
                 console.log(`🌐 Found ${result.length} unique community tracks`);
@@ -837,7 +838,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 cache.tracks = { data: result, timestamp: Date.now() };
 
                 resolve(result);
-            }, 8000);
+            }, 5000); // Reduced from 8000
         });
     }
 

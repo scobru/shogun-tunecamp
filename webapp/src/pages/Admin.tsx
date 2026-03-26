@@ -31,7 +31,7 @@ export const Admin = () => {
     | "identity"
     | "activitypub"
     | "backup"
-  >(isRootAdmin ? "users" : (isAdmin ? "users" : "releases"));
+  >(isRootAdmin ? "users" : "releases");
   const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
@@ -145,31 +145,27 @@ export const Admin = () => {
             >
               System
             </a>
-            {isRootAdmin && (
-              <>
-                <a
-                  role="tab"
-                  className={`tab ${activeTab === "identity" ? "tab-active" : ""}`}
-                  onClick={() => setActiveTab("identity")}
-                >
-                  Identity
-                </a>
-                <a
-                  role="tab"
-                  className={`tab ${activeTab === "activitypub" ? "tab-active" : ""}`}
-                  onClick={() => setActiveTab("activitypub")}
-                >
-                  ActivityPub
-                </a>
-                <a
-                  role="tab"
-                  className={`tab ${activeTab === "backup" ? "tab-active" : ""}`}
-                  onClick={() => setActiveTab("backup")}
-                >
-                  Backup
-                </a>
-              </>
-            )}
+            <a
+              role="tab"
+              className={`tab ${activeTab === "identity" ? "tab-active" : ""}`}
+              onClick={() => setActiveTab("identity")}
+            >
+              Identity
+            </a>
+            <a
+              role="tab"
+              className={`tab ${activeTab === "activitypub" ? "tab-active" : ""}`}
+              onClick={() => setActiveTab("activitypub")}
+            >
+              ActivityPub
+            </a>
+            <a
+              role="tab"
+              className={`tab ${activeTab === "backup" ? "tab-active" : ""}`}
+              onClick={() => setActiveTab("backup")}
+            >
+              Backup
+            </a>
           </>
         )}
       </div>

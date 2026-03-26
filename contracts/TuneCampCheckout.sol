@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -13,7 +13,7 @@ import "./TuneCampNFT.sol";
  * @notice Handles purchases of TuneCamp NFTs with ETH or USDC.
  * @dev Upgraded to support EIP-1167 Minimal Proxy via TuneCampFactory.
  */
-contract TuneCampCheckout is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract TuneCampCheckout is Initializable, OwnableUpgradeable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // ─── Constants ───────────────────────────────────────────────────────────
@@ -68,7 +68,6 @@ contract TuneCampCheckout is Initializable, OwnableUpgradeable, ReentrancyGuardU
         address _treasury
     ) public initializer {
         __Ownable_init(admin);
-        __ReentrancyGuard_init();
 
         require(_nft       != address(0), "Invalid NFT address");
         require(_usdc      != address(0), "Invalid USDC address");
@@ -150,13 +149,16 @@ contract TuneCampCheckout is Initializable, OwnableUpgradeable, ReentrancyGuardU
         );
     }
 
-    // ─── Admin: prices ───────────────────────────────────────────────────────
+    // ─── Artist/Admin: prices ────────────────────────────────────────────────
     function setPrice(
         uint256 trackId,
         TuneCampNFT.TokenRole role,
         uint256 _priceUSDC,
         uint256 _priceETH
-    ) external onlyOwner {
+    ) external {
+        address artist = _getArtist(trackId);
+        require(msg.sender == owner() || msg.sender == artist, "Not authorized");
+
         priceUSDC[trackId][role] = _priceUSDC;
         priceETH[trackId][role]  = _priceETH;
         emit PriceUpdated(trackId, role, _priceUSDC, _priceETH);
@@ -167,7 +169,7 @@ contract TuneCampCheckout is Initializable, OwnableUpgradeable, ReentrancyGuardU
         TuneCampNFT.TokenRole[]      calldata roles,
         uint256[]                    calldata pricesUSDC,
         uint256[]                    calldata pricesETH
-    ) external onlyOwner {
+    ) external {
         uint256 len = trackIds.length;
         require(
             len == roles.length &&
@@ -176,6 +178,9 @@ contract TuneCampCheckout is Initializable, OwnableUpgradeable, ReentrancyGuardU
             "Array length mismatch"
         );
         for (uint256 i = 0; i < len; i++) {
+            address artist = _getArtist(trackIds[i]);
+            require(msg.sender == owner() || msg.sender == artist, "Not authorized");
+
             priceUSDC[trackIds[i]][roles[i]] = pricesUSDC[i];
             priceETH[trackIds[i]][roles[i]]  = pricesETH[i];
             emit PriceUpdated(trackIds[i], roles[i], pricesUSDC[i], pricesETH[i]);

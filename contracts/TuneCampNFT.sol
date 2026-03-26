@@ -63,14 +63,18 @@ contract TuneCampNFT is Initializable, ERC1155Upgradeable, AccessControlUpgradea
         _baseMetadataURI = baseMetadataURI_;
     }
 
-    // ─── Admin: register a track ─────────────────────────────────────────────
+    // ─── Artist/Admin: register a track ─────────────────────────────────────────────
     function registerTrack(
         uint256 trackId,
         address artist,
         uint256 maxLicense,
         uint256 maxOwnership,
         uint256 maxCollectible
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external {
+        require(
+            msg.sender == artist || hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "Not authorized to register for this artist"
+        );
         require(trackArtist[trackId] == address(0), "Track already registered");
         require(artist != address(0), "Invalid artist address");
 

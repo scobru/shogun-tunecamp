@@ -248,5 +248,28 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
         }
     });
 
+    /**
+     * GET /api/stats/network/status
+     * Get summary stats for the community network
+     */
+    router.get("/network/status", async (req, res) => {
+        try {
+            const gunSites = await gundbService.getCommunitySites();
+            const gunTracks = await gundbService.getCommunityTracks();
+            const apActors = dbService.getFollowedActors();
+            const apTracks = dbService.getRemoteTracks();
+            const localReleases = dbService.getReleases(true);
+
+            res.json({
+                sites: gunSites.length + apActors.length + 1, // +1 for local
+                tracks: gunTracks.length + apTracks.length + localReleases.length,
+                lastUpdate: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error("Error getting network status:", error);
+            res.status(500).json({ error: "Failed to get network status" });
+        }
+    });
+
     return router;
 }
