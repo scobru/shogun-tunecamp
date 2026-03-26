@@ -439,7 +439,10 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             // Security Check: Ensure track is public, user is admin, or user is owner
             if (!req.isAdmin && track.owner_id !== req.artistId) {
                 if (track.album_id) {
-                    const album = database.getAlbum(track.album_id);
+                    // Try to get as formal Release first, then fallback to library Album
+                    const release = database.getRelease(track.album_id);
+                    const album = release || database.getAlbum(track.album_id);
+                    
                     if (album && album.visibility === 'private') {
                         // Check if track is in a public playlist
                         const isInPublicPlaylist = database.isTrackInPublicPlaylist(id);
