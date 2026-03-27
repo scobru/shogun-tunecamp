@@ -238,6 +238,41 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
     });
 
     /**
+     * GET /api/tracks/:id/cover
+     * Get track cover image (redirects to album cover or returns external/placeholder)
+     */
+    router.get("/:id/cover", async (req: AuthenticatedRequest, res) => {
+        try {
+            const id = parseInt(req.params.id as string, 10);
+            const track = database.getTrack(id);
+
+            if (!track) {
+                return res.status(404).json({ error: "Track not found" });
+            }
+
+            // 1. If track has external artwork, redirect to it
+            if (track.external_artwork) {
+                return res.redirect(track.external_artwork);
+            }
+
+            // 2. If track has an album, redirect to album cover
+            if (track.album_id) {
+                return res.redirect(`/api/albums/${track.album_id}/cover`);
+            }
+
+            // 3. Fallback to placeholder SVG based on track title
+            const { getPlaceholderSVG } = await import("../../utils/audioUtils.js");
+            const svg = getPlaceholderSVG(track.title || "No Cover");
+            res.setHeader("Content-Type", "image/svg+xml");
+            res.setHeader("Cache-Control", "public, max-age=3600");
+            return res.send(svg);
+        } catch (error) {
+            console.error("Error getting track cover:", error);
+            res.status(500).json({ error: "Failed to get track cover" });
+        }
+    });
+
+    /**
      * PUT /api/tracks/:id
      * Update track metadata and ID3 tags
      */

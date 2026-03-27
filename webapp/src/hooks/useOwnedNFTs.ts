@@ -104,7 +104,7 @@ export function useOwnedNFTs(address: string | null) {
                                  trackId: lookup[idx].trackId,
                                  title: trackData?.title || `Track #${lookup[idx].trackId}`,
                                  artistName: trackData?.artistName || "Unknown Artist",
-                                 coverUrl: trackData?.coverUrl || (trackData?.albumId ? API.getAlbumCoverUrl(trackData.albumId) : undefined),
+                                 coverUrl: trackData?.coverUrl || (trackData?.albumId ? API.getAlbumCoverUrl(trackData.albumId) : (lookup[idx].trackId ? API.getTrackCoverUrl(lookup[idx].trackId) : undefined)),
                                  role: lookup[idx].role,
                                  balance: Number(bal)
                              });

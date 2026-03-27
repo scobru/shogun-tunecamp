@@ -67,17 +67,6 @@ export const AlbumDetails = () => {
     );
   };
 
-  const handlePromote = async () => {
-    if (!album || !confirm("Promote this album to a public release?")) return;
-    try {
-      await API.promoteToRelease(album.id);
-      // Refresh
-      API.getAlbum(album.id).then(setAlbum);
-    } catch (e) {
-      console.error(e);
-      alert("Failed to promote");
-    }
-  };
 
   // Parse external links safely
   const externalLinks = (() => {
@@ -219,14 +208,6 @@ export const AlbumDetails = () => {
               </a>
             ))}
 
-            {isAdmin && !album.is_release && (
-              <button
-                className="btn btn-warning btn-outline btn-lg gap-2"
-                onClick={handlePromote}
-              >
-                <Shield size={20} /> Promote
-              </button>
-            )}
           </div>
         </div>
       </div>

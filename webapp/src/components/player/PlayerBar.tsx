@@ -223,6 +223,7 @@ export const PlayerBar = () => {
     currentTrack.coverImage ||
     currentTrack.coverUrl ||
     (currentTrack.albumId ? API.getAlbumCoverUrl(currentTrack.albumId) : "") ||
+    (currentTrack.id ? API.getTrackCoverUrl(currentTrack.id) : "") ||
     (currentTrack.artistId ? API.getArtistCoverUrl(currentTrack.artistId) : "")
   ) : "";
 
