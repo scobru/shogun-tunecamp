@@ -8,7 +8,6 @@ import {
   Download,
   Unlock,
   ExternalLink,
-  Shield,
   Music,
   Wallet,
   CheckCircle2,
