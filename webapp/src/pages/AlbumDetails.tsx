@@ -18,7 +18,7 @@ import { usePurchases } from "../hooks/usePurchases";
 import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
 import { useWalletStore } from "../stores/useWalletStore";
 
-import type { Album } from "../types";
+
 import { Comments } from "../components/Comments";
 
 export const AlbumDetails = () => {
@@ -101,7 +101,7 @@ export const AlbumDetails = () => {
   if (!album)
     return <div className="p-12 text-center opacity-50">Album not found.</div>;
 
-  const hasLossless = album.tracks?.some((t) => t.losslessPath);
+  const hasLossless = album.tracks?.some((t: any) => t.losslessPath);
 
   return (
     <div className="space-y-12 animate-fade-in pb-20">
@@ -237,7 +237,7 @@ export const AlbumDetails = () => {
         </div>
 
         <div className="list bg-base-200/10 rounded-[2.5rem] border border-white/5 overflow-hidden">
-          {album.tracks?.map((track, i) => {
+          {album.tracks?.map((track: any, i: number) => {
             if (!track) return null;
             const unlocked = isTrackUnlocked(track);
             return (
