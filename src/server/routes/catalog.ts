@@ -39,8 +39,18 @@ export function createCatalogRoutes(database: DatabaseService): Router {
 
             res.json({
                 stats: publicStats,
-                recentReleases,
-                recentAlbums,
+                recentReleases: recentReleases.map(r => ({
+                    ...r,
+                    artistId: r.artist_id,
+                    artistName: r.artist_name,
+                    coverImage: r.cover_path // r.cover_path is already used by frontend for albums
+                })),
+                recentAlbums: recentAlbums.map(a => ({
+                    ...a,
+                    artistId: a.artist_id,
+                    artistName: a.artist_name,
+                    coverImage: a.cover_path
+                })),
             });
         } catch (error) {
             console.error("Error getting catalog:", error);
@@ -60,7 +70,29 @@ export function createCatalogRoutes(database: DatabaseService): Router {
             }
 
             const results = database.search(query, req.isAdmin !== true);
-            res.json(results);
+            
+            // Map results to frontend format
+            const mappedResults = {
+                artists: results.artists.map(a => ({
+                    ...a,
+                    coverImage: `/api/artists/${a.id}/cover`
+                })),
+                albums: results.albums.map(a => ({
+                    ...a,
+                    artistId: a.artist_id,
+                    artistName: a.artist_name,
+                    coverImage: `/api/albums/${a.id}/cover`
+                })),
+                tracks: results.tracks.map(t => ({
+                    ...t,
+                    albumId: t.album_id,
+                    artistId: t.artist_id,
+                    artistName: t.artist_name,
+                    albumName: (t as any).album_title
+                }))
+            };
+
+            res.json(mappedResults);
         } catch (error) {
             console.error("Error searching:", error);
             res.status(500).json({ error: "Search failed" });

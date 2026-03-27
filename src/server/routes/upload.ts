@@ -547,7 +547,7 @@ export function createUploadRoutes(
 
             res.json({
                 message: "Track artwork uploaded",
-                url: `/music/${dbPath}`,
+                url: `/api/tracks/${trackId}/cover`,
                 file: { name: targetFilename, path: targetPath, size: file.size }
             });
             console.log(`✅ Track artwork upload completed for track ${trackId}`);

@@ -35,7 +35,9 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         artistName: t.artist_name,
         path: t.file_path,
         filename: t.file_path ? path.basename(t.file_path) : undefined,
-        coverUrl: t.external_artwork || (t.album_id ? `/api/albums/${t.album_id}/cover` : null)
+        // Prioritize track's own artwork API endpoint if external_artwork is present
+        // Otherwise fallback to album cover or null
+        coverUrl: t.external_artwork ? `/api/tracks/${t.id}/cover` : (t.album_id ? `/api/albums/${t.album_id}/cover` : null)
     });
 
     /**
@@ -252,7 +254,16 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
 
             // 1. If track has external artwork, redirect to it
             if (track.external_artwork) {
-                return res.redirect(track.external_artwork);
+                // If it's a full URL, redirect to it
+                if (track.external_artwork.startsWith('http')) {
+                    return res.redirect(track.external_artwork);
+                }
+                
+                // Otherwise, it's a local path relative to musicDir
+                const artworkPath = path.join(musicDir, track.external_artwork);
+                if (await fs.pathExists(artworkPath)) {
+                    return res.sendFile(path.resolve(artworkPath), { maxAge: 86400000 });
+                }
             }
 
             // 2. If track has an album, redirect to album cover

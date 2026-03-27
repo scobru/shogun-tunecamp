@@ -33,7 +33,8 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 const { private_key, ...safeArtist } = a;
                 return {
                     ...safeArtist,
-                    coverImage: a.photo_path
+                    // Use the canonical cover API URL so the frontend benefits from backend fallbacks
+                    coverImage: `/api/artists/${a.id}/cover`
                 };
             });
 
