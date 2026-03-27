@@ -195,7 +195,9 @@ export const API = {
     createTrack: (data: { title: string, albumId?: number, artistId?: number, trackNum?: number, url?: string, service?: string, externalArtwork?: string, duration?: number }) =>
         handleResponse(api.post<Track>('/tracks', data)),
     createYouTubeTrack: (url: string, albumId?: number) =>
-        handleResponse(api.post<Track>('/tracks/youtube', { url, albumId })),
+        handleResponse(api.post<Track>('/tracks/external', { url, albumId })),
+    createExternalTrack: (url: string, albumId?: number) =>
+        handleResponse(api.post<Track>('/tracks/external', { url, albumId })),
     updateTrack: (id: string | number, data: Partial<Track>) => handleResponse(api.put<Track>(`/tracks/${id}`, data)),
     deleteTrack: (id: string | number, deleteFile = false) =>
         handleResponse(api.delete(`/tracks/${id}${deleteFile ? '?deleteFile=true' : ''}`)),

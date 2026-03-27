@@ -15,7 +15,7 @@ import { IdentityPanel } from "../components/admin/IdentityPanel";
 import { ArtistFediversePanel } from "../components/artist/ArtistFediversePanel";
 import { AdminReleasesList } from "../components/admin/AdminReleasesList";
 import { AdminTracksList } from "../components/admin/AdminTracksList";
-import { AddYouTubeTrackModal } from "../components/modals/AddYouTubeTrackModal";
+import { AddExternalTrackModal } from "../components/modals/AddExternalTrackModal";
 
 export const MyMusic = () => {
   const { user, isAuthenticated, isLoading } = useAuthStore();
@@ -156,11 +156,11 @@ export const MyMusic = () => {
                     className="btn btn-accent btn-outline gap-2"
                     onClick={() =>
                       document.dispatchEvent(
-                        new CustomEvent("open-add-youtube-modal"),
+                        new CustomEvent("open-add-external-modal"),
                       )
                     }
                   >
-                    🔗 Add YouTube Track
+                    🔗 Add from Link
                   </button>
                 </>
               )}
@@ -244,7 +244,7 @@ export const MyMusic = () => {
           window.dispatchEvent(new CustomEvent("refresh-admin-releases"))
         }
       />
-      <AddYouTubeTrackModal
+      <AddExternalTrackModal
         onComplete={() =>
           window.dispatchEvent(new CustomEvent("refresh-admin-tracks"))
         }

@@ -19,6 +19,7 @@ import type { AuthService } from "../auth.js";
 import type { PublishingService } from "../publishing.js";
 import { metadataService } from "../metadata.js";
 import play from "play-dl";
+import { fetchExternalMetadata } from "../utils/externalMetadata.js";
 
 export function createTracksRoutes(database: DatabaseService, publishingService: PublishingService, musicDir: string, authService?: AuthService): Router {
     const router = Router();
@@ -253,6 +254,56 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         } catch (error) {
             console.error("YouTube metadata fetch error:", error);
             res.status(500).json({ error: "Failed to fetch YouTube metadata: " + (error as Error).message });
+        }
+    });
+
+    /**
+     * POST /api/tracks/external
+     * Create a new track from an external URL (YouTube, SoundCloud, Bandcamp)
+     */
+    router.post("/external", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin && !req.artistId) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        try {
+            const { url, albumId } = req.body;
+            if (!url) {
+                return res.status(400).json({ error: "URL is required" });
+            }
+
+            const metadata = await fetchExternalMetadata(url);
+
+            // Security: Use current artistId as owner/artist
+            const finalArtistId = req.artistId || null;
+
+            const trackId = database.createTrack({
+                title: metadata.title,
+                album_id: albumId || null,
+                artist_id: finalArtistId,
+                owner_id: finalArtistId,
+                track_num: null,
+                duration: metadata.duration,
+                file_path: null,
+                format: "external",
+                bitrate: null,
+                sample_rate: null,
+                lossless_path: null,
+                url: url, // Store original URL
+                service: metadata.service,
+                external_artwork: metadata.thumbnail,
+                price: 0,
+                price_usdc: 0,
+                currency: 'ETH',
+                waveform: null,
+                lyrics: null
+            });
+
+            const newTrack = database.getTrack(trackId);
+            res.status(201).json(mapTrack(newTrack));
+        } catch (error) {
+            console.error("External metadata fetch error:", error);
+            res.status(500).json({ error: "Failed to fetch metadata: " + (error as Error).message });
         }
     });
 
@@ -558,30 +609,53 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
 
             if (!track.file_path) {
                 if (track.url) {
-                    // Optimized YouTube streaming with play-dl
-                    if (track.service === 'youtube' || track.url.includes('youtube.com') || track.url.includes('youtu.be')) {
+                    // Optimized External streaming
+                    const isYouTube = track.service === 'youtube' || track.url.includes('youtube.com') || track.url.includes('youtu.be');
+                    const isSoundCloud = track.service === 'soundcloud' || track.url.includes('soundcloud.com');
+                    const isBandcamp = track.service === 'bandcamp' || track.url.includes('bandcamp.com') || track.url.includes('bcbits.com');
+
+                    if (isYouTube || isSoundCloud) {
                         try {
-                            console.log(`[Stream] Fetching YouTube stream for: ${track.url}`);
+                            console.log(`[Stream] Fetching ${track.service} stream for: ${track.url}`);
                             const stream = await play.stream(track.url);
                             
                             res.setHeader("Content-Type", "audio/mpeg");
                             res.setHeader("Transfer-Encoding", "chunked");
 
-                            // Use ffmpeg to transcode to MP3 for maximum browser compatibility
+                            // Use ffmpeg for both YT and SC to ensure standard format
                             ffmpeg(stream.stream)
                                 .format('mp3')
                                 .audioBitrate('128k')
                                 .on('error', (err) => {
                                     if (!err.message.includes("Output stream closed") && !err.message.includes("SIGKILL")) {
-                                        console.error('[Stream] YouTube Transcoding error:', err.message);
+                                        console.error(`[Stream] ${track.service} Transcoding error:`, err.message);
                                     }
                                 })
                                 .pipe(res, { end: true });
                             
                             return;
                         } catch (err) {
-                            console.error("[Stream] YouTube stream error:", err);
-                            // Fallback to basic fetch if play-dl fails (though unlikely to work for YT)
+                            console.error(`[Stream] ${track.service} stream error:`, err);
+                        }
+                    }
+
+                    if (isBandcamp) {
+                        try {
+                            console.log(`[Stream] Fetching Bandcamp stream for: ${track.url}`);
+                            // For Bandcamp, we need to resolve the audio URL first
+                            const metadata = await fetchExternalMetadata(track.url);
+                            if (metadata.url && metadata.url !== track.url) {
+                                const response = await fetch(metadata.url);
+                                if (response.ok) {
+                                    res.setHeader("Content-Type", response.headers.get("content-type") || "audio/mpeg");
+                                    res.setHeader("Content-Length", response.headers.get("content-length") || "");
+                                    // @ts-ignore
+                                    response.body.pipe(res);
+                                    return;
+                                }
+                            }
+                        } catch (err) {
+                            console.error("[Stream] Bandcamp stream proxy error:", err);
                         }
                     }
 
