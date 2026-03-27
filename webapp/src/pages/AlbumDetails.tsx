@@ -20,6 +20,7 @@ import { useWalletStore } from "../stores/useWalletStore";
 
 
 import { Comments } from "../components/Comments";
+import { Camera, Loader2 } from "lucide-react";
 
 export const AlbumDetails = () => {
   const { idOrSlug } = useParams();
@@ -38,6 +39,25 @@ export const AlbumDetails = () => {
     return isPurchased(track.id) || 
            ownedNFTs.some(n => n.trackId === Number(track.id)) ||
            (user?.artistId && (String(track.artistId) === String(user.artistId) || String(album?.artistId) === String(user.artistId)));
+  };
+
+  const [uploading, setUploading] = useState(false);
+  const isOwnerOrAdmin = isAdmin || (user?.artistId && String(album?.owner_id) === String(user.artistId));
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0] || !album) return;
+    setUploading(true);
+    try {
+      await API.uploadAlbumCover(album.id, e.target.files[0]);
+      // Force refresh album data to show new cover
+      const data = await (isRelease ? API.getRelease(idOrSlug!) : API.getAlbum(idOrSlug!));
+      setAlbum(data);
+    } catch (err) {
+      console.error("Upload failed:", err);
+      alert("Failed to upload cover");
+    } finally {
+      setUploading(false);
+    }
   };
 
   useEffect(() => {
@@ -118,16 +138,30 @@ export const AlbumDetails = () => {
         </div>
 
         <div className="relative z-10 flex flex-col md:flex-row gap-8 lg:gap-12 p-8 lg:p-12 items-center md:items-end">
-          <div className="shrink-0">
-            <img
-              src={isRelease ? API.getReleaseCoverUrl(album.id, coverVersion) : API.getAlbumCoverUrl(album.id, coverVersion)}
-              alt={album.title}
-              className="w-56 h-56 md:w-72 md:h-72 rounded-[2rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] object-cover ring-1 ring-white/10"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = "https://via.placeholder.com/500?text=No+Cover";
-              }}
-            />
-          </div>
+            <div className="relative group/cover">
+              <img
+                src={isRelease ? API.getReleaseCoverUrl(album.id, coverVersion) : API.getAlbumCoverUrl(album.id, coverVersion)}
+                alt={album.title}
+                className="w-56 h-56 md:w-72 md:h-72 rounded-[2rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] object-cover ring-1 ring-white/10"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "https://via.placeholder.com/500?text=No+Cover";
+                }}
+              />
+              
+              {!isRelease && isOwnerOrAdmin && (
+                <label className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 opacity-0 group-hover/cover:opacity-100 transition-opacity cursor-pointer rounded-[2rem] border-2 border-dashed border-white/20 hover:border-primary/50">
+                  {uploading ? (
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  ) : (
+                    <>
+                      <Camera className="w-8 h-8 text-white mb-2" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white">Upload Cover</span>
+                    </>
+                  )}
+                  <input type="file" className="hidden" accept="image/*" onChange={handleCoverUpload} disabled={uploading} />
+                </label>
+              )}
+            </div>
 
           <div className="flex-1 space-y-6 text-center md:text-left">
             <div className="space-y-2">

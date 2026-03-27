@@ -4,6 +4,7 @@ import path from "path";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { getPlaceholderSVG } from "../../utils/audioUtils.js";
+import multer from "multer";
 
 export function createAlbumsRoutes(database: DatabaseService, musicDir: string): Router {
     const router = Router();
@@ -150,9 +151,26 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             if (!album || !album.cover_path) {
                 if (album) {
                     const tracks = database.getTracks(album.id);
+                    
+                    // 1. Check external_artwork (already used by tracks)
                     const externalCover = tracks.find(t => t.external_artwork)?.external_artwork;
                     if (externalCover) {
                         return res.redirect(externalCover);
+                    }
+
+                    // 2. NEW: Try to find a cover.jpg/png in the same directory as the first track
+                    if (tracks.length > 0 && tracks[0].file_path) {
+                        const albumDir = path.dirname(path.join(musicDir, tracks[0].file_path));
+                        const possibleCovers = ['cover.jpg', 'cover.png', 'folder.jpg', 'folder.png', 'album.jpg', 'album.png'];
+                        for (const name of possibleCovers) {
+                            const p = path.join(albumDir, name);
+                            if (await fs.pathExists(p)) {
+                                // Update DB for future requests
+                                const relPath = path.relative(musicDir, p);
+                                database.updateAlbumCover(album.id, relPath);
+                                return res.sendFile(path.resolve(p), { maxAge: 86400000 });
+                            }
+                        }
                     }
                 }
 
@@ -228,6 +246,58 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
         } catch (error) {
             console.error("Error downloading album:", error);
             res.status(500).json({ error: "Failed to download album" });
+        }
+    });
+
+    /**
+     * POST /api/albums/:id/cover
+     * Upload an album cover for a library album
+     */
+    const upload = multer({ dest: path.join(musicDir, '.temp') });
+
+    router.post("/:id/cover", (upload.single('cover') as any), async (req: any, res: any) => {
+        const authReq = req as AuthenticatedRequest;
+        if (!authReq.isAdmin && !authReq.artistId) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        try {
+            const id = parseInt(req.params.id, 10);
+            const album = database.getAlbum(id);
+            if (!album) {
+                return res.status(404).json({ error: "Album not found" });
+            }
+
+            // Permission Check: Artist can only update their own albums
+            if (!authReq.isAdmin && album.owner_id !== authReq.artistId) {
+                return res.status(403).json({ error: "Access denied" });
+            }
+
+            if (!req.file) {
+                return res.status(400).json({ error: "No file uploaded" });
+            }
+
+            const tracks = database.getTracks(album.id);
+            let destDir = musicDir;
+            if (tracks.length > 0 && tracks[0].file_path) {
+                destDir = path.dirname(path.join(musicDir, tracks[0].file_path));
+            } else {
+                destDir = path.join(musicDir, 'covers', album.slug || String(album.id));
+                await fs.ensureDir(destDir);
+            }
+
+            const ext = path.extname(req.file.originalname) || '.jpg';
+            const finalPath = path.join(destDir, 'cover' + ext);
+            
+            await fs.move(req.file.path, finalPath, { overwrite: true });
+            
+            const relPath = path.relative(musicDir, finalPath);
+            database.updateAlbumCover(id, relPath);
+
+            res.json({ success: true, coverPath: relPath });
+        } catch (error) {
+            console.error("Error uploading cover:", error);
+            res.status(500).json({ error: "Upload failed" });
         }
     });
 

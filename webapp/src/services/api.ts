@@ -227,13 +227,17 @@ export const API = {
     },
     uploadCover: (file: File, releaseSlug?: string) => {
         const formData = new FormData();
-        // Append file FIRST to help some parsers
         formData.append('file', file);
         if (releaseSlug) {
             formData.append('releaseSlug', releaseSlug);
             formData.append('type', 'release');
         }
         return handleResponse(api.post('/admin/upload/cover', formData));
+    },
+    uploadAlbumCover: (id: string | number, file: File) => {
+        const formData = new FormData();
+        formData.append('cover', file);
+        return handleResponse(api.post<{ success: boolean, coverPath: string }>(`/albums/${id}/cover`, formData));
     },
 
     uploadTrackArtwork: (trackId: string, file: File) => {
