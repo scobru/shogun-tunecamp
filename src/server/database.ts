@@ -74,6 +74,7 @@ export interface Album {
     published_to_gundb: boolean; // specific toggle for GunDB
     published_to_ap: boolean; // specific toggle for ActivityPub
     published_at: string | null;
+    use_nft?: boolean | number;
     walletAddress?: string;
     created_at: string;
 }
@@ -550,6 +551,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       published_to_gundb INTEGER DEFAULT 0,
       published_to_ap INTEGER DEFAULT 0,
       published_at TEXT,
+      use_nft INTEGER DEFAULT 1,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -1403,6 +1405,17 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.error("Migration error (ownership backfill):", e);
     }
 
+    try {
+        db.exec(`
+            ALTER TABLE albums ADD COLUMN use_nft INTEGER DEFAULT 1;
+        `);
+        console.log("📦 Migrated database: added use_nft to albums table");
+    } catch (e: any) {
+        if (!e.message.includes("duplicate column name")) {
+             console.error("Migration error (albums use_nft):", e);
+        }
+    }
+
     // Optimized: Pre-compile frequent queries
     const getArtistStmt = db.prepare("SELECT * FROM artists WHERE id = ?");
     const getAlbumStmt = db.prepare(`SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
@@ -1680,6 +1693,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             const duration = metadata?.duration || libraryTrack?.duration || 0;
             const filePath = metadata?.file_path || libraryTrack?.file_path || null;
             const price = metadata?.price || 0;
+            const priceUsdc = metadata?.price_usdc || 0;
             const currency = metadata?.currency || 'ETH';
 
             // Auto-calculate track_num if not provided
@@ -1690,9 +1704,9 @@ export function createDatabase(dbPath: string): DatabaseService {
             }
 
             const result = db.prepare(`
-                INSERT INTO release_tracks (release_id, track_id, title, artist_name, track_num, duration, file_path, price, currency)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(releaseId, effectiveTrackId, title, artistName, trackNum, duration, filePath, price, currency);
+                INSERT INTO release_tracks (release_id, track_id, title, artist_name, track_num, duration, file_path, price, price_usdc, currency)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(releaseId, effectiveTrackId, title, artistName, trackNum, duration, filePath, price, priceUsdc, currency);
 
             return result.lastInsertRowid as number;
         },

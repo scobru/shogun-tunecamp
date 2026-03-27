@@ -101,8 +101,8 @@ export const Sidebar = () => {
           <NavItem to="/my-playlists" icon={Heart} label="My Playlists" />
         )}
         <NavItem to="/stats" icon={BarChart2} label="Stats" />
-        {/* File browser - admin only */}
-        {isAdmin && isAuthenticated && (
+        {/* File browser - super root only */}
+        {user?.isRootAdmin && isAuthenticated && (
           <NavItem to="/browser" icon={Folder} label="Files" />
         )}
         {/* Upload shortcut - for registered users (both admin and user) */}
@@ -142,8 +142,8 @@ export const Sidebar = () => {
             </Link>
  
             <div className="flex flex-col gap-2 items-center">
-              {/* Admin Settings - only for admin role */}
-              {isAdmin && (
+              {/* Admin Settings - only for super root admins */}
+              {user?.isRootAdmin && (
                 <Link
                   to="/admin"
                   className="btn btn-ghost btn-sm btn-circle text-primary tooltip tooltip-right z-50"

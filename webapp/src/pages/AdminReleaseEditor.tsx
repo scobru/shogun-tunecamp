@@ -670,7 +670,7 @@ export default function AdminReleaseEditor() {
                             }}
                           />
                         </label>
-                        <label className="input input-sm input-bordered flex items-center gap-1 group-focus-within:border-primary w-28">
+                        <label className="input input-sm input-bordered flex items-center gap-1 group-focus-within:border-primary w-36">
                           <span className="opacity-50 text-[10px]">USDC</span>
                           <input
                             type="number"

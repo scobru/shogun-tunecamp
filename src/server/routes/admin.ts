@@ -32,10 +32,14 @@ export function createAdminRoutes(
             const showMine = req.query.mine === 'true';
             let releases: any[] = [];
             
-            if (req.isAdmin && !showMine) {
+            if (req.isRootAdmin && !showMine) {
                 releases = database.getReleases(false).map(r => ({ ...r, is_formal_release: true }));
             } else if (req.artistId) {
                 releases = database.getReleasesByOwner(req.artistId, false).map(r => ({ ...r, is_formal_release: true }));
+            } else if (req.isAdmin) {
+                // If standard admin but no artistId, show nothing global
+                res.json([]);
+                return;
             } else {
                 res.json([]);
                 return;
@@ -114,14 +118,10 @@ export function createAdminRoutes(
 
 
 
-    /**
-     * GET /api/admin/stats
-     * Get admin statistics
-     */
     router.get("/stats", async (req: AuthenticatedRequest, res: any) => {
         try {
             const showMine = req.query.mine === 'true';
-            const stats = await database.getStats((req.isAdmin && !showMine) ? undefined : (req.artistId || undefined));
+            const stats = await database.getStats((req.isRootAdmin && !showMine) ? undefined : (req.artistId || undefined));
             res.json(stats);
         } catch (error) {
             console.error("Error getting stats:", error);
@@ -134,7 +134,7 @@ export function createAdminRoutes(
      * Get all site settings
      */
     router.get("/settings", (req: AuthenticatedRequest, res: any) => {
-        if (!req.isAdmin) return res.status(403).json({ error: "Admin access required" });
+        if (!req.isRootAdmin) return res.status(403).json({ error: "Super Root access required" });
         try {
             const settings = database.getAllSettings();
             res.json(settings);
@@ -319,9 +319,9 @@ export function createAdminRoutes(
      */
     router.post("/system/sync", async (req: AuthenticatedRequest, res: any) => {
         try {
-            // Only admin can force sync
-            if (!req.isAdmin) {
-                return res.status(403).json({ error: "Only admin can force sync" });
+            // Only super root admin can force sync
+            if (!req.isRootAdmin) {
+                return res.status(403).json({ error: "Only super root admin can force sync" });
             }
             await gundbService.syncNetwork();
             res.json({ message: "Network sync completed" });
@@ -337,9 +337,9 @@ export function createAdminRoutes(
      */
     router.post("/system/consolidate", async (req: AuthenticatedRequest, res: any) => {
         try {
-            // Only admin can trigger consolidation
-            if (!req.isAdmin) {
-                return res.status(403).json({ error: "Only admin can trigger file consolidation" });
+            // Only super root admin can trigger consolidation
+            if (!req.isRootAdmin) {
+                return res.status(403).json({ error: "Only super root admin can trigger file consolidation" });
             }
 
             const result = await scanner.consolidateFiles(musicDir);
@@ -359,9 +359,9 @@ export function createAdminRoutes(
      */
     router.post("/network/cleanup", async (req: AuthenticatedRequest, res: any) => {
         try {
-            // Only admin can trigger global cleanup
-            if (!req.isAdmin) {
-                return res.status(403).json({ error: "Only admin can trigger global network cleanup" });
+            // Only super root admin can trigger global cleanup
+            if (!req.isRootAdmin) {
+                return res.status(403).json({ error: "Only super root admin can trigger global network cleanup" });
             }
 
             // This can take a while, so we don't await it here if we want to return immediately,
@@ -382,8 +382,8 @@ export function createAdminRoutes(
      */
     router.post("/network/sync-community", async (req: AuthenticatedRequest, res: any) => {
         try {
-            if (!req.isAdmin) {
-                return res.status(403).json({ error: "Only admin can sync community" });
+            if (!req.isRootAdmin) {
+                return res.status(403).json({ error: "Only super root admin can sync community" });
             }
 
             const result = await publishingService.syncCommunityFollows();
@@ -444,7 +444,11 @@ export function createAdminRoutes(
             if (body.visibility) updates.visibility = body.visibility;
             if (body.download !== undefined) updates.download = body.download;
             if (body.price !== undefined) updates.price = body.price;
+            if (body.priceUsdc !== undefined) updates.price_usdc = body.priceUsdc;
             if (body.currency) updates.currency = body.currency;
+            if (body.use_nft !== undefined) {
+                updates.use_nft = body.use_nft ? 1 : 0;
+            }
             if (body.genres) {
                 const genreStr = Array.isArray(body.genres) ? body.genres.join(", ") : body.genres;
                 updates.genre = genreStr;
@@ -523,6 +527,7 @@ export function createAdminRoutes(
                             database.updateReleaseTrackMetadata(id, td.id, {
                                 title: td.title,
                                 price: td.price,
+                                price_usdc: td.priceUsdc,
                                 currency: td.currency || 'ETH'
                             });
                         }

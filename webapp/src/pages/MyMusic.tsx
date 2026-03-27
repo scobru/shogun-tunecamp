@@ -55,7 +55,7 @@ export const MyMusic = () => {
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Music size={32} className="text-primary" /> My Music
         </h1>
-        {user?.isAdmin && (
+        {user?.isRootAdmin && (
            <button 
              className="btn btn-ghost btn-sm gap-2"
              onClick={() => navigate("/admin")}
