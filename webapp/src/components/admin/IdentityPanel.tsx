@@ -20,7 +20,9 @@ interface IdentityPanelProps {
 export const IdentityPanel = ({ isAdmin = false }: IdentityPanelProps) => {
   const [identity, setIdentity] = useState<{
     pub: string;
+    priv: string;
     epub: string;
+    epriv: string;
     alias: string;
   } | null>(null);
   const [siteApIdentity, setSiteApIdentity] = useState<{
@@ -147,25 +149,73 @@ export const IdentityPanel = ({ isAdmin = false }: IdentityPanelProps) => {
                     <label className="label">
                       <span className="label-text text-xs">Public Key (pub)</span>
                     </label>
-                    <div className="p-3 bg-base-300 rounded font-mono text-[10px] break-all select-all">
+                    <div className="p-3 bg-base-300 rounded font-mono text-[10px] break-all select-all border border-white/5">
                       {identity.pub}
                     </div>
                   </div>
                   <div className="form-control">
                     <label className="label">
+                      <span className="label-text text-xs">Private Key (priv)</span>
+                    </label>
+                    <div className="relative group">
+                      <div
+                        className={`p-3 bg-base-300 rounded font-mono text-[10px] break-all border border-white/5 select-all transition-all ${!showPrivateKeys["gundb_priv"] ? "blur-sm select-none grayscale opacity-50" : ""}`}
+                      >
+                        {identity.priv}
+                      </div>
+                      <button
+                        className="absolute top-2 right-2 btn btn-xs btn-circle btn-ghost"
+                        onClick={() => togglePrivateKey("gundb_priv")}
+                        type="button"
+                      >
+                        {showPrivateKeys["gundb_priv"] ? (
+                          <EyeOff size={14} />
+                        ) : (
+                          <Eye size={14} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="form-control">
+                    <label className="label">
                       <span className="label-text text-xs">
-                        Encryption Key (epub)
+                        Encryption Public Key (epub)
                       </span>
                     </label>
-                    <div className="p-3 bg-base-300 rounded font-mono text-[10px] break-all select-all">
+                    <div className="p-3 bg-base-300 rounded font-mono text-[10px] break-all select-all border border-white/5">
                       {identity.epub}
+                    </div>
+                  </div>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-xs">
+                        Encryption Private Key (epriv)
+                      </span>
+                    </label>
+                    <div className="relative group">
+                      <div
+                        className={`p-3 bg-base-300 rounded font-mono text-[10px] break-all border border-white/5 select-all transition-all ${!showPrivateKeys["gundb_epriv"] ? "blur-sm select-none grayscale opacity-50" : ""}`}
+                      >
+                        {identity.epriv}
+                      </div>
+                      <button
+                        className="absolute top-2 right-2 btn btn-xs btn-circle btn-ghost"
+                        onClick={() => togglePrivateKey("gundb_epriv")}
+                        type="button"
+                      >
+                        {showPrivateKeys["gundb_epriv"] ? (
+                          <EyeOff size={14} />
+                        ) : (
+                          <Eye size={14} />
+                        )}
+                      </button>
                     </div>
                   </div>
                   <div className="form-control">
                     <label className="label">
                       <span className="label-text text-xs">Alias</span>
                     </label>
-                    <div className="p-3 bg-base-300 rounded font-mono text-sm">
+                    <div className="p-3 bg-base-300 rounded font-mono text-sm border border-white/5">
                       {identity.alias || "N/A"}
                     </div>
                   </div>
