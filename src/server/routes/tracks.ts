@@ -561,10 +561,23 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                     // Optimized YouTube streaming with play-dl
                     if (track.service === 'youtube' || track.url.includes('youtube.com') || track.url.includes('youtu.be')) {
                         try {
+                            console.log(`[Stream] Fetching YouTube stream for: ${track.url}`);
                             const stream = await play.stream(track.url);
+                            
                             res.setHeader("Content-Type", "audio/mpeg");
-                            // play-dl streams are already optimized for streaming
-                            stream.stream.pipe(res);
+                            res.setHeader("Transfer-Encoding", "chunked");
+
+                            // Use ffmpeg to transcode to MP3 for maximum browser compatibility
+                            ffmpeg(stream.stream)
+                                .format('mp3')
+                                .audioBitrate('128k')
+                                .on('error', (err) => {
+                                    if (!err.message.includes("Output stream closed") && !err.message.includes("SIGKILL")) {
+                                        console.error('[Stream] YouTube Transcoding error:', err.message);
+                                    }
+                                })
+                                .pipe(res, { end: true });
+                            
                             return;
                         } catch (err) {
                             console.error("[Stream] YouTube stream error:", err);
