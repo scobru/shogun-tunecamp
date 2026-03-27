@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=JetBrains+Mono:wght@100..800&display=swap");
 @plugin "daisyui";
 
 @plugin "daisyui/theme" {
@@ -7,52 +8,50 @@
   prefersdark: true;
   color-scheme: dark;
 
-  /* Material Expressive 3 - Dark Theme */
-  /* Surface tones with slight Primary tint (Deep Violet/Black) */
-  --color-base-100: oklch(12% 0.01 280); /* Surface */
-  --color-base-200: oklch(17% 0.02 280); /* Surface Container Low */
-  --color-base-300: oklch(22% 0.03 280); /* Surface Container */
+  /* Monochrome / Minimalist Theme */
+  --color-base-100: oklch(10% 0.01 280); /* Deep surface */
+  --color-base-200: oklch(14% 0.01 280); /* Elevated surface */
+  --color-base-300: oklch(18% 0.02 280); /* Interactive surface */
   --color-base-content: oklch(98% 0.005 280);
 
   /* Primary - Vivid Violet (Key Color) */
   --color-primary: oklch(65% 0.28 290);
-  --color-primary-content: oklch(10% 0.1 290);
+  --color-primary-content: oklch(100% 0 0);
 
-  /* Secondary - Pink/Magenta (Analogous) */
-  --color-secondary: oklch(70% 0.25 330);
-  --color-secondary-content: oklch(10% 0.1 330);
+  /* Secondary - Neutral Grey for minimal look */
+  --color-secondary: oklch(60% 0.02 280);
+  --color-secondary-content: oklch(100% 0 0);
 
-  /* Accent/Tertiary - Electric Cyan (Contrasting) */
-  --color-accent: oklch(75% 0.22 190);
-  --color-accent-content: oklch(10% 0.08 190);
+  /* Accent - Subtle Cyan */
+  --color-accent: oklch(75% 0.15 190);
+  --color-accent-content: oklch(10% 0.05 190);
 
   /* Functional Colors */
-  --color-neutral: oklch(30% 0.02 280);
+  --color-neutral: oklch(25% 0.01 280);
   --color-neutral-content: oklch(98% 0.005 280);
-  --color-info: oklch(70% 0.18 240);
-  --color-success: oklch(68% 0.22 145);
-  --color-warning: oklch(85% 0.2 85);
-  --color-error: oklch(65% 0.25 30);
+  --color-info: oklch(70% 0.12 240);
+  --color-success: oklch(65% 0.18 145);
+  --color-warning: oklch(80% 0.15 85);
+  --color-error: oklch(60% 0.2 30);
 
-  /* Material 3 Shapes */
-  --radius-selector: 0.5rem; /* Small components */
-  --radius-field: 1rem; /* Text fields */
-  --radius-box: 1.5rem; /* Cards/Large containers */
+  /* Minimalist Shapes */
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
 
-  /* M3 Specifics */
-  --rounded-btn: 1.9rem; /* Capsule shape for buttons */
-  --rounded-badge: 1rem;
-  --tab-radius: 0.5rem;
+  --rounded-btn: 0.5rem; /* Less rounded for a sharper, cleaner look */
+  --rounded-badge: 0.25rem;
+  --tab-radius: 0.25rem;
 
-  --border-btn: 0px; /* M3 buttons usually don't have borders unless outlined */
-  --animation-btn: 0.25s;
+  --border-btn: 1px; /* Subtle borders */
+  --animation-btn: 0.2s;
   --btn-focus-scale: 0.98;
 
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
 
   --border: 1px;
-  --depth: 1;
+  --depth: 0; /* Remove 3D depth for a flatter, more modern look */
   --noise: 0;
 }
 

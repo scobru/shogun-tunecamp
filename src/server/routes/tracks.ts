@@ -24,6 +24,19 @@ import { fetchExternalMetadata } from "../utils/externalMetadata.js";
 export function createTracksRoutes(database: DatabaseService, publishingService: PublishingService, musicDir: string, authService?: AuthService): Router {
     const router = Router();
 
+    // Configure play-dl cookies if present in settings to bypass bot detection (YouTube)
+    const youtubeCookie = database.getSetting("youtube_cookie");
+    if (youtubeCookie) {
+        console.log("🍪 [Tracks] Configuring play-dl with YouTube cookies from database settings");
+        play.setToken({
+            youtube: {
+                cookie: youtubeCookie
+            }
+        }).catch(err => console.error("❌ [Tracks] Failed to set play-dl cookies:", err));
+    } else {
+        console.log("💡 [Tracks] No youtube_cookie found in settings. Some external YouTube streams might be blocked.");
+    }
+
     const mapTrack = (t: any) => ({
         ...t,
         albumId: t.album_id,
@@ -634,8 +647,11 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                                 .pipe(res, { end: true });
                             
                             return;
-                        } catch (err) {
+                        } catch (err: any) {
                             console.error(`[Stream] ${track.service} stream error:`, err);
+                            if (err.message && err.message.includes("Sign in to confirm you’re not a bot")) {
+                                console.error("🚨 [Stream] YouTube detected a bot! Cookies are REQUIRED to bypass this. Add 'youtube_cookie' to your settings.");
+                            }
                         }
                     }
 

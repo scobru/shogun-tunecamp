@@ -148,9 +148,27 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             // Authenticate
             const user = gun.user();
+            
+            // DIAGNOSTIC: Validate serverPair before auth to prevent "0 length key!"
+            if (serverPair) {
+                const missing = ['pub', 'priv', 'epub', 'epriv'].filter(k => !serverPair[k] || serverPair[k].length === 0);
+                if (missing.length > 0) {
+                    console.error(`🚨 [GunDB] Server Identity is CORRUPTED! Empty keys: ${missing.join(', ')}. This will cause "0 length key!" errors.`);
+                    // Potentially clear it if it's completely broken
+                    if (missing.includes('priv') || missing.includes('pub')) {
+                         console.warn("⚠️  Server identity is unusable. Recommend clearing 'gunPair' setting.");
+                    }
+                }
+            } else {
+                console.error("🚨 [GunDB] NO Server Identity (serverPair) found before authentication!");
+            }
+
             user.auth(serverPair, (ack: any) => {
                 if (ack.err) {
                     console.error("❌ Failed to authenticate GunDB user:", ack.err);
+                    if (ack.err === '0 length key!') {
+                        console.error("🚨 [GunDB] CONFIRMED: 0 length key error during authentication.");
+                    }
                 } else {
                     console.log(`🔐 GunDB Authenticated as pubKey: ${serverPair.pub.slice(0, 8)}...`);
                 }
@@ -245,9 +263,18 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 const user = gun.user();
 
                 // 1. Write to Private Node (User Graph) --> Signed by us
+                if (!user.is) {
+                    console.error("🚨 [GunDB] Cannot register site: User is NOT authenticated!");
+                    resolve(false);
+                    return;
+                }
+
                 user.get('tunecamp').get('profile').put(siteRecord, async (ack: any) => {
                     if (ack.err) {
                         console.warn("Failed to write to user graph:", ack.err);
+                        if (ack.err === '0 length key!') {
+                            console.error("🚨 [GunDB] 0 length key! error while writing to secure graph. Possible corruption.");
+                        }
 
                         // Check for corruption (JSON error)
                         const isJsonError = (typeof ack.err === 'string' && ack.err.includes("JSON error")) ||
@@ -332,6 +359,12 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         const artistName = album.artist_name || siteInfo.artistName || "";
 
         const attemptRegisterTracks = async (retryCount = 0): Promise<boolean> => {
+            const user = gun.user();
+            if (!user.is) {
+                console.error("🚨 [GunDB] Cannot register tracks: User is NOT authenticated!");
+                return false;
+            }
+
             const promises = tracks.map(track => {
                 const trackSlug = generateTrackSlug(album.title, track.title);
                 const cleanBaseUrl = normalizeUrl(baseUrl);

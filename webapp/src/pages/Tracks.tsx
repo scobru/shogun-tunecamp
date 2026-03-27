@@ -1,11 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import API from "../services/api";
 import {
-  Music,
   Play,
   Heart,
   MoreHorizontal,
-  Clock,
   Search,
   Wallet,
   CheckCircle2,
@@ -27,7 +25,7 @@ export const Tracks = () => {
   const [filter, setFilter] = useState("");
   const { playTrack } = usePlayerStore();
   const { isAuthenticated, isAdminAuthenticated, user } = useAuthStore();
-  const { isPurchased, verifyAndGetCode } = usePurchases();
+  const { isPurchased } = usePurchases();
   const { address, externalAddress, useExternalWallet, isExternalConnected } = useWalletStore();
   const activeAddress = useExternalWallet && isExternalConnected ? externalAddress : address;
   const { ownedNFTs } = useOwnedNFTs(activeAddress);
@@ -89,223 +87,126 @@ export const Tracks = () => {
     return <div className="p-12 text-center opacity-50">Loading tracks...</div>;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Music size={32} className="text-primary" /> Tracks
-        </h1>
+    <div className="space-y-8 min-h-screen pb-20">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
+        <div className="space-y-2">
+          <h1 className="text-4xl lg:text-6xl font-black tracking-tighter uppercase">
+            Tracks
+          </h1>
+          <p className="text-sm opacity-40 font-medium tracking-widest uppercase">
+            Explore the complete audio library ({tracks.length})
+          </p>
+        </div>
 
-        <div className="relative">
+        <div className="relative group max-w-md w-full">
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50"
-            size={16}
+            className="absolute left-4 top-1/2 -translate-y-1/2 opacity-20 group-focus-within:opacity-100 transition-opacity"
+            size={18}
           />
           <input
             type="text"
             aria-label="Filter tracks"
-            placeholder="Filter tracks..."
-            className="input input-sm input-bordered pl-10 w-64"
+            placeholder="Search titles, artists, albums..."
+            className="input input-lg bg-base-200/50 border-white/5 focus:border-primary/30 w-full pl-12 rounded-2xl transition-all"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="overflow-x-auto bg-base-200/30 rounded-xl border border-white/5 min-h-[400px]">
-        <table className="table w-full table-sm md:table-md">
-          <thead>
-            <tr className="border-b border-white/10 text-xs uppercase opacity-50">
-              <th className="w-12 text-center">#</th>
-              <th>Title</th>
-              <th>Album</th>
-              <th className="text-right">
-                <Clock size={16} />
-              </th>
-              <th className="w-12"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTracks.slice(0, 100).map((track, i) => {
-              if (!track || !track.title) return null;
-              return (
-                <tr
-                  key={track.id}
-                  className="hover:bg-white/5 group border-b border-white/5 last:border-0 transition-colors focus-within:bg-white/5"
-                >
-                  <td className="text-center font-mono w-12 relative">
-                    <span className="opacity-50 group-hover:opacity-0 group-focus-within:opacity-0 transition-opacity absolute inset-0 flex items-center justify-center pointer-events-none">
-                      {i + 1}
-                    </span>
-                    <button
+      <div className="space-y-2">
+        <div className="list bg-base-200/20 rounded-[2rem] border border-white/5 overflow-hidden">
+          {filteredTracks.slice(0, 100).map((track, i) => {
+            if (!track || !track.title) return null;
+            const isLiked = track.liked || likedTrackIds.has(String(track.id));
+            const purchased = isPurchased(String(track.id)) || 
+                             ownedNFTs.some(n => n.trackId === Number(track.id) && n.balance > 0) || 
+                             (user?.artistId && String(track.artistId) === String(user.artistId));
+            
+            return (
+              <div
+                key={track.id}
+                className="list-row items-center hover:bg-white/5 transition-colors px-4 py-3 group border-b border-white/5 last:border-0"
+              >
+                <div className="text-xs font-black opacity-20 w-8 tabular-nums group-hover:opacity-0 transition-opacity">
+                   {String(i + 1).padStart(2, '0')}
+                </div>
+                
+                <div className="list-col-grow min-w-0">
+                  <div className="flex items-center gap-2">
+                    <button 
                       onClick={() => playTrack(track, filteredTracks)}
-                      aria-label={`Play ${track.title}`}
-                      className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center text-primary w-full h-full"
+                      className="font-bold text-base truncate hover:text-primary transition-colors text-left"
                     >
-                      <Play size={12} fill="currentColor" />
-                    </button>
-                  </td>
-                  <td className="font-bold">
-                    <div className="flex items-center gap-2">
                       {track.title}
+                    </button>
+                    {track.losslessPath && (
+                      <span className="text-[8px] font-black opacity-30 border border-white/10 px-1 rounded uppercase">Hi-Res</span>
+                    )}
+                    {isLiked && <Heart size={10} className="text-primary" fill="currentColor" />}
+                  </div>
+                  <div className="text-xs opacity-40 font-medium truncate uppercase tracking-widest mt-0.5">
+                    {track.artistName} • {track.albumName}
+                  </div>
+                </div>
 
-                      {track.losslessPath ? (
-                        <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90">
-                          {track.losslessPath.toLowerCase().endsWith(".wav")
-                            ? "WAV"
-                            : "FLAC"}
-                        </span>
-                      ) : (
-                        <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90 uppercase">
-                          {track.format || "MP3"}
-                        </span>
-                      )}
-                      {(track.liked || likedTrackIds.has(String(track.id))) && (
-                        <Heart
-                          size={12}
-                          className="text-primary"
-                          fill="currentColor"
-                        />
-                      )}
+                <div className="hidden md:block opacity-40 font-mono text-xs tabular-nums">
+                  {new Date(track.duration * 1000).toISOString().substr(14, 5)}
+                </div>
+
+                <div className="list-col-wrap flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => playTrack(track, filteredTracks)}
+                    className="btn btn-ghost btn-sm btn-circle text-primary"
+                  >
+                    <Play size={16} fill="currentColor" />
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleLike(track)}
+                    className={clsx("btn btn-ghost btn-sm btn-circle", isLiked && "text-primary")}
+                  >
+                    <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
+                  </button>
+
+                  <div className="dropdown dropdown-end">
+                    <div role="button" tabIndex={0} className="btn btn-ghost btn-sm btn-circle">
+                      <MoreHorizontal size={16} />
                     </div>
-                    <div className="text-xs opacity-50">{track.artistName}</div>
-                  </td>
-                  <td className="opacity-60 text-sm truncate max-w-[150px]">
-                    {track.albumName}
-                  </td>
-                  <td className="text-right opacity-50 font-mono text-xs">
-                    {new Date(track.duration * 1000)
-                      .toISOString()
-                      .substr(14, 5)}
-                  </td>
-                  <td>
-                    <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`More actions for ${track.title}`}
-                        className="btn btn-ghost btn-xs btn-circle"
-                      >
-                        <MoreHorizontal size={16} />
-                      </div>
-                      <ul
-                        tabIndex={0}
-                        className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
-                      >
-                        <li>
-                          <a onClick={() => handleLike(track)}>
-                            <Heart
-                              size={16}
-                              className={clsx(
-                                (track.liked || likedTrackIds.has(String(track.id))) &&
-                                  "text-primary",
-                              )}
-                              fill={
-                                track.liked || likedTrackIds.has(String(track.id))
-                                  ? "currentColor"
-                                  : "none"
-                              }
-                            />
-                            {track.liked || likedTrackIds.has(String(track.id))
-                              ? "Unlike Song"
-                              : "Like Song"}
+                    <ul tabIndex={0} className="dropdown-content z-[20] menu p-2 shadow-2xl bg-base-300 rounded-2xl w-52 border border-white/10 mt-2">
+                      <li>
+                        {purchased ? (
+                          <a className="text-success font-bold">
+                            <CheckCircle2 size={16} /> Download
                           </a>
-                        </li>
-                        <li>
-                          {isPurchased(String(track.id)) || ownedNFTs.some(n => n.trackId === Number(track.id) && n.balance > 0) || (user?.artistId && String(track.artistId) === String(user.artistId)) ? (
-                            <a
-                              onClick={async () => {
-                                if (user?.artistId && String(track.artistId) === String(user.artistId)) {
-                                  window.open(`/api/tracks/${track.id}/stream`, "_blank");
-                                  return;
-                                }
-
-                                const code = await verifyAndGetCode(String(track.id));
-                                if (code) {
-                                  window.open(
-                                    `/api/payments/download/${String(track.id)}?code=${code}`,
-                                    "_blank",
-                                  );
-                                } else {
-                                  if (ownedNFTs.some(n => n.trackId === Number(track.id) && n.balance > 0)) {
-                                    // NFT owners direct download fallback (no GunDB code generated)
-                                    window.open(`/api/tracks/${track.id}/stream`, "_blank");
-                                  } else {
-                                    alert(
-                                      "Download code not found or could not be verified. Please try again or contact support.",
-                                    );
-                                  }
-                                }
-                              }}
-                            >
-                              <CheckCircle2
-                                size={16}
-                                className="text-success"
-                              />{" "}
-                              Download (Purchased)
-                            </a>
-                          ) : track.albumDownload === "free" ? (
-                            <a
-                              href={`/api/albums/${String(track.albumId)}/download`}
-                              target="_blank"
-                            >
-                              <Download size={16} className="text-primary" />{" "}
-                              Download Track (Free)
-                            </a>
-                          ) : (
-                            <a
-                              onClick={() => {
-                                if (!isAuthenticated)
-                                  return window.dispatchEvent(
-                                    new CustomEvent("open-auth-modal"),
-                                  );
-                                window.dispatchEvent(
-                                  new CustomEvent("open-checkout-modal", {
-                                    detail: {
-                                      track: {
-                                        ...track,
-                                        albumId:
-                                          (track as any).albumId ||
-                                          (track as any).album_id,
-                                        priceEth:
-                                          (track as any).price !== undefined &&
-                                          (track as any).price !== null &&
-                                          Number((track as any).price) > 0
-                                            ? String((track as any).price)
-                                            : track.albumPrice !== undefined &&
-                                                track.albumPrice !== null &&
-                                                Number(track.albumPrice) > 0
-                                              ? String(track.albumPrice)
-                                              : "0.005",
-                                          use_nft: (track as any).use_nft,
-                                      },
-                                    },
-                                  }),
-                                );
-                              }}
-                            >
-                              <Wallet size={16} className="text-secondary" />{" "}
-                              Purchase Track
-                            </a>
-                          )}
-                        </li>
-                        {isAdminAuthenticated && (
-                          <li className="border-t border-white/5 mt-1 pt-1 opacity-70 hover:opacity-100">
-                            <a onClick={() => setMatchingTrack(track)}>
-                              <Search size={16} /> Match Metadata
-                            </a>
-                          </li>
+                        ) : track.albumDownload === "free" ? (
+                          <a href={`/api/albums/${String(track.albumId)}/download`} target="_blank">
+                             <Download size={16} /> Free Download
+                          </a>
+                        ) : (
+                          <a onClick={() => {
+                            if (!isAuthenticated) return window.dispatchEvent(new CustomEvent("open-auth-modal"));
+                            window.dispatchEvent(new CustomEvent("open-checkout-modal", { detail: { track } }));
+                          }}>
+                            <Wallet size={16} className="text-secondary" /> Purchase Track
+                          </a>
                         )}
-                      </ul>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      </li>
+                      {isAdminAuthenticated && (
+                        <li className="border-t border-white/5 mt-1 pt-1 opacity-50 hover:opacity-100">
+                          <a onClick={() => setMatchingTrack(track)}><Search size={14} /> Match Metadata</a>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
         {filteredTracks.length > 100 && (
-          <div className="text-center py-4 text-xs opacity-50">
-            Showing first 100 tracks. Filter to see more.
+          <div className="text-center py-8">
+            <p className="text-xs font-black uppercase tracking-widest opacity-20">Showing first 100 tracks. Refine your search to find more.</p>
           </div>
         )}
       </div>

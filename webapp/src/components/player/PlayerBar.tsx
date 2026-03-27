@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import { usePlayerStore } from "../../stores/usePlayerStore";
 import API from "../../services/api";
 import {
@@ -11,12 +11,12 @@ import {
   ListMusic,
   Shuffle,
   Repeat,
+  Music,
 } from "lucide-react";
-import { Waveform } from "./Waveform";
+import clsx from "clsx";
+import { useColor } from "color-thief-react";
 import { LyricsPanel } from "./LyricsPanel";
 import { QueuePanel } from "./QueuePanel";
-import { ScrollingText } from "../ui/ScrollingText";
-import { useColor } from "color-thief-react";
 
 const PlayerBackground = ({ coverUrl }: { coverUrl: string }) => {
   const setDominantColor = usePlayerStore(state => state.setDominantColor);
@@ -63,9 +63,6 @@ export const PlayerBar = () => {
   } = usePlayerStore();
 
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [localWaveform, setLocalWaveform] = useState<string | number[] | null>(
-    null,
-  );
   
   // Track if the pause/play was triggered by our own code to avoid event loops
   const isInternalChange = useRef(false);
@@ -185,22 +182,6 @@ export const PlayerBar = () => {
     };
   }, [currentTrack?.id, setIsPlaying, setProgress, next]);
 
-  // Waveform fetching
-  useEffect(() => {
-    if (!currentTrack) return;
-    if (!currentTrack.waveform && currentTrack.id) {
-      setLocalWaveform(null);
-      fetch(`/api/waveform/${encodeURIComponent(String(currentTrack.id))}`)
-        .then((res) => (res.ok ? res.text() : null))
-        .then((svg) => {
-          if (svg && svg.startsWith("<svg")) setLocalWaveform(svg);
-        })
-        .catch((err) => console.error("Error fetching waveform:", err));
-    } else {
-      setLocalWaveform(currentTrack.waveform || null);
-    }
-  }, [currentTrack?.id]);
-
   // Sync volume
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
@@ -236,7 +217,7 @@ export const PlayerBar = () => {
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 lg:h-24 backdrop-blur-xl border-t border-white/5 lg:px-6 flex flex-col lg:flex-row items-center gap-2 lg:gap-4 z-50 shadow-2xl pb-safe lg:pb-0 pt-2 lg:pt-0 transition-all overflow-hidden">
+      <div className="fixed bottom-0 left-0 right-0 h-24 backdrop-blur-3xl bg-base-100/60 border-t border-white/5 px-4 lg:px-8 flex items-center justify-between gap-4 z-50">
         <PlayerBackground coverUrl={coverUrl} />
         
         <audio
@@ -248,104 +229,94 @@ export const PlayerBar = () => {
         />
 
         {/* Track Info */}
-        <div className="flex items-center gap-3 lg:gap-4 w-full lg:w-64 shrink-0 px-4 lg:px-0">
-          <div className="relative group shrink-0">
+        <div className="flex items-center gap-4 w-1/4 min-w-0">
+          <div className="relative shrink-0">
             {coverUrl ? (
               <img
                 src={coverUrl}
                 alt="Cover"
-                className="w-10 h-10 lg:w-14 lg:h-14 rounded-lg bg-base-300 shadow-lg object-cover"
+                className="w-12 h-12 lg:w-16 lg:h-16 rounded-xl bg-base-300 shadow-2xl object-cover ring-1 ring-white/10"
               />
             ) : (
-              <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-lg bg-base-300 shadow-lg flex items-center justify-center">
-                <span className="text-xs opacity-50">?</span>
+              <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-xl bg-base-300 shadow-2xl flex items-center justify-center ring-1 ring-white/10">
+                <Music className="opacity-20" size={24} />
               </div>
             )}
           </div>
 
-          <div className="min-w-0 flex-1">
-            <ScrollingText className="font-bold text-sm lg:text-base">
-              {currentTrack.title}
-            </ScrollingText>
-            <ScrollingText className="text-xs lg:text-sm opacity-60 text-primary">
-              {currentTrack.artistName}
-            </ScrollingText>
+          <div className="min-w-0">
+            <h3 className="font-black text-sm lg:text-base truncate tracking-tight">{currentTrack.title}</h3>
+            <p className="text-xs lg:text-sm font-medium opacity-60 text-primary truncate uppercase tracking-widest">{currentTrack.artistName}</p>
           </div>
         </div>
 
         {/* Controls & Waveform */}
-        <div className="flex flex-col items-center flex-1 max-w-2xl mx-auto gap-1 w-full px-2 lg:px-0">
-          <div className="flex items-center gap-4 lg:gap-6">
+        <div className="flex flex-col items-center flex-1 max-w-xl gap-1">
+          <div className="flex items-center gap-6">
             <button
               aria-label="Toggle shuffle"
-              className={`btn btn-ghost btn-circle btn-xs ${isShuffled ? "text-primary" : "opacity-50"}`}
+              className={clsx("btn btn-ghost btn-xs btn-circle transition-all", isShuffled ? "text-primary scale-110" : "opacity-40 hover:opacity-100")}
               onClick={toggleShuffle}
             >
-              <Shuffle size={16} />
+              <Shuffle size={14} />
             </button>
 
             <button
               aria-label="Previous track"
-              className="btn btn-ghost btn-circle btn-sm"
+              className="btn btn-ghost btn-sm btn-circle opacity-70 hover:opacity-100 hover:bg-base-300"
               onClick={prev}
             >
-              <SkipBack size={20} />
+              <SkipBack size={20} fill="currentColor" />
             </button>
 
             <button
               aria-label={isPlaying ? "Pause" : "Play"}
-              className="btn btn-circle btn-primary text-primary-content shadow-lg shadow-primary/20 lg:scale-110 hover:scale-110 transition-transform"
+              className="btn btn-circle btn-primary btn-lg shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
               onClick={togglePlay}
             >
               {isPlaying ? (
-                <Pause size={24} fill="currentColor" />
+                <Pause size={28} fill="currentColor" />
               ) : (
-                <Play size={24} fill="currentColor" />
+                <Play size={28} fill="currentColor" className="ml-1" />
               )}
             </button>
 
             <button
               aria-label="Next track"
-              className="btn btn-ghost btn-circle btn-sm"
+              className="btn btn-ghost btn-sm btn-circle opacity-70 hover:opacity-100 hover:bg-base-300"
               onClick={next}
             >
-              <SkipForward size={20} />
+              <SkipForward size={20} fill="currentColor" />
             </button>
 
             <button
               aria-label={`Repeat mode: ${repeatMode}`}
-              className={`btn btn-ghost btn-circle btn-xs ${repeatMode !== "none" ? "text-primary" : "opacity-50"}`}
+              className={clsx("btn btn-ghost btn-xs btn-circle relative transition-all", repeatMode !== "none" ? "text-primary scale-110" : "opacity-40 hover:opacity-100")}
               onClick={toggleRepeat}
             >
-              <Repeat size={16} />
+              <Repeat size={14} />
               {repeatMode === "one" && (
-                <span className="absolute text-[8px] font-bold bottom-1 right-1">1</span>
+                <span className="absolute -top-1 -right-1 text-[8px] font-black bg-primary text-primary-content rounded-full w-3 h-3 flex items-center justify-center">1</span>
               )}
             </button>
           </div>
 
-          <div className="w-full flex items-center gap-3 text-xs font-mono h-8 relative group px-1">
-            <span className="w-10 text-right opacity-50 z-10 tabular-nums">
-              {Number.isFinite(currentTime) ? new Date(currentTime * 1000).toISOString().substr(14, 5) : "0:00"}
+          <div className="w-full flex items-center gap-4 text-[10px] font-black tracking-widest opacity-40 h-6">
+            <span className="w-10 text-right tabular-nums">
+              {Number.isFinite(currentTime) ? new Date(currentTime * 1000).toISOString().substr(14, 5) : "00:00"}
             </span>
 
-            <div className="flex-1 relative h-full flex items-center">
-              {(localWaveform || currentTrack.waveform) && (
-                <div className="absolute inset-0 opacity-20 pointer-events-none flex items-center">
-                  <Waveform
-                    data={localWaveform || currentTrack.waveform}
-                    progress={progress / 100}
-                    height={32}
-                    colorPlayed="oklch(var(--color-primary))"
-                    colorRemaining="rgba(255, 255, 255, 0.1)"
-                  />
-                </div>
-              )}
-
-              <input
+            <div className="flex-1 relative h-1.5 group">
+               <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-full bg-white/5 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary/40 rounded-full transition-all duration-200"
+                  style={{ width: `${progress}%` }}
+                />
+               </div>
+               <input
                 aria-label="Seek track"
                 type="range"
-                className="range range-sm range-primary w-full relative z-20 cursor-pointer"
+                className="range range-xs range-primary absolute inset-0 opacity-0 cursor-pointer z-10"
                 min="0"
                 max="100"
                 step="0.1"
@@ -354,29 +325,23 @@ export const PlayerBar = () => {
               />
             </div>
 
-            <span className="w-10 opacity-50 z-10 tabular-nums">
-              {Number.isFinite(duration) && duration > 0 ? new Date(duration * 1000).toISOString().substr(14, 5) : "0:00"}
+            <span className="w-10 tabular-nums">
+              {Number.isFinite(duration) && duration > 0 ? new Date(duration * 1000).toISOString().substr(14, 5) : "00:00"}
             </span>
           </div>
         </div>
 
         {/* Volume & Extras */}
-        <div className="hidden lg:flex items-center gap-4 w-64 justify-end">
-          <div className="flex items-center gap-2 group">
-            <button
-              aria-label={volume === 0 ? "Unmute" : "Mute"}
-              onClick={() => setVolume(volume === 0 ? 1 : 0)}
-              className="btn btn-ghost btn-circle btn-xs"
-            >
-              <Volume2
-                size={18}
-                className={`opacity-70 group-hover:text-primary transition-colors ${volume === 0 ? "text-error" : ""}`}
-              />
-            </button>
+        <div className="flex items-center gap-6 w-1/4 justify-end">
+          <div className="hidden lg:flex items-center gap-3">
+            <Volume2
+              size={16}
+              className={clsx("opacity-40", volume === 0 && "text-error opacity-100")}
+            />
             <input
               aria-label="Volume"
               type="range"
-              className="range range-xs w-24 range-secondary"
+              className="range range-xs w-20 range-primary opacity-60 hover:opacity-100 transition-opacity"
               min="0"
               max="1"
               step="0.05"
@@ -384,17 +349,17 @@ export const PlayerBar = () => {
               onChange={(e) => setVolume(parseFloat(e.target.value))}
             />
           </div>
-          <div className="border-l border-white/10 pl-4 flex gap-2">
+          <div className="flex gap-1 h-10 items-center border-l border-white/5 pl-4 ml-2">
             <button
               aria-label="Toggle lyrics"
-              className="btn btn-ghost btn-circle btn-sm"
+              className={clsx("btn btn-ghost btn-sm btn-square", isShuffled ? "text-primary" : "opacity-40")}
               onClick={toggleLyrics}
             >
               <Mic2 size={18} />
             </button>
             <button
               aria-label="Toggle queue"
-              className="btn btn-ghost btn-circle btn-sm"
+              className="btn btn-ghost btn-sm btn-square opacity-40 hover:opacity-100"
               onClick={toggleQueue}
             >
               <ListMusic size={18} />

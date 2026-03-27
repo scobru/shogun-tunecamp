@@ -3,7 +3,6 @@ import API from "../services/api";
 import { useParams, Link } from "react-router-dom";
 import {
   Play,
-  Clock,
   MoreHorizontal,
   Download,
   Unlock,
@@ -98,337 +97,248 @@ export const AlbumDetails = () => {
   if (!album)
     return <div className="p-12 text-center opacity-50">Album not found.</div>;
 
-  const totalDuration =
-    album.tracks?.reduce((acc, t) => acc + t.duration, 0) || 0;
   const hasLossless = album.tracks?.some((t) => t.losslessPath);
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row gap-8 items-end md:items-center bg-gradient-to-b from-white/5 to-transparent p-6 rounded-2xl border border-white/5 relative overflow-hidden">
-        {/* Background Blur */}
+    <div className="space-y-12 animate-fade-in pb-20">
+      {/* Header / Hero */}
+      <div className="relative group rounded-[2.5rem] overflow-hidden border border-white/5 bg-base-200/20">
+        {/* Background Ambient Blur */}
         <div className="absolute inset-0 z-0">
           {album.coverImage && (
             <img
               src={API.getAlbumCoverUrl(album.id, coverVersion)}
-              className="w-full h-full object-cover opacity-[0.05] blur-3xl scale-110"
+              className="w-full h-full object-cover opacity-10 blur-[100px] scale-150"
             />
           )}
         </div>
 
-        <div className="relative z-10 shrink-0 group">
-          <img
-            src={API.getAlbumCoverUrl(album.id, coverVersion)}
-            alt={album.title}
-            className="w-48 h-48 md:w-64 md:h-64 rounded-xl shadow-2xl object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                "https://via.placeholder.com/500?text=No+Cover";
-            }}
-          />
-        </div>
-
-        <div className="relative z-10 flex-1 space-y-4">
-          <div className="opacity-70 text-sm font-bold tracking-wider uppercase">
-            {album.type}
-          </div>
-          <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-none">
-            {album.title}
-          </h1>
-          <div className="text-xl md:text-2xl font-medium opacity-80 flex items-center gap-2">
-            {album.artistId ? (
-              <Link
-                to={`/artists/${album.artist_slug || album.artistSlug || album.artistId}`}
-                className="hover:underline"
-              >
-                {album.artistName || album.artist_name}
-              </Link>
-            ) : (
-              <span>{album.artistName}</span>
-            )}
-            <span className="opacity-40">•</span>
-            <span className="text-base opacity-60 font-mono">{album.year}</span>
-            <span className="opacity-40">•</span>
-            <span className="text-base opacity-60">
-              {album.tracks?.length} songs, {Math.floor(totalDuration / 60)} min
-            </span>
+        <div className="relative z-10 flex flex-col md:flex-row gap-8 lg:gap-12 p-8 lg:p-12 items-center md:items-end">
+          <div className="shrink-0">
+            <img
+              src={API.getAlbumCoverUrl(album.id, coverVersion)}
+              alt={album.title}
+              className="w-56 h-56 md:w-72 md:h-72 rounded-[2rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] object-cover ring-1 ring-white/10"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "https://via.placeholder.com/500?text=No+Cover";
+              }}
+            />
           </div>
 
-          <div className="flex flex-wrap gap-3 pt-4 items-center">
-            <button
-              className="btn btn-primary btn-lg gap-2 shadow-xl hover:scale-105 transition-transform"
-              onClick={handlePlay}
-            >
-              <Play fill="currentColor" /> Play
-            </button>
-
-            {(album.download === "free" || album.download === "codes") && (
-              <div className="join shadow-xl">
-                {album.download === "free" && (
-                  <a
-                    href={`/api/albums/${album.slug || album.id}/download?format=${downloadFormat}`}
-                    className="btn btn-secondary btn-lg gap-2 join-item"
-                    target="_blank"
-                  >
-                    <Download size={20} /> Free Download
-                  </a>
-                )}
-
-                {album.download === "codes" && (
-                  <button
-                    className="btn btn-secondary btn-lg gap-2 join-item"
-                    onClick={handleUnlock}
-                  >
-                    <Unlock size={20} /> Unlock Download
-                  </button>
-                )}
-
-                {hasLossless && (
-                  <select
-                    className="select select-secondary select-lg join-item border-l-white/20 focus:outline-none"
-                    value={downloadFormat}
-                    onChange={(e) => setDownloadFormat(e.target.value)}
-                  >
-                    <option value="mp3">MP3</option>
-                    <option value="wav">WAV (Lossless)</option>
-                  </select>
-                )}
+          <div className="flex-1 space-y-6 text-center md:text-left">
+            <div className="space-y-2">
+              <div className="flex items-center justify-center md:justify-start gap-3">
+                 <span className="text-[10px] font-black uppercase tracking-[0.3em] bg-primary text-primary-content px-2 py-0.5 rounded-md">
+                    {album.type}
+                 </span>
+                 {hasLossless && (
+                   <span className="text-[10px] font-black uppercase tracking-[0.3em] border border-white/20 px-2 py-0.5 rounded-md opacity-40">
+                      Hi-Res
+                   </span>
+                 )}
               </div>
-            )}
+              <h1 className="text-5xl lg:text-8xl font-black tracking-tighter text-white leading-none">
+                {album.title}
+              </h1>
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-4 gap-y-2 text-lg lg:text-2xl font-medium tracking-tight">
+                {album.artistId ? (
+                  <Link
+                    to={`/artists/${album.artist_slug || album.artistSlug || album.artistId}`}
+                    className="hover:text-primary transition-colors underline decoration-white/10 underline-offset-8"
+                  >
+                    {album.artistName || album.artist_name}
+                  </Link>
+                ) : (
+                  <span className="opacity-80">{album.artistName}</span>
+                )}
+                <span className="opacity-20 text-sm">•</span>
+                <span className="opacity-40">{album.year}</span>
+                <span className="opacity-20 text-sm">•</span>
+                <span className="opacity-40 text-base">
+                  {album.tracks?.length} tracks
+                </span>
+              </div>
+            </div>
 
-            {externalLinks.map((link: any, i: number) => (
-              <a
-                key={i}
-                href={link.url}
-                target="_blank"
-                className="btn btn-outline btn-lg gap-2"
+            <div className="flex flex-wrap gap-4 justify-center md:justify-start pt-2">
+              <button
+                className="btn btn-primary btn-lg rounded-2xl px-10 shadow-2xl shadow-primary/20 hover:scale-105 transition-all"
+                onClick={handlePlay}
               >
-                <ExternalLink size={20} /> {link.label}
-              </a>
-            ))}
+                <Play fill="currentColor" size={20} /> Play Album
+              </button>
 
+              {(album.download === "free" || album.download === "codes") && (
+                <div className="flex gap-1 bg-base-300/50 p-1 rounded-[1.25rem] border border-white/5 backdrop-blur-md">
+                  {album.download === "free" && (
+                    <a
+                      href={`/api/albums/${album.slug || album.id}/download?format=${downloadFormat}`}
+                      className="btn btn-ghost btn-md rounded-xl gap-2 hover:bg-white/10"
+                      target="_blank"
+                    >
+                      <Download size={18} /> Download
+                    </a>
+                  )}
+
+                  {album.download === "codes" && (
+                    <button
+                      className="btn btn-ghost btn-md rounded-xl gap-2 hover:bg-white/10"
+                      onClick={handleUnlock}
+                    >
+                      <Unlock size={18} /> Unlock
+                    </button>
+                  )}
+
+                  {hasLossless && (
+                    <select
+                      className="select select-ghost select-md rounded-xl focus:outline-none uppercase text-[10px] font-black tracking-widest"
+                      value={downloadFormat}
+                      onChange={(e) => setDownloadFormat(e.target.value)}
+                    >
+                      <option value="mp3">MP3</option>
+                      <option value="wav">WAV</option>
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {externalLinks.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                   {externalLinks.map((link: any, i: number) => (
+                    <a
+                      key={i}
+                      href={link.url}
+                      target="_blank"
+                      className="btn btn-ghost btn-lg btn-square rounded-2xl border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all"
+                      title={link.label}
+                    >
+                      <ExternalLink size={20} className="opacity-40" />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Tracklist */}
-      <div className="overflow-x-auto min-h-[400px]">
-        <table className="table w-full">
-          <thead>
-            <tr className="border-b border-white/10 text-xs uppercase opacity-50">
-              <th className="w-12 text-center">#</th>
-              <th>Title</th>
-              <th className="hidden md:table-cell">Plays</th>
-              <th className="w-16 text-right">
-                <Clock size={16} />
-              </th>
-              <th className="w-12"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {album.tracks?.map((track, i) => {
-              if (!track) return null;
-              return (
-                <tr
-                  key={track.id}
-                  className="hover:bg-white/5 group border-b border-white/5 last:border-0 transition-colors"
-                >
-                  <td className="text-center opacity-50 font-mono w-12 group-hover:text-primary">
-                    <span className="group-hover:hidden">{i + 1}</span>
-                    <button
-                      onClick={() => playTrack(track, album.tracks)}
-                      className="hidden group-hover:flex items-center justify-center w-full"
+      {/* Tracklist using daisyUI 5 list-row */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-4">
+           <h2 className="text-sm font-black uppercase tracking-[0.2em] opacity-40">Tracklist</h2>
+           <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest opacity-20">
+              <span className="hidden md:block">Duration</span>
+              <span className="w-8"></span>
+           </div>
+        </div>
+
+        <div className="list bg-base-200/10 rounded-[2.5rem] border border-white/5 overflow-hidden">
+          {album.tracks?.map((track, i) => {
+            if (!track) return null;
+            const unlocked = isTrackUnlocked(track);
+            return (
+              <div
+                key={track.id}
+                className="list-row items-center hover:bg-white/5 transition-colors px-6 py-4 group border-b border-white/5 last:border-0"
+              >
+                <div className="text-xs font-black opacity-20 w-8 group-hover:opacity-0 transition-opacity">
+                   {String(i + 1).padStart(2, '0')}
+                </div>
+                
+                <div className="list-col-grow min-w-0">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => playTrack(track, album.tracks!)}
+                      className="font-bold text-lg truncate hover:text-primary transition-colors text-left tracking-tight"
                     >
-                      <Play size={12} fill="currentColor" />
-                    </button>
-                  </td>
-                  <td>
-                    <div className="font-bold flex items-center gap-2">
                       {track.title}
-                      {track.losslessPath ? (
-                        <>
-                          <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90">
-                            MP3
-                          </span>
-                          <span className="badge badge-secondary badge-outline badge-xs font-mono scale-90">
-                            {track.losslessPath.toLowerCase().endsWith(".wav")
-                              ? "WAV"
-                              : "FLAC"}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90 uppercase">
-                          {track.format || "MP3"}
-                        </span>
-                      )}
-                    </div>
-                    <div className="md:hidden text-xs opacity-50">
-                      {track.artistName}
-                    </div>
-                  </td>
-                  <td className="hidden md:table-cell opacity-50 text-xs font-mono">
-                    {track.playCount?.toLocaleString()}
-                  </td>
-                  <td className="text-right opacity-50 font-mono text-xs">
-                    {new Date(track.duration * 1000)
-                      .toISOString()
-                      .substr(14, 5)}
-                  </td>
-                  <td>
-                    <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100 transition-opacity">
-                      <label
-                        tabIndex={0}
-                        className="btn btn-ghost btn-xs btn-circle"
-                      >
-                        <MoreHorizontal size={16} />
-                      </label>
-                      <ul
-                        tabIndex={0}
-                        className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
-                      >
-                        <li>
-                          {isTrackUnlocked(track) ? (
-                            <a
-                              onClick={async (e) => {
-                                e.preventDefault();
-                                if (user?.artistId && (String(track.artistId) === String(user.artistId) || String(album?.artistId) === String(user.artistId))) {
-                                  window.open(`/api/tracks/${track.id}/stream`, "_blank");
-                                  return;
-                                }
+                    </button>
+                    {track.losslessPath && (
+                       <span className="text-[9px] font-black opacity-30 border border-white/10 px-1.5 rounded uppercase">Hi-Res</span>
+                    )}
+                  </div>
+                </div>
 
-                                const code = await verifyAndGetCode(track.id);
-                                if (code) {
-                                  window.open(
-                                    `/api/payments/download/${track.id}?code=${code}`,
-                                    "_blank",
-                                  );
-                                } else {
-                                  if (ownedNFTs.some(n => n.trackId === Number(track.id))) {
-                                    // NFT owners direct download fallback (no GunDB code generated)
-                                    window.open(`/api/tracks/${track.id}/stream`, "_blank");
-                                  } else {
-                                    alert(
-                                      "Download code not found or could not be verified. Please try again or contact support.",
-                                    );
-                                  }
-                                }
-                              }}
-                            >
-                              <CheckCircle2
-                                size={16}
-                                className="text-success"
-                              />{" "}
-                              Download (Purchased)
-                            </a>
-                          ) : album.download === "free" ? (
-                            <a
-                              href={`/api/albums/${album.slug || album.id}/download?format=${downloadFormat}`}
-                              target="_blank"
-                            >
-                              <Download size={16} className="text-primary" />{" "}
-                              Download Track (Free)
-                            </a>
-                          ) : (
-                            <a
-                              onClick={(e) => {
-                                e.preventDefault();
-                                if (
-                                  !isAdmin &&
-                                  !useAuthStore.getState().isAuthenticated
-                                )
-                                  return window.dispatchEvent(
-                                    new CustomEvent("open-auth-modal"),
-                                  );
-                                window.dispatchEvent(
-                                  new CustomEvent("open-checkout-modal", {
-                                    detail: {
-                                      track: {
-                                        ...track,
-                                        albumId: album.id,
-                                        artist:
-                                          track.artistName ||
-                                          (track as any).artist_name ||
-                                          album.artistName ||
-                                          (album as any).artist_name ||
-                                          "Unknown Artist",
-                                        priceEth:
-                                          (track as any).price !== undefined &&
-                                          (track as any).price !== null &&
-                                          Number((track as any).price) > 0
-                                            ? String((track as any).price)
-                                            : album.price !== undefined &&
-                                                album.price !== null &&
-                                                Number(album.price) > 0
-                                              ? String(album.price)
-                                              : "0.005",
-                                        walletAddress: (album as any).walletAddress,
-                                        use_nft: (album as any).use_nft,
-                                      },
-                                    },
-                                  }),
-                                );
-                              }}
-                            >
-                              <Wallet size={16} className="text-secondary" />{" "}
-                              Purchase Track
-                            </a>
-                          )}
-                        </li>
-                        {isAdmin && (
-                          <li>
-                            <a
-                              onClick={(e) => {
-                                e.preventDefault();
-                                document.dispatchEvent(
-                                  new CustomEvent("open-admin-track-modal", {
-                                    detail: track,
-                                  }),
-                                );
-                              }}
-                              className="text-primary font-medium"
-                            >
-                              <Music size={16} /> Edit Metadata
-                            </a>
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                <div className="hidden md:block opacity-40 font-mono text-sm tabular-nums">
+                   {new Date(track.duration * 1000).toISOString().substr(14, 5)}
+                </div>
 
-      {/* License and Footer Info */}
-      <div className="bg-white/5 p-6 rounded-xl border border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-sm opacity-70">
-        <div className="flex items-center gap-2">
-            <Copyright size={16} />
-            <span>
-                {licenseInfo.url ? (
-                    <a href={licenseInfo.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                        {licenseInfo.name}
-                    </a>
-                ) : (
-                    licenseInfo.name
-                )}
-            </span>
-        </div>
-        <div className="font-mono text-xs">
-            Published on Tunecamp • {album.year}
+                <div className="list-col-wrap flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => playTrack(track, album.tracks!)}
+                    className="btn btn-ghost btn-sm btn-circle text-primary"
+                  >
+                    <Play size={18} fill="currentColor" />
+                  </button>
+
+                  <div className="dropdown dropdown-end">
+                    <div role="button" tabIndex={0} className="btn btn-ghost btn-sm btn-circle">
+                       <MoreHorizontal size={18} />
+                    </div>
+                    <ul tabIndex={0} className="dropdown-content z-[20] menu p-2 shadow-2xl bg-base-300 rounded-2xl w-52 border border-white/10 mt-2">
+                       <li>
+                         {unlocked ? (
+                           <a className="text-success font-bold" onClick={async () => {
+                              if (user?.artistId && (String(track.artistId) === String(user.artistId) || String(album?.artistId) === String(user.artistId))) {
+                                window.open(`/api/tracks/${track.id}/stream`, "_blank");
+                                return;
+                              }
+                              const code = await verifyAndGetCode(track.id);
+                              if (code) window.open(`/api/payments/download/${track.id}?code=${code}`, "_blank");
+                           }}>
+                             <CheckCircle2 size={16} /> Download
+                           </a>
+                         ) : album.download === "free" ? (
+                           <a href={`/api/albums/${album.slug || album.id}/download?format=${downloadFormat}`} target="_blank">
+                              <Download size={16} /> Free Download
+                           </a>
+                         ) : (
+                           <a onClick={() => {
+                             if (!isAdmin && !useAuthStore.getState().isAuthenticated) return window.dispatchEvent(new CustomEvent("open-auth-modal"));
+                             window.dispatchEvent(new CustomEvent("open-checkout-modal", { detail: { track: { ...track, albumId: album.id } } }));
+                           }}>
+                             <Wallet size={16} className="text-secondary" /> Purchase Track
+                           </a>
+                         )}
+                       </li>
+                       {isAdmin && (
+                         <li className="border-t border-white/5 mt-1 pt-1 opacity-50 hover:opacity-100">
+                           <a onClick={() => document.dispatchEvent(new CustomEvent("open-admin-track-modal", { detail: track }))}>
+                             <Music size={16} /> Edit Metadata
+                           </a>
+                         </li>
+                       )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Comments */}
-      <Comments
-        trackId={
-          album.tracks && album.tracks.length > 0
-            ? String(album.tracks[0].id)
-            : undefined
-        }
-        albumId={String(album.id)}
-      />
+      {/* Footer Info / License */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-6 px-4 py-8 border-t border-white/5">
+        <div className="flex items-center gap-3 opacity-40">
+           <Copyright size={18} />
+           <span className="text-sm font-medium tracking-tight">
+              {licenseInfo.url ? (
+                <a href={licenseInfo.url} target="_blank" className="hover:text-primary underline underline-offset-4 decoration-white/10">{licenseInfo.name}</a>
+              ) : licenseInfo.name}
+           </span>
+        </div>
+        <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-20">
+           Published on TuneCamp • {album.year}
+        </div>
+      </div>
+
+      {/* Comments Section */}
+      <div className="px-2">
+        <Comments
+          trackId={album.tracks?.[0]?.id ? String(album.tracks[0].id) : undefined}
+          albumId={String(album.id)}
+        />
+      </div>
     </div>
   );
 };

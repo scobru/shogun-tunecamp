@@ -14,21 +14,19 @@ import { CommandPalette } from "../modals/CommandPalette";
 import { usePlayerStore } from "../../stores/usePlayerStore";
 
 export const MainLayout = () => {
-  const [bgUrl, setBgUrl] = useState("");
   const [siteName, setSiteName] = useState("TuneCamp");
   const dominantColor = usePlayerStore(state => state.dominantColor);
 
   useEffect(() => {
     API.getSiteSettings()
       .then((s: SiteSettings) => {
-        if (s.backgroundImage) setBgUrl(s.backgroundImage);
         if (s.siteName) setSiteName(s.siteName);
       })
       .catch(console.error);
   }, []);
 
   return (
-    <div className="drawer lg:drawer-open h-screen bg-black text-white font-sans overflow-hidden">
+    <div className="drawer lg:drawer-open h-screen bg-base-100 text-base-content font-sans overflow-hidden">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] btn btn-primary btn-sm"
@@ -37,24 +35,17 @@ export const MainLayout = () => {
       </a>
       <input id="main-drawer" type="checkbox" className="drawer-toggle" />
 
-      {/* Global Background */}
-      <div 
-        className="absolute inset-0 z-[1] pointer-events-none transition-colors duration-1000"
-        style={{ 
-          backgroundColor: dominantColor || 'transparent',
-          opacity: dominantColor ? 0.2 : 0 
-        }} 
-      />
-      {bgUrl && (
-        <div
-          className="absolute inset-0 z-0 opacity-40 bg-cover bg-center pointer-events-none"
-          style={{ backgroundImage: `url(${bgUrl})` }}
+      <div className="drawer-content relative flex flex-col h-full overflow-hidden bg-base-100">
+        {/* Dominant Color Glow - subtle and minimalist */}
+        <div 
+          className="absolute top-0 right-0 w-1/2 h-1/2 bg-primary/5 blur-[120px] pointer-events-none z-0"
+          style={{ 
+            backgroundColor: dominantColor ? `${dominantColor}10` : 'transparent',
+          }} 
         />
-      )}
 
-      <div className="drawer-content relative z-10 flex flex-col h-full overflow-hidden">
         {/* Mobile Header */}
-        <div className="navbar lg:hidden bg-base-100/60 backdrop-blur-md border-b border-white/5 min-h-16">
+        <div className="navbar lg:hidden bg-base-100/80 backdrop-blur-md border-b border-white/5 min-h-16 z-20">
           <div className="flex-none">
             <label
               htmlFor="main-drawer"
@@ -77,17 +68,19 @@ export const MainLayout = () => {
             </label>
           </div>
           <div className="flex-1">
-            <a className="btn btn-ghost text-xl font-bold">{siteName}</a>
+            <a className="btn btn-ghost text-xl font-bold tracking-tight">{siteName}</a>
           </div>
         </div>
 
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 bg-base-100/40 relative flex flex-col h-full lg:rounded-tl-2xl border-t border-l border-white/5 lg:mr-2 lg:mt-2 lg:mb-24 shadow-2xl overflow-hidden backdrop-blur-3xl focus:outline-none"
+          className="flex-1 relative flex flex-col h-full overflow-hidden focus:outline-none z-10"
         >
-          <div className="flex-1 overflow-y-auto pb-32 scroll-smooth p-6">
-            <Outlet />
+          <div className="flex-1 overflow-y-auto pb-32 scrollbar-thin p-4 lg:p-8">
+            <div className="max-w-7xl mx-auto w-full">
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>
