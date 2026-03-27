@@ -18,6 +18,7 @@ if (ffmpegPath) {
 import type { AuthService } from "../auth.js";
 import type { PublishingService } from "../publishing.js";
 import { metadataService } from "../metadata.js";
+import play from "play-dl";
 
 export function createTracksRoutes(database: DatabaseService, publishingService: PublishingService, musicDir: string, authService?: AuthService): Router {
     const router = Router();
@@ -200,6 +201,58 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         } catch (error) {
             console.error("Error creating track:", error);
             res.status(500).json({ error: "Failed to create track" });
+        }
+    });
+
+    /**
+     * POST /api/tracks/youtube
+     * Create a new track from a YouTube URL
+     */
+    router.post("/youtube", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin && !req.artistId) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        try {
+            const { url, albumId } = req.body;
+            if (!url) {
+                return res.status(400).json({ error: "URL is required" });
+            }
+
+            // Fetch metadata with play-dl
+            const info = await play.video_info(url);
+            const video = info.video_details;
+
+            // Security: Use current artistId as owner/artist
+            const finalArtistId = req.artistId || null;
+
+            const trackId = database.createTrack({
+                title: video.title || "YouTube Track",
+                album_id: albumId || null,
+                artist_id: finalArtistId,
+                owner_id: finalArtistId,
+                track_num: null,
+                duration: video.durationInSec || 0,
+                file_path: null,
+                format: "youtube",
+                bitrate: null,
+                sample_rate: null,
+                lossless_path: null,
+                url: url,
+                service: "youtube",
+                external_artwork: video.thumbnails[video.thumbnails.length - 1]?.url || null,
+                price: 0,
+                price_usdc: 0,
+                currency: 'ETH',
+                waveform: null,
+                lyrics: null
+            });
+
+            const newTrack = database.getTrack(trackId);
+            res.status(201).json(mapTrack(newTrack));
+        } catch (error) {
+            console.error("YouTube metadata fetch error:", error);
+            res.status(500).json({ error: "Failed to fetch YouTube metadata: " + (error as Error).message });
         }
     });
 
@@ -505,6 +558,20 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
 
             if (!track.file_path) {
                 if (track.url) {
+                    // Optimized YouTube streaming with play-dl
+                    if (track.service === 'youtube' || track.url.includes('youtube.com') || track.url.includes('youtu.be')) {
+                        try {
+                            const stream = await play.stream(track.url);
+                            res.setHeader("Content-Type", "audio/mpeg");
+                            // play-dl streams are already optimized for streaming
+                            stream.stream.pipe(res);
+                            return;
+                        } catch (err) {
+                            console.error("[Stream] YouTube stream error:", err);
+                            // Fallback to basic fetch if play-dl fails (though unlikely to work for YT)
+                        }
+                    }
+
                     try {
                         const response = await fetch(track.url);
                         if (!response.ok) {
