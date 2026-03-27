@@ -43,13 +43,13 @@ export function createCatalogRoutes(database: DatabaseService): Router {
                     ...r,
                     artistId: r.artist_id,
                     artistName: r.artist_name,
-                    coverImage: r.cover_path // r.cover_path is already used by frontend for albums
+                    coverImage: `/api/releases/${r.id}/cover`
                 })),
                 recentAlbums: recentAlbums.map(a => ({
                     ...a,
                     artistId: a.artist_id,
                     artistName: a.artist_name,
-                    coverImage: a.cover_path
+                    coverImage: `/api/albums/${a.id}/cover`
                 })),
             });
         } catch (error) {
@@ -81,7 +81,7 @@ export function createCatalogRoutes(database: DatabaseService): Router {
                     ...a,
                     artistId: a.artist_id,
                     artistName: a.artist_name,
-                    coverImage: `/api/albums/${a.id}/cover`
+                    coverImage: a.is_release ? `/api/releases/${a.id}/cover` : `/api/albums/${a.id}/cover`
                 })),
                 tracks: results.tracks.map(t => ({
                     ...t,

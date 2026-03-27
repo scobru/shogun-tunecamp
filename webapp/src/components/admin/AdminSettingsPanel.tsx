@@ -391,43 +391,6 @@ export const AdminSettingsPanel = () => {
       </div>
 
       <div className="pt-4 space-y-4">
-        <h4 className="font-bold border-b border-white/10 pb-2 text-warning">External Service Credentials</h4>
-        <div className="alert alert-info bg-info/10 border-info/20 text-xs rounded-xl">
-           To bypass YouTube's bot detection, you must provide your account's cookies. 
-           Get these from your browser's Developer Tools (Network tab) after logging into YouTube.
-        </div>
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text">YouTube Cookies</span>
-            <span className="label-text-alt opacity-50">Required for bypassing bot detection</span>
-          </label>
-          <textarea
-            className="textarea textarea-bordered h-24 font-mono text-[10px] leading-tight"
-            value={settings.youtube_cookie || ""}
-            onChange={(e) =>
-              setSettings({ ...settings, youtube_cookie: e.target.value })
-            }
-            placeholder="VISITOR_INFO1_LIVE=...; HSID=...; SSID=...; SID=...;"
-          />
-        </div>
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text">SoundCloud Client ID</span>
-            <span className="label-text-alt opacity-50">Optional but recommended for SoundCloud</span>
-          </label>
-          <input
-            type="text"
-            className="input input-bordered font-mono text-sm"
-            value={settings.soundcloud_client_id || ""}
-            onChange={(e) =>
-              setSettings({ ...settings, soundcloud_client_id: e.target.value })
-            }
-            placeholder="a3e05f..."
-          />
-        </div>
-      </div>
-
-      <div className="pt-4 space-y-4">
         <h4 className="font-bold border-b border-white/10 pb-2">Web3 Store Configuration</h4>
         <div className="form-control">
           <label className="label">

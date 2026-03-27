@@ -61,28 +61,128 @@ export function createReleaseRouter(
         }
     });
 
-    router.get("/:id", async (req, res) => {
+    router.get("/:idOrSlug", async (req: any, res) => {
         try {
-            const id = parseInt(req.params.id, 10);
+            const param = req.params.idOrSlug as string;
+            let release: any;
             
-            // Try formal release first
-            const release = database.getRelease(id);
-            if (release) {
-                const tracks = database.getTracksByReleaseId(id);
-                return res.json({ ...release, tracks, is_formal_release: true });
+            if (/^\d+$/.test(param)) {
+                release = database.getRelease(parseInt(param, 10));
+            } else {
+                release = database.getReleaseBySlug(param);
             }
 
-            // Fallback to library album
-            const album = database.getAlbum(id);
-            if (album) {
-                const tracks = database.getTracks(id);
-                return res.json({ ...album, tracks, is_formal_release: false });
+            if (!release) {
+                return res.status(404).json({ error: "Release not found" });
             }
 
-            res.status(404).json({ error: "Release not found" });
+            // Permission Check: Non-admin can only see public/unlisted releases, unless they are the owner
+            if (release.visibility === 'private' && !req.isAdmin && release.owner_id !== req.artistId) {
+                return res.status(404).json({ error: "Release not found" });
+            }
+
+            const tracks = database.getTracksByReleaseId(release.id);
+            
+            // Map tracks to include release cover info for the player
+            const mappedTracks = tracks.map(t => ({
+                ...t,
+                albumId: release.id,
+                artistId: t.artist_id,
+                coverImage: release.cover_path ? `/api/releases/${release.id}/cover` : undefined,
+                externalArtwork: t.external_artwork,
+            }));
+
+            res.json({
+                ...release,
+                coverImage: release.cover_path,
+                tracks: mappedTracks,
+            });
         } catch (error) {
             console.error("Error getting release:", error);
             res.status(500).json({ error: "Failed to get release" });
+        }
+    });
+
+    /**
+     * GET /api/releases/:idOrSlug/cover
+     */
+    router.get("/:idOrSlug/cover", async (req: any, res) => {
+        try {
+            const param = req.params.idOrSlug as string;
+            let release: any;
+
+            if (/^\d+$/.test(param)) {
+                release = database.getRelease(parseInt(param, 10));
+            } else {
+                release = database.getReleaseBySlug(param);
+            }
+
+            if (!release || !release.cover_path) {
+                const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="#222"/><text x="200" y="200" font-family="Arial" font-size="24" fill="#444" text-anchor="middle" dominant-baseline="middle">${release ? release.title : "No Cover"}</text></svg>`;
+                res.setHeader("Content-Type", "image/svg+xml");
+                return res.send(svg);
+            }
+
+            const resolvedPath = path.join(musicDir, release.cover_path);
+            if (!await fs.pathExists(resolvedPath)) {
+                res.status(404).json({ error: "Cover file missing" });
+                return;
+            }
+
+            res.sendFile(path.resolve(resolvedPath));
+        } catch (error) {
+            console.error("Error getting release cover:", error);
+            res.status(500).json({ error: "Failed to get cover" });
+        }
+    });
+
+    /**
+     * GET /api/releases/:idOrSlug/download
+     */
+    router.get("/:idOrSlug/download", async (req: any, res) => {
+        try {
+            const param = req.params.idOrSlug as string;
+            let release: any;
+
+            if (/^\d+$/.test(param)) {
+                release = database.getRelease(parseInt(param, 10));
+            } else {
+                release = database.getReleaseBySlug(param);
+            }
+
+            if (!release) {
+                return res.status(404).json({ error: "Release not found" });
+            }
+
+            // Download logic (simplified copy from albums.ts but strictly for releases)
+            if (!release.download || release.download === 'none') {
+                return res.status(403).json({ error: "Downloads disabled" });
+            }
+
+            const tracks = database.getTracksByReleaseId(release.id);
+            if (!tracks || tracks.length === 0) {
+                return res.status(404).json({ error: "No tracks" });
+            }
+
+            // ZIP logic
+            const archiver = await import("archiver");
+            const archive = archiver.default("zip", { zlib: { level: 5 } });
+            res.setHeader("Content-Type", "application/zip");
+            res.setHeader("Content-Disposition", `attachment; filename="${release.slug || "release"}.zip"`);
+            archive.pipe(res);
+
+            for (const track of tracks) {
+                if (track.file_path) {
+                    const trackPath = path.join(musicDir, track.file_path);
+                    if (await fs.pathExists(trackPath)) {
+                        archive.file(trackPath, { name: path.basename(trackPath) });
+                    }
+                }
+            }
+            await archive.finalize();
+        } catch (error) {
+            console.error("Error downloading release:", error);
+            res.status(500).json({ error: "Download failed" });
         }
     });
 

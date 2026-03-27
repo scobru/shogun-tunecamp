@@ -10,7 +10,6 @@ import type { AuthService } from "../auth.js";
 import { validatePassword } from "../validators.js";
 import type { PublishingService } from "../publishing.js";
 import type { ActivityPubService } from "../activitypub.js";
-import play from "play-dl";
 
 export function createAdminRoutes(
     database: DatabaseService,
@@ -158,8 +157,7 @@ export function createAdminRoutes(
 
             const { 
                 siteName, siteDescription, publicUrl, artistName, coverImage, mode, 
-                gunPeers, web3_checkout_address, web3_nft_address,
-                youtube_cookie, soundcloud_client_id 
+                gunPeers, web3_checkout_address, web3_nft_address
             } = req.body;
             let settingsChanged = false;
 
@@ -199,14 +197,6 @@ export function createAdminRoutes(
             }
             if (web3_nft_address !== undefined) {
                 database.setSetting("web3_nft_address", web3_nft_address);
-            }
-            if (youtube_cookie !== undefined) {
-                database.setSetting("youtube_cookie", youtube_cookie);
-                play.setToken({ youtube: { cookie: youtube_cookie } }).catch(e => console.error("❌ Failed to update YouTube cookie:", e));
-            }
-            if (soundcloud_client_id !== undefined) {
-                database.setSetting("soundcloud_client_id", soundcloud_client_id);
-                play.setToken({ soundcloud: { client_id: soundcloud_client_id } }).catch(e => console.error("❌ Failed to update SoundCloud token:", e));
             }
 
             // Re-register on GunDB if settings changed and publicUrl is available

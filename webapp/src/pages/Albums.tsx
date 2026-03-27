@@ -7,7 +7,7 @@ import clsx from 'clsx';
 
 export const Albums = () => {
     const [activeTab, setActiveTab] = useState<'releases' | 'library'>('releases');
-    const [releases, setReleases] = useState<Album[]>([]);
+    const [releases, setReleases] = useState<any[]>([]);
     const [library, setLibrary] = useState<Album[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -68,15 +68,19 @@ export const Albums = () => {
              </div>
 
              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {currentItems.map(album => {
-                    if (!album) return null;
+                {currentItems.map(item => {
+                    if (!item) return null;
+                    const isReleaseTab = activeTab === 'releases';
+                    const linkTo = isReleaseTab ? `/releases/${item.slug || item.id}` : `/albums/${item.slug || item.id}`;
+                    const coverUrl = isReleaseTab ? API.getReleaseCoverUrl(item.id) : API.getAlbumCoverUrl(item.id);
+
                     return (
-                        <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group card bg-base-200 hover:bg-base-300 transition-all hover:-translate-y-1 duration-300 shadow-xl border border-white/5">
+                        <Link to={linkTo} key={item.id} className="group card bg-base-200 hover:bg-base-300 transition-all hover:-translate-y-1 duration-300 shadow-xl border border-white/5">
                             <figure className="aspect-square relative overflow-hidden">
-                                {album.coverImage || (album as any).cover_path ? (
+                                {item.coverImage || (item as any).cover_path ? (
                                     <img 
-                                        src={API.getAlbumCoverUrl(album.id)} 
-                                        alt={album.title} 
+                                        src={coverUrl} 
+                                        alt={item.title} 
                                         className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" 
                                         loading="lazy"
                                     />
@@ -90,11 +94,11 @@ export const Albums = () => {
                                 </div>
                             </figure>
                             <div className="card-body p-4">
-                                <h3 className="font-bold truncate text-lg" title={album.title}>{album.title}</h3>
-                                <p className="text-sm opacity-60 truncate">{album.artistName || (album as any).artist_name}</p>
+                                <h3 className="font-bold truncate text-lg" title={item.title}>{item.title}</h3>
+                                <p className="text-sm opacity-60 truncate">{item.artistName || (item as any).artist_name}</p>
                                 <div className="flex justify-between items-center mt-2 opacity-40 text-xs font-mono">
-                                    <span>{album.year}</span>
-                                    <span className="uppercase border border-white/20 px-1 rounded text-[10px]">{album.type}</span>
+                                    <span>{item.year}</span>
+                                    <span className="uppercase border border-white/20 px-1 rounded text-[10px]">{item.type}</span>
                                 </div>
                             </div>
                         </Link>

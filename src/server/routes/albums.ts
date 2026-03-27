@@ -14,7 +14,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
-            // Show all albums if admin
+            // Show all library albums if admin
             if (req.isAdmin) {
                 const albums = database.getAlbums().map(a => ({
                     ...a,
@@ -59,24 +59,6 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
     });
 
     /**
-     * GET /api/releases
-     * List all releases (is_release=1) - public releases for the catalog
-     */
-    router.get("/releases", (req: AuthenticatedRequest, res) => {
-        try {
-            // Non-admin sees public releases only, admin sees all releases
-            const releases = database.getReleases(req.isAdmin !== true).map(r => ({
-                ...r,
-                coverImage: r.cover_path
-            }));
-            res.json(releases);
-        } catch (error) {
-            console.error("Error getting releases:", error);
-            res.status(500).json({ error: "Failed to get releases" });
-        }
-    });
-
-    /**
      * POST /api/albums/:id/promote
      * Promote a library album to a release (admin/owner only)
      */
@@ -104,7 +86,6 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
         }
     });
 
-
     /**
      * GET /api/albums/:idOrSlug
      * Get album details with tracks (supports ID or slug)
@@ -115,15 +96,9 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             let album: any;
 
             if (/^\d+$/.test(param)) {
-                album = database.getRelease(parseInt(param, 10));
-                if (!album) {
-                    album = database.getAlbum(parseInt(param, 10));
-                }
+                album = database.getAlbum(parseInt(param, 10));
             } else {
-                album = database.getReleaseBySlug(param);
-                if (!album) {
-                    album = database.getAlbumBySlug(param);
-                }
+                album = database.getAlbumBySlug(param);
             }
 
             if (!album) {
@@ -135,10 +110,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 return res.status(404).json({ error: "Album not found" });
             }
 
-            const isFormalRelease = album.is_release === true || album.is_release === 1 || !('is_release' in album);
-            const tracks = isFormalRelease 
-                ? database.getTracksByReleaseId(album.id)
-                : database.getTracks(album.id);
+            const tracks = database.getTracks(album.id);
 
             // Map tracks to include album cover info for the player
             const mappedTracks = tracks.map(t => ({
@@ -147,7 +119,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 artistId: t.artist_id,
                 coverImage: album.cover_path ? `/api/albums/${album.id}/cover` : undefined,
                 externalArtwork: t.external_artwork,
-                losslessPath: t.lossless_path, // Map snake_case for frontend
+                losslessPath: t.lossless_path,
             }));
 
             res.json({
@@ -163,7 +135,6 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
 
     /**
      * GET /api/albums/:idOrSlug/cover
-     * Get album cover image (supports ID or slug)
      */
     router.get("/:idOrSlug/cover", async (req: AuthenticatedRequest, res) => {
         try {
@@ -171,15 +142,14 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             let album: any;
 
             if (/^\d+$/.test(param)) {
-                album = database.getRelease(parseInt(param, 10)) || database.getAlbum(parseInt(param, 10));
+                album = database.getAlbum(parseInt(param, 10));
             } else {
-                album = database.getReleaseBySlug(param) || database.getAlbumBySlug(param);
+                album = database.getAlbumBySlug(param);
             }
 
             if (!album || !album.cover_path) {
-                // FALLBACK: If no cover_path, check associated tracks for external_artwork
                 if (album) {
-                    const tracks = album.is_release ? database.getTracksByReleaseId(album.id) : database.getTracks(album.id);
+                    const tracks = database.getTracks(album.id);
                     const externalCover = tracks.find(t => t.external_artwork)?.external_artwork;
                     if (externalCover) {
                         return res.redirect(externalCover);
@@ -192,12 +162,9 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 return res.send(svg);
             }
 
-            // Verify file existence
             const resolvedPath = path.join(musicDir, album.cover_path);
-
             if (!await fs.pathExists(resolvedPath)) {
-                // FALLBACK: Even if cover_path exists in DB, if file is missing, check tracks
-                const tracks = album.is_release ? database.getTracksByReleaseId(album.id) : database.getTracks(album.id);
+                const tracks = database.getTracks(album.id);
                 const externalCover = tracks.find(t => t.external_artwork)?.external_artwork;
                 if (externalCover) {
                     return res.redirect(externalCover);
@@ -209,11 +176,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 return res.send(svg);
             }
 
-            res.sendFile(path.resolve(resolvedPath), { maxAge: 86400000 }, (err) => {
-                if (err && !res.headersSent) {
-                    res.status(500).end();
-                }
-            });
+            res.sendFile(path.resolve(resolvedPath), { maxAge: 86400000 });
         } catch (error) {
             console.error("Error getting cover:", error);
             res.status(500).json({ error: "Failed to get cover" });
@@ -222,7 +185,6 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
 
     /**
      * GET /api/albums/:idOrSlug/download
-     * Download all tracks as individual files or ZIP (only if download enabled)
      */
     router.get("/:idOrSlug/download", async (req: AuthenticatedRequest, res) => {
         try {
@@ -230,88 +192,38 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             let album: any;
 
             if (/^\d+$/.test(param)) {
-                album = database.getRelease(parseInt(param, 10)) || database.getAlbum(parseInt(param, 10));
+                album = database.getAlbum(parseInt(param, 10));
             } else {
-                album = database.getReleaseBySlug(param) || database.getAlbumBySlug(param);
+                album = database.getAlbumBySlug(param);
             }
 
             if (!album) {
                 return res.status(404).json({ error: "Album not found" });
             }
 
-            // Check if download is enabled
-            if (!album.download || (album.download !== 'free' && album.download !== 'paid' && album.download !== 'codes')) {
-                return res.status(403).json({ error: "Downloads not enabled for this release" });
+            if (!album.download || album.download === 'none') {
+                return res.status(403).json({ error: "Downloads not enabled" });
             }
 
-            // Verify unlock code if required
-            if (album.download === 'codes') {
-                const code = req.query.code as string;
-                if (!code) {
-                    return res.status(402).json({ error: "Unlock code required" });
-                }
-                const validation = database.validateUnlockCode(code);
-                if (!validation.valid) {
-                    return res.status(403).json({ error: "Invalid unlock code" });
-                }
-                if (validation.releaseId && validation.releaseId !== album.id) {
-                    return res.status(403).json({ error: "Code is for a different release" });
-                }
-                database.redeemUnlockCode(code);
-            }
-
-            // Get tracks for this album/release
-            const isFormalRelease = album.is_release === true || album.is_release === 1 || !('is_release' in album);
-            const tracks = isFormalRelease 
-                ? database.getTracksByReleaseId(album.id)
-                : database.getTracks(album.id);
-
+            const tracks = database.getTracks(album.id);
             if (!tracks || tracks.length === 0) {
                 return res.status(404).json({ error: "No tracks found" });
             }
 
-            // Determine requested format
-            const requestedFormat = (req.query.format as string)?.toLowerCase();
-            const useLossless = requestedFormat === 'lossless' || requestedFormat === 'wav' || requestedFormat === 'flac';
-
-            // For single track, just send the file
-            if (tracks.length === 1) {
-                const track = tracks[0];
-                const trackFile = (useLossless && track.lossless_path) ? track.lossless_path : track.file_path;
-                if (!trackFile) {
-                    return res.status(400).json({ error: "External tracks cannot be downloaded directly" });
-                }
-                const trackPath = path.join(musicDir, trackFile);
-
-                if (!await fs.pathExists(trackPath)) {
-                    return res.status(404).json({ error: "Track file not found" });
-                }
-                const filename = path.basename(trackPath);
-                res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-                res.setHeader("Content-Type", "application/octet-stream");
-                return fs.createReadStream(trackPath).pipe(res);
-            }
-
-
-            // For multiple tracks, create a ZIP
             const archiver = await import("archiver");
             const archive = archiver.default("zip", { zlib: { level: 5 } });
-
             res.setHeader("Content-Type", "application/zip");
-            res.setHeader("Content-Disposition", `attachment; filename="${album.slug || album.title}${useLossless ? '-lossless' : ''}.zip"`);
-
+            res.setHeader("Content-Disposition", `attachment; filename="${album.slug || "album"}.zip"`);
             archive.pipe(res);
 
             for (const track of tracks) {
-                const trackFile = (useLossless && track.lossless_path) ? track.lossless_path : track.file_path;
-                if (!trackFile) continue;
-                const trackPath = path.join(musicDir, trackFile);
-
-                if (await fs.pathExists(trackPath)) {
-                    archive.file(trackPath, { name: path.basename(trackPath) });
+                if (track.file_path) {
+                    const trackPath = path.join(musicDir, track.file_path);
+                    if (await fs.pathExists(trackPath)) {
+                        archive.file(trackPath, { name: path.basename(trackPath) });
+                    }
                 }
             }
-
             await archive.finalize();
         } catch (error) {
             console.error("Error downloading album:", error);

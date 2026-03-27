@@ -18,8 +18,6 @@ if (ffmpegPath) {
 import type { AuthService } from "../auth.js";
 import type { PublishingService } from "../publishing.js";
 import { metadataService } from "../metadata.js";
-import play from "play-dl";
-import { fetchExternalMetadata } from "../utils/externalMetadata.js";
 
 export function createTracksRoutes(database: DatabaseService, publishingService: PublishingService, musicDir: string, authService?: AuthService): Router {
     const router = Router();
@@ -205,107 +203,6 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         }
     });
 
-    /**
-     * POST /api/tracks/youtube
-     * Create a new track from a YouTube URL
-     */
-    router.post("/youtube", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) {
-            return res.status(401).json({ error: "Unauthorized" });
-        }
-
-        try {
-            const { url, albumId } = req.body;
-            if (!url) {
-                return res.status(400).json({ error: "URL is required" });
-            }
-
-            // Fetch metadata with play-dl
-            const info = await play.video_info(url);
-            const video = info.video_details;
-
-            // Security: Use current artistId as owner/artist
-            const finalArtistId = req.artistId || null;
-
-            const trackId = database.createTrack({
-                title: video.title || "YouTube Track",
-                album_id: albumId || null,
-                artist_id: finalArtistId,
-                owner_id: finalArtistId,
-                track_num: null,
-                duration: video.durationInSec || 0,
-                file_path: null,
-                format: "youtube",
-                bitrate: null,
-                sample_rate: null,
-                lossless_path: null,
-                url: url,
-                service: "youtube",
-                external_artwork: video.thumbnails[video.thumbnails.length - 1]?.url || null,
-                price: 0,
-                price_usdc: 0,
-                currency: 'ETH',
-                waveform: null,
-                lyrics: null
-            });
-
-            const newTrack = database.getTrack(trackId);
-            res.status(201).json(mapTrack(newTrack));
-        } catch (error) {
-            console.error("YouTube metadata fetch error:", error);
-            res.status(500).json({ error: "Failed to fetch YouTube metadata: " + (error as Error).message });
-        }
-    });
-
-    /**
-     * POST /api/tracks/external
-     * Create a new track from an external URL (YouTube, SoundCloud, Bandcamp)
-     */
-    router.post("/external", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) {
-            return res.status(401).json({ error: "Unauthorized" });
-        }
-
-        try {
-            const { url, albumId } = req.body;
-            if (!url) {
-                return res.status(400).json({ error: "URL is required" });
-            }
-
-            const metadata = await fetchExternalMetadata(url);
-
-            // Security: Use current artistId as owner/artist
-            const finalArtistId = req.artistId || null;
-
-            const trackId = database.createTrack({
-                title: metadata.title,
-                album_id: albumId || null,
-                artist_id: finalArtistId,
-                owner_id: finalArtistId,
-                track_num: null,
-                duration: metadata.duration,
-                file_path: null,
-                format: "external",
-                bitrate: null,
-                sample_rate: null,
-                lossless_path: null,
-                url: url, // Store original URL
-                service: metadata.service,
-                external_artwork: metadata.thumbnail,
-                price: 0,
-                price_usdc: 0,
-                currency: 'ETH',
-                waveform: null,
-                lyrics: null
-            });
-
-            const newTrack = database.getTrack(trackId);
-            res.status(201).json(mapTrack(newTrack));
-        } catch (error) {
-            console.error("External metadata fetch error:", error);
-            res.status(500).json({ error: "Failed to fetch metadata: " + (error as Error).message });
-        }
-    });
 
     /**
      * GET /api/tracks/:id/lyrics
@@ -608,82 +505,9 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             if (!track.file_path) {
-                if (track.url) {
-                    // Optimized External streaming
-                    const isYouTube = track.service === 'youtube' || track.url.includes('youtube.com') || track.url.includes('youtu.be');
-                    const isSoundCloud = track.service === 'soundcloud' || track.url.includes('soundcloud.com');
-                    const isBandcamp = track.service === 'bandcamp' || track.url.includes('bandcamp.com') || track.url.includes('bcbits.com');
-
-                    if (isYouTube || isSoundCloud) {
-                        try {
-                            console.log(`[Stream] Fetching ${track.service} stream for: ${track.url}`);
-                            const stream = await play.stream(track.url);
-                            
-                            res.setHeader("Content-Type", "audio/mpeg");
-                            res.setHeader("Transfer-Encoding", "chunked");
-
-                            // Use ffmpeg for both YT and SC to ensure standard format
-                            ffmpeg(stream.stream)
-                                .format('mp3')
-                                .audioBitrate('128k')
-                                .on('error', (err) => {
-                                    if (!err.message.includes("Output stream closed") && !err.message.includes("SIGKILL")) {
-                                        console.error(`[Stream] ${track.service} Transcoding error:`, err.message);
-                                    }
-                                })
-                                .pipe(res, { end: true });
-                            
-                            return;
-                        } catch (err: any) {
-                            console.error(`[Stream] ${track.service} stream error:`, err);
-                            if (err.message && err.message.includes("Sign in to confirm you’re not a bot")) {
-                                console.error("🚨 [Stream] YouTube detected a bot! Cookies are REQUIRED to bypass this. Add 'youtube_cookie' to your settings.");
-                            }
-                        }
-                    }
-
-                    if (isBandcamp) {
-                        try {
-                            console.log(`[Stream] Fetching Bandcamp stream for: ${track.url}`);
-                            // For Bandcamp, we need to resolve the audio URL first
-                            const metadata = await fetchExternalMetadata(track.url);
-                            if (metadata.url && metadata.url !== track.url) {
-                                const response = await fetch(metadata.url);
-                                if (response.ok) {
-                                    res.setHeader("Content-Type", response.headers.get("content-type") || "audio/mpeg");
-                                    res.setHeader("Content-Length", response.headers.get("content-length") || "");
-                                    // @ts-ignore
-                                    response.body.pipe(res);
-                                    return;
-                                }
-                            }
-                        } catch (err) {
-                            console.error("[Stream] Bandcamp stream proxy error:", err);
-                        }
-                    }
-
-                    try {
-                        const response = await fetch(track.url);
-                        if (!response.ok) {
-                            return res.status(502).json({ error: `Upstream error: ${response.statusText}` });
-                        }
-                        if (response.headers.has("content-type")) {
-                            res.setHeader("Content-Type", response.headers.get("content-type")!);
-                        }
-                        if (response.headers.has("content-length")) {
-                            res.setHeader("Content-Length", response.headers.get("content-length")!);
-                        }
-                        // Pipe the stream
-                        // @ts-ignore
-                        response.body.pipe(res);
-                        return;
-                    } catch (error) {
-                        console.error("Proxy error:", error);
-                        return res.status(500).json({ error: "Failed to stream external track" });
-                    }
-                }
-                return res.status(400).json({ error: "External tracks cannot be streamed directly from this endpoint. Use the external URL." });
+                return res.status(404).json({ error: "Track file not found" });
             }
+
             let trackPath = path.join(musicDir, track.file_path);
             let usingLosslessFallback = false;
 

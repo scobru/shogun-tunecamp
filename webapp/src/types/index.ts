@@ -180,8 +180,6 @@ export interface SiteSettings {
     gunPeers?: string;
     web3_checkout_address?: string;
     web3_nft_address?: string;
-    youtube_cookie?: string;
-    soundcloud_client_id?: string;
 }
 
 export interface Post {

@@ -15,7 +15,6 @@ import { IdentityPanel } from "../components/admin/IdentityPanel";
 import { ArtistFediversePanel } from "../components/artist/ArtistFediversePanel";
 import { AdminReleasesList } from "../components/admin/AdminReleasesList";
 import { AdminTracksList } from "../components/admin/AdminTracksList";
-import { AddExternalTrackModal } from "../components/modals/AddExternalTrackModal";
 
 export const MyMusic = () => {
   const { user, isAuthenticated, isLoading } = useAuthStore();
@@ -152,16 +151,6 @@ export const MyMusic = () => {
                   >
                     💿 New Release
                   </button>
-                  <button
-                    className="btn btn-accent btn-outline gap-2"
-                    onClick={() =>
-                      document.dispatchEvent(
-                        new CustomEvent("open-add-external-modal"),
-                      )
-                    }
-                  >
-                    🔗 Add from Link
-                  </button>
                 </>
               )}
               <button
@@ -242,11 +231,6 @@ export const MyMusic = () => {
       <CreatePostModal
         onPostCreated={() =>
           window.dispatchEvent(new CustomEvent("refresh-admin-releases"))
-        }
-      />
-      <AddExternalTrackModal
-        onComplete={() =>
-          window.dispatchEvent(new CustomEvent("refresh-admin-tracks"))
         }
       />
     </div>

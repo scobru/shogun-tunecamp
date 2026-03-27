@@ -151,7 +151,7 @@ export default function AdminReleaseEditor() {
   const loadRelease = async (releaseId: number) => {
     setLoading(true);
     try {
-      const data: any = await API.getRelease(releaseId);
+      const data: any = await API.getAdminRelease(releaseId);
       setMetadata({
         id: parseInt(data.id),
         title: data.title,
@@ -178,7 +178,7 @@ export default function AdminReleaseEditor() {
       });
 
       if (data.slug || releaseId) {
-        setCoverPreview(API.getAlbumCoverUrl(data.slug || releaseId));
+        setCoverPreview(API.getReleaseCoverUrl(data.slug || releaseId));
       }
       if (data.tracks) {
         setTracks(
@@ -279,7 +279,7 @@ export default function AdminReleaseEditor() {
         await API.updateRelease(String(releaseId), dataToSave);
         // Fetch fresh slug if needed
         if (!currentSlug) {
-          const fresh = await API.getAlbum(releaseId);
+          const fresh = await API.getAdminRelease(releaseId);
           currentSlug = fresh.slug;
         }
       }

@@ -23,7 +23,8 @@ import { Comments } from "../components/Comments";
 
 export const AlbumDetails = () => {
   const { idOrSlug } = useParams();
-  const [album, setAlbum] = useState<Album | null>(null);
+  const isRelease = window.location.pathname.startsWith('/releases');
+  const [album, setAlbum] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const { playTrack } = usePlayerStore();
   const [coverVersion] = useState(Date.now()); // Cache buster
@@ -41,12 +42,15 @@ export const AlbumDetails = () => {
 
   useEffect(() => {
     if (idOrSlug) {
-      API.getAlbum(idOrSlug)
-        .then(setAlbum)
+      const fetchCall = isRelease ? API.getRelease(idOrSlug) : API.getAlbum(idOrSlug);
+      fetchCall
+        .then((data: any) => {
+          setAlbum(data);
+        })
         .catch(console.error)
         .finally(() => setLoading(false));
     }
-  }, [idOrSlug]);
+  }, [idOrSlug, isRelease]);
 
   const [downloadFormat, setDownloadFormat] = useState("mp3");
 
@@ -105,9 +109,9 @@ export const AlbumDetails = () => {
       <div className="relative group rounded-[2.5rem] overflow-hidden border border-white/5 bg-base-200/20">
         {/* Background Ambient Blur */}
         <div className="absolute inset-0 z-0">
-          {album.coverImage && (
+          {album?.coverImage && (
             <img
-              src={API.getAlbumCoverUrl(album.id, coverVersion)}
+              src={isRelease ? API.getReleaseCoverUrl(album.id, coverVersion) : API.getAlbumCoverUrl(album.id, coverVersion)}
               className="w-full h-full object-cover opacity-10 blur-[100px] scale-150"
             />
           )}
@@ -116,7 +120,7 @@ export const AlbumDetails = () => {
         <div className="relative z-10 flex flex-col md:flex-row gap-8 lg:gap-12 p-8 lg:p-12 items-center md:items-end">
           <div className="shrink-0">
             <img
-              src={API.getAlbumCoverUrl(album.id, coverVersion)}
+              src={isRelease ? API.getReleaseCoverUrl(album.id, coverVersion) : API.getAlbumCoverUrl(album.id, coverVersion)}
               alt={album.title}
               className="w-56 h-56 md:w-72 md:h-72 rounded-[2rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] object-cover ring-1 ring-white/10"
               onError={(e) => {
@@ -172,7 +176,7 @@ export const AlbumDetails = () => {
                 <div className="flex gap-1 bg-base-300/50 p-1 rounded-[1.25rem] border border-white/5 backdrop-blur-md">
                   {album.download === "free" && (
                     <a
-                      href={`/api/albums/${album.slug || album.id}/download?format=${downloadFormat}`}
+                      href={`/api/${isRelease ? 'releases' : 'albums'}/${album.slug || album.id}/download?format=${downloadFormat}`}
                       className="btn btn-ghost btn-md rounded-xl gap-2 hover:bg-white/10"
                       target="_blank"
                     >

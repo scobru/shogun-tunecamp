@@ -85,10 +85,12 @@ export const API = {
 
     // --- Library (Browsing) ---
     getAlbums: () => handleResponse(api.get<Album[]>('/albums')),
-
-    getReleases: () => handleResponse(api.get<Album[]>('/albums/releases')),
     getAlbum: (idOrSlug: string | number) => handleResponse(api.get<Album>(`/albums/${idOrSlug}`)),
     getAlbumCoverUrl: (id: string | number, timestamp?: number) => id ? `${API_URL}/albums/${id}/cover${timestamp ? `?v=${timestamp}` : ''}` : '',
+
+    getReleases: () => handleResponse(api.get<Release[]>('/releases')),
+    getRelease: (idOrSlug: string | number) => handleResponse(api.get<Release>(`/releases/${idOrSlug}`)),
+    getReleaseCoverUrl: (id: string | number, timestamp?: number) => id ? `${API_URL}/releases/${id}/cover${timestamp ? `?v=${timestamp}` : ''}` : '',
     getTrackCoverUrl: (id: string | number) => id ? `${API_URL}/tracks/${id}/cover` : '',
 
     getArtists: () => handleResponse(api.get<Artist[]>('/artists')),
@@ -161,7 +163,7 @@ export const API = {
 
     // --- Admin: Releases & Content ---
     getAdminReleases: (options: { mine?: boolean } = {}) => handleResponse(api.get<Release[]>(`/admin/releases${options.mine ? '?mine=true' : ''}`)),
-    getRelease: (id: string | number) => handleResponse(api.get<Release>(`/admin/releases/${id}`)),
+    getAdminRelease: (id: string | number) => handleResponse(api.get<Release>(`/admin/releases/${id}`)),
     createRelease: (data: Partial<Release>) => handleResponse(api.post<Release>('/admin/releases', data)),
     updateRelease: (id: string, data: Partial<Release>) => handleResponse(api.put<Release>(`/admin/releases/${id}`, data)),
     deleteRelease: (id: string, keepFiles = false) =>

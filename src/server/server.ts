@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
-import play from "play-dl";
 import http from "http";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
@@ -57,17 +56,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // Initialize database
     console.log(`📦 Initializing database: ${config.dbPath}`);
     const database = createDatabase(config.dbPath);
-
-    // Initial Play-dl configuration (YouTube, SoundCloud cookies/tokens)
-    const youtubeCookie = database.getSetting("youtube_cookie");
-    const soundcloudClientId = database.getSetting("soundcloud_client_id");
-    if (youtubeCookie || soundcloudClientId) {
-        console.log("🍪 [Server] Configuring play-dl with external tokens/cookies");
-        play.setToken({
-            youtube: youtubeCookie ? { cookie: youtubeCookie } : undefined,
-            soundcloud: soundcloudClientId ? { client_id: soundcloudClientId } : undefined
-        }).catch(err => console.error("❌ [Server] Failed to set play-dl tokens:", err));
-    }
 
     // Initialize auth
     const authService = createAuthService(database.db, config.jwtSecret, config.adminUser, config.adminPass);
@@ -194,7 +182,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     app.use("/api/import", authMiddleware.requireUser, createImportRoutes());
 
-    app.use("/api/admin/releases", authMiddleware.requireUser, createReleaseRouter(database, scanner, publishingService, authService, config.musicDir));
+    const releaseRouter = createReleaseRouter(database, scanner, publishingService, authService, config.musicDir);
+    app.use("/api/releases", authMiddleware.optionalAuth, releaseRouter);
+    app.use("/api/admin/releases", authMiddleware.requireUser, releaseRouter);
     app.use("/api/stats", createStatsRoutes(gundbService, database, config));
     app.use("/api/stats/library", createLibraryStatsRoutes(database));
     app.use("/api/browser", authMiddleware.requireAdmin, createBrowserRoutes(config.musicDir, database));

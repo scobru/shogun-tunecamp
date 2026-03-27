@@ -102,21 +102,25 @@ export const Search = () => {
                         <section>
                             <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Disc size={20}/> Albums</h2>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                {results.albums.map(album => (
-                                    <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group card bg-base-200 hover:bg-base-300 transition-colors">
-                                        <figure className="aspect-square relative overflow-hidden">
-                                            {album.coverImage ? (
-                                                <img src={API.getAlbumCoverUrl(album.id)} alt={album.title} className="object-cover w-full h-full group-hover:scale-105 transition-transform" />
-                                            ) : (
-                                                <div className="w-full h-full bg-neutral flex items-center justify-center opacity-30"><Disc size={40}/></div>
-                                            )}
-                                        </figure>
-                                        <div className="card-body p-3">
-                                            <h3 className="font-bold truncate">{album.title}</h3>
-                                            <p className="text-xs opacity-60 truncate">{album.artistName || album.artist_name}</p>
-                                        </div>
-                                    </Link>
-                                ))}
+                                {results.albums.map(album => {
+                                    const isRelease = album.is_release;
+                                    const linkTo = isRelease ? `/releases/${album.slug || album.id}` : `/albums/${album.slug || album.id}`;
+                                    return (
+                                        <Link to={linkTo} key={album.id} className="group card bg-base-200 hover:bg-base-300 transition-colors">
+                                            <figure className="aspect-square relative overflow-hidden">
+                                                {album.coverImage ? (
+                                                    <img src={album.coverImage} alt={album.title} className="object-cover w-full h-full group-hover:scale-105 transition-transform" />
+                                                ) : (
+                                                    <div className="w-full h-full bg-neutral flex items-center justify-center opacity-30"><Disc size={40}/></div>
+                                                )}
+                                            </figure>
+                                            <div className="card-body p-3">
+                                                <h3 className="font-bold truncate">{album.title}</h3>
+                                                <p className="text-xs opacity-60 truncate">{album.artistName || album.artist_name}</p>
+                                            </div>
+                                        </Link>
+                                    );
+                                })}
                             </div>
                         </section>
                     )}
@@ -134,7 +138,7 @@ export const Search = () => {
                                             aria-label={`Play ${track.title} by ${track.artistName || 'Unknown Artist'}`}
                                         >
                                              <img
-                                                src={API.getAlbumCoverUrl(track.albumId)}
+                                                src={track.coverImage || API.getAlbumCoverUrl(track.albumId)}
                                                 alt={track.albumName ? `${track.albumName} cover` : "Album cover"}
                                                 className="w-full h-full rounded object-cover opacity-70 group-hover:opacity-100"
                                              />

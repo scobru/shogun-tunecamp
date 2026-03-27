@@ -1,16 +1,15 @@
 import { useEffect, useState } from "react";
 import API from "../services/api";
 import { usePlayerStore } from "../stores/usePlayerStore";
-import type { Album } from "../types";
-import { Play } from "lucide-react";
+import { Play, Library } from "lucide-react";
 import clsx from "clsx";
 
 export const Home = () => {
-  const [recentAlbums, setRecentAlbums] = useState<Album[]>([]);
+  const [recentAlbums, setRecentAlbums] = useState<any[]>([]);
+  const [libraryAlbums, setLibraryAlbums] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({});
   const [siteSettings, setSiteSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const {} = usePlayerStore();
 
   useEffect(() => {
     const load = async () => {
@@ -19,7 +18,8 @@ export const Home = () => {
           API.getCatalog(),
           API.getSiteSettings(),
         ]);
-        setRecentAlbums(catalog.recentAlbums || []);
+        setRecentAlbums(catalog.recentReleases || []); // Show actual releases in main section
+        setLibraryAlbums(catalog.recentAlbums || []);
         setStats(catalog.stats || {});
         setSiteSettings(settings);
       } catch (e) {
@@ -76,7 +76,7 @@ export const Home = () => {
     : {};
 
   return (
-    <section className="space-y-12">
+    <section className="space-y-12 pb-20">
       {/* Hero Section */}
       <div
         className={clsx(
@@ -156,7 +156,7 @@ export const Home = () => {
         <div id="recent-releases" className="flex items-end justify-between px-2">
           <div>
             <h2 className="text-3xl font-black tracking-tighter uppercase mb-1">Recent Releases</h2>
-            <p className="text-sm opacity-40 font-medium">The latest additions to the catalog</p>
+            <p className="text-sm opacity-40 font-medium">The latest published highlights</p>
           </div>
           <a href="#/albums" className="btn btn-link btn-sm no-underline opacity-40 hover:opacity-100 uppercase tracking-widest font-black text-[10px]">
             View All →
@@ -164,19 +164,19 @@ export const Home = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-8">
-          {recentAlbums.map((album) => {
+          {recentAlbums.map((album: any) => {
             if (!album) return null;
             return (
               <div
                 key={album.id}
                 className="group cursor-pointer space-y-4"
                 onClick={() =>
-                  (window.location.hash = `#/albums/${album.slug || album.id}`)
+                  (window.location.hash = `#/releases/${album.slug || album.id}`)
                 }
               >
                 <div className="aspect-square relative rounded-[1.5rem] overflow-hidden shadow-2xl bg-base-300 ring-1 ring-white/5 transition-all duration-500 group-hover:scale-[1.02] group-hover:ring-primary/20">
                   <img
-                    src={API.getAlbumCoverUrl(album.slug || album.id)}
+                    src={album.coverImage}
                     alt={album.title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
@@ -187,7 +187,7 @@ export const Home = () => {
                         e.preventDefault();
                         e.stopPropagation();
                         try {
-                          const fullAlbum = await API.getAlbum(album.id);
+                          const fullAlbum = await API.getRelease(album.id);
                           if (fullAlbum?.tracks?.length) {
                              usePlayerStore.getState().playQueue(fullAlbum.tracks, 0);
                           }
@@ -222,6 +222,46 @@ export const Home = () => {
           })}
         </div>
       </div>
+
+      {/* Library Albums */}
+      {libraryAlbums.length > 0 && (
+        <div className="space-y-6">
+          <div className="flex items-end justify-between px-2">
+            <div>
+              <h2 className="text-2xl font-black tracking-tighter uppercase mb-1 flex items-center gap-2">
+                <Library size={24} className="text-secondary" /> Library Additions
+              </h2>
+              <p className="text-sm opacity-40 font-medium">Newest items in your personal collection</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 lg:gap-6 opacity-80">
+            {libraryAlbums.map((album) => (
+              <div
+                key={album.id}
+                className="group cursor-pointer space-y-2"
+                onClick={() =>
+                  (window.location.hash = `#/albums/${album.slug || album.id}`)
+                }
+              >
+                <div className="aspect-square relative rounded-xl overflow-hidden bg-base-300 ring-1 ring-white/5 transition-all group-hover:ring-secondary/40">
+                  <img
+                    src={album.coverImage}
+                    alt={album.title}
+                    className="w-full h-full object-cover transition-opacity group-hover:opacity-80"
+                  />
+                </div>
+                <div className="px-1 text-center">
+                  <h3 className="font-bold text-sm truncate">{album.title}</h3>
+                  <p className="text-[10px] opacity-40 uppercase tracking-tight truncate">
+                    {album.artistName || album.artist_name}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 };
