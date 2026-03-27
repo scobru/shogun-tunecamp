@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import API from "../../services/api";
-import { Link2, Search, Youtube, Music, Cloud } from "lucide-react";
+import { Link2, Youtube, Music, Cloud } from "lucide-react";
 
 export const AddExternalTrackModal = ({
   onComplete,
