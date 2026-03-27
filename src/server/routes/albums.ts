@@ -140,6 +140,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
     router.get("/:idOrSlug/cover", async (req: AuthenticatedRequest, res) => {
         try {
             const param = req.params.idOrSlug as string;
+            console.log(`🖼️ [Albums] GET cover requested for: ${param}`);
             let album: any;
 
             if (/^\d+$/.test(param)) {
@@ -257,13 +258,16 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
 
     router.post("/:id/cover", (upload.single('cover') as any), async (req: any, res: any) => {
         const authReq = req as AuthenticatedRequest;
+        const id = req.params.id;
+        console.log(`📁 [Albums] POST cover upload started for album ID: ${id}`);
+        
         if (!authReq.isAdmin && !authReq.artistId) {
+            console.warn(`🛑 [Albums] Unauthorized upload attempt for album ID: ${id}`);
             return res.status(401).json({ error: "Unauthorized" });
         }
 
         try {
-            const id = parseInt(req.params.id, 10);
-            const album = database.getAlbum(id);
+            const album = database.getAlbum(parseInt(id, 10));
             if (!album) {
                 return res.status(404).json({ error: "Album not found" });
             }
@@ -289,14 +293,18 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             const ext = path.extname(req.file.originalname) || '.jpg';
             const finalPath = path.join(destDir, 'cover' + ext);
             
+            console.log(`📁 [Albums] Moving file from ${req.file.path} to ${finalPath}...`);
+            const startTime = Date.now();
             await fs.move(req.file.path, finalPath, { overwrite: true });
+            console.log(`📁 [Albums] File move finished in ${Date.now() - startTime}ms.`);
             
             const relPath = path.relative(musicDir, finalPath);
             database.updateAlbumCover(id, relPath);
-
+            console.log(`✅ [Albums] Album cover updated in DB for album ID: ${id}`);
+            
             res.json({ success: true, coverPath: relPath });
         } catch (error) {
-            console.error("Error uploading cover:", error);
+            console.error(`❌ [Albums] ERROR during cover upload for album ID: ${id}:`, error);
             res.status(500).json({ error: "Upload failed" });
         }
     });

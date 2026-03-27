@@ -144,7 +144,7 @@ export const AlbumDetails = () => {
                 alt={album.title}
                 className="w-56 h-56 md:w-72 md:h-72 rounded-[2rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] object-cover ring-1 ring-white/10"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "https://via.placeholder.com/500?text=No+Cover";
+                  (e.target as HTMLImageElement).src = "https://placehold.co/500x500?text=No+Cover";
                 }}
               />
               

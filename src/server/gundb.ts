@@ -154,9 +154,11 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 const missing = ['pub', 'priv', 'epub', 'epriv'].filter(k => !serverPair[k] || serverPair[k].length === 0);
                 if (missing.length > 0) {
                     console.error(`🚨 [GunDB] Server Identity is CORRUPTED! Empty keys: ${missing.join(', ')}. This will cause "0 length key!" errors.`);
-                    // Potentially clear it if it's completely broken
+                    // Generate a new one if it's completely broken
                     if (missing.includes('priv') || missing.includes('pub')) {
-                         console.warn("⚠️  Server identity is unusable. Recommend clearing 'gunPair' setting.");
+                         console.warn("⚠️  Server identity is unusable. Generating a new one for recovery...");
+                         serverPair = await Gun.SEA.pair();
+                         database.setSetting("gunPair", JSON.stringify(serverPair));
                     }
                 }
             } else {

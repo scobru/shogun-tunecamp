@@ -17,7 +17,7 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
     res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=(), payment=(), usb=()");
     res.setHeader(
         "Content-Security-Policy",
-        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; media-src 'self' data: blob: https:; connect-src 'self' ws: wss: http: https:; frame-src 'self' https:;"
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https: https://fonts.gstatic.com; media-src 'self' data: blob: https:; connect-src 'self' ws: wss: http: https:; frame-src 'self' https:;"
     );
     next();
 }

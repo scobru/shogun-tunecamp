@@ -15,9 +15,10 @@ import type { Artist } from "../../types";
 
 interface IdentityPanelProps {
   isAdmin?: boolean;
+  isRootAdmin?: boolean;
 }
 
-export const IdentityPanel = ({ isAdmin = false }: IdentityPanelProps) => {
+export const IdentityPanel = ({ isAdmin = false, isRootAdmin = false }: IdentityPanelProps) => {
   const [identity, setIdentity] = useState<{
     pub: string;
     priv: string;
@@ -38,25 +39,48 @@ export const IdentityPanel = ({ isAdmin = false }: IdentityPanelProps) => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const { user: currentUser } = useAuthStore();
+
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
     try {
-      const promises: Promise<any>[] = [API.getArtists()];
+      const promises: Promise<any>[] = [
+        API.getArtists().catch(e => {
+          console.error("Failed to load artists", e);
+          return [];
+        })
+      ];
       
-      if (isAdmin) {
-        promises.push(API.getIdentity());
-        promises.push(API.getSiteApIdentity());
+      if (isRootAdmin) {
+        promises.push(API.getIdentity().catch(e => {
+          console.error("Failed to load system identity", e);
+          return null;
+        }));
+        promises.push(API.getSiteApIdentity().catch(e => {
+          console.error("Failed to load site AP identity", e);
+          return null;
+        }));
       }
 
       const results = await Promise.all(promises);
-      const artists = results[0];
+      const artists = results[0] || [];
       
-      if (isAdmin) {
+      if (isRootAdmin) {
         setIdentity(results[1]);
         setSiteApIdentity(results[2]);
+      } else if (currentUser?.gunProfile) {
+        // Fallback: show the current logged-in user's GunDB identity if not root
+        setIdentity({
+          pub: currentUser.gunProfile.pub,
+          priv: currentUser.gunProfile.priv || "********", // Priv might not be available depending on auth method
+          epub: currentUser.gunProfile.epub,
+          epriv: currentUser.gunProfile.epriv || "********",
+          alias: currentUser.gunProfile.alias
+        });
       }
 
       // Load RSA keys for each artist
@@ -80,6 +104,9 @@ export const IdentityPanel = ({ isAdmin = false }: IdentityPanelProps) => {
       setArtistIdentities(apIdentities);
     } catch (e) {
       console.error("Failed to load identity data", e);
+      setError("Failed to load some identity data");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -134,13 +161,17 @@ export const IdentityPanel = ({ isAdmin = false }: IdentityPanelProps) => {
         <h2 className="text-xl font-bold">Identity Management</h2>
       </div>
 
-      {isAdmin && (
+      {loading && !identity && (
+        <div className="py-12 text-center opacity-50">Loading identity data...</div>
+      )}
+
+      {(isRootAdmin || identity) && (
         <div className="grid gap-6 md:grid-cols-2">
           {/* Current Identity Card (GunDB) */}
-          <div className="card bg-base-200 border border-white/5">
+          <div className="card bg-base-200 border border-white/5 shadow-xl">
             <div className="card-body">
               <h3 className="card-title text-sm uppercase tracking-wider opacity-70 mb-4">
-                Current P2P Node Identity (GunDB)
+                {isRootAdmin ? "Current P2P Node Identity (GunDB)" : "My Personal P2P Identity (GunDB)"}
               </h3>
 
               {identity ? (
@@ -257,12 +288,13 @@ export const IdentityPanel = ({ isAdmin = false }: IdentityPanelProps) => {
             </div>
           </div>
 
-          {/* Import Identity Card */}
-          <div className="card bg-base-200 border border-warning/20">
-            <div className="card-body">
-              <h3 className="card-title text-sm uppercase tracking-wider text-warning mb-4 flex items-center gap-2">
-                <Key size={16} /> Import Node Identity
-              </h3>
+          {/* Import Identity Card - Only for Root Admin */}
+          {isRootAdmin && (
+            <div className="card bg-base-200 border border-warning/20">
+              <div className="card-body">
+                <h3 className="card-title text-sm uppercase tracking-wider text-warning mb-4 flex items-center gap-2">
+                  <Key size={16} /> Import Node Identity
+                </h3>
 
               <div className="alert alert-warning shadow-lg text-xs mb-4">
                 <div>
@@ -284,7 +316,6 @@ export const IdentityPanel = ({ isAdmin = false }: IdentityPanelProps) => {
 
                 {error && <div className="text-error text-sm">{error}</div>}
                 {success && <div className="text-success text-sm">{success}</div>}
-
                 <div className="card-actions justify-end">
                   <button
                     type="submit"
@@ -297,6 +328,7 @@ export const IdentityPanel = ({ isAdmin = false }: IdentityPanelProps) => {
               </form>
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -310,8 +342,8 @@ export const IdentityPanel = ({ isAdmin = false }: IdentityPanelProps) => {
         </div>
 
         <div className="grid gap-6">
-          {/* Site Actor Identity (Service) */}
-          {isAdmin && siteApIdentity && (
+          {/* Site Actor Identity (Service) - Only for Root Admin */}
+          {isRootAdmin && siteApIdentity && (
             <div className="card bg-base-200 border border-primary/20">
               <div className="card-body p-6">
                 <div className="flex items-center justify-between mb-4">
