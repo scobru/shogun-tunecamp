@@ -252,7 +252,7 @@ export const Admin = () => {
         )}
 
         {activeTab === "settings" && isAdmin && <AdminSettingsPanel />}
-        {activeTab === "identity" && isAdmin && <IdentityPanel isAdmin={isAdmin} isRootAdmin={isRootAdmin} />}
+        {activeTab === "identity" && isAdmin && <IdentityPanel isRootAdmin={isRootAdmin} />}
         {activeTab === "activitypub" && isAdmin && <ActivityPubPanel />}
         {activeTab === "backup" && isAdmin && <BackupPanel />}
       </div>

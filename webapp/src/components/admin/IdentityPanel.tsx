@@ -12,13 +12,13 @@ import {
   Music,
 } from "lucide-react";
 import type { Artist } from "../../types";
+import { useAuthStore } from "../../stores/useAuthStore";
 
 interface IdentityPanelProps {
-  isAdmin?: boolean;
   isRootAdmin?: boolean;
 }
 
-export const IdentityPanel = ({ isAdmin = false, isRootAdmin = false }: IdentityPanelProps) => {
+export const IdentityPanel = ({ isRootAdmin = false }: IdentityPanelProps) => {
   const [identity, setIdentity] = useState<{
     pub: string;
     priv: string;
@@ -76,9 +76,9 @@ export const IdentityPanel = ({ isAdmin = false, isRootAdmin = false }: Identity
         // Fallback: show the current logged-in user's GunDB identity if not root
         setIdentity({
           pub: currentUser.gunProfile.pub,
-          priv: currentUser.gunProfile.priv || "********", // Priv might not be available depending on auth method
+          priv: (currentUser.gunProfile as any).priv || "********", 
           epub: currentUser.gunProfile.epub,
-          epriv: currentUser.gunProfile.epriv || "********",
+          epriv: (currentUser.gunProfile as any).epriv || "********",
           alias: currentUser.gunProfile.alias
         });
       }
