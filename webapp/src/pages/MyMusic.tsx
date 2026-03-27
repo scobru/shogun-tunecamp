@@ -209,7 +209,7 @@ export const MyMusic = () => {
                 <User size={16} />
                 <span>Configure your ActivityPub identity. This is how other users on the Fediverse will see you.</span>
              </div>
-             <IdentityPanel isAdmin={user?.isAdmin} />
+             <IdentityPanel isRootAdmin={user?.isRootAdmin} />
            </div>
         )}
 
