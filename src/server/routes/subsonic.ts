@@ -4,6 +4,7 @@ import { create } from 'xmlbuilder2';
 import path from 'path';
 import fs from 'fs-extra';
 import { resolveSafePath } from '../../utils/fileUtils.js';
+import { getPlaceholderSVG } from '../../utils/audioUtils.js';
 import type { DatabaseService, Track } from '../database';
 import type { AuthService } from '../auth';
 import type { GunDBService } from '../gundb';
@@ -374,16 +375,21 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             if (artist?.photo_path) {
                 imagePath = artist.photo_path;
             } else if (artist) {
-                // Fallback to first album cover
-                const albums = db.getAlbumsByArtist(artistId, false);
-                for (const album of albums) {
+                // Fallback to first formal release or library album cover
+                const formalReleases = db.getReleasesByArtist(artistId, false);
+                const libraryAlbums = db.getAlbumsByArtist(artistId, false);
+                const allAlbums = [...formalReleases, ...libraryAlbums];
+
+                for (const album of allAlbums) {
                     if (album.cover_path) {
                         imagePath = album.cover_path;
                         break;
                     }
-                    // Fallback to external artwork in album tracks
-                    const tracks = db.getTracks(album.id);
-                    const ext = tracks.find(t => t.external_artwork)?.external_artwork;
+                    // Fallback to external artwork in tracks
+                    // For library albums use db.getTracks, for releases use db.getTracksByReleaseId
+                    const isFormal = (album as any).published_at !== undefined || (album as any).is_release === true;
+                    const tracks = isFormal ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
+                    const ext = tracks.find(t => (t as any).external_artwork)?.external_artwork;
                     if (ext) {
                         imagePath = ext;
                         break;
@@ -1261,14 +1267,15 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (!artist) return sendError(res, req, 70, 'Artist not found');
 
         const wrapperKey = isV2 ? 'artistInfo2' : 'artistInfo';
+        const coverArtId = `ar_${artist.id}`;
         sendResponse(res, req, {
             [wrapperKey]: {
                 '@biography': artist.bio || '',
                 '@musicBrainzId': '',
                 '@lastFmUrl': '',
-                '@smallImageUrl': `/api/artists/${artist.id}/cover`,
-                '@mediumImageUrl': `/api/artists/${artist.id}/cover`,
-                '@largeImageUrl': `/api/artists/${artist.id}/cover`,
+                '@smallImageUrl': `getCoverArt.view?id=${coverArtId}`,
+                '@mediumImageUrl': `getCoverArt.view?id=${coverArtId}`,
+                '@largeImageUrl': `getCoverArt.view?id=${coverArtId}`,
                 similarArtist: []
             }
         });
@@ -1298,14 +1305,15 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (!album) return sendError(res, req, 70, 'Album not found');
 
         const wrapperKey = isV2 ? 'albumInfo2' : 'albumInfo';
+        const coverArtId = `al_${album.id}`;
         sendResponse(res, req, {
             [wrapperKey]: {
                 '@notes': album.description || '',
                 '@musicBrainzId': '',
                 '@lastFmUrl': '',
-                '@smallImageUrl': `/api/albums/${album.id}/cover`,
-                '@mediumImageUrl': `/api/albums/${album.id}/cover`,
-                '@largeImageUrl': `/api/albums/${album.id}/cover`
+                '@smallImageUrl': `getCoverArt.view?id=${coverArtId}`,
+                '@mediumImageUrl': `getCoverArt.view?id=${coverArtId}`,
+                '@largeImageUrl': `getCoverArt.view?id=${coverArtId}`
             }
         });
     };
