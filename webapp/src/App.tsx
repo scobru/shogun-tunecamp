@@ -93,6 +93,7 @@ function App() {
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/my-music" element={<MyMusic />} />
+          <Route path="/share/:id" element={<SharePage />} />
 
           {/* Auth Callback */}
           <Route path="/auth/callback" element={<AuthCallback />} />

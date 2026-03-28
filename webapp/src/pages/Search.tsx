@@ -103,7 +103,7 @@ export const Search = () => {
                             <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Disc size={20}/> Albums</h2>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                 {results.albums.map(album => {
-                                    const isRelease = album.is_release;
+                                    const isRelease = album.is_release || (album as any).is_formal_release;
                                     const linkTo = isRelease ? `/releases/${album.slug || album.id}` : `/albums/${album.slug || album.id}`;
                                     return (
                                         <Link to={linkTo} key={album.id} className="group card bg-base-200 hover:bg-base-300 transition-colors">

@@ -22,7 +22,7 @@ import { metadataService } from "../metadata.js";
 export function createTracksRoutes(database: DatabaseService, publishingService: PublishingService, musicDir: string, authService?: AuthService): Router {
     const router = Router();
 
-    const mapTrack = (t: any) => ({
+    const mapTrack = (t: any, username?: string) => ({
         ...t,
         albumId: t.album_id,
         artistId: t.artist_id,
@@ -37,7 +37,9 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         filename: t.file_path ? path.basename(t.file_path) : undefined,
         // Prioritize track's own artwork API endpoint if external_artwork is present
         // Otherwise fallback to album cover or null
-        coverUrl: t.external_artwork ? `/api/tracks/${t.id}/cover` : (t.album_id ? `/api/albums/${t.album_id}/cover` : null)
+        coverUrl: t.external_artwork ? `/api/tracks/${t.id}/cover` : (t.album_id ? `/api/albums/${t.album_id}/cover` : null),
+        starred: username ? database.isStarred(username, 'track', String(t.id)) : false,
+        rating: username ? database.getItemRating(username, 'track', String(t.id)) : 0
     });
 
     /**
@@ -47,15 +49,16 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
             const showMine = req.query.mine === 'true';
+            const username = req.username;
 
             // If admin, return everything (unless filtering for 'mine')
             if (req.isAdmin && !showMine) {
-                return res.json(database.getTracks().map(mapTrack));
+                return res.json(database.getTracks().map(t => mapTrack(t, username)));
             }
 
             // If a non-admin artist, or admin filtering for 'mine', return their own tracks (+ all public tracks if not filtering)
             if (req.artistId) {
-                const myTracks = database.getTracksByOwner(req.artistId).map(mapTrack);
+                const myTracks = database.getTracksByOwner(req.artistId).map(t => mapTrack(t, username));
                 
                 if (showMine) {
                     return res.json(myTracks);
@@ -68,7 +71,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 const combined = [...myTracks];
                 for (const t of publicTracksRaw) {
                     if (!seenIds.has(t.id)) {
-                        combined.push(mapTrack(t));
+                        combined.push(mapTrack(t, username));
                     }
                 }
                 return res.json(combined);
@@ -76,10 +79,103 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
 
             // Otherwise, filter for public/unlisted tracks
             // Optimized: Use database filtering instead of in-memory N+1
-            res.json(database.getTracks(undefined, true).map(mapTrack));
+            res.json(database.getTracks(undefined, true).map(t => mapTrack(t, username)));
         } catch (error) {
             console.error("Error getting tracks:", error);
             res.status(500).json({ error: "Failed to get tracks" });
+        }
+    });
+
+    /**
+     * POST /api/tracks/:id/star
+     * Star a track (like)
+     */
+    router.post("/:id/star", (req: AuthenticatedRequest, res) => {
+        if (!req.username) return res.status(401).json({ error: "Unauthorized" });
+        try {
+            const id = req.params.id;
+            database.starItem(req.username, 'track', id);
+            
+            // Increment global GunDB like count for public tracks
+            const trackId = parseInt(id);
+            if (!isNaN(trackId) && publishingService) {
+                const track = database.getTrack(trackId);
+                if (track && track.album_id) {
+                    const album = database.getAlbum(track.album_id);
+                    if (album && (album.visibility === 'public' || album.visibility === 'unlisted')) {
+                        // We use a helper from subsonic.ts or just call gundbService directly if we had it here
+                        // For now, let's assume we can use publishingService.gundbService
+                        (publishingService as any).gundbService?.incrementTrackLikeCount(album.slug, String(track.id));
+                    }
+                }
+            }
+
+            res.json({ success: true, starred: true });
+        } catch (error) {
+            console.error("Error starring track:", error);
+            res.status(500).json({ error: "Failed to star track" });
+        }
+    });
+
+    /**
+     * DELETE /api/tracks/:id/star
+     * Unstar a track (unlike)
+     */
+    router.delete("/:id/star", (req: AuthenticatedRequest, res) => {
+        if (!req.username) return res.status(401).json({ error: "Unauthorized" });
+        try {
+            const id = req.params.id;
+            database.unstarItem(req.username, 'track', id);
+
+            // Decrement global GunDB like count for public tracks
+            const trackId = parseInt(id);
+            if (!isNaN(trackId) && publishingService) {
+                const track = database.getTrack(trackId);
+                if (track && track.album_id) {
+                    const album = database.getAlbum(track.album_id);
+                    if (album && (album.visibility === 'public' || album.visibility === 'unlisted')) {
+                        (publishingService as any).gundbService?.decrementTrackLikeCount(album.slug, String(track.id));
+                    }
+                }
+            }
+
+            res.json({ success: true, starred: false });
+        } catch (error) {
+            console.error("Error unstarring track:", error);
+            res.status(500).json({ error: "Failed to unstar track" });
+        }
+    });
+
+    /**
+     * POST /api/tracks/:id/rating
+     * Set track rating (0-5)
+     */
+    router.post("/:id/rating", (req: AuthenticatedRequest, res) => {
+        if (!req.username) return res.status(401).json({ error: "Unauthorized" });
+        try {
+            const id = req.params.id;
+            const { rating } = req.body;
+            const r = parseInt(rating);
+            if (isNaN(r) || r < 0 || r > 5) return res.status(400).json({ error: "Invalid rating" });
+
+            database.setItemRating(req.username, 'track', id, r);
+
+            // Sync with GunDB if public
+            const trackId = parseInt(id);
+            if (!isNaN(trackId) && publishingService) {
+                const track = database.getTrack(trackId);
+                if (track && track.album_id) {
+                    const album = database.getAlbum(track.album_id);
+                    if (album && (album.visibility === 'public' || album.visibility === 'unlisted')) {
+                        (publishingService as any).gundbService?.setTrackRating(album.slug, String(track.id), r);
+                    }
+                }
+            }
+
+            res.json({ success: true, rating: r });
+        } catch (error) {
+            console.error("Error setting track rating:", error);
+            res.status(500).json({ error: "Failed to set rating" });
         }
     });
 
@@ -188,8 +284,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 lyrics: lyrics || null
             });
 
-            const newTrack = database.getTrack(trackId);
-            const mappedTrack = newTrack ? mapTrack(newTrack) : newTrack;
+            const mappedTrack = newTrack ? mapTrack(newTrack, req.username) : newTrack;
             res.status(201).json(mappedTrack);
 
             // Sync release if associated
@@ -383,7 +478,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 }
             }
 
-            res.json(mapTrack(track));
+            res.json(mapTrack(track, req.username));
         } catch (error) {
             console.error("Error getting track:", error);
             res.status(500).json({ error: "Failed to get track" });
@@ -842,7 +937,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 console.error("[Tags] Error writing tags:", tagError);
             }
 
-            const mappedUpdatedTrack = updatedTrack ? mapTrack(updatedTrack) : updatedTrack;
+            const mappedUpdatedTrack = updatedTrack ? mapTrack(updatedTrack, req.username) : updatedTrack;
             res.json({ message: "Track updated", track: mappedUpdatedTrack });
 
             // ActivityPub Broadcast: Track updated

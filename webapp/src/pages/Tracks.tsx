@@ -8,6 +8,7 @@ import {
   Wallet,
   CheckCircle2,
   Download,
+  Share2,
 } from "lucide-react";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
@@ -37,6 +38,9 @@ export const Tracks = () => {
     API.getTracks()
       .then((data) => {
         setTracks(data);
+        // Initialize likedTrackIds from backend starred status
+        const backendLiked = data.filter(t => t.starred).map(t => String(t.id));
+        setLikedTrackIds(prev => new Set([...Array.from(prev), ...backendLiked]));
         setLoading(false);
       })
       .catch((error) => {
@@ -46,9 +50,9 @@ export const Tracks = () => {
 
     if (isAuthenticated) {
       GunSocial.getLikedTracks().then((liked) => {
-        setLikedTrackIds(new Set(liked.map((t: any) => String(t.id))));
+        setLikedTrackIds(prev => new Set([...Array.from(prev), ...liked.map((t: any) => String(t.id))]));
       });
-    } else {
+    } else if (!isAdminAuthenticated) {
       setLikedTrackIds(new Set());
     }
   }, [isAuthenticated, isAdminAuthenticated]);
@@ -66,20 +70,47 @@ export const Tracks = () => {
   }, [filter, tracks]);
 
   const handleLike = async (track: Track) => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !isAdminAuthenticated) {
       document.dispatchEvent(new CustomEvent("open-auth-modal"));
       return;
     }
+    
+    const trackIdStr = String(track.id);
+    const isCurrentlyLiked = likedTrackIds.has(trackIdStr);
+
     try {
-      const isNowLiked = await GunSocial.toggleLikeTrack(track);
+      // Toggle in GunDB if user is fully authenticated with GunDB
+      if (isAuthenticated) {
+        await GunSocial.toggleLikeTrack(track);
+      }
+
+      // Toggle in Backend (SQLite) if user has a token
+      if (API.getToken()) {
+        if (isCurrentlyLiked) {
+          await API.unstarTrack(track.id);
+        } else {
+          await API.starTrack(track.id);
+        }
+      }
+
       setLikedTrackIds((prev) => {
         const next = new Set(prev);
-        if (isNowLiked) next.add(String(track.id));
-        else next.delete(String(track.id));
+        if (isCurrentlyLiked) next.delete(trackIdStr);
+        else next.add(trackIdStr);
         return next;
       });
     } catch (err) {
       console.error("Failed to toggle like:", err);
+    }
+  };
+
+  const handleShare = (track: Track) => {
+    const url = `${window.location.origin}/share/tr_${track.id}`;
+    if (navigator.share) {
+      navigator.share({ title: track.title, url }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(url);
+      alert("Link copied to clipboard!");
     }
   };
 
@@ -191,6 +222,11 @@ export const Tracks = () => {
                             <Wallet size={16} className="text-secondary" /> Purchase Track
                           </a>
                         )}
+                      </li>
+                      <li>
+                        <a onClick={() => handleShare(track)}>
+                          <Share2 size={16} /> Share Track
+                        </a>
                       </li>
                       {isAdminAuthenticated && (
                         <li className="border-t border-white/5 mt-1 pt-1 opacity-50 hover:opacity-100">

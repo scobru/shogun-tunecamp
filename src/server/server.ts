@@ -351,6 +351,77 @@ export async function startServer(config: ServerConfig): Promise<void> {
             ? path.join(webappDistPath, "index.html")
             : path.join(webappPath, "index.html");
 
+    // Public sharing route with OG tags support
+    app.get("/share/:id", async (req, res) => {
+        const { id } = req.params;
+        let title = "Shared from TuneCamp";
+        let description = "Music shared via TuneCamp";
+        let image = "";
+
+        if (id.startsWith('tr_')) {
+            const trackId = parseInt(id.substring(3));
+            if (!isNaN(trackId)) {
+                const track = database.getTrack(trackId);
+                if (track) {
+                    title = track.title || "Track";
+                    description = `Track by ${track.artist_name || 'Unknown Artist'}${track.album_title ? ` from ${track.album_title}` : ''}`;
+                    image = `/api/tracks/${track.id}/cover`;
+                }
+            }
+        } else if (id.startsWith('al_')) {
+            const albumId = parseInt(id.substring(3));
+            if (!isNaN(albumId)) {
+                const album = database.getAlbum(albumId);
+                if (album) {
+                    title = album.title || "Album";
+                    description = `Album by ${album.artist_name || 'Unknown Artist'} • ${album.year || ''}`;
+                    image = `/api/albums/${album.id}/cover`;
+                }
+            }
+        }
+
+        try {
+            let html = fs.readFileSync(indexHtmlPath, 'utf8');
+            const dbPublicUrl = database.getSetting("publicUrl");
+            const publicUrl = dbPublicUrl || config.publicUrl || `${req.protocol}://${req.get('host')}`;
+            
+            const ogTags = `
+    <meta property="og:title" content="${title.replace(/"/g, '&quot;')}" />
+    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}" />
+    <meta property="og:image" content="${publicUrl}${image}" />
+    <meta property="og:type" content="music.song" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}" />
+    <meta name="twitter:description" content="${description.replace(/"/g, '&quot;')}" />
+    <meta name="twitter:image" content="${publicUrl}${image}" />
+`;
+            html = html.replace('<head>', '<head>' + ogTags);
+            
+            // Inject the same config as the main index route
+            const dbGunPeers = database.getSetting("gunPeers");
+            const rpcUrl = process.env.TUNECAMP_RPC_URL || process.env.VITE_TUNECAMP_RPC_URL || '';
+            const gunPeersStr = dbGunPeers || process.env.TUNECAMP_GUN_PEERS || process.env.VITE_GUN_PEERS || '';
+            const web3CheckoutAddr = database.getSetting("web3_checkout_address") || "";
+            const web3NftAddr = database.getSetting("web3_nft_address") || "";
+            const ownerAddress = process.env.TUNECAMP_OWNER_ADDRESS || "";
+            
+            const configInject = `<script>window.TUNECAMP_CONFIG = { 
+                apiUrl: "/api", 
+                rpcUrl: ${JSON.stringify(rpcUrl)},
+                gunPeers: ${JSON.stringify(gunPeersStr)},
+                web3_checkout_address: ${JSON.stringify(web3CheckoutAddr)},
+                web3_nft_address: ${JSON.stringify(web3NftAddr)},
+                ownerAddress: ${JSON.stringify(ownerAddress)}
+            };</script>`;
+            html = html.replace('<head>', '<head>' + configInject);
+            
+            res.send(html);
+        } catch (e) {
+            console.error("Error serving share page:", e);
+            res.redirect(`/#/share/${id}`);
+        }
+    });
+
     app.get("*", (req, res, next) => {
         if (req.path.startsWith("/api/")) {
             return res.status(404).json({ error: "Not found" });

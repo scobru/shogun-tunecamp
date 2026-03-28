@@ -15,26 +15,25 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
+            const username = req.username;
+            const mapAlbum = (a: any) => ({
+                ...a,
+                coverImage: a.cover_path,
+                starred: username ? database.isStarred(username, 'album', String(a.id)) : false,
+                rating: username ? database.getItemRating(username, 'album', String(a.id)) : 0
+            });
+
             // Show all library albums if admin
             if (req.isAdmin) {
-                const albums = database.getAlbums().map(a => ({
-                    ...a,
-                    coverImage: a.cover_path
-                }));
+                const albums = database.getAlbums().map(mapAlbum);
                 return res.json(albums);
             }
 
             // If a non-admin artist, return their own albums + all public albums
             if (req.artistId) {
-                const myAlbums = database.getAlbumsByOwner(req.artistId).map(a => ({
-                    ...a,
-                    coverImage: a.cover_path
-                }));
+                const myAlbums = database.getAlbumsByOwner(req.artistId).map(mapAlbum);
 
-                const publicAlbums = database.getAlbums(true).map(a => ({
-                    ...a,
-                    coverImage: a.cover_path
-                }));
+                const publicAlbums = database.getAlbums(true).map(mapAlbum);
 
                 // Deduplicate (album could be mine AND public)
                 const seen = new Set(myAlbums.map(a => a.id));
@@ -48,14 +47,59 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             }
 
             // Otherwise, only public albums
-            const albums = database.getAlbums(true).map(a => ({
-                ...a,
-                coverImage: a.cover_path
-            }));
+            const albums = database.getAlbums(true).map(mapAlbum);
             res.json(albums);
         } catch (error) {
             console.error("Error getting albums:", error);
             res.status(500).json({ error: "Failed to get albums" });
+        }
+    });
+
+    /**
+     * POST /api/albums/:id/star
+     */
+    router.post("/:id/star", (req: AuthenticatedRequest, res) => {
+        if (!req.username) return res.status(401).json({ error: "Unauthorized" });
+        try {
+            const id = req.params.id;
+            database.starItem(req.username, 'album', id);
+            res.json({ success: true, starred: true });
+        } catch (error) {
+            console.error("Error starring album:", error);
+            res.status(500).json({ error: "Failed to star album" });
+        }
+    });
+
+    /**
+     * DELETE /api/albums/:id/star
+     */
+    router.delete("/:id/star", (req: AuthenticatedRequest, res) => {
+        if (!req.username) return res.status(401).json({ error: "Unauthorized" });
+        try {
+            const id = req.params.id;
+            database.unstarItem(req.username, 'album', id);
+            res.json({ success: true, starred: false });
+        } catch (error) {
+            console.error("Error unstarring album:", error);
+            res.status(500).json({ error: "Failed to unstar album" });
+        }
+    });
+
+    /**
+     * POST /api/albums/:id/rating
+     */
+    router.post("/:id/rating", (req: AuthenticatedRequest, res) => {
+        if (!req.username) return res.status(401).json({ error: "Unauthorized" });
+        try {
+            const id = req.params.id;
+            const { rating } = req.body;
+            const r = parseInt(rating);
+            if (isNaN(r) || r < 0 || r > 5) return res.status(400).json({ error: "Invalid rating" });
+            database.setItemRating(req.username, 'album', id, r);
+            res.json({ success: true, rating: r });
+        } catch (error) {
+            console.error("Error setting album rating:", error);
+            res.status(500).json({ error: "Failed to set rating" });
         }
     });
 
@@ -112,6 +156,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             }
 
             const tracks = database.getTracks(album.id);
+            const username = req.username;
 
             // Map tracks to include album cover info for the player
             const mappedTracks = tracks.map(t => ({
@@ -121,12 +166,16 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 coverImage: album.cover_path ? `/api/albums/${album.id}/cover` : undefined,
                 externalArtwork: t.external_artwork,
                 losslessPath: t.lossless_path,
+                starred: username ? database.isStarred(username, 'track', String(t.id)) : false,
+                rating: username ? database.getItemRating(username, 'track', String(t.id)) : 0
             }));
 
             res.json({
                 ...album,
                 coverImage: album.cover_path,
                 tracks: mappedTracks,
+                starred: username ? database.isStarred(username, 'album', String(album.id)) : false,
+                rating: username ? database.getItemRating(username, 'album', String(album.id)) : 0
             });
         } catch (error) {
             console.error("Error getting album:", error);

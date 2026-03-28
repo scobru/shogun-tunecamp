@@ -22,6 +22,8 @@ export interface Track {
     lossless_path?: string;
     playCount: number;
     liked?: boolean;
+    starred?: boolean;
+    rating?: number;
     coverImage?: string; // helpers
     waveform?: number[] | string;
     lyrics?: string;
@@ -86,6 +88,8 @@ export interface Release {
     release_tracks?: ReleaseTrack[];
     downloadCount?: number;
     unlockCodeCount?: number;
+    starred?: boolean;
+    rating?: number;
 }
 
 export interface Artist {
@@ -100,6 +104,8 @@ export interface Artist {
     links?: ArtistLink[];
     donationLinks?: ArtistLink[];
     walletAddress?: string;
+    starred?: boolean;
+    rating?: number;
 }
 
 export interface ArtistLink {
@@ -131,6 +137,8 @@ export interface Album {
     priceUsdc?: number;
     price_usdc?: number;
     walletAddress?: string;
+    starred?: boolean;
+    rating?: number;
 }
 
 export interface Playlist {

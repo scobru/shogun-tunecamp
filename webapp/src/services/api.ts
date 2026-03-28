@@ -134,6 +134,19 @@ export const API = {
         return handleResponse(api.post(`/stats/library/play/${trackId}`));
     },
 
+    // --- Star/Rating ---
+    starTrack: (id: string | number) => handleResponse(api.post<{ success: boolean, starred: boolean }>(`/tracks/${id}/star`)),
+    unstarTrack: (id: string | number) => handleResponse(api.delete<{ success: boolean, starred: boolean }>(`/tracks/${id}/star`)),
+    rateTrack: (id: string | number, rating: number) => handleResponse(api.post<{ success: boolean, rating: number }>(`/tracks/${id}/rating`, { rating })),
+
+    starAlbum: (id: string | number) => handleResponse(api.post<{ success: boolean, starred: boolean }>(`/albums/${id}/star`)),
+    unstarAlbum: (id: string | number) => handleResponse(api.delete<{ success: boolean, starred: boolean }>(`/albums/${id}/star`)),
+    rateAlbum: (id: string | number, rating: number) => handleResponse(api.post<{ success: boolean, rating: number }>(`/albums/${id}/rating`, { rating })),
+
+    starArtist: (id: string | number) => handleResponse(api.post<{ success: boolean, starred: boolean }>(`/artists/${id}/star`)),
+    unstarArtist: (id: string | number) => handleResponse(api.delete<{ success: boolean, starred: boolean }>(`/artists/${id}/star`)),
+    rateArtist: (id: string | number, rating: number) => handleResponse(api.post<{ success: boolean, rating: number }>(`/artists/${id}/rating`, { rating })),
+
     // --- Stats ---
     getRecentPlays: (limit = 50) => handleResponse(api.get<any[]>(`/stats/library/recent?limit=${limit}`)),
     getTopTracks: (limit = 20, days = 30, filter: 'all' | 'library' | 'releases' = 'all') => handleResponse(api.get<any[]>(`/stats/library/top-tracks?limit=${limit}&days=${days}&filter=${filter}`)),

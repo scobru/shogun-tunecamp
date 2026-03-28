@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
-import API from "../services/api";
-import { useParams, Link } from "react-router-dom";
+import { useState, useEffect } from \"react\";
+import API from \"../services/api\";
+import { useParams, Link } from \"react-router-dom\";
 import {
   Play,
+  Heart,
   MoreHorizontal,
   Download,
   Unlock,
@@ -11,16 +12,18 @@ import {
   Wallet,
   CheckCircle2,
   Copyright
-} from "lucide-react";
-import { usePlayerStore } from "../stores/usePlayerStore";
-import { useAuthStore } from "../stores/useAuthStore";
-import { usePurchases } from "../hooks/usePurchases";
-import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
-import { useWalletStore } from "../stores/useWalletStore";
+} from \"lucide-react\";
+import { usePlayerStore } from \"../stores/usePlayerStore\";
+import { useAuthStore } from \"../stores/useAuthStore\";
+import { usePurchases } from \"../hooks/usePurchases\";
+import { useOwnedNFTs } from \"../hooks/useOwnedNFTs\";
+import { useWalletStore } from \"../stores/useWalletStore\";
+import { GunSocial } from \"../services/gun\";
+import type { Track } from \"../types\";
+import clsx from \"clsx\";
 
-
-import { Comments } from "../components/Comments";
-import { Camera, Loader2 } from "lucide-react";
+import { Comments } from \"../components/Comments\";
+import { Camera, Loader2 } from \"lucide-react\";
 
 export const AlbumDetails = () => {
   const { idOrSlug } = useParams();
@@ -29,11 +32,13 @@ export const AlbumDetails = () => {
   const [loading, setLoading] = useState(true);
   const { playTrack } = usePlayerStore();
   const [coverVersion] = useState(Date.now()); // Cache buster
-  const { isAdminAuthenticated: isAdmin, user } = useAuthStore();
+  const { isAdminAuthenticated: isAdmin, isAuthenticated, user } = useAuthStore();
   const { isPurchased, verifyAndGetCode } = usePurchases();
   const { address, externalAddress, useExternalWallet, isExternalConnected } = useWalletStore();
   const activeAddress = useExternalWallet && isExternalConnected ? externalAddress : address;
   const { ownedNFTs } = useOwnedNFTs(activeAddress);
+  const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
+  const [isAlbumLiked, setIsAlbumLiked] = useState(false);
 
   const isTrackUnlocked = (track: any) => {
     return isPurchased(track.id) || 
@@ -53,8 +58,8 @@ export const AlbumDetails = () => {
       const data = await (isRelease ? API.getRelease(idOrSlug!) : API.getAlbum(idOrSlug!));
       setAlbum(data);
     } catch (err) {
-      console.error("Upload failed:", err);
-      alert("Failed to upload cover");
+      console.error(\"Upload failed:\", err);
+      alert(\"Failed to upload cover\");
     } finally {
       setUploading(false);
     }
@@ -66,13 +71,90 @@ export const AlbumDetails = () => {
       fetchCall
         .then((data: any) => {
           setAlbum(data);
+          setIsAlbumLiked(!!data.starred);
+          if (data.tracks) {
+            const backendLiked = data.tracks.filter((t: any) => t.starred).map((t: any) => String(t.id));
+            setLikedTrackIds(new Set(backendLiked));
+          }
         })
         .catch(console.error)
         .finally(() => setLoading(false));
     }
   }, [idOrSlug, isRelease]);
 
-  const [downloadFormat, setDownloadFormat] = useState("mp3");
+  useEffect(() => {
+    if (isAuthenticated) {
+      GunSocial.getLikedTracks().then((liked) => {
+        setLikedTrackIds((prev) => new Set([...Array.from(prev), ...liked.map((t: any) => String(t.id))]));
+      });
+    }
+  }, [isAuthenticated]);
+
+  const handleLikeTrack = async (track: Track) => {
+    if (!isAuthenticated && !isAdmin) {
+      document.dispatchEvent(new CustomEvent(\"open-auth-modal\"));
+      return;
+    }
+    
+    const trackIdStr = String(track.id);
+    const isCurrentlyLiked = likedTrackIds.has(trackIdStr);
+
+    try {
+      if (isAuthenticated) await GunSocial.toggleLikeTrack(track);
+      if (API.getToken()) {
+        if (isCurrentlyLiked) await API.unstarTrack(track.id);
+        else await API.starTrack(track.id);
+      }
+
+      setLikedTrackIds((prev) => {
+        const next = new Set(prev);
+        if (isCurrentlyLiked) next.delete(trackIdStr);
+        else next.add(trackIdStr);
+        return next;
+      });
+    } catch (err) {
+      console.error(\"Failed to toggle track like:\", err);
+    }
+  };
+
+  const handleLikeAlbum = async () => {
+    if (!isAuthenticated && !isAdmin) {
+      document.dispatchEvent(new CustomEvent(\"open-auth-modal\"));
+      return;
+    }
+    if (!album) return;
+
+    try {
+      if (API.getToken()) {
+        if (isAlbumLiked) await API.unstarAlbum(album.id);
+        else await API.starAlbum(album.id);
+      }
+      setIsAlbumLiked(!isAlbumLiked);
+    } catch (err) {
+      console.error(\"Failed to toggle album like:\", err);
+    }
+  };
+
+  const handleShareAlbum = () => {
+    const url = `${window.location.origin}/share/al_${album.id}`;
+    if (navigator.share) {
+      navigator.share({ title: album.title, url }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(url);
+      alert("Link copied to clipboard!");
+    }
+  };
+
+  const handleShareTrack = (track: any) => {
+    const url = `${window.location.origin}/share/tr_${track.id}`;
+    if (navigator.share) {
+      navigator.share({ title: track.title, url }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(url);
+      alert("Link copied to clipboard!");
+    }
+  };
+
 
   const handlePlay = () => {
     if (album?.tracks && album.tracks.length > 0) {
@@ -206,6 +288,22 @@ export const AlbumDetails = () => {
                 <Play fill="currentColor" size={20} /> Play Album
               </button>
 
+              <button
+                className={clsx("btn btn-lg btn-square rounded-2xl border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all", isAlbumLiked && "text-primary")}
+                onClick={handleLikeAlbum}
+                title={isAlbumLiked ? "Unstar Album" : "Star Album"}
+              >
+                <Heart size={24} fill={isAlbumLiked ? "currentColor" : "none"} />
+              </button>
+
+              <button
+                className="btn btn-lg btn-square rounded-2xl border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all"
+                onClick={handleShareAlbum}
+                title="Share Album"
+              >
+                <Share2 size={24} className="opacity-60" />
+              </button>
+
               {(album.download === "free" || album.download === "codes") && (
                 <div className="flex gap-1 bg-base-300/50 p-1 rounded-[1.25rem] border border-white/5 backdrop-blur-md">
                   {album.download === "free" && (
@@ -308,6 +406,13 @@ export const AlbumDetails = () => {
                   >
                     <Play size={18} fill="currentColor" />
                   </button>
+                  
+                  <button 
+                    onClick={() => handleLikeTrack(track)}
+                    className={clsx("btn btn-ghost btn-sm btn-circle", likedTrackIds.has(String(track.id)) && "text-primary")}
+                  >
+                    <Heart size={18} fill={likedTrackIds.has(String(track.id)) ? "currentColor" : "none"} />
+                  </button>
 
                   <div className="dropdown dropdown-end">
                     <div role="button" tabIndex={0} className="btn btn-ghost btn-sm btn-circle">
@@ -338,6 +443,11 @@ export const AlbumDetails = () => {
                              <Wallet size={16} className="text-secondary" /> Purchase Track
                            </a>
                          )}
+                       </li>
+                       <li>
+                         <a onClick={() => handleShareTrack(track)}>
+                            <Share2 size={16} /> Share Track
+                         </a>
                        </li>
                        {isAdmin && (
                          <li className="border-t border-white/5 mt-1 pt-1 opacity-50 hover:opacity-100">

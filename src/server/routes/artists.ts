@@ -15,6 +15,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
             const allArtists = database.getArtists();
+            const username = req.username;
 
             // Filter logic:
             // 1. Admins see everyone (but still need to be mapped/sanitized)
@@ -42,7 +43,9 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 return {
                     ...safeArtist,
                     // Use the canonical cover API URL so the frontend benefits from backend fallbacks
-                    coverImage: `/api/artists/${a.id}/cover`
+                    coverImage: `/api/artists/${a.id}/cover`,
+                    starred: username ? database.isStarred(username, 'artist', String(a.id)) : false,
+                    rating: username ? database.getItemRating(username, 'artist', String(a.id)) : 0
                 };
             });
 
@@ -50,6 +53,54 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
         } catch (error) {
             console.error("Error getting artists:", error);
             res.status(500).json({ error: "Failed to get artists" });
+        }
+    });
+
+    /**
+     * POST /api/artists/:id/star
+     */
+    router.post("/:id/star", (req: AuthenticatedRequest, res) => {
+        if (!req.username) return res.status(401).json({ error: "Unauthorized" });
+        try {
+            const id = req.params.id;
+            database.starItem(req.username, 'artist', id);
+            res.json({ success: true, starred: true });
+        } catch (error) {
+            console.error("Error starring artist:", error);
+            res.status(500).json({ error: "Failed to star artist" });
+        }
+    });
+
+    /**
+     * DELETE /api/artists/:id/star
+     */
+    router.delete("/:id/star", (req: AuthenticatedRequest, res) => {
+        if (!req.username) return res.status(401).json({ error: "Unauthorized" });
+        try {
+            const id = req.params.id;
+            database.unstarItem(req.username, 'artist', id);
+            res.json({ success: true, starred: false });
+        } catch (error) {
+            console.error("Error unstarring artist:", error);
+            res.status(500).json({ error: "Failed to unstar artist" });
+        }
+    });
+
+    /**
+     * POST /api/artists/:id/rating
+     */
+    router.post("/:id/rating", (req: AuthenticatedRequest, res) => {
+        if (!req.username) return res.status(401).json({ error: "Unauthorized" });
+        try {
+            const id = req.params.id;
+            const { rating } = req.body;
+            const r = parseInt(rating);
+            if (isNaN(r) || r < 0 || r > 5) return res.status(400).json({ error: "Invalid rating" });
+            database.setItemRating(req.username, 'artist', id, r);
+            res.json({ success: true, rating: r });
+        } catch (error) {
+            console.error("Error setting artist rating:", error);
+            res.status(500).json({ error: "Failed to set rating" });
         }
     });
 
@@ -338,6 +389,8 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 } catch (e) { }
             }
 
+            const username = req.username;
+
             // Exclude sensitive data
             const { private_key, ...safeArtist } = artist;
 
@@ -346,8 +399,19 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 links,
                 postParams,
                 coverImage,
-                albums: albums.map(a => ({ ...a, coverImage: a.cover_path })),
-                tracks: looseTracks,
+                albums: albums.map(a => ({ 
+                    ...a, 
+                    coverImage: a.cover_path,
+                    starred: username ? database.isStarred(username, 'album', String(a.id)) : false,
+                    rating: username ? database.getItemRating(username, 'album', String(a.id)) : 0
+                })),
+                tracks: looseTracks.map(t => ({
+                    ...t,
+                    starred: username ? database.isStarred(username, 'track', String(t.id)) : false,
+                    rating: username ? database.getItemRating(username, 'track', String(t.id)) : 0
+                })),
+                starred: username ? database.isStarred(username, 'artist', String(artist.id)) : false,
+                rating: username ? database.getItemRating(username, 'artist', String(artist.id)) : 0
             });
         } catch (error) {
             console.error("Error getting artist:", error);

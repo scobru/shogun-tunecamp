@@ -10,7 +10,8 @@ export const ArtistDetails = () => {
     const { idOrSlug } = useParams();
     const [coverVersion] = useState(Date.now()); // Cache buster
     const [artist, setArtist] = useState<Artist | null>(null);
-    const [albums, setAlbums] = useState<Album[]>([]);
+    const [formalReleases, setFormalReleases] = useState<Album[]>([]);
+    const [libraryAlbums, setLibraryAlbums] = useState<Album[]>([]);
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
     const { playTrack } = usePlayerStore();
@@ -25,7 +26,10 @@ export const ArtistDetails = () => {
                 setArtist(artistData);
                 // Use albums directly from artist response if available
                 if (artistData.albums) {
-                    setAlbums(artistData.albums);
+                    const formal = artistData.albums.filter((a: any) => a.is_formal_release || a.is_release);
+                    const library = artistData.albums.filter((a: any) => !a.is_formal_release && !a.is_release);
+                    setFormalReleases(formal);
+                    setLibraryAlbums(library);
                 }
                 setPosts(artistPosts);
             })
@@ -39,8 +43,9 @@ export const ArtistDetails = () => {
 
     const handlePlay = () => {
         // Maybe play top tracks? For now play first album.
-        if (albums.length > 0 && albums[0].tracks && albums[0].tracks.length > 0) {
-            playTrack(albums[0].tracks[0], albums[0].tracks);
+        const albumsToUse = formalReleases.length > 0 ? formalReleases : libraryAlbums;
+        if (albumsToUse.length > 0 && albumsToUse[0].tracks && albumsToUse[0].tracks.length > 0) {
+            playTrack(albumsToUse[0].tracks[0], albumsToUse[0].tracks);
         }
     };
 
@@ -82,7 +87,7 @@ export const ArtistDetails = () => {
                              <p className="text-lg opacity-80 max-w-2xl line-clamp-2" title={artist.bio}>{artist.bio}</p>
                          )}
                          <div className="flex items-center gap-4 text-sm font-bold opacity-70">
-                            <span>{albums.length} Releases</span>
+                            <span>{formalReleases.length + libraryAlbums.length} Releases</span>
                          </div>
                      </div>
                      <div className="flex gap-2">
@@ -143,32 +148,63 @@ export const ArtistDetails = () => {
                 </section>
              )}
 
-             {/* Discography */}
-             <section>
-                <div className="flex items-center gap-2 mb-6 opacity-80 border-b border-white/5 pb-2">
-                    <Disc/>
-                    <h2 className="text-xl font-bold">Discography</h2>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                    {albums.map(album => (
-                        <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group">
-                             <figure className="aspect-square relative overflow-hidden rounded-lg shadow-lg mb-3">
-                                {album.coverImage ? (
-                                    <img 
-                                        src={API.getAlbumCoverUrl(album.id, coverVersion)} 
-                                        alt={album.title} 
-                                        className="object-cover w-full h-full group-hover:scale-105 transition-transform" 
-                                    />
-                                ) : (
-                                    <div className="w-full h-full bg-neutral flex items-center justify-center opacity-30"><Disc size={32}/></div>
-                                )}
-                            </figure>
-                            <h3 className="font-bold truncate group-hover:text-primary transition-colors">{album.title}</h3>
-                            <p className="text-xs opacity-50">{album.year} • {album.type}</p>
-                        </Link>
-                    ))}
-                </div>
-             </section>
+              {/* Discography / Releases */}
+             {formalReleases.length > 0 && (
+                <section>
+                    <div className="flex items-center gap-2 mb-6 opacity-80 border-b border-white/5 pb-2">
+                        <Disc />
+                        <h2 className="text-xl font-bold">Discography</h2>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                        {formalReleases.map(album => (
+                            <Link to={`/releases/${album.slug || album.id}`} key={album.id} className="group">
+                                <figure className="aspect-square relative overflow-hidden rounded-lg shadow-lg mb-3">
+                                    {album.coverImage ? (
+                                        <img 
+                                            src={API.getReleaseCoverUrl(album.id, coverVersion)} 
+                                            alt={album.title} 
+                                            className="object-cover w-full h-full group-hover:scale-105 transition-transform" 
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-neutral flex items-center justify-center opacity-30"><Disc size={32} /></div>
+                                    )}
+                                </figure>
+                                <h3 className="font-bold truncate group-hover:text-primary transition-colors">{album.title}</h3>
+                                <p className="text-xs opacity-50">{album.year} • {album.type}</p>
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+             )}
+
+             {/* Library Additions */}
+             {libraryAlbums.length > 0 && (
+                <section>
+                    <div className="flex items-center gap-2 mb-6 opacity-80 border-b border-white/5 pb-2">
+                        <Disc />
+                        <h2 className="text-xl font-bold">Library Additions</h2>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                        {libraryAlbums.map(album => (
+                            <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group">
+                                <figure className="aspect-square relative overflow-hidden rounded-lg shadow-lg mb-3">
+                                    {album.coverImage ? (
+                                        <img 
+                                            src={API.getAlbumCoverUrl(album.id, coverVersion)} 
+                                            alt={album.title} 
+                                            className="object-cover w-full h-full group-hover:scale-105 transition-transform" 
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-neutral flex items-center justify-center opacity-30"><Disc size={32} /></div>
+                                    )}
+                                </figure>
+                                <h3 className="font-bold truncate group-hover:text-primary transition-colors">{album.title}</h3>
+                                <p className="text-xs opacity-50">{album.year} • {album.type}</p>
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+             )}
         </div>
     );
 };
