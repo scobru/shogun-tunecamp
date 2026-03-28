@@ -348,7 +348,11 @@ export function createUploadRoutes(
                     return res.status(404).json({ error: "Release not found" });
                 }
 
-                if (!req.isRootAdmin && req.artistId && targetItem.artist_id !== req.artistId) {
+                const isAuthorized = req.isRootAdmin || !req.artistId || 
+                    targetItem.artist_id === req.artistId || 
+                    targetItem.owner_id === req.artistId;
+
+                if (!isAuthorized) {
                     await fs.remove(file.path);
                     return res.status(403).json({ error: "Access denied: Cannot upload cover for another artist's release" });
                 }
