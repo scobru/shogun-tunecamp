@@ -284,6 +284,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 lyrics: lyrics || null
             });
 
+            const newTrack = database.getTrack(trackId);
             const mappedTrack = newTrack ? mapTrack(newTrack, req.username) : newTrack;
             res.status(201).json(mappedTrack);
 
