@@ -205,7 +205,13 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                     // 1. Check external_artwork (already used by tracks)
                     const externalCover = tracks.find(t => t.external_artwork)?.external_artwork;
                     if (externalCover) {
-                        return res.redirect(externalCover);
+                        if (externalCover.startsWith('http')) {
+                            return res.redirect(externalCover);
+                        }
+                        const artworkPath = path.join(musicDir, externalCover);
+                        if (await fs.pathExists(artworkPath)) {
+                            return res.sendFile(path.resolve(artworkPath), { maxAge: 86400000 });
+                        }
                     }
 
                     // 2. NEW: Try to find a cover.jpg/png in the same directory as the first track

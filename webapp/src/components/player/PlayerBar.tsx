@@ -85,15 +85,23 @@ export const PlayerBar = () => {
       !currentTrack.streamUrl && (isLosslessFormat || isLosslessExt);
 
     let newSrc = API.getStreamUrl(currentTrack.id, forceMp3 ? 'mp3' : undefined);
+    
     if (currentTrack.streamUrl) {
-      try {
-        const streamUrlObj = new URL(currentTrack.streamUrl);
-        const isLocalOrigin = streamUrlObj.origin === window.location.origin;
-        newSrc = isLocalOrigin 
-          ? currentTrack.streamUrl 
-          : `/api/proxy/stream?url=${encodeURIComponent(currentTrack.streamUrl)}`;
-      } catch (e) {
-        newSrc = `/api/proxy/stream?url=${encodeURIComponent(currentTrack.streamUrl)}`;
+      if (currentTrack.streamUrl.startsWith('/') || !currentTrack.streamUrl.includes('://')) {
+        // Local relative URL - use as is
+        newSrc = currentTrack.streamUrl;
+      } else {
+        // Remote absolute URL - check if needs proxy
+        try {
+          const streamUrlObj = new URL(currentTrack.streamUrl);
+          const isLocalOrigin = streamUrlObj.origin === window.location.origin;
+          newSrc = isLocalOrigin 
+            ? currentTrack.streamUrl 
+            : `/api/proxy/stream?url=${encodeURIComponent(currentTrack.streamUrl)}`;
+        } catch (e) {
+          // If URL is invalid, fallback to proxy just in case it's something we can't parse but browser might
+          newSrc = `/api/proxy/stream?url=${encodeURIComponent(currentTrack.streamUrl)}`;
+        }
       }
     }
 
@@ -207,6 +215,16 @@ export const PlayerBar = () => {
     (currentTrack.id ? API.getTrackCoverUrl(currentTrack.id) : "") ||
     (currentTrack.artistId ? API.getArtistCoverUrl(currentTrack.artistId) : "")
   ) : "";
+
+  // Fix relative paths that might be missing the root / or /api
+  if (coverUrl && !coverUrl.startsWith('http') && !coverUrl.startsWith('/')) {
+    // If it looks like a local asset path, prepend /api/
+    if (coverUrl.startsWith('assets/')) {
+        coverUrl = `/api/${coverUrl}`;
+    } else {
+        coverUrl = `/${coverUrl}`;
+    }
+  }
 
   if (!currentTrack)
     return (

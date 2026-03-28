@@ -115,7 +115,17 @@ export const SharePage = () => {
     const title = (item as any).title;
     const artistName = (item as any).artistName || (item as any).artist_name;
     const albumName = isTrack ? (item as any).albumName : null;
-    const coverUrl = isTrack ? API.getTrackCoverUrl(item.id) : API.getAlbumCoverUrl(item.id);
+    let coverUrl = isTrack ? API.getTrackCoverUrl(item.id) : API.getAlbumCoverUrl(item.id);
+
+    // Fix relative paths that might be missing the root / or /api
+    if (coverUrl && !coverUrl.startsWith('http') && !coverUrl.startsWith('/')) {
+        // If it looks like a local asset path, prepend /api/
+        if (coverUrl.startsWith('assets/')) {
+            coverUrl = `/api/${coverUrl}`;
+        } else {
+            coverUrl = `/${coverUrl}`;
+        }
+    }
 
     return (
         <div className="max-w-4xl mx-auto space-y-12 py-8 animate-fade-in">

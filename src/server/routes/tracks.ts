@@ -590,14 +590,18 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                         // Check if track is in a public playlist
                         const isInPublicPlaylist = database.isTrackInPublicPlaylist(id);
                         if (!isInPublicPlaylist) {
+                            console.warn(`🛑 [Stream] Access denied for track ${id} (private album, not admin/owner)`);
                             return res.status(403).json({ error: "Access denied" });
                         }
                         console.log(`🔓 [Stream] Allowing private track ${id} because it is in a public playlist`);
                     }
                 } else if (track.artist_id !== req.artistId) {
                     // Orphan track not owned by user
+                    console.warn(`🛑 [Stream] Access denied for track ${id} (orphan, not owner)`);
                     return res.status(403).json({ error: "Access denied" });
                 }
+            } else if (req.isAdmin) {
+                console.log(`🔓 [Stream] Admin access granted for track ${id}`);
             }
 
             if (!track.file_path) {
