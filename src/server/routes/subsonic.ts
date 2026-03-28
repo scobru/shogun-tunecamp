@@ -325,12 +325,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             if (!artist) return sendError(res, req, 70, 'Artist not found');
 
             const libraryAlbums = db.getAlbumsByArtist(artistId, false);
-            const formalReleases = db.getReleasesByArtist(artistId, false);
             
-            // Merge both lists
-            const allAlbums = [...formalReleases, ...libraryAlbums].map(album => {
-                const isFormal = (album as any).published_at !== undefined || (album as any).is_release === true;
-                const tracks = isFormal ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
+            const allAlbums = [...libraryAlbums].map(album => {
+                const tracks = db.getTracks(album.id);
                 return {
                     ...album,
                     songCount: tracks.length,
@@ -350,18 +347,11 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (id.startsWith('al_')) {
             const albumId = parseInt(id.substring(3));
             
-            // Check library album first
             let album = db.getAlbum(albumId) as any;
             let tracks: any[] = [];
             
             if (album) {
                 tracks = db.getTracks(albumId);
-            } else {
-                // Fallback to release
-                album = db.getRelease(albumId);
-                if (album) {
-                    tracks = db.getTracksByReleaseId(albumId);
-                }
             }
 
             if (!album) return sendError(res, req, 70, 'Album not found');
@@ -402,19 +392,15 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 imagePath = artist.photo_path;
             } else if (artist) {
                 // Fallback to first formal release or library album cover
-                const formalReleases = db.getReleasesByArtist(artistId, false);
                 const libraryAlbums = db.getAlbumsByArtist(artistId, false);
-                const allAlbums = [...formalReleases, ...libraryAlbums];
+                const allAlbums = [...libraryAlbums];
 
                 for (const album of allAlbums) {
                     if (album.cover_path) {
                         imagePath = album.cover_path;
                         break;
                     }
-                    // Fallback to external artwork in tracks
-                    // For library albums use db.getTracks, for releases use db.getTracksByReleaseId
-                    const isFormal = (album as any).published_at !== undefined || (album as any).is_release === true;
-                    const tracks = isFormal ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
+                    const tracks = db.getTracks(album.id);
                     const ext = tracks.find(t => (t as any).external_artwork)?.external_artwork;
                     if (ext) {
                         imagePath = ext;
@@ -596,8 +582,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             const artist = db.getArtist(artistId);
             if (artist) {
                 const libraryAlbums = db.getAlbumsByArtist(artistId, false);
-                const formalReleases = db.getReleasesByArtist(artistId, false);
-                const allAlbums = [...formalReleases, ...libraryAlbums];
+                const allAlbums = [...libraryAlbums];
 
                 const artistData = formatArtist(artist, username);
                 artistData['@albumCount'] = allAlbums.length;
@@ -621,18 +606,11 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         const albumId = parseInt(id.startsWith('al_') ? id.substring(3) : id);
         if (!isNaN(albumId)) {
-            // Check library album first
             let album = db.getAlbum(albumId) as any;
             let tracks: any[] = [];
             
             if (album) {
                 tracks = db.getTracks(albumId);
-            } else {
-                // Fallback to release
-                album = db.getRelease(albumId);
-                if (album) {
-                    tracks = db.getTracksByReleaseId(albumId);
-                }
             }
 
             if (album) {
@@ -660,8 +638,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const getGenres = (req: any, res: any) => {
         const libraryAlbums = db.getAlbums(false);
-        const formalReleases = db.getReleases(false);
-        const allAlbums = [...formalReleases, ...libraryAlbums];
+        const allAlbums = [...libraryAlbums];
 
         const genreMap: Record<string, { count: number, songCount: number }> = {};
 
@@ -673,8 +650,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     genreMap[g].count++;
                     
                     // Estimate song count per genre
-                    const isFormal = (album as any).published_at !== undefined || (album as any).is_release === true;
-                    const tracks = isFormal ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
+                    const tracks = db.getTracks(album.id);
                     genreMap[g].songCount += tracks.length;
                 });
             }
@@ -797,10 +773,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             if (!/[A-Z]/.test(char)) char = '#';
             if (!indexes[char]) indexes[char] = [];
 
-            const formalReleases = db.getReleasesByArtist(artist.id, false);
             const artistData = formatArtist({
                 ...artist,
-                albumCount: (countMap.get(artist.id) || 0) + formalReleases.length
+                albumCount: (countMap.get(artist.id) || 0)
             }, username);
             indexes[char].push(artistData);
         });
@@ -832,10 +807,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const isV2 = req.path.includes('getAlbumList2');
 
         const libraryAlbums = db.getAlbums(false);
-        const formalReleases = db.getReleases(false);
         
-        // Merge both lists
-        let albums = [...formalReleases, ...libraryAlbums];
+        let albums = [...libraryAlbums];
 
         if (type === 'random') {
             albums = albums.sort(() => Math.random() - 0.5);
@@ -871,8 +844,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         const username = (req as any).user?.username || 'admin';
         const paginated = albums.slice(skip, skip + limit).map(album => {
-            const isFormal = (album as any).published_at !== undefined || (album as any).is_release === true;
-            const tracks = isFormal ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
+            const tracks = db.getTracks(album.id);
             return {
                 ...album,
                 songCount: tracks.length,
@@ -920,19 +892,13 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (!query) return sendError(res, req, 10, 'Missing query parameter');
 
         const results = db.search(query, true);
-        const formalReleases = db.getReleases(false).filter(r => 
-            r.title.toLowerCase().includes(query.toLowerCase()) || 
-            (r.artist_name || '').toLowerCase().includes(query.toLowerCase())
-        );
 
         const aLimit = parseInt(artistCount || '') || 20;
         const alLimit = parseInt(albumCount || '') || 20;
         const sLimit = parseInt(songCount || '') || 50;
 
-        // Merge albums and releases and calculate stats
-        const mergedAlbums = [...formalReleases, ...results.albums].map(album => {
-            const isFormal = (album as any).published_at !== undefined || (album as any).is_release === true;
-            const tracks = isFormal ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
+        const mergedAlbums = [...results.albums].map(album => {
+            const tracks = db.getTracks(album.id);
             return {
                 ...album,
                 songCount: tracks.length,
@@ -948,10 +914,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         }
 
         const enrichedArtists = results.artists.map(artist => {
-            const formalReleases = db.getReleasesByArtist(artist.id, false);
             return {
                 ...artist,
-                albumCount: (countMap.get(artist.id) || 0) + formalReleases.length
+                albumCount: (countMap.get(artist.id) || 0)
             };
         });
 
@@ -1608,16 +1573,14 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const skip = parseInt(offset || '') || 0;
 
         const libraryAlbums = db.getAlbums(false);
-        const formalReleases = db.getReleases(false);
-        const allAlbums = [...formalReleases, ...libraryAlbums];
+        const allAlbums = [...libraryAlbums];
         
         const matchingAlbums = allAlbums.filter(a => a.genre && a.genre.toLowerCase().includes(genre.toLowerCase()));
 
         const songs: any[] = [];
         if (matchingAlbums.length > 0) {
             for (const album of matchingAlbums) {
-                const isFormal = (album as any).published_at !== undefined || (album as any).is_release === true;
-                const tracks = isFormal ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
+                const tracks = db.getTracks(album.id);
                 
                 for (const track of tracks) {
                     songs.push({
