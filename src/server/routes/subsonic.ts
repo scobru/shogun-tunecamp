@@ -316,29 +316,45 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const id = ensureString(req.query.id);
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
-        // Handle Artist -> Return Albums
+        // Handle Artist -> Return Albums + Releases
         if (id.startsWith('ar_')) {
             const artistId = parseInt(id.substring(3));
             const artist = db.getArtist(artistId);
             if (!artist) return sendError(res, req, 70, 'Artist not found');
 
-            const albums = db.getAlbumsByArtist(artistId);
+            const libraryAlbums = db.getAlbumsByArtist(artistId, false);
+            const formalReleases = db.getReleasesByArtist(artistId, false);
+            
+            // Merge both lists
+            const allAlbums = [...formalReleases, ...libraryAlbums];
 
             const directory = {
                 '@id': id,
                 '@name': artist.name,
                 '@parent': '1',
-                child: albums.map(album => formatAlbum(album, username))
+                child: allAlbums.map(album => formatAlbum(album, username))
             };
             return sendResponse(res, req, { directory });
         }
 
         if (id.startsWith('al_')) {
             const albumId = parseInt(id.substring(3));
-            const album = db.getAlbum(albumId);
-            if (!album) return sendError(res, req, 70, 'Album not found');
+            
+            // Check library album first
+            let album = db.getAlbum(albumId) as any;
+            let tracks: any[] = [];
+            
+            if (album) {
+                tracks = db.getTracks(albumId);
+            } else {
+                // Fallback to release
+                album = db.getRelease(albumId);
+                if (album) {
+                    tracks = db.getTracksByReleaseId(albumId);
+                }
+            }
 
-            const tracks = db.getTracks(albumId);
+            if (!album) return sendError(res, req, 70, 'Album not found');
 
             const directory = {
                 '@id': id,
@@ -536,14 +552,17 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (!isNaN(artistId)) {
             const artist = db.getArtist(artistId);
             if (artist) {
-                const albums = db.getAlbumsByArtist(artistId);
+                const libraryAlbums = db.getAlbumsByArtist(artistId, false);
+                const formalReleases = db.getReleasesByArtist(artistId, false);
+                const allAlbums = [...formalReleases, ...libraryAlbums];
+
                 const artistData = formatArtist(artist, username);
-                artistData['@albumCount'] = albums.length;
+                artistData['@albumCount'] = allAlbums.length;
                 
                 sendResponse(res, req, {
                     artist: {
                         ...artistData,
-                        album: albums.map(a => formatAlbum(a, username))
+                        album: allAlbums.map(a => formatAlbum(a, username))
                     }
                 });
                 return;
@@ -559,9 +578,21 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         const albumId = parseInt(id.startsWith('al_') ? id.substring(3) : id);
         if (!isNaN(albumId)) {
-            const album = db.getAlbum(albumId);
+            // Check library album first
+            let album = db.getAlbum(albumId) as any;
+            let tracks: any[] = [];
+            
             if (album) {
-                const tracks = db.getTracks(albumId);
+                tracks = db.getTracks(albumId);
+            } else {
+                // Fallback to release
+                album = db.getRelease(albumId);
+                if (album) {
+                    tracks = db.getTracksByReleaseId(albumId);
+                }
+            }
+
+            if (album) {
                 const albumData = formatAlbum(album, username);
                 albumData['@songCount'] = tracks.length;
                 albumData['@duration'] = tracks.reduce((acc, t) => acc + (t.duration || 0), 0);
@@ -585,17 +616,22 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/getAlbum.view', getAlbum);
 
     const getGenres = (req: any, res: any) => {
-        const albums = db.getAlbums(false);
+        const libraryAlbums = db.getAlbums(false);
+        const formalReleases = db.getReleases(false);
+        const allAlbums = [...formalReleases, ...libraryAlbums];
+
         const genreMap: Record<string, { count: number, songCount: number }> = {};
 
-        albums.forEach(album => {
+        allAlbums.forEach(album => {
             if (album.genre) {
                 const genres = album.genre.split(',').map(g => g.trim());
                 genres.forEach(g => {
                     if (!genreMap[g]) genreMap[g] = { count: 0, songCount: 0 };
                     genreMap[g].count++;
+                    
                     // Estimate song count per genre
-                    const tracks = db.getTracks(album.id);
+                    const isFormal = (album as any).published_at !== undefined || (album as any).is_release === true;
+                    const tracks = isFormal ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
                     genreMap[g].songCount += tracks.length;
                 });
             }
@@ -749,7 +785,11 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const skip = parseInt(offset || '') || 0;
         const isV2 = req.path.includes('getAlbumList2');
 
-        let albums = db.getAlbums(false);
+        const libraryAlbums = db.getAlbums(false);
+        const formalReleases = db.getReleases(false);
+        
+        // Merge both lists
+        let albums = [...formalReleases, ...libraryAlbums];
 
         if (type === 'random') {
             albums = albums.sort(() => Math.random() - 0.5);
@@ -826,15 +866,22 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (!query) return sendError(res, req, 10, 'Missing query parameter');
 
         const results = db.search(query, true);
+        const formalReleases = db.getReleases(false).filter(r => 
+            r.title.toLowerCase().includes(query.toLowerCase()) || 
+            (r.artist_name || '').toLowerCase().includes(query.toLowerCase())
+        );
 
         const aLimit = parseInt(artistCount || '') || 20;
         const alLimit = parseInt(albumCount || '') || 20;
         const sLimit = parseInt(songCount || '') || 50;
 
+        // Merge albums and releases
+        const mergedAlbums = [...formalReleases, ...results.albums];
+
         const responseData: any = {
             searchResult2: {
                 artist: results.artists.slice(0, aLimit).map(a => formatArtist(a, username)),
-                album: results.albums.slice(0, alLimit).map(a => formatAlbum(a, username)),
+                album: mergedAlbums.slice(0, alLimit).map(a => formatAlbum(a, username)),
                 song: results.tracks.slice(0, sLimit).map(t => formatTrack(t, username))
             }
         };
@@ -1483,34 +1530,36 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const limit = parseInt(count || '') || 10;
         const skip = parseInt(offset || '') || 0;
 
-        const allAlbums = db.getAlbums(false);
+        const libraryAlbums = db.getAlbums(false);
+        const formalReleases = db.getReleases(false);
+        const allAlbums = [...formalReleases, ...libraryAlbums];
+        
         const matchingAlbums = allAlbums.filter(a => a.genre && a.genre.toLowerCase().includes(genre.toLowerCase()));
 
         const songs: any[] = [];
         if (matchingAlbums.length > 0) {
-            const albumIds = matchingAlbums.map(a => a.id);
-            const albumMap = new Map(matchingAlbums.map(a => [a.id, a]));
-            const tracks = db.getTracksByAlbumIds(albumIds);
-
-            for (const track of tracks) {
-                const album = albumMap.get(track.album_id!);
-                if (!album) continue;
-                songs.push({
-                    '@id': `tr_${track.id}`,
-                    '@title': track.title,
-                    '@album': album.title,
-                    '@artist': track.artist_name || album.artist_name,
-                    '@track': track.track_num,
-                    '@year': album.date ? new Date(album.date).getFullYear() : undefined,
-                    '@genre': album.genre,
-                    '@coverArt': `al_${album.id}`,
-                    '@duration': Math.floor(track.duration || 0),
-                    '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
-                    '@suffix': track.format || 'mp3',
-                    '@contentType': getContentType(track.format),
-                    '@albumId': `al_${album.id}`,
-                    '@artistId': `ar_${album.artist_id}`
-                });
+            for (const album of matchingAlbums) {
+                const isFormal = (album as any).published_at !== undefined || (album as any).is_release === true;
+                const tracks = isFormal ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
+                
+                for (const track of tracks) {
+                    songs.push({
+                        '@id': `tr_${track.id}`,
+                        '@title': track.title,
+                        '@album': album.title,
+                        '@artist': track.artist_name || album.artist_name,
+                        '@track': track.track_num,
+                        '@year': album.date ? new Date(album.date).getFullYear() : undefined,
+                        '@genre': album.genre,
+                        '@coverArt': `al_${album.id}`,
+                        '@duration': Math.floor(track.duration || 0),
+                        '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
+                        '@suffix': track.format || 'mp3',
+                        '@contentType': getContentType(track.format),
+                        '@albumId': `al_${album.id}`,
+                        '@artistId': `ar_${album.artist_id}`
+                    });
+                }
             }
         }
 
