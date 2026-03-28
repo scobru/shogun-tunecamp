@@ -16,20 +16,28 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
         try {
             const allArtists = database.getArtists();
 
-            if (req.isAdmin) {
-                return res.json(allArtists);
+            // Filter logic:
+            // 1. Admins see everyone (but still need to be mapped/sanitized)
+            // 2. Non-admins see:
+            //    - Themselves (if req.artistId is set)
+            //    - Artists with at least one public release
+            
+            let filteredArtists = allArtists;
+
+            if (!req.isAdmin) {
+                // Determine which artists are public
+                const publicReleases = database.getReleases(true); // publicOnly = true
+                const publicArtistIds = new Set(
+                    publicReleases.map(r => r.artist_id).filter(id => id !== null)
+                );
+
+                filteredArtists = allArtists.filter(a => 
+                    publicArtistIds.has(a.id) || (req.artistId && a.id === req.artistId)
+                );
             }
 
-            // Filter to only artists that have at least one public release
-            const publicReleases = database.getReleases(true); // publicOnly = true
-            const artistsWithPublicReleases = new Set(
-                publicReleases.map(r => r.artist_id).filter(id => id !== null)
-            );
-
-            const filteredArtists = allArtists.filter(a => artistsWithPublicReleases.has(a.id));
-
-            // Map to frontend expected format and EXCLUDE private_key
-            const mappedArtists = (req.isAdmin ? allArtists : filteredArtists).map(a => {
+            // Map to frontend expected format and EXCLUDE private_key for EVERYONE
+            const mappedArtists = filteredArtists.map(a => {
                 const { private_key, ...safeArtist } = a;
                 return {
                     ...safeArtist,
