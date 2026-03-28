@@ -105,6 +105,7 @@ export interface Track {
     external_artwork: string | null;
     lyrics?: string | null;
     hash?: string | null; // Added for deduplication
+    external_id?: string | null; // Added for stable identity
     created_at: string;
     year?: number;
     genre?: string;
@@ -1088,6 +1089,14 @@ export function createDatabase(dbPath: string): DatabaseService {
         db.exec(`ALTER TABLE artists ADD COLUMN public_key TEXT`);
         db.exec(`ALTER TABLE artists ADD COLUMN private_key TEXT`);
         console.log("📦 Migrated database: added keys to artists");
+    } catch (e) {
+        // Column already exists
+    }
+
+    // Migration: Add external_id to tracks
+    try {
+        db.exec(`ALTER TABLE tracks ADD COLUMN external_id TEXT`);
+        console.log("📦 Migrated database: added external_id to tracks");
     } catch (e) {
         // Column already exists
     }
@@ -2289,8 +2298,8 @@ export function createDatabase(dbPath: string): DatabaseService {
         createTrack(track: Omit<Track, "id" | "created_at" | "album_title" | "artist_name">): number {
             const result = db
                 .prepare(
-                    `INSERT INTO tracks (title, album_id, artist_id, owner_id, track_num, duration, file_path, format, bitrate, sample_rate, price, currency, lossless_path, url, service, external_artwork, lyrics, hash)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                    `INSERT INTO tracks (title, album_id, artist_id, owner_id, track_num, duration, file_path, format, bitrate, sample_rate, price, currency, lossless_path, url, service, external_artwork, lyrics, hash, external_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                 )
                 .run(
                     track.title,
@@ -2310,7 +2319,8 @@ export function createDatabase(dbPath: string): DatabaseService {
                     track.service || null,
                     track.external_artwork || null,
                     track.lyrics || null,
-                    track.hash || null
+                    track.hash || null,
+                    track.external_id || null
                 );
             
             const trackId = result.lastInsertRowid as number;

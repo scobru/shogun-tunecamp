@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import { resolveSafePath } from '../../utils/fileUtils.js';
 import { getPlaceholderSVG } from '../../utils/audioUtils.js';
+import { transcode } from '../ffmpeg.js';
 import type { DatabaseService, Track } from '../database';
 import type { AuthService } from '../auth';
 import type { GunDBService } from '../gundb';
@@ -158,6 +159,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             '@albumId': track.album_id ? `al_${track.album_id}` : undefined,
             '@artistId': track.artist_id ? `ar_${track.artist_id}` : undefined,
             '@type': 'music',
+            '@created': track.created_at,
             '@starred': db.isStarred(username, 'track', id) ? track.created_at || new Date().toISOString() : undefined,
             '@userRating': db.getItemRating(username, 'track', id) || undefined,
             '@averageRating': db.getItemRating(username, 'track', id) || undefined // Simplified
@@ -174,8 +176,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             '@artistId': artistId,
             '@isDir': true,
             '@coverArt': id,
-            '@songCount': undefined as number | undefined,
-            '@duration': undefined as number | undefined,
+            '@songCount': album.songCount, // Expecting these to be passed or calculated
+            '@duration': album.duration,
             '@created': album.created_at,
             '@year': album.date ? new Date(album.date).getFullYear() : undefined,
             '@genre': album.genre,
@@ -191,7 +193,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             '@name': artist.name,
             '@coverArt': id,
             '@artistImageUrl': `getCoverArt.view?id=${id}`,
-            '@albumCount': undefined as number | undefined,
+            '@albumCount': artist.albumCount,
             '@starred': db.isStarred(username, 'artist', id) ? artist.created_at || new Date().toISOString() : undefined,
             '@userRating': db.getItemRating(username, 'artist', id) || undefined
         };
@@ -326,7 +328,15 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             const formalReleases = db.getReleasesByArtist(artistId, false);
             
             // Merge both lists
-            const allAlbums = [...formalReleases, ...libraryAlbums];
+            const allAlbums = [...formalReleases, ...libraryAlbums].map(album => {
+                const isFormal = (album as any).published_at !== undefined || (album as any).is_release === true;
+                const tracks = isFormal ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
+                return {
+                    ...album,
+                    songCount: tracks.length,
+                    duration: tracks.reduce((acc, t) => acc + (t.duration || 0), 0)
+                };
+            });
 
             const directory = {
                 '@id': id,
@@ -461,6 +471,10 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const stream = async (req: any, res: any) => {
         const id = ensureString(req.query.id);
+        const format = ensureString(req.query.format);
+        const maxBitRate = ensureString(req.query.maxBitRate);
+        const estimateContentLength = ensureString(req.query.estimateContentLength) === 'true';
+
         if (!id) return sendError(res, req, 10, 'Missing parameter id');
 
         if (id.startsWith('tr_')) {
@@ -468,8 +482,37 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             if (track && track.file_path) {
                 const fullPath = resolveSafePath(context.musicDir, track.file_path);
                 if (fullPath && await fs.pathExists(fullPath)) {
-                    // res.sendFile handles Range headers automatically
-                    return res.sendFile(fullPath);
+                    
+                    // Transcoding logic
+                    const targetFormat = format || 'mp3';
+                    const targetBitrate = maxBitRate ? parseInt(maxBitRate) : undefined;
+
+                    // If client asks for original or no transcoding needed, send directly
+                    const sourceFormat = (track.format || 'mp3').toLowerCase();
+                    if (!format && !maxBitRate) {
+                        return res.sendFile(fullPath);
+                    }
+
+                    // If target is original format and bitrate is high enough, send directly
+                    if (sourceFormat === targetFormat && (!targetBitrate || (track.bitrate && track.bitrate / 1000 <= targetBitrate))) {
+                        return res.sendFile(fullPath);
+                    }
+
+                    console.log(`[Subsonic] Transcoding ${track.id} to ${targetFormat} (${targetBitrate || 'original'}kbps)`);
+                    
+                    res.set('Content-Type', getContentType(targetFormat));
+                    
+                    const transcodeStream = transcode(fullPath, targetFormat, targetBitrate);
+                    
+                    transcodeStream.on('error', (err: any) => {
+                        console.error('[Subsonic] Transcoding error:', err);
+                        if (!res.headersSent) {
+                            sendError(res, req, 80, 'Transcoding failed');
+                        }
+                    });
+
+                    transcodeStream.pipe(res);
+                    return;
                 }
             }
         }
@@ -754,8 +797,11 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             if (!/[A-Z]/.test(char)) char = '#';
             if (!indexes[char]) indexes[char] = [];
 
-            const artistData = formatArtist(artist, username);
-            (artistData as any)['@albumCount'] = countMap.get(artist.id) || 0;
+            const formalReleases = db.getReleasesByArtist(artist.id, false);
+            const artistData = formatArtist({
+                ...artist,
+                albumCount: (countMap.get(artist.id) || 0) + formalReleases.length
+            }, username);
             indexes[char].push(artistData);
         });
 
@@ -824,7 +870,15 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         }
 
         const username = (req as any).user?.username || 'admin';
-        const paginated = albums.slice(skip, skip + limit);
+        const paginated = albums.slice(skip, skip + limit).map(album => {
+            const isFormal = (album as any).published_at !== undefined || (album as any).is_release === true;
+            const tracks = isFormal ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
+            return {
+                ...album,
+                songCount: tracks.length,
+                duration: tracks.reduce((acc, t) => acc + (t.duration || 0), 0)
+            };
+        });
 
         const wrapperKey = isV2 ? 'albumList2' : 'albumList';
         sendResponse(res, req, {
@@ -875,12 +929,35 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const alLimit = parseInt(albumCount || '') || 20;
         const sLimit = parseInt(songCount || '') || 50;
 
-        // Merge albums and releases
-        const mergedAlbums = [...formalReleases, ...results.albums];
+        // Merge albums and releases and calculate stats
+        const mergedAlbums = [...formalReleases, ...results.albums].map(album => {
+            const isFormal = (album as any).published_at !== undefined || (album as any).is_release === true;
+            const tracks = isFormal ? db.getTracksByReleaseId(album.id) : db.getTracks(album.id);
+            return {
+                ...album,
+                songCount: tracks.length,
+                duration: tracks.reduce((acc, t) => acc + (t.duration || 0), 0)
+            };
+        });
+
+        // Enrich artists with counts
+        const albumCounts = db.getArtistAlbumCounts();
+        const countMap = new Map<number, number>();
+        for (const row of albumCounts) {
+            countMap.set(row.artist_id, row.count);
+        }
+
+        const enrichedArtists = results.artists.map(artist => {
+            const formalReleases = db.getReleasesByArtist(artist.id, false);
+            return {
+                ...artist,
+                albumCount: (countMap.get(artist.id) || 0) + formalReleases.length
+            };
+        });
 
         const responseData: any = {
             searchResult2: {
-                artist: results.artists.slice(0, aLimit).map(a => formatArtist(a, username)),
+                artist: enrichedArtists.slice(0, aLimit).map(a => formatArtist(a, username)),
                 album: mergedAlbums.slice(0, alLimit).map(a => formatAlbum(a, username)),
                 song: results.tracks.slice(0, sLimit).map(t => formatTrack(t, username))
             }

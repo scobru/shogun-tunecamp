@@ -35,6 +35,12 @@ export interface Track {
     price_usdc?: number;
     currency?: 'ETH' | 'USD';
     track_num?: number;
+    external_id?: string;
+    hash?: string;
+    created_at?: string;
+    genre?: string;
+    external_artwork?: string;
+    year?: number;
 }
 
 export interface ReleaseTrack {

@@ -67,6 +67,37 @@ export function convertWavToMp3(inputPath: string, bitrate: string = '320k'): Pr
 }
 
 /**
+ * Transcode an audio file on-the-fly to a specific format and bitrate
+ * Returns a readable stream
+ */
+export function transcode(inputPath: string, format: string = 'mp3', bitrate?: number): any {
+    const command = ffmpeg(inputPath);
+
+    if (format === 'mp3') {
+        command.toFormat('mp3').audioCodec('libmp3lame');
+    } else if (format === 'flac') {
+        command.toFormat('flac');
+    } else if (format === 'ogg') {
+        command.toFormat('ogg').audioCodec('libvorbis');
+    } else if (format === 'wav') {
+        command.toFormat('wav');
+    } else if (format === 'aac') {
+        command.toFormat('adts').audioCodec('aac');
+    } else if (format === 'opus') {
+        command.toFormat('opus').audioCodec('libopus');
+    }
+
+    if (bitrate) {
+        command.audioBitrate(`${bitrate}k`);
+    }
+
+    // Optimization: for Subsonic streaming, we want it to be fast and streamable
+    command.outputOptions('-map_metadata', '0');
+    
+    return command;
+}
+
+/**
  * Update metadata for audio files (FLAC, OGG, M4A, etc.) using ffmpeg
  * Copies audio stream without re-encoding
  */
