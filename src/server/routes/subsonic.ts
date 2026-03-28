@@ -381,41 +381,60 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                         imagePath = album.cover_path;
                         break;
                     }
+                    // Fallback to external artwork in album tracks
+                    const tracks = db.getTracks(album.id);
+                    const ext = tracks.find(t => t.external_artwork)?.external_artwork;
+                    if (ext) {
+                        imagePath = ext;
+                        break;
+                    }
                 }
             }
         } else if (id.startsWith('al_')) {
-            const album = db.getAlbum(parseInt(id.substring(3)));
-            if (album?.cover_path) imagePath = album.cover_path;
+            const albumId = parseInt(id.substring(3));
+            const album = db.getAlbum(albumId);
+            if (album?.cover_path) {
+                imagePath = album.cover_path;
+            } else if (album) {
+                // Fallback to tracks for external artwork
+                const tracks = db.getTracks(albumId);
+                const ext = tracks.find(t => t.external_artwork)?.external_artwork;
+                if (ext) imagePath = ext;
+            }
         } else if (id.startsWith('tr_')) {
             const track = db.getTrack(parseInt(id.substring(3)));
             if (track) {
                 if (track.external_artwork) {
-                    if (track.external_artwork.startsWith('http')) {
-                        return res.redirect(track.external_artwork);
-                    }
                     imagePath = track.external_artwork;
                 } else if (track.album_id) {
                     const album = db.getAlbum(track.album_id);
-                    if (album?.cover_path) imagePath = album.cover_path;
+                    if (album?.cover_path) {
+                        imagePath = album.cover_path;
+                    } else if (album) {
+                        // Fallback to other tracks in same album
+                        const albumTracks = db.getTracks(track.album_id);
+                        const ext = albumTracks.find(t => t.external_artwork)?.external_artwork;
+                        if (ext) imagePath = ext;
+                    }
                 }
             }
         }
 
         if (imagePath) {
+            // Handle external URLs
+            if (imagePath.startsWith('http')) {
+                return res.redirect(imagePath);
+            }
+
             const fullPath = resolveSafePath(context.musicDir, imagePath);
             if (fullPath) {
                 if (await fs.pathExists(fullPath)) {
                     return res.sendFile(fullPath);
                 }
-            } else {
-                 return sendError(res, req, 70, 'Cover art not found'); // Prevent fallback logic
             }
         }
 
-        // Return 404 or a placeholder? Subsonic spec says generic image or 404.
-        // Let's return 404 for now, client handles fallback.
-        // Or send empty?
-        return sendError(res, req, 70, 'Cover art not found'); // Code 70 = Data not found
+        return sendError(res, req, 70, 'Cover art not found');
     };
 
     const stream = async (req: any, res: any) => {
@@ -882,22 +901,22 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const requestedUser = username || (req as any).user.username;
         sendResponse(res, req, {
             user: {
-                username: requestedUser,
-                email: 'admin@tunecamp.local',
-                scrobblingEnabled: true,
-                adminRole: true,
-                settingsRole: true,
-                downloadRole: true,
-                uploadRole: true,
-                playlistRole: true,
-                coverArtRole: true,
-                commentRole: true,
-                podcastRole: true,
-                streamRole: true,
-                jukeboxRole: true,
-                shareRole: true,
-                videoConversionRole: true,
-                avatarLastChanged: new Date().toISOString()
+                '@username': requestedUser,
+                '@email': 'admin@tunecamp.local',
+                '@scrobblingEnabled': 'true',
+                '@adminRole': 'true',
+                '@settingsRole': 'true',
+                '@downloadRole': 'true',
+                '@uploadRole': 'true',
+                '@playlistRole': 'true',
+                '@coverArtRole': 'true',
+                '@commentRole': 'true',
+                '@podcastRole': 'true',
+                '@streamRole': 'true',
+                '@jukeboxRole': 'true',
+                '@shareRole': 'true',
+                '@videoConversionRole': 'true',
+                '@avatarLastChanged': new Date().toISOString()
             }
         });
     };
@@ -1494,6 +1513,48 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     router.get('/getSongsByGenre.view', getSongsByGenre);
     router.post('/getSongsByGenre.view', getSongsByGenre);
+
+    // --- Sharing ---
+    const createShare = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        const { id, description, expires } = req.query as any;
+        const ids = Array.isArray(id) ? id : [id];
+        
+        const share = ids.map((sid, index) => {
+            let entry: any = undefined;
+            if (sid.startsWith('tr_')) {
+                const track = db.getTrack(parseInt(sid.substring(3)));
+                if (track) entry = formatTrack(track, username);
+            } else if (sid.startsWith('al_')) {
+                const album = db.getAlbum(parseInt(sid.substring(3)));
+                // formatAlbum exists, but we usually return tracks in shares. 
+                // Subsonic spec says entry is Child object (song or video).
+            }
+
+            return {
+                '@id': `sh_${Date.now()}_${index}`,
+                '@url': `${req.protocol}://${req.get('host')}/share/${sid}`,
+                '@description': description || 'Shared from Tunecamp',
+                '@username': username,
+                '@created': new Date().toISOString(),
+                '@expires': expires || '2099-01-01T00:00:00',
+                '@visitCount': 0,
+                entry: entry ? [entry] : []
+            };
+        });
+
+        sendResponse(res, req, { shares: { share } });
+    };
+
+    const updateShare = (req: any, res: any) => sendResponse(res, req, {});
+    const deleteShare = (req: any, res: any) => sendResponse(res, req, {});
+
+    router.get('/createShare.view', createShare);
+    router.post('/createShare.view', createShare);
+    router.get('/updateShare.view', updateShare);
+    router.post('/updateShare.view', updateShare);
+    router.get('/deleteShare.view', deleteShare);
+    router.post('/deleteShare.view', deleteShare);
 
     // --- Get Shares (stub) ---
     const getShares = (req: any, res: any) => sendResponse(res, req, { shares: { share: [] } });

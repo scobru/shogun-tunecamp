@@ -140,8 +140,11 @@ export default function AdminReleaseEditor() {
       // Default to first artist if new
       if (isNew && data.length > 0) {
         // If user is a specific artist, pre-set it
-        const targetArtistId = isAdmin ? data[0].id : (user?.artistId || data[0].id);
-        setMetadata((prev) => ({ ...prev, artist_id: parseInt(targetArtistId) }));
+        const currentUserId = user?.artistId?.toString();
+        const userArtistExists = data.some(a => a.id.toString() === currentUserId);
+        const targetArtistId = userArtistExists ? user!.artistId : data[0].id;
+        
+        setMetadata((prev) => ({ ...prev, artist_id: parseInt(targetArtistId as string) }));
       }
     } catch (e) {
       console.error(e);
