@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Download,
   Share2,
+  ListMusic,
 } from "lucide-react";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
@@ -230,6 +231,14 @@ export const Tracks = () => {
                       <li>
                         <a onClick={() => handleShare(track)}>
                           <Share2 size={16} /> Share Track
+                        </a>
+                      </li>
+                      <li>
+                        <a onClick={() => {
+                          if (!isAuthenticated) return window.dispatchEvent(new CustomEvent("open-auth-modal"));
+                          document.dispatchEvent(new CustomEvent("open-playlist-modal", { detail: { trackId: track.id } }));
+                        }}>
+                          <ListMusic size={16} /> Add to Playlist
                         </a>
                       </li>
                       {isAdminAuthenticated && (
