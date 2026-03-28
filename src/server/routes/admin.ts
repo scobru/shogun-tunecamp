@@ -438,7 +438,8 @@ export function createAdminRoutes(
 
             const updates: any = {};
             if (body.title) updates.title = body.title;
-            if (body.artistId) updates.artist_id = body.artistId;
+            const finalArtistId = body.artistId || body.artist_id;
+            if (finalArtistId) updates.artist_id = finalArtistId;
             if (body.date) updates.date = body.date;
             if (body.description !== undefined) updates.description = body.description;
             if (body.type) updates.type = body.type;

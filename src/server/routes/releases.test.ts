@@ -1,10 +1,11 @@
-import { createReleaseRoutes } from './releases.js';
+import { createReleaseRouter } from './releases.js';
 import express from 'express';
 import request from 'supertest';
 import { jest } from '@jest/globals';
 import type { DatabaseService } from '../database.js';
 import type { ScannerService } from '../scanner.js';
 import type { PublishingService } from '../publishing.js';
+import type { AuthService } from '../auth.js';
 
 // Mock dependencies
 const mockDatabase = {
@@ -12,8 +13,10 @@ const mockDatabase = {
     createArtist: jest.fn(),
     getArtist: jest.fn(),
     createAlbum: jest.fn(),
+    createRelease: jest.fn(),
     updateReleaseTracks: jest.fn(),
     getAlbum: jest.fn(),
+    getRelease: jest.fn(),
     updateAlbumTitle: jest.fn(),
     updateAlbumArtist: jest.fn(),
     updateAlbumVisibility: jest.fn(),
@@ -21,6 +24,8 @@ const mockDatabase = {
     getReleaseTrackIds: jest.fn(),
     getTracksByReleaseId: jest.fn(),
     deleteAlbum: jest.fn(),
+    getReleases: jest.fn(),
+    getReleasesByOwner: jest.fn(),
     db: {
         prepare: jest.fn(() => ({ run: jest.fn() }))
     }
@@ -36,6 +41,10 @@ const mockPublishingService = {
     unpublishReleaseFromGunDB: jest.fn().mockImplementation(async () => {}),
 } as unknown as PublishingService;
 
+const mockAuthService = {
+    isRootAdmin: jest.fn().mockReturnValue(false),
+} as unknown as AuthService;
+
 const musicDir = '/tmp/music';
 
 describe('Release Routes - Creation and Publishing', () => {
@@ -50,21 +59,22 @@ describe('Release Routes - Creation and Publishing', () => {
         // Middleware to mock permissions if needed (releases routes check req.artistId for updates/deletes but create seems open or admin only?)
         // In this test environment, we assume the router is mounted and authenticated.
 
-        const router = createReleaseRoutes(
+        const router = createReleaseRouter(
             mockDatabase,
             mockScanner,
-            musicDir,
-            mockPublishingService
+            mockPublishingService,
+            mockAuthService,
+            musicDir
         );
         app.use('/releases', router);
     });
 
     test('POST /releases should trigger publishing sync for new public releases', async () => {
         // Setup
-        const newAlbumId = 123;
-        (mockDatabase.createAlbum as jest.Mock).mockReturnValue(newAlbumId);
-        (mockDatabase.getAlbum as jest.Mock).mockReturnValue({
-            id: newAlbumId,
+        const newReleaseId = 123;
+        (mockDatabase.createRelease as jest.Mock).mockReturnValue(newReleaseId);
+        (mockDatabase.getRelease as jest.Mock).mockReturnValue({
+            id: newReleaseId,
             title: 'Test Album',
             visibility: 'public',
             published_to_ap: true,
@@ -77,14 +87,19 @@ describe('Release Routes - Creation and Publishing', () => {
             .send({
                 title: 'Test Album',
                 visibility: 'public',
-                publishedToAP: true
+                publishedToAP: true,
+                artist_id: 1 // Test the snake_case fallback
             });
 
         // Assert
         expect(response.status).toBe(201);
-        expect(mockDatabase.createAlbum).toHaveBeenCalled();
+        expect(mockDatabase.createRelease).toHaveBeenCalled();
+        
+        // Verify artist_id was used
+        const createCallArgs = (mockDatabase.createRelease as jest.Mock).mock.calls[0][0] as any;
+        expect(createCallArgs.artist_id).toBe(1);
 
         // Ensure syncRelease is called for new releases
-        expect(mockPublishingService.syncRelease).toHaveBeenCalledWith(newAlbumId);
+        expect(mockPublishingService.syncRelease).toHaveBeenCalledWith(newReleaseId);
     });
 });

@@ -11,6 +11,7 @@ interface CreateReleaseBody {
     title: string;
     artistName?: string;
     artistId?: number;
+    artist_id?: number;
     date?: string;
     description?: string;
     track_ids?: number[];
@@ -201,7 +202,7 @@ export function createReleaseRouter(
             }
 
             // Determine the final Artist ID and ownership logic
-            let artistId: number | null = body.artistId || null;
+            let artistId: number | null = body.artistId || body.artist_id || null;
             
             // SECURITY CHECK: Non-admins cannot create releases for other artists or new artists
             if (!isAdmin) {

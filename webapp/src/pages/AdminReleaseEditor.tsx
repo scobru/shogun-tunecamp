@@ -254,6 +254,7 @@ export default function AdminReleaseEditor() {
 
       const dataToSave = {
         ...metadata,
+        artistId: metadata.artist_id, // Map frontend snake_case to API camelCase
         // Map frontend state to API expected keys
         publishedToGunDB: metadata.published_to_gundb,
         publishedToAP: metadata.published_to_ap,
