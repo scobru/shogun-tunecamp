@@ -140,7 +140,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         return {
             '@id': id,
             '@parent': track.album_id ? `al_${track.album_id}` : undefined,
-            '@isDir': 'false',
+            '@isDir': false,
             '@title': track.title,
             '@album': track.album_title,
             '@artist': track.artist_name,
@@ -171,7 +171,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             '@name': album.title,
             '@artist': album.artist_name || 'Unknown Artist',
             '@artistId': artistId,
-            '@isDir': 'true',
+            '@isDir': true,
             '@coverArt': id,
             '@songCount': undefined as number | undefined,
             '@duration': undefined as number | undefined,
@@ -189,7 +189,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             '@id': id,
             '@name': artist.name,
             '@coverArt': id,
-            '@artistImageUrl': `/rest/getCoverArt.view?id=${id}`,
+            '@artistImageUrl': `getCoverArt.view?id=${id}`,
             '@albumCount': undefined as number | undefined,
             '@starred': db.isStarred(username, 'artist', id) ? artist.created_at || new Date().toISOString() : undefined,
             '@userRating': db.getItemRating(username, 'artist', id) || undefined
@@ -249,7 +249,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.get('/getLicense.view', (req, res) => {
         sendResponse(res, req, {
             license: {
-                '@valid': 'true',
+                '@valid': true,
                 '@email': 'user@example.com',
                 '@licenseExpires': '2099-01-01T00:00:00'
             }
@@ -262,7 +262,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/getLicense.view', (req, res) => {
         sendResponse(res, req, {
             license: {
-                '@valid': 'true',
+                '@valid': true,
                 '@email': 'user@example.com',
                 '@licenseExpires': '2099-01-01T00:00:00'
             }
@@ -903,19 +903,20 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             user: {
                 '@username': requestedUser,
                 '@email': 'admin@tunecamp.local',
-                '@scrobblingEnabled': 'true',
-                '@adminRole': 'true',
-                '@settingsRole': 'true',
-                '@downloadRole': 'true',
-                '@uploadRole': 'true',
-                '@playlistRole': 'true',
-                '@coverArtRole': 'true',
-                '@commentRole': 'true',
-                '@podcastRole': 'true',
-                '@streamRole': 'true',
-                '@jukeboxRole': 'true',
-                '@shareRole': 'true',
-                '@videoConversionRole': 'true',
+                '@scrobblingEnabled': true,
+                '@adminRole': true,
+                '@settingsRole': true,
+                '@downloadRole': true,
+                '@uploadRole': true,
+                '@playlistRole': true,
+                '@coverArtRole': true,
+                '@commentRole': true,
+                '@podcastRole': true,
+                '@streamRole': true,
+                '@jukeboxRole': true,
+                '@shareRole': true,
+                '@videoConversionRole': true,
+                '@maxBitRate': 0,
                 '@avatarLastChanged': new Date().toISOString()
             }
         });
@@ -1589,18 +1590,20 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 user: [{
                     '@username': username,
                     '@email': 'admin@tunecamp.local',
-                    '@scrobblingEnabled': 'true',
-                    '@adminRole': 'true',
-                    '@settingsRole': 'true',
-                    '@downloadRole': 'true',
-                    '@uploadRole': 'true',
-                    '@playlistRole': 'true',
-                    '@coverArtRole': 'true',
-                    '@commentRole': 'true',
-                    '@podcastRole': 'true',
-                    '@streamRole': 'true',
-                    '@jukeboxRole': 'true',
-                    '@shareRole': 'true'
+                    '@scrobblingEnabled': true,
+                    '@adminRole': true,
+                    '@settingsRole': true,
+                    '@downloadRole': true,
+                    '@uploadRole': true,
+                    '@playlistRole': true,
+                    '@coverArtRole': true,
+                    '@commentRole': true,
+                    '@podcastRole': true,
+                    '@streamRole': true,
+                    '@jukeboxRole': true,
+                    '@shareRole': true,
+                    '@videoConversionRole': true,
+                    '@maxBitRate': 0
                 }]
             }
         });
