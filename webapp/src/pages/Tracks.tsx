@@ -80,8 +80,12 @@ export const Tracks = () => {
 
     try {
       // Toggle in GunDB if user is fully authenticated with GunDB
-      if (isAuthenticated) {
-        await GunSocial.toggleLikeTrack(track);
+      if (isAuthenticated && user?.gunProfile) {
+        try {
+          await GunSocial.toggleLikeTrack(track);
+        } catch (gunErr) {
+          console.warn("GunDB like sync failed:", gunErr);
+        }
       }
 
       // Toggle in Backend (SQLite) if user has a token

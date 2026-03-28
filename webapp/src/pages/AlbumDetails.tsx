@@ -101,7 +101,13 @@ export const AlbumDetails = () => {
     const isCurrentlyLiked = likedTrackIds.has(trackIdStr);
 
     try {
-      if (isAuthenticated) await GunSocial.toggleLikeTrack(track);
+      if (isAuthenticated && user?.gunProfile) {
+        try {
+          await GunSocial.toggleLikeTrack(track);
+        } catch (gunErr) {
+          console.warn("GunDB like sync failed:", gunErr);
+        }
+      }
       if (API.getToken()) {
         if (isCurrentlyLiked) await API.unstarTrack(track.id);
         else await API.starTrack(track.id);
