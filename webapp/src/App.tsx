@@ -21,6 +21,7 @@ import {
   Profile,
   MyMusic,
   About,
+  SharePage,
 } from "./pages";
 import Admin from "./pages/Admin";
 import AdminReleaseEditor from "./pages/AdminReleaseEditor";

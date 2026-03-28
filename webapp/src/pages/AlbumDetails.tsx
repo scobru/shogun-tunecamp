@@ -1,6 +1,6 @@
-import { useState, useEffect } from \"react\";
-import API from \"../services/api\";
-import { useParams, Link } from \"react-router-dom\";
+import { useState, useEffect } from "react";
+import API from "../services/api";
+import { useParams, Link } from "react-router-dom";
 import {
   Play,
   Heart,
@@ -11,19 +11,20 @@ import {
   Music,
   Wallet,
   CheckCircle2,
-  Copyright
-} from \"lucide-react\";
-import { usePlayerStore } from \"../stores/usePlayerStore\";
-import { useAuthStore } from \"../stores/useAuthStore\";
-import { usePurchases } from \"../hooks/usePurchases\";
-import { useOwnedNFTs } from \"../hooks/useOwnedNFTs\";
-import { useWalletStore } from \"../stores/useWalletStore\";
-import { GunSocial } from \"../services/gun\";
-import type { Track } from \"../types\";
-import clsx from \"clsx\";
+  Copyright,
+  Share2
+} from "lucide-react";
+import { usePlayerStore } from "../stores/usePlayerStore";
+import { useAuthStore } from "../stores/useAuthStore";
+import { usePurchases } from "../hooks/usePurchases";
+import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
+import { useWalletStore } from "../stores/useWalletStore";
+import { GunSocial } from "../services/gun";
+import type { Track } from "../types";
+import clsx from "clsx";
 
-import { Comments } from \"../components/Comments\";
-import { Camera, Loader2 } from \"lucide-react\";
+import { Comments } from "../components/Comments";
+import { Camera, Loader2 } from "lucide-react";
 
 export const AlbumDetails = () => {
   const { idOrSlug } = useParams();
@@ -58,8 +59,8 @@ export const AlbumDetails = () => {
       const data = await (isRelease ? API.getRelease(idOrSlug!) : API.getAlbum(idOrSlug!));
       setAlbum(data);
     } catch (err) {
-      console.error(\"Upload failed:\", err);
-      alert(\"Failed to upload cover\");
+      console.error("Upload failed:", err);
+      alert("Failed to upload cover");
     } finally {
       setUploading(false);
     }
@@ -92,7 +93,7 @@ export const AlbumDetails = () => {
 
   const handleLikeTrack = async (track: Track) => {
     if (!isAuthenticated && !isAdmin) {
-      document.dispatchEvent(new CustomEvent(\"open-auth-modal\"));
+      document.dispatchEvent(new CustomEvent("open-auth-modal"));
       return;
     }
     
@@ -113,13 +114,13 @@ export const AlbumDetails = () => {
         return next;
       });
     } catch (err) {
-      console.error(\"Failed to toggle track like:\", err);
+      console.error("Failed to toggle track like:", err);
     }
   };
 
   const handleLikeAlbum = async () => {
     if (!isAuthenticated && !isAdmin) {
-      document.dispatchEvent(new CustomEvent(\"open-auth-modal\"));
+      document.dispatchEvent(new CustomEvent("open-auth-modal"));
       return;
     }
     if (!album) return;
@@ -131,9 +132,11 @@ export const AlbumDetails = () => {
       }
       setIsAlbumLiked(!isAlbumLiked);
     } catch (err) {
-      console.error(\"Failed to toggle album like:\", err);
+      console.error("Failed to toggle album like:", err);
     }
   };
+
+  const [downloadFormat, setDownloadFormat] = useState("mp3");
 
   const handleShareAlbum = () => {
     const url = `${window.location.origin}/share/al_${album.id}`;
@@ -490,3 +493,4 @@ export const AlbumDetails = () => {
     </div>
   );
 };
+
