@@ -84,25 +84,19 @@ export const PlayerBar = () => {
     const forceMp3 =
       !currentTrack.streamUrl && (isLosslessFormat || isLosslessExt);
 
-    let newSrc = API.getStreamUrl(currentTrack.id, forceMp3 ? 'mp3' : undefined);
+    let newSrc = API.getStreamUrl(currentTrack.streamUrl || currentTrack.id, forceMp3 ? 'mp3' : undefined);
     
-    if (currentTrack.streamUrl) {
-      if (currentTrack.streamUrl.startsWith('/') || !currentTrack.streamUrl.includes('://')) {
-        // Local relative URL - use as is
-        newSrc = currentTrack.streamUrl;
-      } else {
-        // Remote absolute URL - check if needs proxy
+    // Remote absolute URL - check if needs proxy
+    if (newSrc.includes('://')) {
         try {
-          const streamUrlObj = new URL(currentTrack.streamUrl);
-          const isLocalOrigin = streamUrlObj.origin === window.location.origin;
-          newSrc = isLocalOrigin 
-            ? currentTrack.streamUrl 
-            : `/api/proxy/stream?url=${encodeURIComponent(currentTrack.streamUrl)}`;
+            const streamUrlObj = new URL(newSrc);
+            const isLocalOrigin = streamUrlObj.origin === window.location.origin;
+            if (!isLocalOrigin) {
+                newSrc = `/api/proxy/stream?url=${encodeURIComponent(newSrc)}`;
+            }
         } catch (e) {
-          // If URL is invalid, fallback to proxy just in case it's something we can't parse but browser might
-          newSrc = `/api/proxy/stream?url=${encodeURIComponent(currentTrack.streamUrl)}`;
+            newSrc = `/api/proxy/stream?url=${encodeURIComponent(newSrc)}`;
         }
-      }
     }
 
     // 2. Update Source if changed

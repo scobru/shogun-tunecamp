@@ -164,8 +164,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             try {
                 console.log(`📡 Sending login request to backend for ${username}... (pubKey: ${pubKey ? 'YES' : 'NO'}, proof: ${proof ? 'YES' : 'NO'})`);
                 result = await API.login(username, password, pubKey, proof);
+                console.log("✅ Backend login successful.");
             } catch (apiErr: any) {
-                console.error("❌ Backend login failed:", apiErr);
+                const status = apiErr.status || 0;
+                console.error(`❌ Backend login failed (Status: ${status}):`, apiErr.message);
+                
+                if (status === 401) {
+                    throw new Error("Invalid username or password.");
+                } else if (status === 0) {
+                    throw new Error("Cannot connect to server. Check your internet connection.");
+                }
+                
                 if (!proof && !password) {
                     throw new Error("Login failed: GunDB identity not found and no password provided.");
                 }

@@ -112,17 +112,38 @@ export const API = {
         handleResponse(api.delete(`/playlists/${playlistId}/tracks/${trackId}`)),
 
     // --- Streaming & Interactions ---
-    getStreamUrl: (id: string | number, format?: string) => {
-        let url = `${API_URL}/tracks/${id}/stream`;
-        const params = new URLSearchParams();
-        if (format) params.append('format', format);
+    getStreamUrl: (idOrUrl: string | number, format?: string) => {
+        let url = (typeof idOrUrl === 'number' || /^\d+$/.test(String(idOrUrl)))
+            ? `${API_URL}/tracks/${idOrUrl}/stream`
+            : idOrUrl;
 
-        // Add token for private library streaming (HTML5 audio tags don't send headers)
+        // If it's an absolute URL, check if it's our own origin
+        let isLocal = true;
+        let urlObj: URL;
+        try {
+            if (String(url).includes('://')) {
+                urlObj = new URL(String(url));
+                isLocal = urlObj.origin === window.location.origin;
+            } else {
+                urlObj = new URL(String(url), window.location.origin);
+            }
+        } catch (e) {
+            isLocal = false;
+            return String(url);
+        }
+
+        const params = new URLSearchParams(urlObj.search);
+        if (format) params.set('format', format);
+
+        // Add token for private library streaming if it's a local request
         const token = API.getToken();
-        if (token) params.append('token', token);
+        if (token && isLocal) {
+            params.set('token', token);
+        }
 
         const queryString = params.toString();
-        return queryString ? `${url}?${queryString}` : url;
+        const base = String(url).split('?')[0];
+        return queryString ? `${base}?${queryString}` : base;
     },
     getLyrics: (trackId: string) => handleResponse(api.get<{ lyrics: string | { text: string }[] }>(`/tracks/${trackId}/lyrics`)),
     recordPlay: (trackId: string | number) => {

@@ -528,8 +528,7 @@ export const Network = () => {
 
     const track = {
       ...trackData,
-      streamUrl:
-        trackData.streamUrl || `${baseUrl}/api/tracks/${trackData.id}/stream`,
+      streamUrl: API.getStreamUrl(trackData.streamUrl || trackData.id),
       coverUrl: coverUrl,
       coverImage: coverUrl,
     };
