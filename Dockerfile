@@ -119,5 +119,5 @@ RUN apk add --no-cache curl
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:1970/api/catalog || exit 1
 
-# Default command: run migration then start server
-CMD node dist/tools/migrate-dedupe.js --music-dir /music --db /data/tunecamp.db && node dist/cli.js server /music --port 1970 --db /data/tunecamp.db
+# Default command: run migrations then start server
+CMD node dist/tools/migrate-dedupe.js --music-dir /music --db /data/tunecamp.db && node dist/tools/migrate-visibility.js --db /data/tunecamp.db && node dist/cli.js server /music --port 1970 --db /data/tunecamp.db

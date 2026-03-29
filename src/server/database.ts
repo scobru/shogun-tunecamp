@@ -1457,9 +1457,10 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(t.owner_id, a.owner_id) as owner_id
             FROM tracks t
             JOIN albums a ON t.album_id = a.id
+            LEFT JOIN releases r ON t.album_id = r.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-            WHERE t.album_id = ? AND a.is_public = 1
+            WHERE t.album_id = ? AND (a.is_public = 1 OR r.visibility = 'public' OR r.visibility = 'unlisted')
             ORDER BY t.track_num`);
     const getAllTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
@@ -1476,12 +1477,16 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id
-           FROM tracks t
-           LEFT JOIN albums a ON t.album_id = a.id
-           LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
-           LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-           WHERE a.is_public = 1 OR (t.album_id IS NULL AND ar_t.id IS NOT NULL)
-           ORDER BY artist_name, a.title, t.track_num`);
+            FROM tracks t
+            LEFT JOIN albums a ON t.album_id = a.id
+            LEFT JOIN releases r ON t.album_id = r.id
+            LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+            LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+            WHERE a.is_public = 1 
+               OR r.visibility = 'public' 
+               OR r.visibility = 'unlisted'
+               OR (t.album_id IS NULL AND ar_t.id IS NOT NULL)
+            ORDER BY artist_name, a.title, t.track_num`);
     const getTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
@@ -1500,10 +1505,11 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(t.owner_id, a.owner_id) as owner_id
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
+            LEFT JOIN releases r ON t.album_id = r.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
             WHERE (t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?)) 
-            AND (a.is_public = 1 OR t.album_id IS NULL)
+            AND (a.is_public = 1 OR r.visibility = 'public' OR r.visibility = 'unlisted' OR t.album_id IS NULL)
             ORDER BY a.title, t.track_num`);
 
     return {
@@ -2148,8 +2154,9 @@ export function createDatabase(dbPath: string): DatabaseService {
                     );
                 }
 
-                // 3. Mark as release in albums table
-                db.prepare("UPDATE albums SET is_release = 1 WHERE id = ?").run(id);
+                // 3. Mark as release in albums table AND sync visibility
+                const isPublic = album.visibility === 'public' || album.visibility === 'unlisted';
+                db.prepare("UPDATE albums SET is_release = 1, is_public = ? WHERE id = ?").run(isPublic ? 1 : 0, id);
             })();
         },
 
