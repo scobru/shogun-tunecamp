@@ -1457,10 +1457,12 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(t.owner_id, a.owner_id) as owner_id
             FROM tracks t
             JOIN albums a ON t.album_id = a.id
-            LEFT JOIN releases r ON t.album_id = r.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-            WHERE t.album_id = ? AND (a.is_public = 1 OR r.visibility = 'public' OR r.visibility = 'unlisted')
+            WHERE t.album_id = ? AND (
+                a.is_public = 1 
+                OR EXISTS (SELECT 1 FROM release_tracks rt JOIN releases r ON rt.release_id = r.id WHERE rt.track_id = t.id AND r.visibility IN ('public', 'unlisted'))
+            )
             ORDER BY t.track_num`);
     const getAllTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
@@ -1479,12 +1481,10 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(t.owner_id, a.owner_id) as owner_id
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
-            LEFT JOIN releases r ON t.album_id = r.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
             WHERE a.is_public = 1 
-               OR r.visibility = 'public' 
-               OR r.visibility = 'unlisted'
+               OR EXISTS (SELECT 1 FROM release_tracks rt JOIN releases r ON rt.release_id = r.id WHERE rt.track_id = t.id AND r.visibility IN ('public', 'unlisted'))
                OR (t.album_id IS NULL AND ar_t.id IS NOT NULL)
             ORDER BY artist_name, a.title, t.track_num`);
     const getTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
@@ -1505,11 +1505,14 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(t.owner_id, a.owner_id) as owner_id
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
-            LEFT JOIN releases r ON t.album_id = r.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
             WHERE (t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?)) 
-            AND (a.is_public = 1 OR r.visibility = 'public' OR r.visibility = 'unlisted' OR t.album_id IS NULL)
+            AND (
+                a.is_public = 1 
+                OR EXISTS (SELECT 1 FROM release_tracks rt JOIN releases r ON rt.release_id = r.id WHERE rt.track_id = t.id AND r.visibility IN ('public', 'unlisted'))
+                OR t.album_id IS NULL
+            )
             ORDER BY a.title, t.track_num`);
 
     return {
