@@ -590,7 +590,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                         // Check if track is in a public playlist
                         const isInPublicPlaylist = database.isTrackInPublicPlaylist(id);
                         if (!isInPublicPlaylist) {
-                            const reason = req.user ? `unauthorized user (${req.user.username})` : 'unauthenticated guest (missing token)';
+                            const reason = req.username ? `unauthorized user (${req.username})` : 'unauthenticated guest (missing token)';
                             console.warn(`🛑 [Stream] Access denied for track ${id}: private album '${album.title}', ${reason}`);
                             return res.status(403).json({ error: "Access denied" });
                         }
