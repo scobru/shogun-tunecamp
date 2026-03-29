@@ -798,6 +798,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.post('/getArtists.view', getArtists);
 
     const getAlbumList = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        const isAdmin = username === 'admin';
         const type = ensureString(req.query.type);
         const size = ensureString(req.query.size);
         const offset = ensureString(req.query.offset);
@@ -806,9 +808,10 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const skip = parseInt(offset || '') || 0;
         const isV2 = req.path.includes('getAlbumList2');
 
-        const libraryAlbums = db.getAlbums(false);
+        const libraryAlbums = db.getAlbums(!isAdmin);
+        const releases = db.getReleases(!isAdmin);
         
-        let albums = [...libraryAlbums];
+        let albums = [...libraryAlbums, ...releases as unknown as any[]];
 
         if (type === 'random') {
             albums = albums.sort(() => Math.random() - 0.5);
@@ -842,7 +845,6 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             });
         }
 
-        const username = (req as any).user?.username || 'admin';
         const paginated = albums.slice(skip, skip + limit).map(album => {
             const tracks = db.getTracks(album.id);
             return {
@@ -870,7 +872,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const size = ensureString(req.query.size);
         const limit = parseInt(size || '') || 10;
 
-        const allTracks = db.getTracks(undefined, true);
+        const isAdmin = username === 'admin';
+        const allTracks = db.getTracks(undefined, !isAdmin);
         const randomTracks = allTracks.sort(() => Math.random() - 0.5).slice(0, limit);
 
         sendResponse(res, req, {
@@ -891,7 +894,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const songCount = ensureString(req.query.songCount);
         if (!query) return sendError(res, req, 10, 'Missing query parameter');
 
-        const results = db.search(query, true);
+        const isAdmin = username === 'admin';
+        const results = db.search(query, !isAdmin);
 
         const aLimit = parseInt(artistCount || '') || 20;
         const alLimit = parseInt(albumCount || '') || 20;
@@ -1415,6 +1419,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     // --- Similar Songs ---
 
     const getSimilarSongs = (req: any, res: any) => {
+        const username = (req as any).user?.username || 'admin';
+        const isAdmin = username === 'admin';
         const id = ensureString(req.query.id);
         const count = ensureString(req.query.count);
         const limit = parseInt(count || '') || 10;
@@ -1430,7 +1436,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 if (album && album.genre) {
                     // Find other public albums with the same genre
                     const genre = album.genre.split(',')[0].trim().toLowerCase();
-                    const allAlbums = db.getAlbums(true);
+                    const allAlbums = db.getAlbums(!isAdmin);
                     const similarAlbums = allAlbums.filter(a => 
                         a.id !== album.id && 
                         a.genre && 
@@ -1451,7 +1457,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         
         // Return random songs as a fallback for similar songs if we didn't find enough
         if (similarTracks.length < limit) {
-            const allTracks = db.getTracks(undefined, true);
+            const allTracks = db.getTracks(undefined, !isAdmin);
             const existingIds = new Set(similarTracks.map(t => t.id));
             const randomTracks = allTracks.filter(t => !existingIds.has(t.id)).sort(() => Math.random() - 0.5).slice(0, limit - similarTracks.length);
             similarTracks = [...similarTracks, ...randomTracks];
