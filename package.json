@@ -10,9 +10,10 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch & npm run watch:css",
-    "start": "node dist/cli.js server",
+    "start": "node dist/tools/migrate-dedupe.js && node dist/cli.js server",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "tunecamp": "node dist/cli.js",
+    "migrate:dedupe": "node dist/tools/migrate-dedupe.js",
     "build:css": "tailwindcss -i webapp/css/input.css -o webapp/css/style.css",
     "watch:css": "tailwindcss -i webapp/css/input.css -o webapp/css/style.css --watch"
   },
