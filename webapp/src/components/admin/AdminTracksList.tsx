@@ -39,6 +39,7 @@ export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
           <th>Title</th>
           <th>Artist</th>
           <th>Album</th>
+          <th>User</th>
           <th>Duration</th>
           <th>Actions</th>
         </tr>
@@ -71,6 +72,9 @@ export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
             </td>
             <td>{t.artist_name}</td>
             <td>{t.album_title}</td>
+            <td className="text-sm opacity-60">
+              {t.owner_name || (t.artist_name ? `(${t.artist_name})` : "-")}
+            </td>
             <td>
               {t.duration
                 ? `${Math.floor(t.duration / 60)}:${String(Math.floor(t.duration % 60)).padStart(2, "0")}`

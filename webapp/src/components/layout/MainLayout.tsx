@@ -9,6 +9,7 @@ import { PlaylistModal } from "../modals/PlaylistModal";
 import { UnlockModal } from "../modals/UnlockModal";
 import { ArtistKeysModal } from "../modals/ArtistKeysModal";
 import { AdminTrackModal } from "../modals/AdminTrackModal";
+import { AdminArtistModal } from "../modals/AdminArtistModal";
 import { CheckoutModal } from "../modals/CheckoutModal";
 import { CommandPalette } from "../modals/CommandPalette";
 import { usePlayerStore } from "../../stores/usePlayerStore";
@@ -107,6 +108,12 @@ export const MainLayout = () => {
         onTrackUpdated={() =>
           window.dispatchEvent(new CustomEvent("refresh-admin-tracks"))
         }
+      />
+      <AdminArtistModal
+        onArtistUpdated={() => {
+          window.dispatchEvent(new CustomEvent("refresh-admin-artists"));
+          window.dispatchEvent(new CustomEvent("refresh-admin-tracks"));
+        }}
       />
     </div>
   );

@@ -11,6 +11,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
   const [title, setTitle] = useState("");
   const [artistName, setArtistName] = useState("");
   const [albumTitle, setAlbumTitle] = useState("");
+  const [ownerName, setOwnerName] = useState("");
   const [trackId, setTrackId] = useState<string | null>(null);
   const [trackNum, setTrackNum] = useState<string>("");
   const [priceUsdc, setPriceUsdc] = useState<string>("");
@@ -33,6 +34,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         setTitle(e.detail.title || "");
         setArtistName(e.detail.artist_name || "");
         setAlbumTitle(e.detail.album_title || "");
+        setOwnerName(e.detail.owner_name || "");
         setTrackNum(e.detail.track_num ? String(e.detail.track_num) : "");
         setPriceUsdc(e.detail.price_usdc ? String(e.detail.price_usdc) : "");
         setArtworkUrl(e.detail.external_artwork || null);
@@ -137,6 +139,13 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
 
       payload.album = albumTitle.trim();
       if (!albumTitle.trim()) payload.albumId = null;
+
+      const matchedOwner = artists.find(a => a.name.toLowerCase() === ownerName.trim().toLowerCase());
+      if (matchedOwner) {
+        payload.ownerId = String(matchedOwner.id);
+      } else if (!ownerName.trim()) {
+        payload.ownerId = null;
+      }
 
       await API.updateTrack(trackId, payload);
 
@@ -247,6 +256,23 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
                 <option key={a.id} value={a.title} />
               ))}
             </datalist>
+          </div>
+
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text text-primary font-bold">Uploader (User)</span>
+            </label>
+            <input
+              type="text"
+              list="artist-options"
+              className="input input-bordered w-full border-primary/30"
+              placeholder="Select the User who uploaded this"
+              value={ownerName}
+              onChange={(e) => setOwnerName(e.target.value)}
+            />
+            <div className="label">
+              <span className="label-text-alt opacity-50">This artist/user will 'own' the file quota.</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

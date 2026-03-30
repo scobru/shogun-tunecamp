@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { Link } from 'react-router-dom';
-import { User, Trash2 } from 'lucide-react';
+import { User, Trash2, Edit } from 'lucide-react';
 import type { Artist, User as AppUser } from '../types';
 
 export const Artists = () => {
@@ -19,6 +19,12 @@ export const Artists = () => {
             .catch(console.error)
             .finally(() => setLoading(false));
     }, []);
+
+    const handleEdit = (e: React.MouseEvent, artist: Artist) => {
+        e.preventDefault();
+        e.stopPropagation();
+        document.dispatchEvent(new CustomEvent('open-admin-artist-modal', { detail: artist }));
+    };
 
     const handleDelete = async (e: React.MouseEvent, artist: Artist) => {
         e.preventDefault();
@@ -47,14 +53,27 @@ export const Artists = () => {
              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                 {artists.map(artist => (
                     <div key={artist.id} className="group text-center relative block">
-                        {currentUser?.isAdmin && (artist.id.toString() !== currentUser.artistId?.toString()) && (
-                            <button
-                                onClick={(e) => handleDelete(e, artist)}
-                                className="absolute top-2 right-2 z-10 p-2 bg-base-300 hover:bg-error hover:text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg"
-                                title="Delete Artist"
-                            >
-                                <Trash2 size={16} />
-                            </button>
+                        {currentUser?.isAdmin && (
+                            <div className="absolute top-2 right-2 z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                {currentUser?.isRootAdmin && (
+                                    <button
+                                        onClick={(e) => handleEdit(e, artist)}
+                                        className="p-2 bg-base-300 hover:bg-primary hover:text-white rounded-full shadow-lg"
+                                        title="Edit Artist"
+                                    >
+                                        <Edit size={16} />
+                                    </button>
+                                )}
+                                {(artist.id.toString() !== currentUser.artistId?.toString()) && (
+                                    <button
+                                        onClick={(e) => handleDelete(e, artist)}
+                                        className="p-2 bg-base-300 hover:bg-error hover:text-white rounded-full shadow-lg"
+                                        title="Delete Artist"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
+                            </div>
                         )}
                         <Link to={`/artists/${artist.slug || artist.id}`} className="block">
                             <figure className="aspect-square relative overflow-hidden rounded-xl shadow-xl mb-4 border-4 border-transparent group-hover:border-primary/20 transition-all mx-auto w-full max-w-[200px]">

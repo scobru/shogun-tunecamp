@@ -37,6 +37,9 @@ export interface Track {
     track_num?: number;
     external_id?: string;
     hash?: string;
+    owner_id?: number | string;
+    owner_name?: string;
+    ownerName?: string;
     created_at?: string;
     genre?: string;
     external_artwork?: string;

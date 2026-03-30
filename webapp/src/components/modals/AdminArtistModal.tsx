@@ -29,8 +29,9 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
     const [loading, setLoading] = useState(false);
     const [currentUser, setCurrentUser] = useState<import("../../types").User | null>(null);
 
+    const isRootAdmin = !!currentUser?.isRootAdmin;
     const isSelf = currentUser && editId && String(currentUser.artistId) === String(editId);
-    const canEditSensitive = !isEditing || isSelf; // Can edit sensitive fields on create or if it's self
+    const canEditSensitive = !isEditing || isSelf || isRootAdmin; // Can edit sensitive fields on create, if it's self, or if root admin
 
     useEffect(() => {
         API.getCurrentUser().then(setCurrentUser).catch(console.error);
