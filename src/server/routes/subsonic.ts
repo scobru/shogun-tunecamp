@@ -192,7 +192,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             '@id': id,
             '@name': artist.name,
             '@coverArt': id,
-            '@artistImageUrl': `/api/artists/${artist.id}/cover`,
+            '@artistImageUrl': `getCoverArt.view?id=${id}`,
             '@albumCount': artist.albumCount,
             '@starred': db.isStarred(username, 'artist', id) ? artist.created_at || new Date().toISOString() : undefined,
             '@userRating': db.getItemRating(username, 'artist', id) || undefined
@@ -1423,15 +1423,15 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (!artist) return sendError(res, req, 70, 'Artist not found');
 
         const wrapperKey = isV2 ? 'artistInfo2' : 'artistInfo';
-        const coverArtId = artist.id;
+        const coverArtId = `ar_${artist.id}`;
         sendResponse(res, req, {
             [wrapperKey]: {
                 '@biography': artist.bio || '',
                 '@musicBrainzId': '',
                 '@lastFmUrl': '',
-                '@smallImageUrl': `/api/artists/${coverArtId}/cover`,
-                '@mediumImageUrl': `/api/artists/${coverArtId}/cover`,
-                '@largeImageUrl': `/api/artists/${coverArtId}/cover`,
+                '@smallImageUrl': `getCoverArt.view?id=${coverArtId}`,
+                '@mediumImageUrl': `getCoverArt.view?id=${coverArtId}`,
+                '@largeImageUrl': `getCoverArt.view?id=${coverArtId}`,
                 similarArtist: []
             }
         });
