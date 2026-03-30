@@ -184,25 +184,23 @@ export function createUploadRoutes(
             }
 
             // Storage quota check for non-admin users
-            if (currentUser && currentUser.storage_quota > 0) {
+            if (currentUser && currentUser.storage_quota > 0 && authService) {
+                const storageInfo = authService.getStorageInfo(currentUser.id);
+                const totalUploadSize = files.reduce((sum, f) => sum + f.size, 0);
+                const currentUsed = storageInfo?.storage_used || 0;
+                const remaining = currentUser.storage_quota - currentUsed;
 
-                    const storageInfo = authService.getStorageInfo(currentUser.id);
-                    const totalUploadSize = files.reduce((sum, f) => sum + f.size, 0);
-                    const currentUsed = storageInfo?.storage_used || 0;
-                    const remaining = currentUser.storage_quota - currentUsed;
-
-                    if (totalUploadSize > remaining) {
-                        // Cleanup temp files
-                        for (const file of files) {
-                            await fs.remove(file.path).catch(() => { });
-                        }
-                        const quotaMB = (currentUser.storage_quota / 1024 / 1024).toFixed(1);
-                        const usedMB = (currentUsed / 1024 / 1024).toFixed(1);
-                        const remainingMB = (remaining / 1024 / 1024).toFixed(1);
-                        return res.status(413).json({
-                            error: `Storage quota exceeded. Used: ${usedMB}MB / ${quotaMB}MB. Remaining: ${remainingMB}MB.`
-                        });
+                if (totalUploadSize > remaining) {
+                    // Cleanup temp files
+                    for (const file of files) {
+                        await fs.remove(file.path).catch(() => { });
                     }
+                    const quotaMB = (currentUser.storage_quota / 1024 / 1024).toFixed(1);
+                    const usedMB = (currentUsed / 1024 / 1024).toFixed(1);
+                    const remainingMB = (remaining / 1024 / 1024).toFixed(1);
+                    return res.status(413).json({
+                        error: `Storage quota exceeded. Used: ${usedMB}MB / ${quotaMB}MB. Remaining: ${remainingMB}MB.`
+                    });
                 }
             }
 
@@ -291,7 +289,7 @@ export function createUploadRoutes(
             console.log(`✅ Processed ${movedCount}/${files.length} uploads to ${destDir}. Scanned: ${processedCount}`);
 
             // Update storage usage for quota-tracked users
-            if (currentUser && processedCount > 0) {
+            if (currentUser && processedCount > 0 && authService) {
                 if (currentUser.storage_quota > 0) {
                     // Recalculate based on ALL processed files in this upload
                     const uploadedBytes = files.reduce((sum, f) => sum + f.size, 0);

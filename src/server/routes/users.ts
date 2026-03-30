@@ -89,6 +89,7 @@ export function createUsersRoutes(
 
             // 5. Generate JWT token for auto-login
             const token = authService.generateToken({
+                userId,
                 isAdmin: false,
                 username,
                 artistId,
