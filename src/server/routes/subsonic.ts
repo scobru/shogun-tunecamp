@@ -192,7 +192,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             '@id': id,
             '@name': artist.name,
             '@coverArt': id,
-            '@artistImageUrl': `getCoverArt.view?id=${id}`,
+            '@artistImageUrl': `rest/getCoverArt.view?id=${id}`,
             '@albumCount': artist.albumCount,
             '@starred': db.isStarred(username, 'artist', id) ? artist.created_at || new Date().toISOString() : undefined,
             '@userRating': db.getItemRating(username, 'artist', id) || undefined
@@ -471,15 +471,22 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 return res.redirect(imagePath);
             }
 
-            const fullPath = resolveSafePath(context.musicDir, imagePath);
-            if (fullPath) {
-                if (await fs.pathExists(fullPath)) {
-                    return res.sendFile(fullPath);
-                } else {
-                    console.warn(`⚠️ [Subsonic] Image path in DB exists but file is missing on disk: ${fullPath}`);
+            // Try relative to musicDir (standard)
+            let fullPath = resolveSafePath(context.musicDir, imagePath);
+            
+            // Fallback: Try relative to parent of musicDir (project root, where assets/avatars often live)
+            if (!fullPath || !await fs.pathExists(fullPath)) {
+                const projectRoot = path.dirname(context.musicDir);
+                const altPath = resolveSafePath(projectRoot, imagePath);
+                if (altPath && await fs.pathExists(altPath)) {
+                    fullPath = altPath;
                 }
+            }
+
+            if (fullPath && await fs.pathExists(fullPath)) {
+                return res.sendFile(fullPath);
             } else {
-                console.warn(`⚠️ [Subsonic] Failed to resolve safe path for: ${imagePath}`);
+                console.warn(`⚠️ [Subsonic] Image path in DB exists but file is missing on disk: ${imagePath}`);
             }
         }
 
@@ -1429,9 +1436,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 '@biography': artist.bio || '',
                 '@musicBrainzId': '',
                 '@lastFmUrl': '',
-                '@smallImageUrl': `getCoverArt.view?id=${coverArtId}`,
-                '@mediumImageUrl': `getCoverArt.view?id=${coverArtId}`,
-                '@largeImageUrl': `getCoverArt.view?id=${coverArtId}`,
+                '@smallImageUrl': `rest/getCoverArt.view?id=${coverArtId}`,
+                '@mediumImageUrl': `rest/getCoverArt.view?id=${coverArtId}`,
+                '@largeImageUrl': `rest/getCoverArt.view?id=${coverArtId}`,
                 similarArtist: []
             }
         });
