@@ -5,7 +5,6 @@ import {
   Heart,
   MoreHorizontal,
   Search,
-  Wallet,
   CheckCircle2,
   Download,
   Share2,
@@ -18,7 +17,6 @@ import { useWalletStore } from "../stores/useWalletStore";
 import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
 import { GunSocial } from "../services/gun";
 import type { Track } from "../types";
-import { MetadataMatchModal } from "../components/MetadataMatchModal";
 import clsx from "clsx";
 
 export const Tracks = () => {
@@ -31,7 +29,6 @@ export const Tracks = () => {
   const { address, externalAddress, useExternalWallet, isExternalConnected } = useWalletStore();
   const activeAddress = useExternalWallet && isExternalConnected ? externalAddress : address;
   const { ownedNFTs } = useOwnedNFTs(activeAddress);
-  const [matchingTrack, setMatchingTrack] = useState<Track | null>(null);
   const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -40,7 +37,7 @@ export const Tracks = () => {
       .then((data) => {
         setTracks(data);
         // Initialize likedTrackIds from backend starred status
-        const backendLiked = data.filter(t => t.starred).map(t => String(t.id));
+        const backendLiked = data.filter(t => t && t.starred).map(t => String(t.id));
         setLikedTrackIds(prev => new Set([...Array.from(prev), ...backendLiked]));
         setLoading(false);
       })
@@ -51,7 +48,7 @@ export const Tracks = () => {
 
     if (isAuthenticated) {
       GunSocial.getLikedTracks().then((liked) => {
-        setLikedTrackIds(prev => new Set([...Array.from(prev), ...liked.map((t: any) => String(t.id))]));
+        setLikedTrackIds(prev => new Set([...Array.from(prev), ...liked.filter((t: any) => t && t.id).map((t: any) => String(t.id))]));
       });
     } else if (!isAdminAuthenticated) {
       setLikedTrackIds(new Set());
@@ -210,24 +207,20 @@ export const Tracks = () => {
                       <MoreHorizontal size={16} />
                     </div>
                     <ul tabIndex={0} className="dropdown-content z-[20] menu p-2 shadow-2xl bg-base-300 rounded-2xl w-52 border border-white/10 mt-2">
-                      <li>
-                        {purchased ? (
+                      {purchased && (
+                        <li>
                           <a className="text-success font-bold">
                             <CheckCircle2 size={16} /> Download
                           </a>
-                        ) : track.albumDownload === "free" ? (
-                          <a href={`/api/albums/${String(track.albumId)}/download`} target="_blank">
+                        </li>
+                      )}
+                      {!purchased && track.albumDownload === "free" && (
+                        <li>
+                          <a href={`/api/albums/${String(track.albumId)}/download`} target="_blank" rel="noreferrer">
                              <Download size={16} /> Free Download
                           </a>
-                        ) : (
-                          <a onClick={() => {
-                            if (!isAuthenticated) return window.dispatchEvent(new CustomEvent("open-auth-modal"));
-                            window.dispatchEvent(new CustomEvent("open-checkout-modal", { detail: { track } }));
-                          }}>
-                            <Wallet size={16} className="text-secondary" /> Purchase Track
-                          </a>
-                        )}
-                      </li>
+                        </li>
+                      )}
                       <li>
                         <a onClick={() => handleShare(track)}>
                           <Share2 size={16} /> Share Track
@@ -241,11 +234,6 @@ export const Tracks = () => {
                           <ListMusic size={16} /> Add to Playlist
                         </a>
                       </li>
-                      {isAdminAuthenticated && (
-                        <li className="border-t border-white/5 mt-1 pt-1 opacity-50 hover:opacity-100">
-                          <a onClick={() => setMatchingTrack(track)}><Search size={14} /> Match Metadata</a>
-                        </li>
-                      )}
                     </ul>
                   </div>
                 </div>
@@ -259,29 +247,6 @@ export const Tracks = () => {
           </div>
         )}
       </div>
-
-      {matchingTrack && (
-        <MetadataMatchModal
-          track={matchingTrack}
-          onClose={() => setMatchingTrack(null)}
-          onMatched={(updated) => {
-            setTracks((prev) =>
-              prev.map((t) =>
-                String(t.id) === String(updated.id)
-                  ? {
-                      ...t,
-                      ...updated,
-                      albumName:
-                        (updated as any).album_title || updated.albumName,
-                      artistName:
-                        (updated as any).artist_name || updated.artistName,
-                    }
-                  : t,
-              ),
-            );
-          }}
-        />
-      )}
     </div>
   );
 };

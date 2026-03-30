@@ -74,7 +74,7 @@ export const AlbumDetails = () => {
           setAlbum(data);
           setIsAlbumLiked(!!data.starred);
           if (data.tracks) {
-            const backendLiked = data.tracks.filter((t: any) => t.starred).map((t: any) => String(t.id));
+            const backendLiked = data.tracks.filter((t: any) => t && t.starred).map((t: any) => String(t.id));
             setLikedTrackIds(new Set(backendLiked));
           }
         })
@@ -86,7 +86,7 @@ export const AlbumDetails = () => {
   useEffect(() => {
     if (isAuthenticated) {
       GunSocial.getLikedTracks().then((liked) => {
-        setLikedTrackIds((prev) => new Set([...Array.from(prev), ...liked.map((t: any) => String(t.id))]));
+        setLikedTrackIds((prev) => new Set([...Array.from(prev), ...liked.filter((t: any) => t && t.id).map((t: any) => String(t.id))]));
       });
     }
   }, [isAuthenticated]);

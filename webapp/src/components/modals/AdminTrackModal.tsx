@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import API from "../../services/api";
-import { Music, Trash2, Save } from "lucide-react";
+import { Music, Trash2, Save, Search } from "lucide-react";
+import { MetadataMatchModal } from "../MetadataMatchModal";
 
 interface AdminTrackModalProps {
   onTrackUpdated: () => void;
@@ -16,6 +17,8 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
   const [trackNum, setTrackNum] = useState<string>("");
   const [priceUsdc, setPriceUsdc] = useState<string>("");
   const [artworkUrl, setArtworkUrl] = useState<string | null>(null);
+  const [currentTrackData, setCurrentTrackData] = useState<any>(null);
+  const [showMetadataModal, setShowMetadataModal] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingArtwork, setUploadingArtwork] = useState(false);
@@ -39,6 +42,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         setTrackNum(e.detail.track_num ? String(e.detail.track_num) : "");
         setPriceUsdc(e.detail.price_usdc ? String(e.detail.price_usdc) : "");
         setArtworkUrl(e.detail.external_artwork || null);
+        setCurrentTrackData(e.detail);
 
         loadData();
         dialogRef.current?.showModal();
@@ -170,9 +174,18 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
           </button>
         </form>
 
-        <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
-          <Music size={20} /> Edit Track
-        </h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-bold text-lg flex items-center gap-2">
+            <Music size={20} /> Edit Track
+          </h3>
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost gap-2 text-primary"
+            onClick={() => setShowMetadataModal(true)}
+          >
+            <Search size={14} /> Match Metadata
+          </button>
+        </div>
 
         {trackId && (
           <div className="flex flex-col items-center mb-6">
@@ -346,6 +359,22 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
       <form method="dialog" className="modal-backdrop">
         <button>close</button>
       </form>
+
+      {showMetadataModal && currentTrackData && (
+        <MetadataMatchModal
+          track={currentTrackData as any}
+          onClose={() => setShowMetadataModal(false)}
+          onMatched={(updated) => {
+            setTitle(updated.title || "");
+            setArtistName((updated as any).artist_name || updated.artistName || "");
+            setAlbumTitle((updated as any).album_title || updated.albumName || "");
+            setArtworkUrl((updated as any).external_artwork || updated.coverUrl || null);
+            setCurrentTrackData((prev: any) => ({ ...prev, ...updated }));
+            onTrackUpdated();
+            setShowMetadataModal(false);
+          }}
+        />
+      )}
     </dialog>
   );
 };
