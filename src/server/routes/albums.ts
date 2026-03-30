@@ -346,7 +346,9 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             }
 
             const ext = path.extname(req.file.originalname) || '.jpg';
-            const finalPath = path.join(destDir, 'cover' + ext);
+            // Use a unique filename to avoid overwriting if multiple albums share the same physical directory
+            const uniqueId = Date.now();
+            const finalPath = path.join(destDir, `cover-al${album.id}-${uniqueId}${ext}`);
             
             console.log(`📁 [Albums] Moving file from ${req.file.path} to ${finalPath}...`);
             const startTime = Date.now();

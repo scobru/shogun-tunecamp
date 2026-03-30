@@ -70,7 +70,8 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
                 }
 
                 if (dir && await fs.pathExists(dir)) {
-                    const dest = path.join(dir, "cover.jpg");
+                    const uniqueId = Date.now();
+                    const dest = path.join(dir, `cover-al${albumId}-${uniqueId}.jpg`);
 
                     const response = await fetch(coverUrl);
                     if (response.ok) {
