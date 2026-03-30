@@ -192,7 +192,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             '@id': id,
             '@name': artist.name,
             '@coverArt': id,
-            '@artistImageUrl': `rest/getCoverArt.view?id=${id}`,
+            '@artistImageUrl': `getCoverArt.view?id=${id}`,
             '@albumCount': artist.albumCount,
             '@starred': db.isStarred(username, 'artist', id) ? artist.created_at || new Date().toISOString() : undefined,
             '@userRating': db.getItemRating(username, 'artist', id) || undefined
@@ -466,9 +466,30 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         }
 
         if (imagePath) {
-            // Handle external URLs
+            // Handle external URLs - proxy them instead of redirecting
             if (imagePath.startsWith('http')) {
-                return res.redirect(imagePath);
+                console.log(`🌐 [Subsonic] Proxying external image: ${imagePath}`);
+                try {
+                    const response = await fetch(imagePath);
+                    if (response.ok) {
+                        const contentType = response.headers.get('content-type');
+                        if (contentType) res.setHeader('Content-Type', contentType);
+                        
+                        // Use a reasonable cache control for external images
+                        res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day
+                        
+                        // Pipe the response body to our response
+                        if (response.body) {
+                            (response.body as any).pipe(res);
+                            return;
+                        }
+                    } else {
+                        console.warn(`⚠️ [Subsonic] Failed to fetch external image (${response.status}): ${imagePath}`);
+                    }
+                } catch (error) {
+                    console.error(`❌ [Subsonic] Error proxying external image:`, error);
+                }
+                // Fallback if proxying fails
             }
 
             // Try relative to musicDir (standard)
@@ -1436,9 +1457,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 '@biography': artist.bio || '',
                 '@musicBrainzId': '',
                 '@lastFmUrl': '',
-                '@smallImageUrl': `rest/getCoverArt.view?id=${coverArtId}`,
-                '@mediumImageUrl': `rest/getCoverArt.view?id=${coverArtId}`,
-                '@largeImageUrl': `rest/getCoverArt.view?id=${coverArtId}`,
+                '@smallImageUrl': `getCoverArt.view?id=${coverArtId}`,
+                '@mediumImageUrl': `getCoverArt.view?id=${coverArtId}`,
+                '@largeImageUrl': `getCoverArt.view?id=${coverArtId}`,
                 similarArtist: []
             }
         });
