@@ -85,18 +85,6 @@ export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
                 className="btn btn-xs btn-ghost text-primary"
                 onClick={() =>
                   document.dispatchEvent(
-                    new CustomEvent("open-playlist-modal", {
-                      detail: { trackId: t.id },
-                    }),
-                  )
-                }
-              >
-                Playlist
-              </button>
-              <button
-                className="btn btn-xs btn-ghost"
-                onClick={() =>
-                  document.dispatchEvent(
                     new CustomEvent("open-admin-track-modal", { detail: t }),
                   )
                 }

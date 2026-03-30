@@ -388,25 +388,36 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (id.startsWith('ar_')) {
             const artistId = parseInt(id.substring(3));
             const artist = db.getArtist(artistId);
-            if (artist?.photo_path) {
-                imagePath = artist.photo_path;
-            } else if (artist) {
-                // Fallback to first formal release or library album cover
-                const libraryAlbums = db.getAlbumsByArtist(artistId, false);
-                const allAlbums = [...libraryAlbums];
-
-                for (const album of allAlbums) {
-                    if (album.cover_path) {
-                        imagePath = album.cover_path;
-                        break;
-                    }
-                    const tracks = db.getTracks(album.id);
-                    const ext = tracks.find(t => (t as any).external_artwork)?.external_artwork;
-                    if (ext) {
-                        imagePath = ext;
-                        break;
+            
+            if (artist) {
+                // Try artist photo first
+                if (artist.photo_path) {
+                    imagePath = artist.photo_path;
+                    console.log(`🖼️ [Subsonic] Artist photo found for ${artist.name}: ${imagePath}`);
+                } else {
+                    // Fallback to formal releases and albums
+                    const formalReleases = db.getReleasesByArtist(artistId, false);
+                    const libraryAlbums = db.getAlbumsByArtist(artistId, false);
+                    const allAlbums = [...formalReleases, ...libraryAlbums];
+                    
+                    for (const album of allAlbums) {
+                        if (album.cover_path) {
+                            imagePath = album.cover_path;
+                            console.log(`🖼️ [Subsonic] Fallback to album cover for ${artist.name}: ${imagePath}`);
+                            break;
+                        }
+                        // Then check track specific artwork
+                        const tracks = db.getTracks(album.id);
+                        const ext = tracks.find(t => (t as any).external_artwork)?.external_artwork;
+                        if (ext) {
+                            imagePath = ext;
+                            console.log(`🖼️ [Subsonic] Fallback to track artwork for ${artist.name}: ${imagePath}`);
+                            break;
+                        }
                     }
                 }
+
+                // If still no image found, or resolution fails later, we'll serve a placeholder below
             }
         } else if (id.startsWith('al_')) {
             const albumId = parseInt(id.substring(3));
@@ -448,7 +459,24 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             if (fullPath) {
                 if (await fs.pathExists(fullPath)) {
                     return res.sendFile(fullPath);
+                } else {
+                    console.warn(`⚠️ [Subsonic] Image path in DB exists but file is missing on disk: ${fullPath}`);
                 }
+            } else {
+                console.warn(`⚠️ [Subsonic] Failed to resolve safe path for: ${imagePath}`);
+            }
+        }
+
+        // If artist ID requested but no image found (or resolution failed), serve placeholder SVG
+        if (id.startsWith('ar_')) {
+            const artistId = parseInt(id.substring(3));
+            const artist = db.getArtist(artistId);
+            if (artist) {
+                console.log(`🎨 [Subsonic] Serving SVG placeholder for artist: ${artist.name}`);
+                const svg = getPlaceholderSVG(artist.name);
+                res.setHeader("Content-Type", "image/svg+xml");
+                res.setHeader("Cache-Control", "public, max-age=86400"); // 1 day
+                return res.send(svg);
             }
         }
 

@@ -1428,34 +1428,34 @@ export function createDatabase(dbPath: string): DatabaseService {
 
     // Optimized: Pre-compile frequent queries
     const getArtistStmt = db.prepare("SELECT * FROM artists WHERE id = ?");
-    const getAlbumStmt = db.prepare(`SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress, own.name as owner_name FROM albums a
+    const getAlbumStmt = db.prepare(`SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress, own.username as owner_name FROM albums a
            LEFT JOIN artists ar ON a.artist_id = ar.id
-           LEFT JOIN artists own ON a.owner_id = own.id
+           LEFT JOIN admin own ON a.owner_id = own.id
            WHERE a.id = ?`);
     const getTrackStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
-            own.name as owner_name
+            own.username as owner_name
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
            LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-           LEFT JOIN artists own ON COALESCE(t.owner_id, a.owner_id) = own.id
+           LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
            WHERE t.id = ?`);
     const getTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
               COALESCE(ar_t.id, ar_a.id) as artist_id,
               COALESCE(ar_t.name, ar_a.name) as artist_name, 
               COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
               COALESCE(t.owner_id, a.owner_id) as owner_id,
-              own.name as owner_name
-             FROM tracks t
-             LEFT JOIN albums a ON t.album_id = a.id
-             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
-             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-             LEFT JOIN artists own ON COALESCE(t.owner_id, a.owner_id) = own.id
-             WHERE t.album_id = ? ORDER BY t.track_num`);
+              own.username as owner_name
+              FROM tracks t
+              LEFT JOIN albums a ON t.album_id = a.id
+              LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+              LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+              LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
+              WHERE t.album_id = ? ORDER BY t.track_num`);
     const getPublicTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
@@ -1504,12 +1504,12 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
-            own.name as owner_name
+            own.username as owner_name
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-            LEFT JOIN artists own ON COALESCE(t.owner_id, a.owner_id) = own.id
+            LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
             WHERE t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?)
             ORDER BY a.title, t.track_num`);
     const getPublicTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
@@ -1517,12 +1517,12 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
-            own.name as owner_name
+            own.username as owner_name
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-            LEFT JOIN artists own ON COALESCE(t.owner_id, a.owner_id) = own.id
+            LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
             WHERE (t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?)) 
             AND (
                 a.is_public = 1 
@@ -2229,22 +2229,26 @@ export function createDatabase(dbPath: string): DatabaseService {
                     COALESCE(ar_t.id, ar_a.id) as artist_id,
                     COALESCE(ar_t.name, ar_a.name) as artist_name, 
                     COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
-                    COALESCE(t.owner_id, a.owner_id) as owner_id
+                    COALESCE(t.owner_id, a.owner_id) as owner_id,
+                    own.username as owner_name
                     FROM tracks t
                     LEFT JOIN albums a ON t.album_id = a.id
                     LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
                     LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                    LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
                     WHERE (t.owner_id = ? OR (t.owner_id IS NULL AND a.owner_id = ?)) AND (a.is_public = 1 OR t.album_id IS NULL)
                     ORDER BY a.title, t.track_num`
                 : `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
                     COALESCE(ar_t.id, ar_a.id) as artist_id,
                     COALESCE(ar_t.name, ar_a.name) as artist_name, 
                     COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
-                    COALESCE(t.owner_id, a.owner_id) as owner_id
+                    COALESCE(t.owner_id, a.owner_id) as owner_id,
+                    own.username as owner_name
                     FROM tracks t
                     LEFT JOIN albums a ON t.album_id = a.id
                     LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
                     LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                    LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
                     WHERE (t.owner_id = ? OR (t.owner_id IS NULL AND a.owner_id = ?))
                     ORDER BY a.title, t.track_num`;
             
@@ -2296,11 +2300,13 @@ export function createDatabase(dbPath: string): DatabaseService {
                     COALESCE(ar_t.id, ar_a.id) as artist_id,
                     COALESCE(ar_t.name, ar_a.name) as artist_name,
                     COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
-                    COALESCE(t.owner_id, a.owner_id) as owner_id
+                    COALESCE(t.owner_id, a.owner_id) as owner_id,
+                    own.username as owner_name
                    FROM tracks t
                    LEFT JOIN albums a ON t.album_id = a.id
                    LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
                    LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                   LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
                    WHERE t.id IN (${placeholders})`).all(...chunk) as Track[];
                 results.push(...rows);
             }
@@ -2312,11 +2318,13 @@ export function createDatabase(dbPath: string): DatabaseService {
                 .prepare(`SELECT t.*, a.title as album_title, 
                     COALESCE(ar_t.id, ar_a.id) as artist_id,
                     COALESCE(ar_t.name, ar_a.name) as artist_name,
-                    COALESCE(t.owner_id, a.owner_id) as owner_id
+                    COALESCE(t.owner_id, a.owner_id) as owner_id,
+                    own.username as owner_name
                     FROM tracks t
                     LEFT JOIN albums a ON t.album_id = a.id
                     LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
                     LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                    LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
                     WHERE t.file_path = ?`)
                 .get(filePath) as Track | undefined;
         },

@@ -23,6 +23,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
   // Dropdown data
   const [artists, setArtists] = useState<any[]>([]);
   const [albums, setAlbums] = useState<any[]>([]);
+  const [admins, setAdmins] = useState<any[]>([]);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -57,12 +58,14 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
 
   const loadData = async () => {
     try {
-      const [artistsData, albumsData] = await Promise.all([
+      const [artistsData, albumsData, adminsData] = await Promise.all([
         API.getArtists(),
         API.getAlbums(),
+        API.getUsers(),
       ]);
       setArtists(artistsData);
       setAlbums(albumsData);
+      setAdmins(adminsData);
     } catch (e) {
       console.error(e);
     }
@@ -140,7 +143,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
       payload.album = albumTitle.trim();
       if (!albumTitle.trim()) payload.albumId = null;
 
-      const matchedOwner = artists.find(a => a.name.toLowerCase() === ownerName.trim().toLowerCase());
+      const matchedOwner = admins.find(a => a.username.toLowerCase() === ownerName.trim().toLowerCase());
       if (matchedOwner) {
         payload.ownerId = String(matchedOwner.id);
       } else if (!ownerName.trim()) {
@@ -264,14 +267,19 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
             </label>
             <input
               type="text"
-              list="artist-options"
+              list="user-options"
               className="input input-bordered w-full border-primary/30"
               placeholder="Select the User who uploaded this"
               value={ownerName}
               onChange={(e) => setOwnerName(e.target.value)}
             />
+            <datalist id="user-options">
+              {admins.map((u) => (
+                <option key={u.id} value={u.username} />
+              ))}
+            </datalist>
             <div className="label">
-              <span className="label-text-alt opacity-50">This artist/user will 'own' the file quota.</span>
+              <span className="label-text-alt opacity-50">This user will 'own' the file quota.</span>
             </div>
           </div>
 
