@@ -34,8 +34,8 @@ export function createAdminRoutes(
             
             if (req.isRootAdmin && !showMine) {
                 releases = database.getReleases(false).map(r => ({ ...r, is_formal_release: true }));
-            } else if (req.artistId) {
-                releases = database.getReleasesByOwner(req.artistId, false).map(r => ({ ...r, is_formal_release: true }));
+            } else if (req.userId) {
+                releases = database.getReleasesByOwner(req.userId, false).map(r => ({ ...r, is_formal_release: true }));
             } else if (req.isAdmin) {
                 // If standard admin but no artistId, show nothing global
                 res.json([]);
@@ -88,7 +88,7 @@ export function createAdminRoutes(
 
             // Permission Check
             const ownerId = release ? release.owner_id : album?.owner_id;
-            if (req.artistId && !req.isAdmin && ownerId !== req.artistId) {
+            if (req.userId !== undefined && !req.isAdmin && ownerId !== req.userId) {
                 return res.status(403).json({ error: "Access denied: You can only manage your own content" });
             }
 
@@ -431,8 +431,8 @@ export function createAdminRoutes(
 
             // Permission Check
             const ownerId = release ? release.owner_id : album?.owner_id;
-            if (req.artistId && !req.isAdmin && ownerId !== req.artistId) {
-                console.warn(`⛔ [Debug] Access Denied for user ${req.username} on item ${id}. Owner: ${ownerId}, Request ArtistId: ${req.artistId}`);
+            if (req.userId !== undefined && !req.isAdmin && ownerId !== req.userId) {
+                console.warn(`⛔ [Debug] Access Denied for user ${req.username} on item ${id}. Owner: ${ownerId}, Request UserId: ${req.userId}`);
                 return res.status(403).json({ error: "Access denied" });
             }
 
@@ -650,7 +650,7 @@ export function createAdminRoutes(
 
             // Permission Check
             const ownerId = release ? release.owner_id : album?.owner_id;
-            if (req.artistId && !req.isRootAdmin && ownerId !== req.artistId) {
+            if (req.userId !== undefined && !req.isRootAdmin && ownerId !== req.userId) {
                 return res.status(403).json({ error: "Access denied" });
             }
 

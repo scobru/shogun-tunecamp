@@ -50,8 +50,8 @@ export function createReleaseRouter(
             let releases;
             if (isRoot) {
                 releases = database.getReleases();
-            } else if (artistId) {
-                releases = database.getReleasesByOwner(artistId);
+            } else if (req.userId !== undefined) {
+                releases = database.getReleasesByOwner(req.userId);
             } else {
                 releases = database.getReleases(true);
             }
@@ -78,7 +78,7 @@ export function createReleaseRouter(
             }
 
             // Permission Check: Non-admin can only see public/unlisted releases, unless they are the owner
-            if (release.visibility === 'private' && !req.isAdmin && release.owner_id !== req.artistId) {
+            if (release.visibility === 'private' && !req.isAdmin && release.owner_id !== req.userId) {
                 return res.status(404).json({ error: "Release not found" });
             }
 
@@ -240,7 +240,7 @@ export function createReleaseRouter(
                     const track = database.getTrack(trackId);
                     if (track) {
                         // Admin can add anything, Users can only add their own tracks
-                        if (isAdmin || track.owner_id === userArtistId) {
+                        if (isAdmin || track.owner_id === req.userId) {
                             validatedTrackIds.push(trackId);
                         } else {
                             console.warn(`⚠️ User ${req.username} tried to add unauthorized track ${trackId} to release`);
@@ -253,7 +253,7 @@ export function createReleaseRouter(
                 title: body.title,
                 slug: slug,
                 artist_id: artistId,
-                owner_id: userArtistId || artistId, // Owner is the person who created/manages it
+                owner_id: req.userId || artistId, // Owner is the person who created/manages it
                 date: body.date || new Date().toISOString(),
                 description: body.description || null,
                 type: body.type || 'album',

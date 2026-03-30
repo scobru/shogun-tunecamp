@@ -30,8 +30,8 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             }
 
             // If a non-admin artist, return their own albums + all public albums
-            if (req.artistId) {
-                const myAlbums = database.getAlbumsByOwner(req.artistId).map(mapAlbum);
+            if (req.userId !== undefined) {
+                const myAlbums = database.getAlbumsByOwner(req.userId).map(mapAlbum);
 
                 const publicAlbums = database.getAlbums(true).map(mapAlbum);
 
@@ -151,7 +151,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             }
 
             // Non-admin can only see public/unlisted albums, unless they are the owner
-            if (album.visibility === 'private' && !req.isAdmin && album.owner_id !== req.artistId) {
+            if (album.visibility === 'private' && !req.isAdmin && album.owner_id !== req.userId) {
                 return res.status(404).json({ error: "Album not found" });
             }
 
@@ -316,7 +316,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
         const id = req.params.id;
         console.log(`📁 [Albums] POST cover upload started for album ID: ${id}`);
         
-        if (!authReq.isAdmin && !authReq.artistId) {
+        if (!authReq.isAdmin && authReq.userId === undefined) {
             console.warn(`🛑 [Albums] Unauthorized upload attempt for album ID: ${id}`);
             return res.status(401).json({ error: "Unauthorized" });
         }
@@ -328,7 +328,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             }
 
             // Permission Check: Artist can only update their own albums
-            if (!authReq.isAdmin && album.owner_id !== authReq.artistId) {
+            if (!authReq.isAdmin && album.owner_id !== authReq.userId) {
                 return res.status(403).json({ error: "Access denied" });
             }
 

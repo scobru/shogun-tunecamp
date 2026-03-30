@@ -260,8 +260,8 @@ export function createUploadRoutes(
                     await fs.move(file.path, destPath, { overwrite: false });
                     movedCount++;
 
-                    // Process immediately to get Track ID, pass artistId and uploader's user ID as ownerId
-                    const uploaderId = currentUser ? currentUser.id : undefined;
+                    // Process immediately to get Track ID, pass uploader's user ID as ownerId
+                    const uploaderId = req.userId;
                     const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId, uploaderId);
 
                     if (scanResult && scanResult.success && scanResult.trackId) {
@@ -350,9 +350,8 @@ export function createUploadRoutes(
                     return res.status(404).json({ error: "Release not found" });
                 }
 
-                const isAuthorized = req.isRootAdmin || !req.artistId || 
-                    targetItem.artist_id === req.artistId || 
-                    targetItem.owner_id === req.artistId;
+                const isAuthorized = req.isRootAdmin || req.userId === undefined || 
+                    targetItem.owner_id === req.userId;
 
                 if (!isAuthorized) {
                     await fs.remove(file.path);
@@ -533,7 +532,7 @@ export function createUploadRoutes(
             }
 
             // Permission Check
-            const isOwner = req.artistId && (track.artist_id === req.artistId || track.owner_id === req.artistId);
+            const isOwner = req.userId !== undefined && track.owner_id === req.userId;
             if (!req.isRootAdmin && !isOwner) {
                 await fs.remove(file.path);
                 return res.status(403).json({ error: "Access denied: Cannot upload artwork for this track" });

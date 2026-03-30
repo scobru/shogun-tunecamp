@@ -57,8 +57,8 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             // If a non-admin artist, or admin filtering for 'mine', return their own tracks (+ all public tracks if not filtering)
-            if (req.artistId) {
-                const myTracks = database.getTracksByOwner(req.artistId).map(t => mapTrack(t, username));
+            if (req.userId !== undefined) {
+                const myTracks = database.getTracksByOwner(req.userId).map(t => mapTrack(t, username));
                 
                 if (showMine) {
                     return res.json(myTracks);
@@ -266,7 +266,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 title,
                 album_id: albumId || null,
                 artist_id: finalArtistId || null,
-                owner_id: finalArtistId || null,
+                owner_id: req.userId || null,
                 track_num: trackNum || null,
                 duration: duration || 0,
                 file_path: null,
@@ -850,7 +850,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                             title: album,
                             slug: slug,
                             artist_id: artistId ? parseInt(artistId) : (track.artist_id || null),
-                            owner_id: req.artistId || track.artist_id || null,
+                            owner_id: req.userId || track.owner_id || null,
                             date: null,
                             cover_path: null,
                             genre: genre || "Unknown",

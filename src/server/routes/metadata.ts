@@ -15,7 +15,7 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
      * Search for release metadata
      */
     router.get("/search", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && req.userId === undefined) return res.status(401).json({ error: "Unauthorized" });
 
         const query = req.query.q as string;
         if (!query) return res.status(400).json({ error: "Query required" });
@@ -29,7 +29,7 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
      * Apply metadata to an album (download cover, update info)
      */
     router.post("/apply", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && req.userId === undefined) return res.status(401).json({ error: "Unauthorized" });
 
         const { albumId, mbid, title, artist, date, coverUrl } = req.body;
 
@@ -38,7 +38,7 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
             if (!album) return res.status(404).json({ error: "Album not found" });
 
             // Permission Check: Artist can only apply metadata to their own albums
-            if (!req.isAdmin && album.owner_id !== req.artistId) {
+            if (!req.isAdmin && album.owner_id !== req.userId) {
                 return res.status(403).json({ error: "Access denied" });
             }
 

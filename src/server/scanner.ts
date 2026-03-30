@@ -361,7 +361,7 @@ export class Scanner implements ScannerService {
                     title: config.title,
                     slug: slug,
                     artist_id: artistId,
-                    owner_id: artistId,
+                    owner_id: null,
                     date: config.date || null,
                     cover_path: coverPath,
                     genre: config.genres?.join(", ") || null,
@@ -589,7 +589,7 @@ export class Scanner implements ScannerService {
                 title: common.title || path.basename(currentFilePath, ext),
                 album_id: albumId, // Linked to album from release.yaml
                 artist_id: artistId,
-                owner_id: ownerId || artistId, // Added
+                owner_id: ownerId || null, // Updated to use User ID only
                 track_num: common.track?.no || null,
                 duration: duration || null,
                 file_path: isLossless ? this.normalizePath(currentFilePath.replace(new RegExp(`\\${ext}$`, 'i'), '.mp3'), musicDir) : this.normalizePath(currentFilePath, musicDir),
