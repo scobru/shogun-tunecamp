@@ -192,7 +192,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             '@id': id,
             '@name': artist.name,
             '@coverArt': id,
-            '@artistImageUrl': `getCoverArt.view?id=${id}`,
+            '@artistImageUrl': `/api/artists/${artist.id}/cover`,
             '@albumCount': artist.albumCount,
             '@starred': db.isStarred(username, 'artist', id) ? artist.created_at || new Date().toISOString() : undefined,
             '@userRating': db.getItemRating(username, 'artist', id) || undefined
@@ -216,6 +216,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         let authorized = false;
 
+        let isAdmin = false;
+        let artistId: number | null = null;
+
         // 1. Password Auth (Legacy)
         if (p) {
             let password = p;
@@ -225,20 +228,33 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             }
 
             const result = await auth.authenticateUser(u, password);
-            if (result && result.success) authorized = true;
+            if (result && result.success) {
+                authorized = true;
+                isAdmin = result.isAdmin;
+                artistId = result.artistId;
+            }
         }
 
         // 2. Token Auth (s = salt, t = md5(password + salt))
         if (!authorized && t && s) {
             const tokenValid = await auth.verifySubsonicToken(u, t, s);
-            if (tokenValid) authorized = true;
+            if (tokenValid) {
+                authorized = true;
+                // For token auth, we need to fetch user details to get isAdmin/artistId
+                // This is a bit inefficient but necessary for correct permission handling
+                const user = (db as any).db.prepare("SELECT role, artist_id FROM admin WHERE username = ?").get(u);
+                if (user) {
+                    isAdmin = user.role === 'admin';
+                    artistId = user.artist_id;
+                }
+            }
         }
 
         if (!authorized) {
             return sendError(res, req, 40, 'Wrong username or password');
         }
 
-        (req as any).user = { username: u };
+        (req as any).user = { username: u, isAdmin, artistId };
         console.log(`[Subsonic Request] ${req.method} ${req.path} ?`, req.query);
         next();
     });
@@ -978,7 +994,26 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     const getPlaylists = (req: any, res: any) => {
         const username = (req as any).user?.username || 'admin';
-        const playlists = db.getPlaylists(username);
+        const isAdmin = (req as any).user?.isAdmin === true;
+        
+        let playlists: any[];
+        if (isAdmin) {
+            // Admin sees all playlists (matching web app)
+            playlists = db.getPlaylists();
+        } else {
+            // User sees their own + public playlists
+            const myPlaylists = db.getPlaylists(username, false);
+            const publicPlaylists = db.getPlaylists(undefined, true);
+            
+            const seenIds = new Set(myPlaylists.map(p => p.id));
+            playlists = [...myPlaylists];
+            for (const p of publicPlaylists) {
+                if (!seenIds.has(p.id)) {
+                    playlists.push(p);
+                }
+            }
+        }
+
         sendResponse(res, req, {
             playlists: {
                 playlist: playlists.map(p => ({
@@ -1388,15 +1423,15 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         if (!artist) return sendError(res, req, 70, 'Artist not found');
 
         const wrapperKey = isV2 ? 'artistInfo2' : 'artistInfo';
-        const coverArtId = `ar_${artist.id}`;
+        const coverArtId = artist.id;
         sendResponse(res, req, {
             [wrapperKey]: {
                 '@biography': artist.bio || '',
                 '@musicBrainzId': '',
                 '@lastFmUrl': '',
-                '@smallImageUrl': `getCoverArt.view?id=${coverArtId}`,
-                '@mediumImageUrl': `getCoverArt.view?id=${coverArtId}`,
-                '@largeImageUrl': `getCoverArt.view?id=${coverArtId}`,
+                '@smallImageUrl': `/api/artists/${coverArtId}/cover`,
+                '@mediumImageUrl': `/api/artists/${coverArtId}/cover`,
+                '@largeImageUrl': `/api/artists/${coverArtId}/cover`,
                 similarArtist: []
             }
         });
