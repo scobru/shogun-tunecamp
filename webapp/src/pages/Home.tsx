@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import API from "../services/api";
 import { usePlayerStore } from "../stores/usePlayerStore";
-import { Play, Library } from "lucide-react";
+import { Play, Library, Disc } from "lucide-react";
 import clsx from "clsx";
 
 export const Home = () => {
@@ -176,10 +176,20 @@ export const Home = () => {
               >
                 <div className="aspect-square relative rounded-[1.5rem] overflow-hidden shadow-2xl bg-base-300 ring-1 ring-white/5 transition-all duration-500 group-hover:scale-[1.02] group-hover:ring-primary/20">
                   <img
-                    src={album.coverImage}
+                    src={album.coverImage || API.getReleaseCoverUrl(album.id)}
                     alt={album.title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    onError={(e) => {
+                       const target = e.target as HTMLImageElement;
+                       target.style.display = 'none';
+                       if (target.nextElementSibling) {
+                          (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                       }
+                    }}
                   />
+                  <div className="hidden absolute inset-0 items-center justify-center opacity-30">
+                     <Disc size={48} />
+                  </div>
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-sm">
                     <button
                       className="btn btn-circle btn-lg btn-primary shadow-2xl scale-90 hover:scale-100 transition-all duration-300"
@@ -246,10 +256,20 @@ export const Home = () => {
               >
                 <div className="aspect-square relative rounded-xl overflow-hidden bg-base-300 ring-1 ring-white/5 transition-all group-hover:ring-secondary/40">
                   <img
-                    src={album.coverImage}
+                    src={album.coverImage || API.getAlbumCoverUrl(album.id)}
                     alt={album.title}
-                    className="w-full h-full object-cover transition-opacity group-hover:opacity-80"
+                    className="absolute inset-0 w-full h-full object-cover transition-opacity group-hover:opacity-80"
+                    onError={(e) => {
+                       const target = e.target as HTMLImageElement;
+                       target.style.display = 'none';
+                       if (target.nextElementSibling) {
+                          (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                       }
+                    }}
                   />
+                  <div className="hidden absolute inset-0 items-center justify-center opacity-30">
+                     <Disc size={32} />
+                  </div>
                 </div>
                 <div className="px-1 text-center">
                   <h3 className="font-bold text-sm truncate">{album.title}</h3>

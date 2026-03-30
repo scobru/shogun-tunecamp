@@ -159,15 +159,21 @@ export const ArtistDetails = () => {
                         {formalReleases.map(album => (
                             <Link to={`/releases/${album.slug || album.id}`} key={album.id} className="group">
                                 <figure className="aspect-square relative overflow-hidden rounded-lg shadow-lg mb-3">
-                                    {album.coverImage ? (
-                                        <img 
-                                            src={API.getReleaseCoverUrl(album.id, coverVersion)} 
-                                            alt={album.title} 
-                                            className="object-cover w-full h-full group-hover:scale-105 transition-transform" 
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full bg-neutral flex items-center justify-center opacity-30"><Disc size={32} /></div>
-                                    )}
+                                    <img 
+                                        src={API.getReleaseCoverUrl(album.id, coverVersion)} 
+                                        alt={album.title} 
+                                        className="absolute inset-0 object-cover w-full h-full group-hover:scale-105 transition-transform" 
+                                        onError={(e) => {
+                                           const target = e.target as HTMLImageElement;
+                                           target.style.display = 'none';
+                                           if (target.nextElementSibling) {
+                                              (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                                           }
+                                        }}
+                                    />
+                                    <div className="hidden absolute inset-0 bg-neutral w-full h-full items-center justify-center opacity-30">
+                                        <Disc size={32} />
+                                    </div>
                                 </figure>
                                 <h3 className="font-bold truncate group-hover:text-primary transition-colors">{album.title}</h3>
                                 <p className="text-xs opacity-50">{album.year} • {album.type}</p>
@@ -188,15 +194,21 @@ export const ArtistDetails = () => {
                         {libraryAlbums.map(album => (
                             <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group">
                                 <figure className="aspect-square relative overflow-hidden rounded-lg shadow-lg mb-3">
-                                    {album.coverImage ? (
-                                        <img 
-                                            src={API.getAlbumCoverUrl(album.id, coverVersion)} 
-                                            alt={album.title} 
-                                            className="object-cover w-full h-full group-hover:scale-105 transition-transform" 
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full bg-neutral flex items-center justify-center opacity-30"><Disc size={32} /></div>
-                                    )}
+                                    <img 
+                                        src={API.getAlbumCoverUrl(album.id, coverVersion)} 
+                                        alt={album.title} 
+                                        className="absolute inset-0 object-cover w-full h-full group-hover:scale-105 transition-transform" 
+                                        onError={(e) => {
+                                           const target = e.target as HTMLImageElement;
+                                           target.style.display = 'none';
+                                           if (target.nextElementSibling) {
+                                              (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                                           }
+                                        }}
+                                    />
+                                    <div className="hidden absolute inset-0 bg-neutral w-full h-full items-center justify-center opacity-30">
+                                        <Disc size={32} />
+                                    </div>
                                 </figure>
                                 <h3 className="font-bold truncate group-hover:text-primary transition-colors">{album.title}</h3>
                                 <p className="text-xs opacity-50">{album.year} • {album.type}</p>

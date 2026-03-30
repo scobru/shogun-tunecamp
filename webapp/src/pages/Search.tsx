@@ -105,15 +105,26 @@ export const Search = () => {
                                 {results.albums.map(album => {
                                     const isRelease = album.is_release || (album as any).is_formal_release;
                                     const linkTo = isRelease ? `/releases/${album.slug || album.id}` : `/albums/${album.slug || album.id}`;
+                                    const coverUrl = album.coverImage || (isRelease ? API.getReleaseCoverUrl(album.id) : API.getAlbumCoverUrl(album.id));
                                     return (
-                                        <Link to={linkTo} key={album.id} className="group card bg-base-200 hover:bg-base-300 transition-colors">
-                                            <figure className="aspect-square relative overflow-hidden">
-                                                {album.coverImage ? (
-                                                    <img src={album.coverImage} alt={album.title} className="object-cover w-full h-full group-hover:scale-105 transition-transform" />
-                                                ) : (
-                                                    <div className="w-full h-full bg-neutral flex items-center justify-center opacity-30"><Disc size={40}/></div>
-                                                )}
-                                            </figure>
+                                                    <Link to={linkTo} key={album.id} className="group card bg-base-200 hover:bg-base-300 transition-colors">
+                                                        <figure className="aspect-square relative overflow-hidden">
+                                                            <img 
+                                                                src={coverUrl} 
+                                                                alt={album.title} 
+                                                                className="absolute inset-0 object-cover w-full h-full group-hover:scale-105 transition-transform" 
+                                                                onError={(e) => {
+                                                                   const target = e.target as HTMLImageElement;
+                                                                   target.style.display = 'none';
+                                                                   if (target.nextElementSibling) {
+                                                                      (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                                                                   }
+                                                                }}
+                                                            />
+                                                            <div className="hidden absolute inset-0 bg-neutral w-full h-full items-center justify-center opacity-30">
+                                                                <Disc size={40} />
+                                                            </div>
+                                                        </figure>
                                             <div className="card-body p-3">
                                                 <h3 className="font-bold truncate">{album.title}</h3>
                                                 <p className="text-xs opacity-60 truncate">{album.artistName || album.artist_name}</p>

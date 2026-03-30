@@ -77,16 +77,22 @@ export const Albums = () => {
                     return (
                         <Link to={linkTo} key={item.id} className="group card bg-base-200 hover:bg-base-300 transition-all hover:-translate-y-1 duration-300 shadow-xl border border-white/5">
                             <figure className="aspect-square relative overflow-hidden">
-                                {item.coverImage || (item as any).cover_path ? (
-                                    <img 
-                                        src={coverUrl} 
-                                        alt={item.title} 
-                                        className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" 
-                                        loading="lazy"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full bg-neutral flex items-center justify-center opacity-30"><Disc size={48}/></div>
-                                )}
+                                <img 
+                                    src={coverUrl} 
+                                    alt={item.title} 
+                                    className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" 
+                                    loading="lazy"
+                                    onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                        if (target.nextElementSibling) {
+                                            (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                                        }
+                                    }}
+                                />
+                                <div className="hidden absolute inset-0 bg-neutral items-center justify-center opacity-30">
+                                    <Disc size={48}/>
+                                </div>
                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <span className="btn btn-circle btn-primary btn-sm scale-0 group-hover:scale-100 transition-transform delay-75">
                                         <Disc size={16}/>
