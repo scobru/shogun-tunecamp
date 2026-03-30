@@ -176,11 +176,16 @@ export function createUploadRoutes(
                 console.log(`   Target Release Slug: ${releaseSlug}`);
             }
 
-            // Storage quota check for non-admin users
+            // Retrieve currentUser to use for quota and ownership attribution
+            let currentUser: any = undefined;
             if (authService && req.username) {
                 const admins = authService.listAdmins();
-                const currentUser = admins.find(a => a.username === req.username);
-                if (currentUser && currentUser.storage_quota > 0) {
+                currentUser = admins.find(a => a.username === req.username);
+            }
+
+            // Storage quota check for non-admin users
+            if (currentUser && currentUser.storage_quota > 0) {
+
                     const storageInfo = authService.getStorageInfo(currentUser.id);
                     const totalUploadSize = files.reduce((sum, f) => sum + f.size, 0);
                     const currentUsed = storageInfo?.storage_used || 0;
@@ -257,8 +262,9 @@ export function createUploadRoutes(
                     await fs.move(file.path, destPath, { overwrite: false });
                     movedCount++;
 
-                    // Process immediately to get Track ID, pass artistId
-                    const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId, artistId);
+                    // Process immediately to get Track ID, pass artistId and uploader's user ID as ownerId
+                    const uploaderId = currentUser ? currentUser.id : undefined;
+                    const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId, uploaderId);
 
                     if (scanResult && scanResult.success && scanResult.trackId) {
                         scannerResults.push(scanResult);
@@ -285,10 +291,8 @@ export function createUploadRoutes(
             console.log(`✅ Processed ${movedCount}/${files.length} uploads to ${destDir}. Scanned: ${processedCount}`);
 
             // Update storage usage for quota-tracked users
-            if (authService && req.username && processedCount > 0) {
-                const admins = authService.listAdmins();
-                const currentUser = admins.find(a => a.username === req.username);
-                if (currentUser && currentUser.storage_quota > 0) {
+            if (currentUser && processedCount > 0) {
+                if (currentUser.storage_quota > 0) {
                     // Recalculate based on ALL processed files in this upload
                     const uploadedBytes = files.reduce((sum, f) => sum + f.size, 0);
                     const storageInfo = authService.getStorageInfo(currentUser.id);

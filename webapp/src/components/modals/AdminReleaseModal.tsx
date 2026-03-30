@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import API from '../../services/api';
-import { Disc, Trash2 } from 'lucide-react';
-// import type { Release } from '../../types';
+import { Disc, Trash2, Search } from 'lucide-react';
+import { MetadataMatchModal } from '../MetadataMatchModal';
 
 interface AdminReleaseModalProps {
     onReleaseUpdated: () => void;
@@ -28,6 +28,8 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
     const [allTracks, setAllTracks] = useState<any[]>([]);
     const [selectedTrackIds, setSelectedTrackIds] = useState<number[]>([]);
     const [license, setLicense] = useState<string>('copyright');
+    const [showMetadataModal, setShowMetadataModal] = useState(false);
+    const [currentReleaseData, setCurrentReleaseData] = useState<any>(null);
 
     useEffect(() => {
         const handleOpen = async (e: CustomEvent) => {
@@ -180,9 +182,18 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                     <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
                 </form>
                 
-                <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
-                    <Disc size={20}/> {isEditing ? 'Edit Release' : 'Create Release'}
-                </h3>
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        <Disc size={20}/> {isEditing ? 'Edit Release' : 'Create Release'}
+                    </h3>
+                    <button
+                        type="button"
+                        className="btn btn-sm btn-ghost gap-2 text-primary"
+                        onClick={() => setShowMetadataModal(true)}
+                    >
+                        <Search size={14} /> Match Metadata
+                    </button>
+                </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="form-control">
@@ -380,6 +391,18 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
             <form method="dialog" className="modal-backdrop">
                 <button>close</button>
             </form>
+
+            {showMetadataModal && (
+                <MetadataMatchModal
+                    track={{ title } as any}
+                    onClose={() => setShowMetadataModal(false)}
+                    onMatched={(updated) => {
+                        setTitle(updated.title || title);
+                        // Other fields if needed
+                        setShowMetadataModal(false);
+                    }}
+                />
+            )}
         </dialog>
     );
 };

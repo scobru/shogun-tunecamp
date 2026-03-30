@@ -740,11 +740,15 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
 
             // Permission Check: Restricted admin or user can only update their own tracks
             const isRoot = req.username && authService && authService.isRootAdmin(req.username);
-            if (!isRoot && track.owner_id !== req.artistId) {
+            
+            // Check ownership by User ID (preferred) or legacy Artist ID fallback
+            const isOwner = track.owner_id === req.userId || (track.owner_id === null && track.artist_id === req.artistId);
+            
+            if (!isRoot && !isOwner) {
                 return res.status(403).json({ error: "Access denied: You can only edit your own tracks" });
             }
 
-            const { title, artist, artistId, album, albumId, trackNumber, genre, fileName: newFileName, url, service, externalArtwork, price, currency, lyrics } = req.body;
+            const { title, artist, artistId, album, albumId, ownerId, trackNumber, genre, fileName: newFileName, url, service, externalArtwork, price, currency, lyrics } = req.body;
 
             // HANDLE FILE RENAMING (Only if local track)
             if (track.file_path && newFileName && typeof newFileName === 'string') {
@@ -902,6 +906,12 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 database.updateTrackLyrics(id, lyrics || null);
             }
 
+            // Update owner
+            if (ownerId !== undefined) {
+                const finalOwnerId = ownerId ? parseInt(ownerId) : null;
+                (database as any).db.prepare("UPDATE tracks SET owner_id = ? WHERE id = ?").run(finalOwnerId, id);
+            }
+
             // Get updated track
             const updatedTrack = database.getTrack(id);
 
@@ -977,7 +987,10 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             // Permission Check: Restricted admin can only delete their own tracks
-            if (req.artistId && track.owner_id !== req.artistId) {
+            const isOwner = track.owner_id === req.userId || (track.owner_id === null && track.artist_id === req.artistId);
+            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
+
+            if (!isRoot && !isOwner) {
                 return res.status(403).json({ error: "Access denied: You can only delete your own tracks" });
             }
 

@@ -53,6 +53,7 @@ export function createAuthMiddleware(authService: AuthService) {
             req.artistId = payload.artistId;
             req.role = payload.role;
             req.isActive = payload.isActive;
+            req.userId = payload.userId;
             req.isRootAdmin = authService.isRootAdmin(payload.username);
             next();
         },
@@ -76,6 +77,7 @@ export function createAuthMiddleware(authService: AuthService) {
             req.artistId = payload.artistId;
             req.role = payload.role;
             req.isActive = payload.isActive;
+            req.userId = payload.userId;
             req.isRootAdmin = authService.isRootAdmin(payload.username);
             next();
         },
@@ -96,6 +98,7 @@ export function createAuthMiddleware(authService: AuthService) {
                 req.artistId = payload.artistId;
                 req.role = payload.role;
                 req.isActive = payload.isActive;
+                req.userId = payload.userId;
                 req.isRootAdmin = authService.isRootAdmin(payload.username);
             } else {
                 req.isAdmin = false;

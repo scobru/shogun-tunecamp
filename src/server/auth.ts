@@ -34,6 +34,7 @@ export interface TokenPayload {
     artistId: number | null;
     role: UserRole;
     isActive: boolean;
+    userId: number;
 }
 
 export interface AuthService {
@@ -45,7 +46,7 @@ export interface AuthService {
     authenticateUser(username: string, password: string, pubKey?: string, proof?: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; isActive: boolean; pair?: any } | false>;
     verifyGunSignature(message: any, pubKey: string, proof: string): Promise<boolean>;
     verifySubsonicToken(username: string, token: string, salt: string): Promise<boolean>;
-    createAdmin(username: string, password: string, artistId?: number | null): Promise<void>;
+    createAdmin(username: string, password: string, artistId?: number | null): Promise<{ id: number }>;
     createUser(username: string, password: string, artistId: number, storageQuota?: number, pubKey?: string): Promise<{ id: number }>;
     updateAdmin(id: number, artistId: number | null, role?: UserRole): void;
     updateStorageUsed(userId: number, bytesUsed: number): void;
@@ -234,7 +235,8 @@ export function createAuthService(
                     username: decoded.username,
                     artistId: decoded.artistId ?? null,
                     role: decoded.role || (decoded.isAdmin ? 'admin' : 'user'), // backward compat
-                    isActive: decoded.isActive ?? true // backward compat
+                    isActive: decoded.isActive ?? true, // backward compat
+                    userId: decoded.userId || 0
                 };
             } catch {
                 return null;
@@ -469,9 +471,10 @@ export function createAuthService(
             }
         },
 
-        async createAdmin(username: string, password: string, artistId: number | null = null): Promise<void> {
+        async createAdmin(username: string, password: string, artistId: number | null = null): Promise<{ id: number }> {
             const hash = await this.hashPassword(password);
-            db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota, is_active) VALUES (?, ?, ?, 'admin', 0, 1)").run(username, hash, artistId);
+            const result = db.prepare("INSERT INTO admin (username, password_hash, artist_id, role, storage_quota, is_active) VALUES (?, ?, ?, 'admin', 0, 1)").run(username, hash, artistId);
+            return { id: Number(result.lastInsertRowid) };
         },
 
         async createUser(username: string, password: string, artistId: number, storageQuota: number = 1024 * 1024 * 1024, pubKey?: string): Promise<{ id: number }> {

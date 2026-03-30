@@ -40,7 +40,8 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
                 username: userToAuth,
                 artistId: result.artistId || null,
                 role: result.role || 'user',
-                isActive: result.isActive ?? true
+                isActive: result.isActive ?? true,
+                userId: result.id
             });
 
             res.json({
@@ -78,14 +79,15 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
 
             const userToCreate = username || 'admin';
 
-            await authService.createAdmin(userToCreate, password);
+            const result = await authService.createAdmin(userToCreate, password);
             // New root admin has no artist link
             const token = authService.generateToken({
                 isAdmin: true,
                 username: userToCreate,
                 artistId: null,
                 role: 'admin',
-                isActive: true
+                isActive: true,
+                userId: result.id
             });
 
             res.json({
@@ -140,7 +142,8 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
                 username,
                 artistId,
                 role: req.role || 'admin',
-                isActive: req.isActive ?? true
+                isActive: req.isActive ?? true,
+                userId: req.userId || 0
             });
 
             res.json({

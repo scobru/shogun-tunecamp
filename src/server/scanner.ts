@@ -156,8 +156,32 @@ export class Scanner implements ScannerService {
         let album = this.database.getAlbumBySlug(slug);
 
         if (album) {
+            // Refresh cover art if missing
+            if (!album.cover_path) {
+                const coverNames = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png", "artwork.jpg", "artwork.png"];
+                for (const name of coverNames) {
+                    const p = path.resolve(dir, name);
+                    if (await fs.pathExists(p)) {
+                        const coverPath = this.normalizePath(p, musicDir);
+                        this.database.updateAlbumCover(album.id, coverPath);
+                        break;
+                    }
+                }
+            }
+
             this.folderToAlbumMap.set(dir, album.id);
             return album.id;
+        }
+
+        // Resolve cover art - Scan for common filenames in the directory
+        let coverPath: string | null = null;
+        const coverNames = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png", "artwork.jpg", "artwork.png"];
+        for (const name of coverNames) {
+            const p = path.resolve(dir, name);
+            if (await fs.pathExists(p)) {
+                coverPath = this.normalizePath(p, musicDir);
+                break;
+            }
         }
 
         // Create new library album
@@ -167,7 +191,7 @@ export class Scanner implements ScannerService {
             artist_id: null, // Will be fixed by fixOrphanAlbums later
             owner_id: null,
             date: null,
-            cover_path: null,
+            cover_path: coverPath,
             genre: "Library",
             description: `Auto-generated album for folder ${folderName}`,
             type: 'album',
