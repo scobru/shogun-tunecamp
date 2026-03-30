@@ -29,7 +29,6 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
     const [selectedTrackIds, setSelectedTrackIds] = useState<number[]>([]);
     const [license, setLicense] = useState<string>('copyright');
     const [showMetadataModal, setShowMetadataModal] = useState(false);
-    const [currentReleaseData, setCurrentReleaseData] = useState<any>(null);
 
     useEffect(() => {
         const handleOpen = async (e: CustomEvent) => {
