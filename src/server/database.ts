@@ -1531,14 +1531,12 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         getReleaseBySlug(slug: string): Release | undefined {
-            console.log(`🔍 [Debug] getReleaseBySlug: ${slug}`);
             const row = db.prepare(`
                 SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM releases r
                 LEFT JOIN artists ar ON r.artist_id = ar.id
                 WHERE r.slug = ?
             `).get(slug) as any;
             if (!row) {
-                console.log(`   - Not found in releases table`);
                 return undefined;
             }
             return {
@@ -1934,7 +1932,6 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         getAlbumBySlug(slug: string): Album | undefined {
-            console.log(`🔍 [Debug] getAlbumBySlug: ${slug}`);
             const row = db
                 .prepare(
                     `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
@@ -1943,7 +1940,6 @@ export function createDatabase(dbPath: string): DatabaseService {
                 )
                 .get(slug);
             if (!row) {
-                console.log(`   - Not found in albums table`);
                 return undefined;
             }
             return mapAlbum(row);
