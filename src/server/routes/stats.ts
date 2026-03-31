@@ -212,25 +212,19 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
                 };
             });
 
-            // 5. Get local public posts
-            const artists = dbService.getArtists();
-            const localPosts: any[] = [];
-            for (const artist of artists) {
-                const posts = dbService.getPostsByArtist(artist.id, true);
-                posts.forEach(p => {
-                    localPosts.push({
-                        slug: p.slug,
-                        title: p.content.replace(/<[^>]*>?/gm, '').substring(0, 50),
-                        artistName: p.artist_name || artist.name,
-                        content: p.content,
-                        coverUrl: p.artist_photo ? `${baseUrl}/api/artists/${p.artist_slug}/cover` : null,
-                        siteUrl: `${baseUrl}/@${p.artist_slug}?post=${p.slug}`,
-                        published_at: p.published_at || p.created_at,
-                        federation: "local",
-                        type: "post"
-                    });
-                });
-            }
+            // 5. Get local public posts (optimized single query)
+            const publicPosts = dbService.getPublicPosts();
+            const localPosts = publicPosts.map(p => ({
+                slug: p.slug,
+                title: p.content.replace(/<[^>]*>?/gm, '').substring(0, 50),
+                artistName: p.artist_name || "Unknown Artist",
+                content: p.content,
+                coverUrl: p.artist_photo ? `${baseUrl}/api/artists/${p.artist_slug}/cover` : null,
+                siteUrl: `${baseUrl}/@${p.artist_slug}?post=${p.slug}`,
+                published_at: p.published_at || p.created_at,
+                federation: "local",
+                type: "post"
+            }));
 
             // Merge results
             const allItems = [
