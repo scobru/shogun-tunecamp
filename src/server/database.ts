@@ -444,7 +444,9 @@ export interface DatabaseService {
 
     // Starred Items (Subsonic)
     starItem(username: string, itemType: string, itemId: string): void;
+    starItems(username: string, items: { type: string; id: string }[]): void;
     unstarItem(username: string, itemType: string, itemId: string): void;
+    unstarItems(username: string, items: { type: string; id: string }[]): void;
     getStarredItems(username: string, itemType?: string): { item_type: string; item_id: string; created_at: string }[];
     isStarred(username: string, itemType: string, itemId: string): boolean;
 
@@ -3139,9 +3141,32 @@ export function createDatabase(dbPath: string): DatabaseService {
                 VALUES (?, ?, ?)
             `).run(username, itemType, itemId);
         },
+        starItems(username: string, items: { type: string; id: string }[]): void {
+            if (items.length === 0) return;
+            const insertStmt = db.prepare(`
+                INSERT OR IGNORE INTO starred_items (username, item_type, item_id)
+                VALUES (?, ?, ?)
+            `);
+            const transaction = db.transaction((chunk: { type: string; id: string }[]) => {
+                for (const item of chunk) {
+                    insertStmt.run(username, item.type, item.id);
+                }
+            });
+            transaction(items);
+        },
 
         unstarItem(username: string, itemType: string, itemId: string): void {
             db.prepare("DELETE FROM starred_items WHERE username = ? AND item_type = ? AND item_id = ?").run(username, itemType, itemId);
+        },
+        unstarItems(username: string, items: { type: string; id: string }[]): void {
+            if (items.length === 0) return;
+            const deleteStmt = db.prepare("DELETE FROM starred_items WHERE username = ? AND item_type = ? AND item_id = ?");
+            const transaction = db.transaction((chunk: { type: string; id: string }[]) => {
+                for (const item of chunk) {
+                    deleteStmt.run(username, item.type, item.id);
+                }
+            });
+            transaction(items);
         },
 
         getStarredItems(username: string, itemType?: string): { item_type: string; item_id: string; created_at: string }[] {
