@@ -159,9 +159,7 @@ export function createUploadRoutes(
 
             if (!req.isAdmin && !req.isActive) {
                 if (files) {
-                    for (const file of files) {
-                        await fs.remove(file.path).catch(() => {});
-                    }
+                    await Promise.all(files.map(file => fs.remove(file.path).catch(() => {})));
                 }
                 return res.status(403).json({ error: "Access denied: Account must be activated by admin to upload tracks" });
             }
@@ -192,9 +190,7 @@ export function createUploadRoutes(
 
                 if (totalUploadSize > remaining) {
                     // Cleanup temp files
-                    for (const file of files) {
-                        await fs.remove(file.path).catch(() => { });
-                    }
+                    await Promise.all(files.map(file => fs.remove(file.path).catch(() => {})));
                     const quotaMB = (currentUser.storage_quota / 1024 / 1024).toFixed(1);
                     const usedMB = (currentUsed / 1024 / 1024).toFixed(1);
                     const remainingMB = (remaining / 1024 / 1024).toFixed(1);
@@ -217,9 +213,7 @@ export function createUploadRoutes(
             if (release && !req.isRootAdmin && req.artistId && release.artist_id !== req.artistId) {
                 console.warn(`⛔ Access Denied: User ${(req as any).username} (Artist ${(req as any).artistId}) tried to upload to release ${release.slug} (Artist ${release.artist_id})`);
                 // Cleanup temp files
-                for (const file of files) {
-                    await fs.remove(file.path).catch(() => { });
-                }
+                await Promise.all(files.map(file => fs.remove(file.path).catch(() => {})));
                 return res.status(403).json({ error: "Access denied: Cannot upload tracks to another artist's release" });
             }
 
