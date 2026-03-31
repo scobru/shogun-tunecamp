@@ -199,6 +199,7 @@ export class Scanner implements ScannerService {
             download: null,
             price: 0,
             price_usdc: 0,
+            price_usdt: 0,
             currency: 'ETH',
             external_links: null,
             is_public: false,
@@ -371,8 +372,8 @@ export class Scanner implements ScannerService {
                     download: config.download || null,
                     price: 0,
                     price_usdc: 0,
-                    currency: 'ETH',
-                    external_links: linksJson,
+                    price_usdt: 0,
+                    currency: 'ETH',                    external_links: linksJson,
                     visibility: 'private',
                     published_at: null,
                     published_to_gundb: false,
@@ -603,8 +604,8 @@ export class Scanner implements ScannerService {
                 external_artwork: null,
                 price: 0,
                 price_usdc: 0,
-                currency: 'ETH',
-                hash: hash // Store the hash
+                price_usdt: 0,
+                currency: 'ETH',                hash: hash // Store the hash
             });
 
             this.processQueue.add(() => WaveformService.generateWaveform(currentFilePath))

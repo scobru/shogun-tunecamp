@@ -129,6 +129,7 @@ export interface Release {
     download: string | null;
     price: number | null;
     price_usdc: number | null;
+    price_usdt: number | null;
     currency: 'ETH' | 'USD';
     external_links: string | null;
     visibility: 'public' | 'private' | 'unlisted';
@@ -151,6 +152,7 @@ export interface ReleaseTrack {
     file_path: string | null;
     price: number | null;
     price_usdc: number | null;
+    price_usdt: number | null;
     currency: 'ETH' | 'USD';
     created_at: string;
 }
@@ -544,6 +546,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       download TEXT,
       price REAL DEFAULT 0,
       price_usdc REAL DEFAULT 0,
+      price_usdt REAL DEFAULT 0,
       currency TEXT DEFAULT 'ETH',
       external_links TEXT,
       is_public INTEGER DEFAULT 0,
@@ -571,6 +574,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       sample_rate INTEGER,
       price REAL DEFAULT 0,
       price_usdc REAL DEFAULT 0,
+      price_usdt REAL DEFAULT 0,
       currency TEXT DEFAULT 'ETH',
       waveform TEXT,
       url TEXT,
@@ -612,6 +616,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       download TEXT,
       price REAL DEFAULT 0,
       price_usdc REAL DEFAULT 0,
+      price_usdt REAL DEFAULT 0,
       currency TEXT DEFAULT 'ETH',
       external_links TEXT,
       visibility TEXT DEFAULT 'private',
@@ -634,6 +639,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       file_path TEXT,
       price REAL DEFAULT 0,
       price_usdc REAL DEFAULT 0,
+      price_usdt REAL DEFAULT 0,
       currency TEXT DEFAULT 'ETH',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -1036,14 +1042,18 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Ignore
     }
 
-    // Migration: Add price_usdc to tracks, albums, releases, release_tracks
-    const tablesWithUsdc = ['tracks', 'albums', 'releases', 'release_tracks'];
-    for (const tableName of tablesWithUsdc) {
+    // Migration: Add price_usdc and price_usdt to tracks, albums, releases, release_tracks
+    const tablesWithStablePrices = ['tracks', 'albums', 'releases', 'release_tracks'];
+    for (const tableName of tablesWithStablePrices) {
         try {
             const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all() as any[];
             if (!tableInfo.find(c => c.name === 'price_usdc')) {
                 db.exec(`ALTER TABLE ${tableName} ADD COLUMN price_usdc REAL DEFAULT 0`);
                 console.log(`📦 Migrated database: added price_usdc column to ${tableName}`);
+            }
+            if (!tableInfo.find(c => c.name === 'price_usdt')) {
+                db.exec(`ALTER TABLE ${tableName} ADD COLUMN price_usdt REAL DEFAULT 0`);
+                console.log(`📦 Migrated database: added price_usdt column to ${tableName}`);
             }
         } catch (e) {
             // Ignore if column exists
@@ -1647,12 +1657,12 @@ export function createDatabase(dbPath: string): DatabaseService {
             while (attempt < 100) {
                 try {
                     const result = db.prepare(`
-                        INSERT INTO releases (title, slug, artist_id, owner_id, date, cover_path, genre, description, type, year, download, price, currency, external_links, visibility, published_at, published_to_gundb, published_to_ap, license)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO releases (title, slug, artist_id, owner_id, date, cover_path, genre, description, type, year, download, price, price_usdc, price_usdt, currency, external_links, visibility, published_at, published_to_gundb, published_to_ap, license)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `).run(
                         release.title, finalSlug, release.artist_id, release.owner_id || release.artist_id,
                         release.date, release.cover_path, release.genre, release.description, release.type, release.year,
-                        release.download, release.price || 0, release.currency || 'ETH', release.external_links,
+                        release.download, release.price || 0, release.price_usdc || 0, release.price_usdt || 0, release.currency || 'ETH', release.external_links,
                         release.visibility || 'private', release.published_at, 
                         release.published_to_gundb ? 1 : 0, release.published_to_ap ? 1 : 0,
                         release.license
@@ -1764,6 +1774,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             const filePath = metadata?.file_path || libraryTrack?.file_path || null;
             const price = metadata?.price || 0;
             const priceUsdc = metadata?.price_usdc || 0;
+            const priceUsdt = metadata?.price_usdt || 0;
             const currency = metadata?.currency || 'ETH';
 
             // Auto-calculate track_num if not provided
@@ -1774,9 +1785,9 @@ export function createDatabase(dbPath: string): DatabaseService {
             }
 
             const result = db.prepare(`
-                INSERT INTO release_tracks (release_id, track_id, title, artist_name, track_num, duration, file_path, price, price_usdc, currency)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(releaseId, effectiveTrackId, title, artistName, trackNum, duration, filePath, price, priceUsdc, currency);
+                INSERT INTO release_tracks (release_id, track_id, title, artist_name, track_num, duration, file_path, price, price_usdc, price_usdt, currency)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(releaseId, effectiveTrackId, title, artistName, trackNum, duration, filePath, price, priceUsdc, priceUsdt, currency);
 
             return result.lastInsertRowid as number;
         },
@@ -2070,8 +2081,8 @@ export function createDatabase(dbPath: string): DatabaseService {
                 try {
                     const result = db
                         .prepare(
-                            `INSERT INTO albums (title, slug, artist_id, owner_id, date, cover_path, genre, description, type, year, download, price, currency, external_links, is_public, visibility, is_release, published_at, published_to_gundb, published_to_ap)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                            `INSERT INTO albums (title, slug, artist_id, owner_id, date, cover_path, genre, description, type, year, download, price, price_usdc, price_usdt, currency, external_links, is_public, visibility, is_release, published_at, published_to_gundb, published_to_ap)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                         )
                         .run(
                             album.title,
@@ -2086,6 +2097,8 @@ export function createDatabase(dbPath: string): DatabaseService {
                             album.year || null,
                             album.download,
                             album.price || 0,
+                            album.price_usdc || 0,
+                            album.price_usdt || 0,
                             album.currency || 'ETH',
                             album.external_links,
                             album.visibility === 'public' || album.visibility === 'unlisted' ? 1 : 0,
@@ -2171,8 +2184,8 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare("UPDATE albums SET download = ? WHERE id = ?").run(download, id);
         },
 
-        updateAlbumPrice(id: number, price: number | null, price_usdc: number | null, currency: 'ETH' | 'USD' = 'ETH'): void {
-            db.prepare("UPDATE albums SET price = ?, price_usdc = ?, currency = ? WHERE id = ?").run(price || 0, price_usdc || 0, currency, id);
+        updateAlbumPrice(id: number, price: number | null, price_usdc: number | null, price_usdt: number | null, currency: 'ETH' | 'USD' = 'ETH'): void {
+            db.prepare("UPDATE albums SET price = ?, price_usdc = ?, price_usdt = ?, currency = ? WHERE id = ?").run(price || 0, price_usdc || 0, price_usdt || 0, currency, id);
         },
 
         updateAlbumLinks(id: number, links: string | null): void {
@@ -2366,8 +2379,8 @@ export function createDatabase(dbPath: string): DatabaseService {
         createTrack(track: Omit<Track, "id" | "created_at" | "album_title" | "artist_name">): number {
             const result = db
                 .prepare(
-                    `INSERT INTO tracks (title, album_id, artist_id, owner_id, track_num, duration, file_path, format, bitrate, sample_rate, price, currency, lossless_path, url, service, external_artwork, lyrics, hash, external_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                    `INSERT INTO tracks (title, album_id, artist_id, owner_id, track_num, duration, file_path, format, bitrate, sample_rate, price, price_usdc, price_usdt, currency, lossless_path, url, service, external_artwork, lyrics, hash, external_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                 )
                 .run(
                     track.title,
@@ -2381,6 +2394,8 @@ export function createDatabase(dbPath: string): DatabaseService {
                     track.bitrate,
                     track.sample_rate,
                     track.price || 0,
+                    track.price_usdc || 0,
+                    track.price_usdt || 0,
                     track.currency || 'ETH',
                     track.lossless_path || null,
                     track.url || null,
@@ -2434,8 +2449,8 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare("UPDATE tracks SET duration = ? WHERE id = ?").run(duration, id);
         },
 
-        updateTrackPrice(id: number, price: number | null, price_usdc: number | null, currency: 'ETH' | 'USD' = 'ETH'): void {
-            db.prepare("UPDATE tracks SET price = ?, price_usdc = ?, currency = ? WHERE id = ?").run(price || 0, price_usdc || 0, currency, id);
+        updateTrackPrice(id: number, price: number | null, price_usdc: number | null, price_usdt: number | null, currency: 'ETH' | 'USD' = 'ETH'): void {
+            db.prepare("UPDATE tracks SET price = ?, price_usdc = ?, price_usdt = ?, currency = ? WHERE id = ?").run(price || 0, price_usdc || 0, price_usdt || 0, currency, id);
         },
 
         updateTrackWaveform(id: number, waveform: string): void {

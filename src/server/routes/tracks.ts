@@ -225,8 +225,8 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                        // If currency is ETH, we'll format it on the frontend using ethers.parseEther
                        price: t.price,
                        currency: t.currency || 'ETH',
-                       // USDC price is not currently supported in the DB schema, defaulting to 0
-                       priceUSDC: 0,
+                       priceUSDC: t.price_usdc || 0,
+                       priceUSDT: t.price_usdt || 0,
                        walletAddress: walletAddress
                    }
                 });
@@ -893,12 +893,14 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
 
             // Update price
             const priceUsdc = req.body.priceUsdc;
-            if (price !== undefined || priceUsdc !== undefined) {
+            const priceUsdt = req.body.priceUsdt;
+            if (price !== undefined || priceUsdc !== undefined || priceUsdt !== undefined) {
                 const tr = database.getTrack(id);
                 const finalP = price !== undefined ? Number(price) : (tr?.price ?? 0);
                 const finalPu = priceUsdc !== undefined ? Number(priceUsdc) : (tr?.price_usdc ?? 0);
+                const finalPut = priceUsdt !== undefined ? Number(priceUsdt) : (tr?.price_usdt ?? 0);
                 const finalC = (currency || tr?.currency || 'ETH') as 'ETH' | 'USD';
-                database.updateTrackPrice(id, finalP, finalPu, finalC);
+                database.updateTrackPrice(id, finalP, finalPu, finalPut, finalC);
             }
 
             // Update lyrics

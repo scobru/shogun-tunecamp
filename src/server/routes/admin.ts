@@ -460,8 +460,8 @@ export function createAdminRoutes(
             if (body.download !== undefined) updates.download = body.download;
             if (body.price !== undefined) updates.price = body.price;
             if (body.priceUsdc !== undefined) updates.price_usdc = body.priceUsdc;
-            if (body.currency) updates.currency = body.currency;
-            if (body.use_nft !== undefined) {
+            if (body.priceUsdt !== undefined) updates.price_usdt = body.priceUsdt;
+            if (body.currency) updates.currency = body.currency;            if (body.use_nft !== undefined) {
                 updates.use_nft = body.use_nft ? 1 : 0;
             }
             if (body.genres) {
@@ -543,6 +543,7 @@ export function createAdminRoutes(
                                 title: td.title,
                                 price: td.price,
                                 price_usdc: td.priceUsdc,
+                                price_usdt: td.priceUsdt,
                                 currency: td.currency || 'ETH'
                             });
                         }

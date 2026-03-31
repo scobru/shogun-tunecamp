@@ -8,12 +8,26 @@ import { getEthUsdRate } from "../price.js";
 // Setup Base RPC
 const provider = new ethers.JsonRpcProvider(process.env.TUNECAMP_RPC_URL || "https://mainnet.base.org");
 
+const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+
+const ERC20_ABI = [
+    "function transfer(address to, uint256 amount) returns (bool)",
+    "function decimals() view returns (uint8)",
+    "event Transfer(address indexed from, address indexed to, uint256 value)"
+];
+
+const CHECKOUT_ABI = [
+    "function purchaseWithETH(uint256 trackId, uint8 role, uint256 quantity) payable",
+    "function purchaseWithUSDC(uint256 trackId, uint8 role, uint256 quantity)"
+];
+
 export function createPaymentsRoutes(database: DatabaseService, musicDir: string): Router {
     const router = Router();
 
     /**
      * POST /api/payments/verify
      * Verify a transaction hash locally on the server to unlock a track.
+     * Auto-detects payment type: Direct ETH, Direct ERC20 (USDC/USDT), or Checkout Contract.
      */
     router.post("/verify", async (req, res) => {
         try {
@@ -23,83 +37,143 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
                 return res.status(400).json({ error: "Missing required fields" });
             }
 
-            const ownerAddress = process.env.TUNECAMP_OWNER_ADDRESS;
-            if (!ownerAddress) {
-                console.warn("TUNECAMP_OWNER_ADDRESS not set, skipping strict receiver verification.");
+            // 1. Fetch transaction and receipt
+            const [tx, receipt] = await Promise.all([
+                provider.getTransaction(txHash),
+                provider.getTransactionReceipt(txHash)
+            ]);
+
+            if (!tx || !receipt) {
+                return res.status(404).json({ error: "Transaction not found on chain" });
             }
 
-            // 1. Fetch transaction receipt
-            const receipt = await provider.getTransactionReceipt(txHash);
-
-            if (!receipt || receipt.status !== 1) {
-                return res.status(400).json({ error: "Transaction not found or failed on chain" });
+            if (receipt.status !== 1) {
+                return res.status(400).json({ error: "Transaction failed on chain" });
             }
 
-            // 2. Fetch transaction details to verify 'to' and 'value'
-            const tx = await provider.getTransaction(txHash);
-
-            // Check track exists
+            // 2. Fetch track metadata
             const track = database.getTrack(parseInt(trackId, 10));
             if (!track) {
                 return res.status(404).json({ error: "Track not found" });
             }
 
-            // Check receiver
             const web3CheckoutAddr = database.getSetting("web3_checkout_address");
-            const expectedRecipient = (track as any).walletAddress || ownerAddress;
+            const artistWallet = (track as any).walletAddress || process.env.TUNECAMP_OWNER_ADDRESS;
 
-            if (web3CheckoutAddr && tx?.to?.toLowerCase() === web3CheckoutAddr.toLowerCase()) {
-                // If the store is deployed, this transaction should be a call to purchaseWithETH
+            let verificationResult = { success: false, method: "", error: "" };
+
+            // 3. IDENTIFY AND VERIFY PAYMENT TYPE
+            const toAddress = tx.to?.toLowerCase();
+
+            // Case A: Checkout Contract Call
+            if (web3CheckoutAddr && toAddress === web3CheckoutAddr.toLowerCase()) {
+                verificationResult.method = "CheckoutContract";
                 try {
-                    const iface = new ethers.Interface([
-                        "function purchaseWithETH(uint256 trackId, uint8 role, uint256 quantity) payable",
-                        "function purchaseWithUSDC(uint256 trackId, uint8 role, uint256 quantity, uint256 amount)"
-                    ]);
+                    const iface = new ethers.Interface(CHECKOUT_ABI);
                     const parsed = iface.parseTransaction({ data: tx.data, value: tx.value });
-                    if (parsed && parsed.args) {
-                        const paidTrackId = parsed.args.trackId.toString();
+                    
+                    if (parsed) {
+                        const paidTrackId = parsed.args[0].toString();
                         if (paidTrackId !== trackId.toString()) {
-                            return res.status(400).json({ error: "Transaction paid for a different track" });
+                            verificationResult.error = `Transaction paid for track ${paidTrackId}, but expected ${trackId}`;
+                        } else {
+                            // Amount check for ETH
+                            if (parsed.name === "purchaseWithETH") {
+                                const paidEth = parseFloat(ethers.formatEther(tx.value));
+                                let expectedEth = track.price || 0;
+                                if (track.currency === 'USD') {
+                                    const rate = await getEthUsdRate();
+                                    expectedEth = (track.price || 0) / rate;
+                                }
+                                const margin = expectedEth * 0.05;
+                                if (paidEth < expectedEth - margin) {
+                                    verificationResult.error = `Underpayment: paid ${paidEth} ETH, expected ~${expectedEth} ETH`;
+                                } else {
+                                    verificationResult.success = true;
+                                }
+                            } else if (parsed.name === "purchaseWithUSDC") {
+                                // Contract looks up price from its own mapping, we just trust the trackId match if it succeeded
+                                verificationResult.success = true;
+                            }
                         }
+                    } else {
+                        verificationResult.error = "Could not parse Checkout contract transaction data";
                     }
                 } catch (e) {
-                    console.warn("Could not decode TuneCampCheckout transaction data parameters. Fallback check active.");
+                    verificationResult.error = "Error decoding Checkout transaction: " + (e as Error).message;
                 }
-            } else if (expectedRecipient && tx?.to?.toLowerCase() !== expectedRecipient.toLowerCase()) {
-                console.warn(`Payment verification mismatch: Track ${trackId} expected recipient ${expectedRecipient}, but transaction was sent to ${tx?.to}`);
-                return res.status(400).json({ error: "Transaction recipient mismatch" });
+            } 
+            // Case B: Direct ERC20 Transfer (USDC)
+            else if (toAddress === USDC_ADDRESS.toLowerCase()) {
+                const tokenSymbol = "USDC";
+                verificationResult.method = `Direct${tokenSymbol}`;
+                
+                try {
+                    const iface = new ethers.Interface(ERC20_ABI);
+                    const parsed = iface.parseTransaction({ data: tx.data });
+                    
+                    if (parsed && parsed.name === "transfer") {
+                        const recipient = parsed.args[0].toLowerCase();
+                        const amount = parsed.args[1];
+                        const decimals = 6; // USDC on Base has 6 decimals
+                        const paidAmount = parseFloat(ethers.formatUnits(amount, decimals));
+                        
+                        const expectedAmount = track.price_usdc || 0;
+
+                        if (artistWallet && recipient !== artistWallet.toLowerCase()) {
+                            verificationResult.error = `Recipient mismatch: sent to ${recipient}, expected ${artistWallet}`;
+                        } else if (paidAmount < expectedAmount * 0.99) { // 1% tolerance
+                            verificationResult.error = `Underpayment: paid ${paidAmount} ${tokenSymbol}, expected ${expectedAmount}`;
+                        } else {
+                            verificationResult.success = true;
+                        }
+                    } else {
+                        verificationResult.error = `Not a valid ${tokenSymbol} transfer transaction`;
+                    }
+                } catch (e) {
+                    verificationResult.error = `Error decoding ${tokenSymbol} transfer: ` + (e as Error).message;
+                }
             }
-
-            // Verify value (loose check to allow for small price fluctuations if in USD)
-            if (track.price && track.price > 0) {
-                const paidWei = tx?.value || 0n;
-                const paidEth = parseFloat(ethers.formatEther(paidWei));
-
-                let expectedEth = track.price;
+            // Case C: Direct ETH Transfer
+            else if (artistWallet && toAddress === artistWallet.toLowerCase()) {
+                verificationResult.method = "DirectETH";
+                const paidEth = parseFloat(ethers.formatEther(tx.value));
+                let expectedEth = track.price || 0;
+                
                 if (track.currency === 'USD') {
                     const rate = await getEthUsdRate();
-                    expectedEth = track.price / rate;
+                    expectedEth = (track.price || 0) / rate;
                 }
-
-                // Allow 5% slippage/margin for price fluctuations
+                
                 const margin = expectedEth * 0.05;
                 if (paidEth < expectedEth - margin) {
-                    console.warn(`Potential underpayment: paid ${paidEth} ETH, expected ~${expectedEth} ETH`);
+                    verificationResult.error = `Underpayment: paid ${paidEth} ETH, expected ~${expectedEth} ETH`;
+                } else {
+                    verificationResult.success = true;
                 }
+            } else {
+                verificationResult.error = `Transaction recipient ${tx.to} does not match checkout contract or artist wallet ${artistWallet}`;
             }
 
-            // Generate single-use unlock code for the user to stream the song's album
-            const code = Math.random().toString(36).substring(2, 12).toUpperCase();
+            if (!verificationResult.success) {
+                console.warn(`Payment verification failed: ${verificationResult.error}`);
+                return res.status(400).json({ error: verificationResult.error || "Verification failed" });
+            }
 
+            // 4. Success: Generate unlock code
+            const code = Math.random().toString(36).substring(2, 12).toUpperCase();
             if (track.album_id) {
                 database.createUnlockCode(code, track.album_id);
             }
+
+            console.log(`✅ Verified ${verificationResult.method} payment for track ${trackId}. Code: ${code}`);
 
             return res.json({
                 success: true,
                 code,
                 trackId: track.id,
                 albumId: track.album_id,
+                method: verificationResult.method,
                 message: "Transaction verified successfully"
             });
 
