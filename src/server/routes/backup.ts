@@ -387,18 +387,17 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
                     if (await fs.pathExists(finalZipPath)) await fs.unlink(finalZipPath);
 
                     const fd = await fs.open(finalZipPath, 'a');
-                    const chunkSize = 1024 * 1024; // 1MB chunks
-                    const buffer = Buffer.alloc(chunkSize);
+                    const chunkSize = 4 * 1024 * 1024; // 4MB chunks for performance
+                    const buffer = Buffer.allocUnsafe(chunkSize); // allocUnsafe is faster, avoids zero-filling
 
                     try {
                         for (const part of partFiles) {
                             const partPath = path.join(uploadDir, part);
                             const fdPart = await fs.open(partPath, 'r');
                             try {
-                                const stats = await fs.stat(partPath);
                                 let bytesRead = 0;
 
-                                while (bytesRead < stats.size) {
+                                while (true) {
                                     const { bytesRead: read } = await fs.read(fdPart, buffer, 0, chunkSize, bytesRead);
                                     if (read === 0) break;
 
