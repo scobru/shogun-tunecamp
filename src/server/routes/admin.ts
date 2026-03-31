@@ -215,12 +215,23 @@ export function createAdminRoutes(
                 await gundbService.registerSite(siteInfo);
 
                 const publicAlbums = database.getAlbums(true);
-                for (const album of publicAlbums) {
-                    // Double check visibility just in case
-                    if (album.visibility === 'public' || album.visibility === 'unlisted') {
-                        const tracks = database.getTracks(album.id);
-                        await gundbService.registerTracks(siteInfo, album, tracks);
+                const targetAlbums = publicAlbums.filter(album => album.visibility === 'public' || album.visibility === 'unlisted');
+                const targetAlbumIds = targetAlbums.map(album => album.id);
+                const allTracks = database.getTracksByAlbumIds(targetAlbumIds);
+
+                const tracksByAlbumId = new Map<number, any[]>();
+                for (const track of allTracks) {
+                    if (track.album_id) {
+                        if (!tracksByAlbumId.has(track.album_id)) {
+                            tracksByAlbumId.set(track.album_id, []);
+                        }
+                        tracksByAlbumId.get(track.album_id)!.push(track);
                     }
+                }
+
+                for (const album of targetAlbums) {
+                    const tracks = tracksByAlbumId.get(album.id) || [];
+                    await gundbService.registerTracks(siteInfo, album, tracks);
                 }
                 console.log(`🌐 Re-registered site and tracks on GunDB with updated settings: ${currentPublicUrl}`);
             }
