@@ -377,7 +377,7 @@ export const AlbumDetails = () => {
            </div>
         </div>
 
-        <div className="list bg-base-200/10 rounded-[2.5rem] border border-white/5 overflow-hidden">
+        <div className="list bg-base-200/10 rounded-[2.5rem] border border-white/5 overflow-visible">
           {album.tracks?.map((track: any, i: number) => {
             if (!track) return null;
             const unlocked = isTrackUnlocked(track);

@@ -47,11 +47,42 @@ export function createReleaseRouter(
             const isRoot = req.username && authService && authService.isRootAdmin(req.username);
             const artistId = req.artistId;
 
-            let releases;
+            let releases: any[];
             if (isRoot) {
                 releases = database.getReleases();
             } else if (req.userId !== undefined) {
-                releases = database.getReleasesByOwner(req.userId);
+                // Show public releases OR those owned by the user
+                const ownedReleases = database.getReleasesByOwner(req.userId, false); 
+                const publicReleases = database.getReleases(true); 
+                
+                // Merge and deduplicate by ID
+                const seenIds = new Set();
+                releases = [];
+                
+                // Prioritize owned releases (might be private/unlisted)
+                for (const r of ownedReleases) {
+                    if (!seenIds.has(r.id)) {
+                        releases.push(r);
+                        seenIds.add(r.id);
+                    }
+                }
+                
+                // Add public releases
+                for (const r of publicReleases) {
+                    if (!seenIds.has(r.id)) {
+                        releases.push(r);
+                        seenIds.add(r.id);
+                    }
+                }
+
+                // Sort by date desc (handle null dates safely)
+                releases.sort((a, b) => {
+                    const dateA = a.date || a.published_at || a.created_at || 0;
+                    const dateB = b.date || b.published_at || b.created_at || 0;
+                    const timeA = typeof dateA === 'number' ? dateA : new Date(dateA).getTime();
+                    const timeB = typeof dateB === 'number' ? dateB : new Date(dateB).getTime();
+                    return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
+                });
             } else {
                 releases = database.getReleases(true);
             }
