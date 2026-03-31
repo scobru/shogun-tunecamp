@@ -1216,12 +1216,12 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const albumIds = albumId ? (Array.isArray(albumId) ? albumId : [albumId]) : [];
         const artistIds = artistId ? (Array.isArray(artistId) ? artistId : [artistId]) : [];
 
-        for (const i of ids) {
-            db.starItem(username, 'track', i);
-            incrementGunDBLikeCount(i);
+        if (ids.length > 0) {
+            db.starItems(username, 'track', ids);
+            for (const i of ids) incrementGunDBLikeCount(i);
         }
-        for (const i of albumIds) db.starItem(username, 'album', i);
-        for (const i of artistIds) db.starItem(username, 'artist', i);
+        if (albumIds.length > 0) db.starItems(username, 'album', albumIds);
+        if (artistIds.length > 0) db.starItems(username, 'artist', artistIds);
 
         sendResponse(res, req, {});
     };
@@ -1234,12 +1234,12 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const albumIds = albumId ? (Array.isArray(albumId) ? albumId : [albumId]) : [];
         const artistIds = artistId ? (Array.isArray(artistId) ? artistId : [artistId]) : [];
 
-        for (const i of ids) {
-            db.unstarItem(username, 'track', i);
-            decrementGunDBLikeCount(i);
+        if (ids.length > 0) {
+            db.unstarItems(username, 'track', ids);
+            for (const i of ids) decrementGunDBLikeCount(i);
         }
-        for (const i of albumIds) db.unstarItem(username, 'album', i);
-        for (const i of artistIds) db.unstarItem(username, 'artist', i);
+        if (albumIds.length > 0) db.unstarItems(username, 'album', albumIds);
+        if (artistIds.length > 0) db.unstarItems(username, 'artist', artistIds);
 
         sendResponse(res, req, {});
     };
