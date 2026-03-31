@@ -444,7 +444,9 @@ export interface DatabaseService {
 
     // Starred Items (Subsonic)
     starItem(username: string, itemType: string, itemId: string): void;
+    starItems(username: string, itemType: string, itemIds: string[]): void;
     unstarItem(username: string, itemType: string, itemId: string): void;
+    unstarItems(username: string, itemType: string, itemIds: string[]): void;
     getStarredItems(username: string, itemType?: string): { item_type: string; item_id: string; created_at: string }[];
     isStarred(username: string, itemType: string, itemId: string): boolean;
 
@@ -3139,9 +3141,30 @@ export function createDatabase(dbPath: string): DatabaseService {
                 VALUES (?, ?, ?)
             `).run(username, itemType, itemId);
         },
+        starItems(username: string, itemType: string, itemIds: string[]): void {
+            if (itemIds.length === 0) return;
+            const stmt = db.prepare(`
+                INSERT OR IGNORE INTO starred_items (username, item_type, item_id)
+                VALUES (?, ?, ?)
+            `);
+            db.transaction((ids: string[]) => {
+                for (const itemId of ids) {
+                    stmt.run(username, itemType, itemId);
+                }
+            })(itemIds);
+        },
 
         unstarItem(username: string, itemType: string, itemId: string): void {
             db.prepare("DELETE FROM starred_items WHERE username = ? AND item_type = ? AND item_id = ?").run(username, itemType, itemId);
+        },
+        unstarItems(username: string, itemType: string, itemIds: string[]): void {
+            if (itemIds.length === 0) return;
+            const CHUNK_SIZE = 900;
+            for (let i = 0; i < itemIds.length; i += CHUNK_SIZE) {
+                const chunk = itemIds.slice(i, i + CHUNK_SIZE);
+                const placeholders = chunk.map(() => "?").join(",");
+                db.prepare(`DELETE FROM starred_items WHERE username = ? AND item_type = ? AND item_id IN (${placeholders})`).run(username, itemType, ...chunk);
+            }
         },
 
         getStarredItems(username: string, itemType?: string): { item_type: string; item_id: string; created_at: string }[] {
