@@ -1428,11 +1428,11 @@ export function createDatabase(dbPath: string): DatabaseService {
 
     // Migration: Unify owner_id to use User IDs (admin.id) instead of Artist IDs
     try {
-        const fixKey = "owner_id_to_userid_v1";
+        const fixKey = "owner_id_to_userid_v2";
         const isFixed = (db.prepare("SELECT value FROM settings WHERE key = ?").get(fixKey) as { value: string } | undefined);
 
         if (!isFixed) {
-            console.log("📦 Migrating database: Unifying owner_id to use User IDs...");
+            console.log("📦 Migrating database: Unifying owner_id to use User IDs (including releases)...");
             db.transaction(() => {
                 // Update tracks: where owner_id matches artist_id, change to the admin user's ID
                 db.exec(`
@@ -1448,13 +1448,20 @@ export function createDatabase(dbPath: string): DatabaseService {
                     WHERE (owner_id IS NULL OR owner_id = artist_id) AND artist_id IS NOT NULL;
                 `);
 
+                // Update releases - MISSING IN V1
+                db.exec(`
+                    UPDATE releases 
+                    SET owner_id = (SELECT id FROM admin WHERE admin.artist_id = releases.artist_id LIMIT 1)
+                    WHERE (owner_id IS NULL OR owner_id = artist_id) AND artist_id IS NOT NULL;
+                `);
+
                 // Mark as fixed
                 db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(fixKey, "true");
             })();
-            console.log("✅ Database migrated: owner_id unified.");
+            console.log("✅ Database migrated: owner_id unified for all content types.");
         }
     } catch (e) {
-        console.error("Migration error (unify owner_id):", e);
+        console.error("Migration error (unify owner_id v2):", e);
     }
 
     // Optimized: Pre-compile frequent queries
