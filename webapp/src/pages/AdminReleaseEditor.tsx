@@ -742,20 +742,24 @@ export default function AdminReleaseEditor() {
                       <div className="flex items-center gap-1">
                         <select
                           className="select select-ghost select-sm px-1 opacity-50 focus:opacity-100"
-                          value={track.currency || "ETH"}
+                          value={track.currency || (track.priceUsdc ? "USDC" : "ETH")}
                           onChange={(e) => {
                             const newTracks = [...tracks];
-                            newTracks[idx].currency = e.target.value as any;
+                            const newCurrency = e.target.value as any;
+                            newTracks[idx].currency = newCurrency;
+                            // If switching to USDC, move price to priceUsdc if it looks like a value, and vice versa?
+                            // For simplicity, just set the flag and the UI will point to the right field.
                             newTracks[idx].isDirty = true;
                             setTracks(newTracks);
                           }}
                         >
                           <option value="ETH">ETH</option>
                           <option value="USD">USD</option>
+                          <option value="USDC">USDC</option>
                         </select>
-                        <label className={`input input-sm input-bordered flex items-center gap-1 group-focus-within:border-primary w-28 ${metadata.use_nft && track.registrationStatus !== 'registered' ? 'opacity-50' : ''}`}>
+                        <label className={`input input-sm input-bordered flex items-center gap-1 group-focus-within:border-primary w-40 ${metadata.use_nft && track.registrationStatus !== 'registered' ? 'opacity-50' : ''}`}>
                           <span className="opacity-50 text-[10px]">
-                            {track.currency === "USD" ? "USD" : "ETH"}
+                            {track.currency === "USDC" ? "USDC" : (track.currency === "USD" ? "USD" : "ETH")}
                           </span>
                           <input
                             type="number"
@@ -765,31 +769,15 @@ export default function AdminReleaseEditor() {
                             placeholder="0.00"
                             disabled={metadata.use_nft && track.registrationStatus !== 'registered'}
                             title={metadata.use_nft && track.registrationStatus !== 'registered' ? "Register track on blockchain first" : ""}
-                            value={track.price ?? ""}
+                            value={track.currency === "USDC" ? (track.priceUsdc ?? "") : (track.price ?? "")}
                             onChange={(e) => {
                               const newTracks = [...tracks];
-                              newTracks[idx].price =
-                                e.target.value === "" ? "" : e.target.value;
-                              newTracks[idx].isDirty = true;
-                              setTracks(newTracks);
-                            }}
-                          />
-                        </label>
-                        <label className={`input input-sm input-bordered flex items-center gap-1 group-focus-within:border-primary w-36 ${metadata.use_nft && track.registrationStatus !== 'registered' ? 'opacity-50' : ''}`}>
-                          <span className="opacity-50 text-[10px]">USDC</span>
-                          <input
-                            type="number"
-                            step="any"
-                            min="0"
-                            className={`w-full bg-transparent ${metadata.use_nft && track.registrationStatus !== 'registered' ? 'cursor-not-allowed opacity-30' : ''}`}
-                            placeholder="0.00"
-                            disabled={metadata.use_nft && track.registrationStatus !== 'registered'}
-                            title={metadata.use_nft && track.registrationStatus !== 'registered' ? "Register track on blockchain first" : ""}
-                            value={track.priceUsdc ?? ""}
-                            onChange={(e) => {
-                              const newTracks = [...tracks];
-                              newTracks[idx].priceUsdc =
-                                e.target.value === "" ? "" : e.target.value;
+                              const val = e.target.value === "" ? "" : e.target.value;
+                              if (track.currency === "USDC") {
+                                newTracks[idx].priceUsdc = val;
+                              } else {
+                                newTracks[idx].price = val;
+                              }
                               newTracks[idx].isDirty = true;
                               setTracks(newTracks);
                             }}

@@ -15,6 +15,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
     const [year, setYear] = useState(new Date().getFullYear());
     const [price, setPrice] = useState<string>('');
     const [priceUsdc, setPriceUsdc] = useState<string>('');
+    const [currency, setCurrency] = useState<'ETH' | 'USD' | 'USDC'>('ETH');
     
     const [visibility, setVisibility] = useState<'public' | 'private' | 'unlisted'>('private');
     
@@ -46,6 +47,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                 setLicense(e.detail.license || 'copyright');
                 setPrice(e.detail.price ? String(e.detail.price) : '');
                 setPriceUsdc(e.detail.price_usdc ? String(e.detail.price_usdc) : '');
+                setCurrency(e.detail.price_usdc ? 'USDC' : (e.detail.currency || 'ETH'));
                 
                 // Fetch release tracks and set selected IDs
                 // Fetch release tracks and set selected IDs
@@ -68,6 +70,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                 setLicense('copyright');
                 setPrice('');
                 setPriceUsdc('');
+                setCurrency('ETH');
                 setSelectedTrackIds([]);
             }
             
@@ -147,6 +150,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                     track_ids: selectedTrackIds,
                     price: price ? Number(price) : undefined,
                     priceUsdc: priceUsdc ? Number(priceUsdc) : undefined,
+                    currency: currency !== 'USDC' ? currency : 'ETH', // Default to ETH if USDC selected as primary currency is stored in price_usdc
                 });
             } else {
                 release = await API.createRelease({ 
@@ -157,6 +161,9 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                     visibility,
                     license,
                     track_ids: selectedTrackIds,
+                    price: price ? Number(price) : undefined,
+                    priceUsdc: priceUsdc ? Number(priceUsdc) : undefined,
+                    currency: currency !== 'USDC' ? currency : 'ETH',
                 });
             }
 
@@ -252,29 +259,30 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text">Price (ETH)</span>
-                            </label>
+                    <div className="form-control">
+                        <label className="label">
+                            <span className="label-text">Price</span>
+                        </label>
+                        <div className="flex gap-2">
+                            <select 
+                                className="select select-bordered"
+                                value={currency}
+                                onChange={e => setCurrency(e.target.value as any)}
+                            >
+                                <option value="ETH">ETH</option>
+                                <option value="USD">USD</option>
+                                <option value="USDC">USDC</option>
+                            </select>
                             <input 
                                 type="number" 
                                 step="any"
                                 className="input input-bordered w-full" 
-                                value={price}
-                                onChange={e => setPrice(e.target.value)}
-                            />
-                        </div>
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text">Price (USDC)</span>
-                            </label>
-                            <input 
-                                type="number" 
-                                step="any"
-                                className="input input-bordered w-full" 
-                                value={priceUsdc}
-                                onChange={e => setPriceUsdc(e.target.value)}
+                                value={currency === 'USDC' ? priceUsdc : price}
+                                onChange={e => {
+                                    if (currency === 'USDC') setPriceUsdc(e.target.value);
+                                    else setPrice(e.target.value);
+                                }}
+                                placeholder="0.00"
                             />
                         </div>
                     </div>

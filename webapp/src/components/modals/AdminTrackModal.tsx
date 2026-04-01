@@ -15,7 +15,9 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
   const [ownerName, setOwnerName] = useState("");
   const [trackId, setTrackId] = useState<string | null>(null);
   const [trackNum, setTrackNum] = useState<string>("");
+  const [price, setPrice] = useState<string>("");
   const [priceUsdc, setPriceUsdc] = useState<string>("");
+  const [currency, setCurrency] = useState<'ETH' | 'USD' | 'USDC'>('USDC');
   const [artworkUrl, setArtworkUrl] = useState<string | null>(null);
   const [currentTrackData, setCurrentTrackData] = useState<any>(null);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
@@ -40,7 +42,9 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         setAlbumTitle(e.detail.album_title || "");
         setOwnerName(e.detail.owner_name || "");
         setTrackNum(e.detail.track_num ? String(e.detail.track_num) : "");
+        setPrice(e.detail.price ? String(e.detail.price) : "");
         setPriceUsdc(e.detail.price_usdc ? String(e.detail.price_usdc) : "");
+        setCurrency(e.detail.price_usdc ? 'USDC' : (e.detail.currency || 'ETH'));
         setArtworkUrl(e.detail.external_artwork || null);
         setCurrentTrackData(e.detail);
 
@@ -134,7 +138,9 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
       const payload: any = {
         title,
         trackNumber: trackNum ? parseInt(trackNum) : undefined,
+        price: price ? parseFloat(price) : undefined,
         priceUsdc: priceUsdc ? parseFloat(priceUsdc) : undefined,
+        currency: currency !== 'USDC' ? currency : 'ETH',
       };
 
       if (matchedArtist) {
@@ -310,15 +316,30 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
             </div>
             <div className="form-control">
               <label className="label">
-                <span className="label-text">Price (USDC)</span>
+                <span className="label-text">Price</span>
               </label>
-              <input
-                type="number"
-                step="0.01"
-                className="input input-bordered w-full"
-                value={priceUsdc}
-                onChange={(e) => setPriceUsdc(e.target.value)}
-              />
+              <div className="flex gap-2">
+                <select 
+                  className="select select-bordered"
+                  value={currency}
+                  onChange={e => setCurrency(e.target.value as any)}
+                >
+                  <option value="ETH">ETH</option>
+                  <option value="USD">USD</option>
+                  <option value="USDC">USDC</option>
+                </select>
+                <input
+                  type="number"
+                  step="any"
+                  className="input input-bordered w-full"
+                  value={currency === 'USDC' ? priceUsdc : price}
+                  onChange={(e) => {
+                    if (currency === 'USDC') setPriceUsdc(e.target.value);
+                    else setPrice(e.target.value);
+                  }}
+                  placeholder="0.00"
+                />
+              </div>
             </div>
           </div>
 
