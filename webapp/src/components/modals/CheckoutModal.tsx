@@ -24,7 +24,7 @@ interface CheckoutTrack {
   priceUsdc?: number | string;
   price_usdc?: number | string;
   price?: number;
-  currency?: "ETH" | "USD";
+  currency?: "ETH" | "USD" | "USDC";
   albumId?: number | string;
   album_id?: number | string;
   walletAddress?: string;

@@ -31,7 +31,7 @@ interface LocalTrack {
   position: number;
   price?: number | string;
   priceUsdc?: number | string;
-  currency?: "ETH" | "USD";
+  currency?: "ETH" | "USD" | "USDC";
   file_path: string | null;
   url: string | null;
   service: string | null;
@@ -64,7 +64,7 @@ interface LocalRelease {
   use_nft?: boolean;
   price?: number | string;
   priceUsdc?: number | string;
-  currency?: "ETH" | "USD";
+  currency?: "ETH" | "USD" | "USDC";
   download?: string;
   license?: string;
 }
