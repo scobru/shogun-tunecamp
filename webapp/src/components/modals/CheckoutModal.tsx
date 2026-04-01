@@ -128,18 +128,29 @@ export const CheckoutModal = () => {
       if (paymentMethod === "USDC") {
         const tokenSymbol = "USDC";
         const tokenAddress = BASE_USDC_ADDRESS;
-        
-        let trackStablePrice = Number(track.priceUsdc || track.price_usdc || 0);
-
-        // Fallback to USD price if specific stablecoin price is not set
-        if (trackStablePrice <= 0 && track.currency === "USD" && track.price) {
-          trackStablePrice = track.price;
-        }
-
-        if (trackStablePrice <= 0) throw new Error(`This track is not priced in ${tokenSymbol}.`);
-
-        const stableAmount = ethers.parseUnits(String(trackStablePrice), 6);
         const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, activeSigner);
+
+        if (!checkoutAddr) throw new Error("No smart contract store connected for USDC checkout.");
+
+        const network = await activeSigner.provider!.getNetwork();
+        const chainId = String(network.chainId);
+        const abi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampCheckout"]?.abi || 
+                    (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || 
+                    (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
+        
+        if (!abi) throw new Error("TuneCampCheckout ABI not found in SDK");
+        const checkout = new ethers.Contract(checkoutAddr, abi, activeSigner);
+        
+        const role = TokenRole?.LICENSE || 0;
+        const trackIdBigInt = BigInt(track.id);
+
+        // FETCH ON-CHAIN USDC PRICE
+        setError("Fetching on-chain price...");
+        const contractPriceUSDC = await checkout.priceUSDC(trackIdBigInt, role);
+        if (contractPriceUSDC === 0n) {
+          throw new Error(`On-chain price for this track is not set (USDC). Please contact the artist.`);
+        }
+        const stableAmount = contractPriceUSDC;
 
         if (isDirectPayment) {
           if (!artistWallet) throw new Error(`Artist wallet address is not configured for direct ${tokenSymbol} payments.`);
@@ -148,7 +159,6 @@ export const CheckoutModal = () => {
           receipt = await tx.wait();
         } else {
           // USDC + SMART CONTRACT flow
-          if (!checkoutAddr) throw new Error("No smart contract store connected for USDC checkout.");
           const ownerAddr = await activeSigner.getAddress();
           const allowance = await tokenContract.allowance(ownerAddr, checkoutAddr);
 
@@ -159,51 +169,45 @@ export const CheckoutModal = () => {
           }
 
           setError("Purchasing... Please confirm in your wallet.");
-          const network = await activeSigner.provider!.getNetwork();
-          const chainId = String(network.chainId);
-          const abi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
-          
-          if (!abi) throw new Error("TuneCampCheckout ABI not found in SDK");
-          const checkout = new ethers.Contract(checkoutAddr, abi, activeSigner);
-          
-          const role = TokenRole?.LICENSE || 0;
-          // FIX: purchaseWithUSDC takes 3 arguments in the contract
-          const tx = await checkout.purchaseWithUSDC(BigInt(track.id), role, 1);
+          const tx = await checkout.purchaseWithUSDC(trackIdBigInt, role, 1);
           receipt = await tx.wait();
         }
       } else {
         // ETH PURCHASE FLOW
-        if (track.currency === "USD" && track.price) {
-          if (!usdRate) {
-            throw new Error("Could not determine ETH price for USD amount.");
-          }
-          finalPriceEth = (track.price / usdRate).toFixed(6);
-        }
-
-        if (!finalPriceEth || parseFloat(finalPriceEth) <= 0) {
-          throw new Error("Invalid price.");
-        }
-
-        const value = ethers.parseEther(finalPriceEth);
-
         if (!isDirectPayment && checkoutAddr && checkoutAddr !== "" && checkoutAddr !== "null") {
           const network = await activeSigner.provider!.getNetwork();
           const chainId = String(network.chainId);
           const abi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
-          
           if (!abi) throw new Error("TuneCampCheckout ABI not found in SDK");
 
           const checkout = new ethers.Contract(checkoutAddr, abi, activeSigner);
           const trackIdBigInt = BigInt(track.id);
           const role = TokenRole?.LICENSE || 0;
           
+          // FETCH ON-CHAIN ETH PRICE
+          setError("Fetching on-chain price...");
+          const contractPriceETH = await checkout.priceETH(trackIdBigInt, role);
+          if (contractPriceETH === 0n) {
+            throw new Error("On-chain price for this track is not set (ETH). Please contact the artist.");
+          }
+          
+          const value = contractPriceETH;
+          setError(`Purchasing for ${ethers.formatEther(value)} ETH... Please confirm in your wallet.`);
           const tx = await checkout.purchaseWithETH(trackIdBigInt, role, 1, { value });
           receipt = await tx.wait();
         } else {
-          // Direct ETH Transfer
+          // Direct ETH Transfer (using estimation since there is no contract)
+          if (track.currency === "USD" && track.price) {
+            if (!usdRate) throw new Error("Could not determine ETH price for USD amount.");
+            finalPriceEth = (track.price / usdRate).toFixed(6);
+          }
+          if (!finalPriceEth || parseFloat(finalPriceEth) <= 0) throw new Error("Invalid price.");
+          const value = ethers.parseEther(finalPriceEth);
+
           if (!artistWallet) {
             throw new Error("No recipient address configured for this track. Contact the artist system admin.");
           }
+          setError(`Sending ${finalPriceEth} ETH to artist... Please confirm in your wallet.`);
           const tx = await activeSigner.sendTransaction({ to: artistWallet, value });
           receipt = await tx.wait();
         }
