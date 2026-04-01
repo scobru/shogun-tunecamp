@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/useAuthStore";
 import API from "../services/api";
@@ -10,7 +10,6 @@ import { UnlockCodeManager } from "../components/modals/UnlockCodeManager";
 import {
   Image as ImageIcon,
   Music,
-  GripVertical,
   X,
   Plus,
   Trash2,
@@ -19,7 +18,6 @@ import {
   Library,
   Key,
   Download,
-  Unlock,
   Link as LinkIcon,
   AlignLeft,
 } from "lucide-react";
@@ -86,7 +84,6 @@ export default function AdminReleaseEditor() {
   const isReady = useExternalWallet ? isExternalConnected : isWalletReady;
   const [isSyncingPrices, setIsSyncingPrices] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
-  const [importBcUrl, setImportBcUrl] = useState("");
 
   // Metadata State
   const [metadata, setMetadata] = useState<Partial<LocalRelease>>({
@@ -796,7 +793,7 @@ export default function AdminReleaseEditor() {
                         <th className="w-20 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody onDragOver={(e) => e.preventDefault()} onDrop={handleDropAudio}>
                       {tracks.length === 0 && filesToUpload.length === 0 && (
                         <tr>
                           <td colSpan={metadata.use_nft ? 7 : 6} className="py-20 text-center opacity-40">
