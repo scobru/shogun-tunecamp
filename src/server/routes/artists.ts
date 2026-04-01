@@ -158,13 +158,16 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
      */
     router.put("/:id", (req: AuthenticatedRequest, res) => {
         const id = parseInt(req.params.id as string, 10);
-        
+
         // Allow if site admin OR if it's the artist themselves
         const isSelfUpdate = req.artistId && req.artistId === id;
         if (!req.isAdmin && !isSelfUpdate) {
             return res.status(401).json({ error: "Unauthorized" });
         }
 
+        if (!req.isAdmin && !req.isActive) {
+            return res.status(403).json({ error: "Account not active" });
+        }
         try {
             const id = parseInt(req.params.id as string, 10);
             const { bio, links, postParams, walletAddress } = req.body;

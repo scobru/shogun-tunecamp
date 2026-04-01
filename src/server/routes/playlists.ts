@@ -40,6 +40,7 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
      */
     router.post("/", (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
         try {
             const { name, description } = req.body;
 
@@ -62,6 +63,7 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
      */
     router.put("/:id", (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
         try {
             const id = parseInt(req.params.id as string, 10);
             
@@ -123,6 +125,7 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
      */
     router.delete("/:id", (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
         try {
             const id = parseInt(req.params.id as string, 10);
             const playlist = database.getPlaylist(id);
@@ -149,6 +152,7 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
      */
     router.post("/:id/tracks", (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
         try {
             const playlistId = parseInt(req.params.id as string, 10);
             const { trackId } = req.body;
@@ -185,6 +189,7 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
      */
     router.delete("/:id/tracks/:trackId", (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
         try {
             const playlistId = parseInt(req.params.id as string, 10);
             const trackId = parseInt(req.params.trackId as string, 10);

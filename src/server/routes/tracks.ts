@@ -247,6 +247,10 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             return res.status(401).json({ error: "Unauthorized" });
         }
 
+        if (!req.isAdmin && !req.isActive) {
+            return res.status(403).json({ error: "Account not active" });
+        }
+
         try {
             const { title, albumId, artistId: bodyArtistId, trackNum, url, service, externalArtwork, duration, lyrics, currency, priceUsdc } = req.body;
             
@@ -386,6 +390,10 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
      */
     router.get("/:id/metadata", async (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+
+        if (!req.isAdmin && !req.isActive) {
+            return res.status(403).json({ error: "Account not active" });
+        }
 
         try {
             const id = parseInt(req.params.id as string, 10);
@@ -730,6 +738,10 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             return res.status(401).json({ error: "Unauthorized" });
         }
 
+        if (!req.isAdmin && !req.isActive) {
+            return res.status(403).json({ error: "Account not active" });
+        }
+
         try {
             const id = parseInt(req.params.id as string, 10);
             const track = database.getTrack(id);
@@ -975,6 +987,10 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
     router.delete("/:id", async (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin && !req.artistId) {
             return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        if (!req.isAdmin && !req.isActive) {
+            return res.status(403).json({ error: "Account not active" });
         }
 
         try {

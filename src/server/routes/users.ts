@@ -180,6 +180,9 @@ export function createUsersRoutes(
      */
     router.post("/sync-pair", authMiddleware.requireUser, async (req: AuthenticatedRequest, res) => {
         try {
+            if (!req.isAdmin && !req.isActive) {
+                return res.status(403).json({ error: "Account not active" });
+            }
             const { pair } = req.body;
             if (!pair || !pair.pub || !pair.priv || !pair.epub || !pair.epriv) {
                 return res.status(400).json({ error: "Complete GunDB pair required" });

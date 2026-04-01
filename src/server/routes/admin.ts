@@ -651,6 +651,10 @@ export function createAdminRoutes(
             const id = parseInt(req.params.id, 10);
             const keepFiles = req.query.keepFiles === 'true';
 
+            if (!req.isAdmin && !req.isActive) {
+                return res.status(403).json({ error: "Access denied: Account must be activated by admin to delete releases" });
+            }
+
             // Check if it's a formal release or a library album
             const release = database.getRelease(id);
             const album = database.getAlbum(id);
@@ -897,6 +901,10 @@ export function createAdminRoutes(
             const id = parseInt(req.params.id, 10);
             const { content, visibility } = req.body;
 
+            if (!req.isAdmin && !req.isActive) {
+                return res.status(403).json({ error: "Access denied: Account must be activated by admin to modify posts" });
+            }
+
             const post = database.getPost(id);
             if (!post) {
                 return res.status(404).json({ error: "Post not found" });
@@ -930,6 +938,11 @@ export function createAdminRoutes(
     router.post("/posts", async (req: AuthenticatedRequest, res: any) => {
         try {
             const { artistId, content, visibility } = req.body;
+
+            if (!req.isAdmin && !req.isActive) {
+                return res.status(403).json({ error: "Access denied: Account must be activated by admin to create posts" });
+            }
+
             if (!artistId || !content) {
                 return res.status(400).json({ error: "Missing artistId or content" });
             }
@@ -961,6 +974,11 @@ export function createAdminRoutes(
     router.delete("/posts/:id", (req: AuthenticatedRequest, res: any) => {
         try {
             const id = parseInt(req.params.id, 10);
+
+            if (!req.isAdmin && !req.isActive) {
+                return res.status(403).json({ error: "Access denied: Account must be activated by admin to delete posts" });
+            }
+
             const post = database.getPost(id);
             if (!post) {
                 return res.status(404).json({ error: "Post not found" });
