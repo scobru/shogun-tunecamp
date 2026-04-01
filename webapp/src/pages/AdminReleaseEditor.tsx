@@ -214,7 +214,7 @@ export default function AdminReleaseEditor() {
       position: tracks.length + 1, // Append
       price: 0,
       priceUsdc: 0,
-      currency: "ETH" as "ETH" | "USD",
+      currency: "ETH" as "ETH" | "USD" | "USDC",
       file_path: t.file_path || t.path || null,
       url: t.url || null,
       service: t.service || "local",
@@ -556,6 +556,7 @@ export default function AdminReleaseEditor() {
           {!isNew && (
             <button
               className="btn btn-ghost btn-sm text-error hidden sm:flex"
+              id="delete-release-btn"
               onClick={handleDelete}
               disabled={saving}
             >
@@ -565,301 +566,397 @@ export default function AdminReleaseEditor() {
           )}
           <button
             className="btn btn-ghost btn-sm"
+            id="save-release-btn"
             onClick={() => handleSave(false)}
             disabled={saving}
           >
             Save
           </button>
           <button
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary btn-sm px-6"
+            id="publish-release-btn"
             onClick={() => handleSave(true)}
             disabled={saving}
           >
             {saving
               ? "..."
               : metadata.visibility === "public"
-                ? (window.innerWidth < 640 ? "Pub" : "Publish")
-                : (window.innerWidth < 640 ? "Done" : "Save & Close")}
+                ? "Publish"
+                : "Save & Close"}
           </button>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* LEFT COLUMN: TRACKS */}
-        <div
-          className="flex-1 overflow-y-auto p-4 lg:p-8 relative scrollbar-thin"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDropAudio}
-        >
-          <div className="max-w-3xl mx-auto space-y-6 pb-20 lg:pb-0">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <Music className="w-5 h-5" /> Tracks
-              </h2>
-              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                <button
-                  className="btn btn-xs sm:btn-sm btn-outline flex-1 sm:flex-none"
-                  onClick={() => setShowTrackPicker(true)}
+      <div className="flex-1 overflow-y-auto bg-base-300/10">
+        <div className="container mx-auto px-4 py-8 lg:p-12">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 xl:gap-12">
+            {/* LEFT COLUMN: PRIMARY METADATA & COVER */}
+            <div className="lg:col-span-4 xl:col-span-3 space-y-8">
+              {/* Cover Art */}
+              <div className="card bg-base-100 shadow-xl overflow-hidden border border-white/5">
+                <div
+                  className="aspect-square bg-base-200 flex flex-col items-center justify-center relative group cursor-pointer"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDropCover}
+                  onClick={() => document.getElementById("cover-upload-large")?.click()}
                 >
-                  <Library className="w-4 h-4 mr-1" /> <span className="hidden xs:inline">Add from Library</span><span className="xs:hidden">Library</span>
-                </button>
-                <div className="join flex-1 sm:flex-none">
-                  <label className="btn btn-xs sm:btn-sm btn-primary join-item flex-1">
-                    <Plus className="w-4 h-4 mr-1" /> <span className="hidden xs:inline">Upload</span><span className="xs:hidden">Files</span>
-                    <input
-                      type="file"
-                      multiple
-                      accept="audio/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files)
-                          setFilesToUpload((prev) => [
-                            ...prev,
-                            ...Array.from(e.target.files!),
-                          ]);
-                      }}
+                  {coverPreview ? (
+                    <img
+                      src={coverPreview}
+                      className="w-full h-full object-cover"
+                      alt="Cover"
                     />
-                  </label>
+                  ) : (
+                    <div className="text-center opacity-30">
+                      <ImageIcon className="w-16 h-16 mx-auto mb-2" />
+                      <span className="text-sm font-bold tracking-widest uppercase">Select Cover</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center text-white p-4 text-center">
+                    <Download className="w-8 h-8 mb-2" />
+                    <span className="font-bold uppercase tracking-widest text-sm">Change Cover Image</span>
+                    <p className="text-[10px] opacity-70 mt-2">Square JPEG or PNG, min 1400px</p>
+                  </div>
+                  <input
+                    id="cover-upload-large"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        setCoverFile(e.target.files[0]);
+                        setCoverPreview(URL.createObjectURL(e.target.files[0]));
+                      }
+                    }}
+                  />
                 </div>
               </div>
-            </div>
 
-            {/* Existing Tracks */}
-            <div className="space-y-2">
-              {tracks.length === 0 && filesToUpload.length === 0 && (
-                <div className="p-12 border-2 border-dashed border-base-content/20 rounded-box text-center text-base-content/50">
-                  <p>Drag and drop audio files here</p>
-                  <p className="text-sm">or click buttons above</p>
+              {/* Album Primary Info */}
+              <div className="card bg-base-100 shadow-xl border border-white/5 p-6 space-y-6">
+                <div className="form-control">
+                  <label className="label text-xs font-bold uppercase tracking-widest opacity-50">Album Title</label>
+                  <input
+                    type="text"
+                    className="input input-bordered w-full font-bold focus:border-primary"
+                    value={metadata.title}
+                    onChange={(e) => setMetadata((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="Release Title"
+                  />
                 </div>
-              )}
 
-              {tracks.map((track, idx) => (
-                <div
-                  key={track.id}
-                  className="card card-compact bg-base-100 shadow-sm border border-base-content/5 group"
-                >
-                  <div className="card-body flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="cursor-grab text-base-content/30 hover:text-base-content">
-                        <GripVertical className="w-5 h-5" />
-                      </div>
-                      <div className="font-mono text-sm opacity-50 w-6 text-right">
-                        {idx + 1}
-                      </div>
-                    </div>
-                    <div className="flex-1 flex flex-col gap-1">
-                      <input
-                        type="text"
-                        value={track.title}
-                        onChange={(e) => {
-                          const newTracks = [...tracks];
-                          newTracks[idx].title = e.target.value;
-                          newTracks[idx].isDirty = true;
-                          setTracks(newTracks);
-                        }}
-                        className="input input-ghost input-sm w-full font-medium focus:bg-base-200 px-2"
-                        placeholder="Track Title"
-                      />
-                      <div className="flex items-center gap-2 px-2 overflow-hidden">
-                        <span className="text-[10px] opacity-40 font-mono uppercase shrink-0">
-                          File:
-                        </span>
-                        <input
-                          type="text"
-                          value={
-                            track.file_path?.split("/").pop() || ""
-                          }
-                          onChange={(e) => {
-                            const newTracks = [...tracks];
-                            const dir = (track.file_path || "").includes("/")
-                              ? track.file_path!.substring(
-                                  0,
-                                  track.file_path!.lastIndexOf("/") + 1,
-                                )
-                              : "";
-                            newTracks[idx].file_path = dir + e.target.value;
-                            newTracks[idx].isDirty = true;
-                            setTracks(newTracks);
-                          }}
-                          className="input input-ghost input-xs w-full opacity-50 focus:opacity-100 font-mono text-[10px] focus:bg-base-200 px-1"
-                          placeholder="filename.mp3"
-                        />
-                      </div>
-                      {track.artistName && (
-                        <div className="text-xs opacity-50 px-2">
-                          {track.artistName}
-                        </div>
-                      )}
-                    </div>
-                    {(track as any).losslessPath ||
-                    (track as any).lossless_path ? (
-                      <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90">
-                        {(
-                          (track as any).losslessPath ||
-                          (track as any).lossless_path ||
-                          ""
-                        )
-                          .toLowerCase()
-                          .endsWith(".wav")
-                          ? "WAV"
-                          : "FLAC"}
-                      </span>
-                    ) : (
-                      <span className="badge badge-outline badge-xs opacity-50 font-mono scale-90 uppercase">
-                        {track.format || "MP3"}
-                      </span>
-                    )}
-                    
-                    {/* Registration Status Badge */}
-                    {metadata.use_nft && (
-                      <div className="flex items-center gap-2 shrink-0">
-                        {track.registrationStatus === 'registered' ? (
-                          <span className="badge badge-success badge-sm gap-1 font-bold text-[10px]">
-                            Si
-                          </span>
-                        ) : track.registrationStatus === 'unregistered' ? (
-                          <button 
-                            className="btn btn-xs btn-outline btn-secondary font-bold text-[10px]"
-                            onClick={() => handleRegisterTrack(idx)}
-                            disabled={track.isRegistering}
-                          >
-                            {track.isRegistering ? <span className="loading loading-spinner loading-xs"></span> : "Register"}
-                          </button>
-                        ) : (
-                          <span className="badge badge-ghost badge-sm text-[10px] opacity-50">
-                            ...
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                      <div className="text-sm opacity-50 font-mono">
-                        {track.duration
-                          ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, "0")}`
-                          : "-"}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <select
-                          className="select select-ghost select-sm px-1 opacity-50 focus:opacity-100"
-                          value={track.currency || (track.priceUsdc ? "USDC" : "ETH")}
-                          onChange={(e) => {
-                            const newTracks = [...tracks];
-                            const newCurrency = e.target.value as any;
-                            newTracks[idx].currency = newCurrency;
-                            // If switching to USDC, move price to priceUsdc if it looks like a value, and vice versa?
-                            // For simplicity, just set the flag and the UI will point to the right field.
-                            newTracks[idx].isDirty = true;
-                            setTracks(newTracks);
-                          }}
-                        >
-                          <option value="ETH">ETH</option>
-                          <option value="USD">USD</option>
-                          <option value="USDC">USDC</option>
-                        </select>
-                        <label className={`input input-sm input-bordered flex items-center gap-1 group-focus-within:border-primary w-40 ${metadata.use_nft && track.registrationStatus !== 'registered' ? 'opacity-50' : ''}`}>
-                          <span className="opacity-50 text-[10px]">
-                            {track.currency === "USDC" ? "USDC" : (track.currency === "USD" ? "USD" : "ETH")}
-                          </span>
-                          <input
-                            type="number"
-                            step="any"
-                            min="0"
-                            className={`w-full bg-transparent ${metadata.use_nft && track.registrationStatus !== 'registered' ? 'cursor-not-allowed opacity-30' : ''}`}
-                            placeholder="0.00"
-                            disabled={metadata.use_nft && track.registrationStatus !== 'registered'}
-                            title={metadata.use_nft && track.registrationStatus !== 'registered' ? "Register track on blockchain first" : ""}
-                            value={track.currency === "USDC" ? (track.priceUsdc ?? "") : (track.price ?? "")}
-                            onChange={(e) => {
-                              const newTracks = [...tracks];
-                              const val = e.target.value === "" ? "" : e.target.value;
-                              if (track.currency === "USDC") {
-                                newTracks[idx].priceUsdc = val;
-                              } else {
-                                newTracks[idx].price = val;
-                              }
-                              newTracks[idx].isDirty = true;
-                              setTracks(newTracks);
-                            }}
-                          />
-                        </label>
-                      </div>
-                      <div className="flex gap-1">
-                        <button
-                          className={`btn btn-xs ${track.lyrics ? "btn-primary" : "btn-ghost"}`}
-                          onClick={() => {
-                            const newTracks = [...tracks];
-                            newTracks[idx].showLyrics = !newTracks[idx].showLyrics;
-                            setTracks(newTracks);
-                          }}
-                          title="Toggle Lyrics Editor"
-                        >
-                          <AlignLeft className="w-4 h-4" />
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-xs text-error"
-                          onClick={() => handleRemoveTrack(idx)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Inline Lyrics Editor */}
-                  {track.showLyrics && (
-                    <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <div className="bg-base-300/30 p-4 rounded-lg space-y-3 border border-primary/20">
-                        <div className="flex justify-between items-center">
-                          <label className="text-xs font-bold uppercase tracking-wider opacity-60 flex items-center gap-2">
-                            <AlignLeft className="w-3 h-3" />
-                            Lyrics for "{track.title}"
-                          </label>
-                          <button
-                            className="btn btn-xs btn-ghost text-xs"
-                            onClick={async () => {
-                              try {
-                                const response = await fetch(
-                                  `/api/tracks/${track.id}/lyrics`,
-                                );
-                                const data = await response.json();
-                                if (data.lyrics) {
-                                  const newTracks = [...tracks];
-                                  newTracks[idx].lyrics = data.lyrics;
-                                  newTracks[idx].isDirty = true;
-                                  setTracks(newTracks);
-                                } else {
-                                  alert("No lyrics found in file metadata.");
-                                }
-                              } catch (e) {
-                                console.error(e);
-                                alert("Failed to fetch lyrics from metadata.");
-                              }
-                            }}
-                          >
-                            Fill from Metadata
-                          </button>
-                        </div>
-                        <textarea
-                          className="textarea textarea-bordered textarea-md w-full h-48 bg-base-200/50 font-mono text-sm leading-relaxed"
-                          placeholder="Paste lyrics here..."
-                          value={track.lyrics || ""}
-                          onChange={(e) => {
-                            const newTracks = [...tracks];
-                            newTracks[idx].lyrics = e.target.value;
-                            newTracks[idx].isDirty = true;
-                            setTracks(newTracks);
-                          }}
-                        />
-                        <div className="text-[10px] opacity-40 text-right">
-                          Autosaved to your local session. Remember to click
-                          Save/Publish.
-                        </div>
-                      </div>
+                <div className="form-control">
+                  <label className="label text-xs font-bold uppercase tracking-widest opacity-50">Artist</label>
+                  {user?.isRootAdmin ? (
+                    <select
+                      className="select select-bordered w-full"
+                      value={metadata.artist_id}
+                      onChange={(e) => setMetadata((prev) => ({ ...prev, artist_id: parseInt(e.target.value) }))}
+                    >
+                      {artists.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="bg-base-200/50 p-3 rounded-lg text-sm font-medium border border-white/5">
+                       {artists.find(a => a.id.toString() === metadata.artist_id?.toString())?.name || "Loading..."}
                     </div>
                   )}
                 </div>
-              ))}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="form-control">
+                    <label className="label text-xs font-bold uppercase tracking-widest opacity-50">Year</label>
+                    <input
+                      type="number"
+                      className="input input-bordered w-full"
+                      value={metadata.year}
+                      onChange={(e) => setMetadata((prev) => ({ ...prev, year: parseInt(e.target.value) }))}
+                    />
+                  </div>
+                  <div className="form-control">
+                    <label className="label text-xs font-bold uppercase tracking-widest opacity-50">Type</label>
+                    <select
+                      className="select select-bordered w-full"
+                      value={metadata.type}
+                      onChange={(e) => setMetadata((prev) => ({ ...prev, type: e.target.value as any }))}
+                    >
+                      <option value="album">Album</option>
+                      <option value="single">Single</option>
+                      <option value="ep">EP</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-control">
+                  <label className="label text-xs font-bold uppercase tracking-widest opacity-50">Tags</label>
+                  <input
+                    type="text"
+                    className="input input-bordered w-full text-sm"
+                    placeholder="techno, ambient..."
+                    value={metadata.tags || ""}
+                    onChange={(e) => setMetadata((prev) => ({ ...prev, tags: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Visibility & Federation */}
+              <div className="card bg-base-100 shadow-xl border border-white/5 p-6 space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest opacity-50">Visibility & Distribution</h3>
+                <div className="grid grid-cols-1 gap-2">
+                   {["public", "unlisted", "private"].map((v) => (
+                     <label key={v} className={`flex items-center gap-3 p-3 rounded-xl border border-white/5 cursor-pointer transition-all ${metadata.visibility === v ? 'bg-primary/10 border-primary/30 ring-1 ring-primary/30' : 'hover:bg-base-200'}`}>
+                        <input
+                          type="radio"
+                          name="visibility"
+                          className="radio radio-primary radio-sm"
+                          checked={metadata.visibility === v}
+                          onChange={() => setMetadata((prev) => ({ ...prev, visibility: v as any }))}
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold capitalize flex items-center gap-2">
+                            {v === 'public' && <Globe className="w-3 h-3 text-primary" />}
+                            {v === 'unlisted' && <LinkIcon className="w-3 h-3" />}
+                            {v === 'private' && <Lock className="w-3 h-3" />}
+                            {v}
+                          </span>
+                        </div>
+                     </label>
+                   ))}
+                </div>
+
+                {(metadata.visibility === "public" || metadata.visibility === "unlisted") && (
+                  <div className="space-y-2 mt-4 pt-4 border-t border-white/5">
+                    <label className="flex items-center gap-3 p-2 cursor-pointer hover:bg-base-200 rounded-lg transition-colors">
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-xs checkbox-primary"
+                        checked={metadata.published_to_gundb !== false}
+                        onChange={(e) => setMetadata((prev) => ({ ...prev, published_to_gundb: e.target.checked }))}
+                      />
+                      <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">Push to GunDB (P2P)</span>
+                    </label>
+                    <label className="flex items-center gap-3 p-2 cursor-pointer hover:bg-base-200 rounded-lg transition-colors">
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-xs checkbox-secondary"
+                        checked={metadata.published_to_ap !== false}
+                        onChange={(e) => setMetadata((prev) => ({ ...prev, published_to_ap: e.target.checked }))}
+                      />
+                      <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">Push to ActivityPub</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* CENTER/RIGHT COLUMN: TRACKS & WEB3 */}
+            <div className="lg:col-span-8 xl:col-span-9 space-y-8">
+              
+              {/* Actions Toolbar */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-base-100 p-4 rounded-2xl shadow-lg border border-white/5">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-xl font-black italic tracking-tighter uppercase flex items-center gap-3">
+                    <Music className="w-6 h-6 text-primary" /> Tracks
+                  </h2>
+                  <div className="badge badge-primary badge-outline font-mono">{tracks.length} Brani</div>
+                </div>
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                    <button
+                      className="btn btn-sm btn-outline gap-2"
+                      onClick={() => setShowTrackPicker(true)}
+                    >
+                      <Library className="w-4 h-4" /> Add Library
+                    </button>
+                    <label className="btn btn-sm btn-primary gap-2">
+                      <Plus className="w-4 h-4" /> Upload Audio
+                      <input
+                        type="file" multiple accept="audio/*" className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files)
+                            setFilesToUpload((prev) => [...prev, ...Array.from(e.target.files!)]);
+                        }}
+                      />
+                    </label>
+                </div>
+              </div>
+
+              {/* Tracks Table */}
+              <div className="card bg-base-100 shadow-2xl border border-white/5 overflow-hidden font-sans">
+                <div className="overflow-x-auto">
+                  <table className="table table-md w-full">
+                    <thead>
+                      <tr className="bg-base-200/50">
+                        <th className="w-10">#</th>
+                        <th>Title</th>
+                        <th className="hidden md:table-cell">Duration</th>
+                        <th className="hidden lg:table-cell">Format</th>
+                        {metadata.use_nft && <th className="w-20">NFT</th>}
+                        <th className="w-48 text-center">Pricing</th>
+                        <th className="w-20 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tracks.length === 0 && filesToUpload.length === 0 && (
+                        <tr>
+                          <td colSpan={metadata.use_nft ? 7 : 6} className="py-20 text-center opacity-40">
+                             <Music className="w-12 h-12 mx-auto mb-4 opacity-10" />
+                             <p className="text-lg font-bold">No tracks added yet</p>
+                             <p className="text-sm">Drag audio files here or use the buttons above</p>
+                          </td>
+                        </tr>
+                      )}
+                      {tracks.map((track, idx) => (
+                        <React.Fragment key={track.id}>
+                          <tr className="hover:bg-primary/5 transition-colors group">
+                            <td className="font-mono opacity-50 text-xs">{idx + 1}</td>
+                            <td>
+                              <div className="flex flex-col">
+                                <input
+                                  type="text"
+                                  value={track.title}
+                                  onChange={(e) => {
+                                    const newTracks = [...tracks];
+                                    newTracks[idx].title = e.target.value;
+                                    newTracks[idx].isDirty = true;
+                                    setTracks(newTracks);
+                                  }}
+                                  className="input input-ghost input-sm w-full font-bold focus:bg-base-300 p-1 -ml-1 h-auto"
+                                />
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-[9px] font-mono opacity-40 uppercase shrink-0">File:</span>
+                                  <input
+                                    type="text"
+                                    value={track.file_path?.split("/").pop() || ""}
+                                    onChange={(e) => {
+                                      const newTracks = [...tracks];
+                                      const dir = (track.file_path || "").includes("/") ? track.file_path!.substring(0, track.file_path!.lastIndexOf("/") + 1) : "";
+                                      newTracks[idx].file_path = dir + e.target.value;
+                                      newTracks[idx].isDirty = true;
+                                      setTracks(newTracks);
+                                    }}
+                                    className="input input-ghost input-xs w-full font-mono text-[9px] opacity-40 focus:opacity-100 p-0 h-auto"
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="hidden md:table-cell font-mono text-xs opacity-50">
+                              {track.duration ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, "0")}` : "--:--"}
+                            </td>
+                            <td className="hidden lg:table-cell">
+                                <span className="badge badge-outline badge-xs opacity-40 font-mono scale-90 uppercase">
+                                  {track.lossless_path ? (track.lossless_path.toLowerCase().endsWith(".wav") ? "WAV" : "FLAC") : (track.format || "MP3")}
+                                </span>
+                            </td>
+                            {metadata.use_nft && (
+                              <td>
+                                {track.registrationStatus === 'registered' ? (
+                                  <div className="badge badge-success badge-sm gap-1 font-bold text-[9px]">Sì</div>
+                                ) : track.registrationStatus === 'unregistered' ? (
+                                  <button 
+                                    className="btn btn-xs btn-outline btn-secondary font-bold text-[9px]"
+                                    onClick={() => handleRegisterTrack(idx)}
+                                    disabled={track.isRegistering}
+                                  >
+                                    {track.isRegistering ? <span className="loading loading-spinner loading-xs"></span> : "Register"}
+                                  </button>
+                                ) : (
+                                  <span className="loading loading-dots loading-xs opacity-20"></span>
+                                )}
+                              </td>
+                            )}
+                            <td>
+                              <div className="flex items-center gap-1 justify-center">
+                                <select
+                                  className="select select-ghost select-xs px-1 opacity-50 focus:opacity-100 font-bold"
+                                  value={track.currency || (track.priceUsdc ? "USDC" : "ETH")}
+                                  onChange={(e) => {
+                                    const newTracks = [...tracks];
+                                    newTracks[idx].currency = e.target.value as any;
+                                    newTracks[idx].isDirty = true;
+                                    setTracks(newTracks);
+                                  }}
+                                >
+                                  <option value="ETH">ETH</option>
+                                  <option value="USD">USD</option>
+                                  <option value="USDC">USDC</option>
+                                </select>
+                                <label className={`input input-xs input-bordered flex items-center gap-1 w-24 ${metadata.use_nft && track.registrationStatus !== 'registered' ? 'opacity-30' : ''}`}>
+                                  <input
+                                    type="number" step="any" min="0"
+                                    className="w-full bg-transparent text-right py-0 h-6"
+                                    placeholder="0.00"
+                                    disabled={metadata.use_nft && track.registrationStatus !== 'registered'}
+                                    value={track.currency === "USDC" ? (track.priceUsdc ?? "") : (track.price ?? "")}
+                                    onChange={(e) => {
+                                      const newTracks = [...tracks];
+                                      const val = e.target.value === "" ? "" : e.target.value;
+                                      if (track.currency === "USDC") newTracks[idx].priceUsdc = val;
+                                      else newTracks[idx].price = val;
+                                      newTracks[idx].isDirty = true;
+                                      setTracks(newTracks);
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                            </td>
+                            <td className="text-right">
+                              <div className="flex gap-1 justify-end">
+                                <button
+                                  className={`btn btn-square btn-xs ${track.lyrics ? "btn-primary" : "btn-ghost"}`}
+                                  onClick={() => {
+                                    const newTracks = [...tracks];
+                                    newTracks[idx].showLyrics = !newTracks[idx].showLyrics;
+                                    setTracks(newTracks);
+                                  }}
+                                  title="Lyrics"
+                                >
+                                  <AlignLeft className="w-3 h-3" />
+                                </button>
+                                <button
+                                  className="btn btn-square btn-xs btn-ghost text-error opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => handleRemoveTrack(idx)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {track.showLyrics && (
+                            <tr className="bg-base-200/20">
+                              <td colSpan={metadata.use_nft ? 7 : 6} className="p-4">
+                                <div className="card bg-base-300/40 p-4 rounded-xl border border-primary/10 space-y-3">
+                                  <div className="flex justify-between items-center">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-primary">Lyrics: {track.title}</label>
+                                    <button 
+                                      className="btn btn-xs btn-ghost text-[9px]"
+                                      onClick={async () => {
+                                          try {
+                                            const response = await fetch(`/api/tracks/${track.id}/lyrics`);
+                                            const data = await response.json();
+                                            if (data.lyrics) {
+                                              const newTracks = [...tracks];
+                                              newTracks[idx].lyrics = data.lyrics; newTracks[idx].isDirty = true; setTracks(newTracks);
+                                            } else alert("No lyrics found in metadata.");
+                                          } catch (e) { alert("Fetch failed"); }
+                                      }}
+                                    >Fill from Metadata</button>
+                                  </div>
+                                  <textarea
+                                    className="textarea textarea-bordered w-full h-32 text-sm font-mono"
+                                    placeholder="Lyrics content..."
+                                    value={track.lyrics || ""}
+                                    onChange={(e) => {
+                                      const newTracks = [...tracks];
+                                      newTracks[idx].lyrics = e.target.value; newTracks[idx].isDirty = true; setTracks(newTracks);
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
 
               {/* Pending Uploads */}
               {filesToUpload.map((file, idx) => (
@@ -887,6 +984,129 @@ export default function AdminReleaseEditor() {
                   </div>
                 </div>
               ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pending Uploads */}
+                {filesToUpload.length > 0 && (
+                  <div className="bg-primary/5 p-4 border-t border-primary/20 space-y-2">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                      <Plus className="w-3 h-3" /> Pending Uploads
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {filesToUpload.map((file, idx) => (
+                        <div key={`upload-${idx}`} className="flex items-center gap-3 bg-base-100 p-2 rounded-lg text-xs border border-white/5">
+                          {uploadingFileIndex !== null ? <span className="loading loading-spinner loading-xs text-primary"></span> : <Music className="w-3 h-3 opacity-30" />}
+                          <span className="flex-1 truncate opacity-70">{file.name}</span>
+                          <button className="btn btn-ghost btn-xs btn-circle text-error" onClick={() => setFilesToUpload(prev => prev.filter((_, i) => i !== idx))} disabled={uploadingFileIndex !== null}>
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Web3 & Advanced Actions Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                {/* Payment & Web3 */}
+                <div className="space-y-6">
+                  <div className="card bg-base-100 shadow-xl border border-white/5 p-6 space-y-4">
+                    <h3 className="text-xs font-bold uppercase tracking-widest opacity-50 flex items-center gap-2">
+                       <Download className="w-3 h-3" /> Payment & Web3 Settings
+                    </h3>
+                    <div className="form-control">
+                      <label className="label-text-alt font-black uppercase tracking-widest opacity-40 mb-2">Smart Contract Mode</label>
+                      <div className="flex items-center justify-between bg-base-200 p-3 rounded-xl border border-white/5">
+                        <span className={`text-[10px] font-bold ${metadata.use_nft === false ? 'text-primary' : 'opacity-40'}`}>Direct Payment</span>
+                        <input 
+                          type="checkbox" className="toggle toggle-primary toggle-sm mx-2" 
+                          checked={metadata.use_nft !== false} 
+                          onChange={(e) => setMetadata(prev => ({ ...prev, use_nft: e.target.checked }))} 
+                        />
+                        <span className={`text-[10px] font-bold ${metadata.use_nft !== false ? 'text-primary' : 'opacity-40'}`}>Smart Contract (NFT)</span>
+                      </div>
+                    </div>
+                    
+                    {!isNew && metadata.use_nft && (
+                      <div className="bg-secondary/5 border border-secondary/20 rounded-xl p-4 space-y-3">
+                        <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+                          <span className="opacity-50">NFT Registrations:</span>
+                          <span className="text-secondary">{tracks.filter(t => t.registrationStatus === 'registered').length}/{tracks.length}</span>
+                        </div>
+                        <button
+                          type="button" className="btn btn-secondary btn-sm w-full font-bold"
+                          disabled={isSyncingPrices || !isReady || tracks.every(t => t.registrationStatus !== 'registered')}
+                          onClick={handleSyncPrices}
+                        >
+                          {isSyncingPrices ? syncMessage || "Syncing..." : "Sync Prices to Blockchain"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="card bg-base-100 shadow-xl border border-white/5 p-6">
+                    <h3 className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4">Description & Credits</h3>
+                    <div className="form-control">
+                      <textarea
+                        className="textarea textarea-bordered h-32 w-full text-sm leading-relaxed"
+                        placeholder="Album bio, credits, and story..."
+                        value={metadata.description || ""}
+                        onChange={(e) => setMetadata((prev) => ({ ...prev, description: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Downloads & Advanced */}
+                <div className="space-y-6">
+                  <div className="card bg-base-100 shadow-xl border border-white/5 p-6 space-y-4">
+                    <h3 className="text-xs font-bold uppercase tracking-widest opacity-50">Download Experience</h3>
+                    <div className="grid grid-cols-1 gap-2">
+                       {["none", "free", "codes"].map((d) => (
+                         <label key={d} className={`flex items-center gap-3 p-3 rounded-xl border border-white/5 cursor-pointer transition-all ${metadata.download === d || (!metadata.download && d === "none") ? 'bg-primary/10 border-primary/30 ring-1 ring-primary/30' : 'hover:bg-base-200'}`}>
+                            <input
+                              type="radio" name="download_method" className="radio radio-primary radio-sm"
+                              checked={metadata.download === d || (!metadata.download && d === "none")}
+                              onChange={() => setMetadata((prev) => ({ ...prev, download: d as any, price: 0 }))}
+                            />
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold capitalize">
+                                {d === 'none' ? 'Streaming Only' : d === 'free' ? 'Free Download' : 'Unlock Codes'}
+                              </span>
+                              <span className="text-[10px] opacity-50">
+                                {d === 'none' ? 'Basic streaming' : d === 'free' ? 'Public download' : 'Require unique code'}
+                              </span>
+                            </div>
+                         </label>
+                       ))}
+                    </div>
+                    {metadata.download === "codes" && !isNew && (
+                      <button className="btn btn-sm btn-ghost border-primary/20 w-full gap-2 bg-primary/5" onClick={() => setShowUnlockManager(true)}>
+                        <Key size={14} /> Manage Codes
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="card bg-base-100 shadow-xl border border-white/5 p-6">
+                    <h3 className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4">Legals & Rights</h3>
+                    <select
+                      className="select select-bordered w-full text-sm"
+                      value={metadata.license || "copyright"}
+                      onChange={(e) => setMetadata((prev) => ({ ...prev, license: e.target.value }))}
+                    >
+                      <option value="copyright">All Rights Reserved</option>
+                      <option value="cc-by">Creative Commons BY</option>
+                      <option value="cc-by-sa">Creative Commons BY-SA</option>
+                      <option value="cc-by-nc">Creative Commons BY-NC</option>
+                      <option value="cc-by-nc-sa">Creative Commons BY-NC-SA</option>
+                      <option value="public-domain">Public Domain / CC0</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -904,646 +1124,8 @@ export default function AdminReleaseEditor() {
           onClose={() => setShowUnlockManager(false)}
         />
 
-        {/* RIGHT COLUMN: METADATA */}
-        <div className="w-full lg:w-[28rem] xl:w-[32rem] bg-base-200/50 backdrop-blur-md p-6 overflow-y-auto border-t lg:border-t-0 lg:border-l border-white/5 scrollbar-thin">
-          <div className="space-y-8 pb-12">
-            <h3 className="text-sm font-bold uppercase tracking-widest opacity-50 mb-2">Album Metadata</h3>
 
-            {/* Import from Bandcamp */}
-            {isNew && (
-            <div className="form-control mb-6 p-4 border border-primary/20 bg-primary/5 rounded-box">
-              <label className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-2 mb-2">
-                 <Download className="w-3 h-3" /> Import from Bandcamp
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  className="input input-sm input-bordered flex-1"
-                  placeholder="https://artist.bandcamp.com/album/..."
-                  value={importBcUrl}
-                  onChange={(e) => setImportBcUrl(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  onClick={async () => {
-                     if (!importBcUrl) return;
-                     setLoading(true);
-                     try {
-                        const data = await API.importFromBandcamp(importBcUrl);
-                        
-                        setMetadata(prev => ({
-                           ...prev,
-                           title: data.title || prev.title,
-                           year: data.year || prev.year,
-                           tags: prev.tags || "independent",
-                        }));
-
-                        if (data.artist) {
-                           const matchedArtist = artists.find(a => 
-                              a.name.toLowerCase() === data.artist.toLowerCase() ||
-                              a.id.toString() === metadata.artist_id?.toString()
-                           );
-                           if (matchedArtist && matchedArtist.name.toLowerCase() === data.artist.toLowerCase()) {
-                              setMetadata(prev => ({ ...prev, artist_id: parseInt(matchedArtist.id) }));
-                           }
-                        }
-
-                        if (data.cover) {
-                           try {
-                              const res = await fetch(data.cover);
-                              const blob = await res.blob();
-                              const ext = blob.type.split('/')[1] || 'jpg';
-                              const file = new File([blob], `cover.${ext}`, { type: blob.type });
-                              setCoverFile(file);
-                              setCoverPreview(URL.createObjectURL(file));
-                           } catch (e) {
-                              console.error("Failed to parse cover image", e);
-                           }
-                        }
-
-                        if (data.tracks && data.tracks.length > 0) {
-                           const newTracks: LocalTrack[] = data.tracks.map((t: any, idx: number) => ({
-                              id: Date.now() + idx,
-                              title: t.title,
-                              duration: parseFloat(t.duration) || 0,
-                              position: t.position || idx + 1,
-                              price: 0,
-                              currency: "ETH",
-                              file_path: null,
-                              url: null,
-                              service: "local",
-                              isDirty: true
-                           }));
-                           setTracks(prev => [...prev, ...newTracks]);
-                        }
-                        
-                        alert("Import successful! Now upload the audio files and map them to the corresponding tracks by typing their exact filenames or clicking the edit button.");
-                        setImportBcUrl("");
-                     } catch (err: any) {
-                        alert("Failed to import from Bandcamp: " + err.message);
-                     } finally {
-                        setLoading(false);
-                     }
-                  }}
-                  disabled={loading || saving || !importBcUrl}
-                >
-                  Import
-                </button>
-              </div>
-            </div>
-            )}
-
-            {/* Auto-Fill Button */}
-            <div className="form-control">
-              <button 
-                type="button" 
-                className="btn btn-outline btn-primary w-full shadow-sm"
-                onClick={async () => {
-                  const firstLocalTrack = tracks.find(t => t.file_path);
-                  if (!firstLocalTrack) {
-                    alert("Please add a local audio file first to extract metadata.");
-                    return;
-                  }
-
-                  setLoading(true);
-                  try {
-                    const resp = await API.getTrackMetadata(firstLocalTrack.id);
-                    
-                    setMetadata(prev => ({
-                      ...prev,
-                      title: resp.title || resp.album || prev.title,
-                      year: resp.year || prev.year,
-                      tags: resp.genre || prev.tags,
-                    }));
-
-                    if (resp.artist) {
-                      const matchedArtist = artists.find(a => 
-                        a.name.toLowerCase() === resp.artist.toLowerCase() ||
-                        a.id.toString() === metadata.artist_id?.toString()
-                      );
-                      if (matchedArtist && matchedArtist.name.toLowerCase() === resp.artist.toLowerCase()) {
-                        setMetadata(prev => ({ ...prev, artist_id: parseInt(matchedArtist.id) }));
-                      }
-                    }
-
-                    if (resp.cover) {
-                      try {
-                        const res = await fetch(resp.cover);
-                        const blob = await res.blob();
-                        const ext = blob.type.split('/')[1] || 'jpg';
-                        const file = new File([blob], `cover.${ext}`, { type: blob.type });
-                        setCoverFile(file);
-                        setCoverPreview(URL.createObjectURL(file));
-                      } catch (e) {
-                           console.error("Failed to parse cover image", e);
-                      }
-                    }
-
-                  } catch (e) {
-                    console.error(e);
-                    alert("Failed to auto-fill metadata from track.");
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                disabled={loading || saving}
-              >
-                <ImageIcon className="w-4 h-4 mr-2" />
-                Auto-Fill Album from Track Data
-              </button>
-            </div>
-
-            {/* Cover Art */}
-            <div className="form-control">
-              <label className="label font-bold">Cover Art</label>
-              <div
-                className="aspect-square bg-base-100 rounded-box border-2 border-dashed border-base-content/20 flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleDropCover}
-                onClick={() => document.getElementById("cover-upload")?.click()}
-              >
-                {coverPreview ? (
-                  <img
-                    src={coverPreview}
-                    className="w-full h-full object-cover"
-                    alt="Cover"
-                  />
-                ) : (
-                  <div className="text-center text-base-content/40">
-                    <ImageIcon className="w-12 h-12 mx-auto mb-2" />
-                    <span className="text-sm">Drag image or click</span>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold">
-                  Change Cover
-                </div>
-                <input
-                  id="cover-upload"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files?.[0]) {
-                      setCoverFile(e.target.files[0]);
-                      setCoverPreview(URL.createObjectURL(e.target.files[0]));
-                    }
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Title */}
-            <div className="form-control">
-              <label className="label font-bold text-xs uppercase opacity-70">Album Title</label>
-              <input
-                type="text"
-                className="input input-m3-filled w-full"
-                value={metadata.title}
-                onChange={(e) =>
-                  setMetadata((prev) => ({ ...prev, title: e.target.value }))
-                }
-                placeholder="e.g. Dark Side of the Moon"
-              />
-            </div>
-
-            {/* Artist */}
-            <div className="form-control">
-              <label className="label">Artist</label>
-              {user?.isRootAdmin ? (
-                <select
-                  className="select select-bordered w-full"
-                  value={metadata.artist_id}
-                  onChange={(e) =>
-                    setMetadata((prev) => ({
-                      ...prev,
-                      artist_id: parseInt(e.target.value),
-                    }))
-                  }
-                >
-                  {artists.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="input input-bordered w-full flex items-center bg-base-100/50 cursor-not-allowed">
-                   {artists.find(a => a.id.toString() === metadata.artist_id?.toString())?.name || "Loading..."}
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* Year */}
-              <div className="form-control">
-                <label className="label">Year</label>
-                <input
-                  type="number"
-                  className="input input-bordered w-full"
-                  value={metadata.year}
-                  onChange={(e) =>
-                    setMetadata((prev) => ({
-                      ...prev,
-                      year: parseInt(e.target.value),
-                    }))
-                  }
-                />
-              </div>
-              {/* Type */}
-              <div className="form-control">
-                <label className="label">Type</label>
-                <select
-                  className="select select-bordered w-full"
-                  value={metadata.type}
-                  onChange={(e) =>
-                    setMetadata((prev) => ({
-                      ...prev,
-                      type: e.target.value as any,
-                    }))
-                  }
-                >
-                  <option value="album">Album</option>
-                  <option value="single">Single</option>
-                  <option value="ep">EP</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Payment Method Toggle */}
-            <div className="form-control mt-4 mb-4 bg-base-200/50 p-4 rounded-xl border border-white/5">
-              <label className="label cursor-pointer flex flex-col items-start gap-2">
-                <span className="label-text font-bold tracking-widest opacity-70">PAYMENT ROUTING</span>
-                <div className="flex items-center gap-3 mt-2 w-full">
-                  <span className={`text-sm ${metadata.use_nft === false ? 'text-primary font-bold' : 'opacity-50'}`}>Direct Payment</span>
-                  <input 
-                    type="checkbox" 
-                    className="toggle toggle-primary" 
-                    checked={metadata.use_nft !== false} 
-                    onChange={(e) => setMetadata(prev => ({ ...prev, use_nft: e.target.checked }))} 
-                  />
-                  <span className={`text-sm ${metadata.use_nft !== false ? 'text-primary font-bold' : 'opacity-50'}`}>Smart Contract (NFT)</span>
-                </div>
-                <span className="text-xs opacity-50 mt-2">
-                  {metadata.use_nft !== false 
-                    ? "Buyers will interact with the Tunecamp smart contract to mint an NFT of the track." 
-                    : "Payments will be sent directly to your configured wallet address. No NFTs will be minted."}
-                </span>
-              </label>
-            </div>
-
-            {/* Sync Prices Button */}
-            {!isNew && metadata.use_nft && (
-              <div className="form-control mt-2 mb-4 bg-secondary/10 p-4 border border-secondary/20 rounded-xl">
-                <label className="label pt-0 border-b border-secondary/20 mb-3 pb-1">
-                  <span className="label-text-alt font-bold text-secondary uppercase tracking-widest">Web3 Actions</span>
-                </label>
-                
-                <div className="flex flex-col gap-3">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="opacity-70">Registration Status:</span>
-                    <span className="font-bold">
-                      {tracks.filter(t => t.registrationStatus === 'registered').length}/{tracks.length} Tracks
-                    </span>
-                  </div>
-
-                  {tracks.some(t => t.registrationStatus === 'unregistered') && (
-                    <div className="alert alert-warning py-2 px-3 text-[10px] rounded-lg">
-                      Some tracks are not yet registered on the blockchain.
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    className="btn btn-secondary w-full btn-sm"
-                    disabled={isSyncingPrices || !isReady || tracks.every(t => t.registrationStatus !== 'registered')}
-                    onClick={handleSyncPrices}
-                  >
-                    {isSyncingPrices ? syncMessage || "Syncing..." : "Sync Prices to Blockchain"}
-                  </button>
-                  
-                  {tracks.every(t => t.registrationStatus === 'registered') && (
-                    <div className="text-[10px] text-success text-center font-medium">
-                      All tracks are registered. Prices are synced.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Download Options */}
-            <div className="form-control">
-              <label className="label">Download Method</label>
-              <div className="space-y-2">
-                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
-                  <input
-                    type="radio"
-                    name="download_method"
-                    className="radio radio-sm"
-                    checked={metadata.download === "none" || !metadata.download}
-                    onChange={() =>
-                      setMetadata((prev) => ({ ...prev, download: "none" }))
-                    }
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-bold text-xs uppercase opacity-70">
-                      {metadata.price && Number(metadata.price) > 0
-                        ? "Streaming Only"
-                        : "Disabled"}
-                    </span>
-                  </div>
-                </label>
-
-                <label
-                  className={`label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg transition-opacity ${
-                    metadata.price && Number(metadata.price) > 0
-                      ? "opacity-40 cursor-not-allowed bg-base-200"
-                      : "hover:bg-base-100"
-                  }`}
-                  title={
-                    metadata.price && Number(metadata.price) > 0
-                      ? "Free downloads are not available for priced albums."
-                      : ""
-                  }
-                >
-                  <input
-                    type="radio"
-                    name="download_method"
-                    className="radio radio-sm radio-secondary"
-                    checked={metadata.download === "free"}
-                    disabled={
-                      metadata.price !== undefined && Number(metadata.price) > 0
-                    }
-                    onChange={() =>
-                      setMetadata((prev) => ({
-                        ...prev,
-                        download: "free",
-                        price: 0,
-                      }))
-                    }
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-bold flex items-center gap-2 text-xs uppercase text-secondary">
-                      <Download className="w-3 h-3" /> Free Download
-                    </span>
-                    <span className="text-[10px] opacity-70 uppercase tracking-tighter">
-                      Anyone can download music for free.
-                    </span>
-                  </div>
-                </label>
-
-                <label
-                  className={`label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg transition-opacity ${
-                    metadata.price && Number(metadata.price) > 0
-                      ? "opacity-40 cursor-not-allowed bg-base-200"
-                      : "hover:bg-base-100"
-                  }`}
-                  title={
-                    metadata.price && Number(metadata.price) > 0
-                      ? "Unlock codes are not available for priced albums."
-                      : ""
-                  }
-                >
-                  <input
-                    type="radio"
-                    name="download_method"
-                    className="radio radio-sm radio-primary"
-                    checked={metadata.download === "codes"}
-                    disabled={
-                      metadata.price !== undefined && Number(metadata.price) > 0
-                    }
-                    onChange={() =>
-                      setMetadata((prev) => ({
-                        ...prev,
-                        download: "codes",
-                        price: 0,
-                      }))
-                    }
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-bold flex items-center gap-2 text-xs uppercase text-primary">
-                      <Unlock className="w-3 h-3" /> Unlock Codes
-                    </span>
-                    <span className="text-[10px] opacity-70 uppercase tracking-tighter">
-                      Requires a code to access downloads.
-                    </span>
-                  </div>
-                </label>
-
-                {metadata.download === "codes" && !isNew && (
-                  <button
-                    className="btn btn-sm btn-primary btn-outline w-full gap-2 mt-2"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowUnlockManager(true);
-                    }}
-                  >
-                    <Key size={14} /> Manage Unlock Codes
-                  </button>
-                )}
-                {metadata.download === "codes" && isNew && (
-                  <div className="alert alert-info text-[10px] py-1 px-3 mt-2">
-                    Save the release first to manage codes.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Visibility */}
-            <div className="form-control">
-              <label className="label">Visibility</label>
-              <div className="flex flex-col gap-2">
-                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
-                  <input
-                    type="radio"
-                    name="visibility"
-                    className="radio radio-sm radio-primary"
-                    checked={metadata.visibility === "public"}
-                    onChange={() =>
-                      setMetadata((prev) => ({
-                        ...prev,
-                        visibility: "public",
-                      }))
-                    }
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-bold flex items-center gap-2 text-primary">
-                      <Globe className="w-3 h-3" /> Public
-                    </span>
-                    <span className="text-xs opacity-70">
-                      Visible to everyone.
-                    </span>
-                  </div>
-                </label>
-
-                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
-                  <input
-                    type="radio"
-                    name="visibility"
-                    className="radio radio-sm"
-                    checked={metadata.visibility === "unlisted"}
-                    onChange={() =>
-                      setMetadata((prev) => ({
-                        ...prev,
-                        visibility: "unlisted",
-                      }))
-                    }
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-bold flex items-center gap-2">
-                      <LinkIcon className="w-3 h-3" /> Unlisted
-                    </span>
-                    <span className="text-xs opacity-70">
-                      Anyone with the link can view.
-                    </span>
-                  </div>
-                </label>
-
-                <label className="label cursor-pointer justify-start gap-3 border border-base-content/10 p-3 rounded-lg hover:bg-base-100">
-                  <input
-                    type="radio"
-                    name="visibility"
-                    className="radio radio-sm"
-                    checked={metadata.visibility === "private"}
-                    onChange={() =>
-                      setMetadata((prev) => ({
-                        ...prev,
-                        visibility: "private",
-                      }))
-                    }
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-bold flex items-center gap-2">
-                      <Lock className="w-3 h-3" /> Private
-                    </span>
-                    <span className="text-xs opacity-70">
-                      Only visible to you (admins).
-                    </span>
-                  </div>
-                </label>
-              </div>
-
-              {/* Federation Settings - Only show when Public/Unlisted */}
-              {(metadata.visibility === "public" ||
-                metadata.visibility === "unlisted") && (
-                <div className="form-control border border-base-content/10 p-3 rounded-lg mt-2 bg-base-100/50">
-                  <label className="label font-bold text-xs uppercase opacity-70 pb-0">
-                    Federation
-                  </label>
-
-                  <label className="label cursor-pointer justify-start gap-3">
-                    <input
-                      type="checkbox"
-                      className="checkbox checkbox-sm checkbox-primary"
-                      checked={metadata.published_to_gundb !== false} // Default to true if undefined
-                      onChange={(e) =>
-                        setMetadata((prev) => ({
-                          ...prev,
-                          published_to_gundb: e.target.checked,
-                        }))
-                      }
-                    />
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold">GunDB (P2P)</span>
-                      <span className="text-[10px] opacity-70">
-                        Decentralized database sync
-                      </span>
-                    </div>
-                  </label>
-
-                  <label className="label cursor-pointer justify-start gap-3">
-                    <input
-                      type="checkbox"
-                      className="checkbox checkbox-sm checkbox-secondary"
-                      checked={metadata.published_to_ap !== false} // Default to true if undefined
-                      onChange={(e) =>
-                        setMetadata((prev) => ({
-                          ...prev,
-                          published_to_ap: e.target.checked,
-                        }))
-                      }
-                    />
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold">ActivityPub</span>
-                      <span className="text-[10px] opacity-70">
-                        Mastodon & Fediverse federation
-                      </span>
-                    </div>
-                  </label>
-                </div>
-              )}
-            </div>
-
-            {/* License */}
-            <div className="form-control">
-              <label className="label">License</label>
-              <select
-                className="select select-bordered w-full"
-                value={metadata.license || "copyright"}
-                onChange={(e) =>
-                  setMetadata((prev) => ({ ...prev, license: e.target.value }))
-                }
-              >
-                <option value="copyright">All Rights Reserved (Copyright)</option>
-                <option value="cc-by">Creative Commons BY (Attribution)</option>
-                <option value="cc-by-sa">Creative Commons BY-SA (ShareAlike)</option>
-                <option value="cc-by-nc">Creative Commons BY-NC (Non-Commercial)</option>
-                <option value="cc-by-nc-sa">Creative Commons BY-NC-SA (Non-Commercial ShareAlike)</option>
-                <option value="cc-by-nd">Creative Commons BY-ND (NoDerivs)</option>
-                <option value="cc-by-nc-nd">Creative Commons BY-NC-ND (Non-Commercial NoDerivs)</option>
-                <option value="public-domain">Public Domain / CC0</option>
-              </select>
-            </div>
-
-            {/* Description */}
-            <div className="form-control">
-              <label className="label">Description</label>
-              <textarea
-                className="textarea textarea-bordered h-24"
-                value={metadata.description || ""}
-                onChange={(e) =>
-                  setMetadata((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-              ></textarea>
-            </div>
-
-            {/* Tags */}
-            <div className="form-control">
-              <label className="label font-bold text-xs uppercase opacity-70">Tags</label>
-              <input
-                type="text"
-                className="input input-m3-filled w-full"
-                placeholder="electronic, pop, ambient..."
-                value={metadata.tags || ""}
-                onChange={(e) =>
-                  setMetadata((prev) => ({ ...prev, tags: e.target.value }))
-                }
-              />
-            </div>
-          </div>
-        </div>
       </div>
-
-      {/* Mobile Sticky Footer - Only visible on small screens */}
-      {!saving && (
-        <div className="lg:hidden fixed bottom-4 left-4 right-4 z-[60] flex gap-2">
-            <button
-                className="btn btn-circle glass-effect flex-1 shadow-lg"
-                onClick={() => handleSave(false)}
-            >
-                Save Draft
-            </button>
-            <button
-                className="btn btn-circle btn-primary flex-1 shadow-lg font-bold"
-                onClick={() => handleSave(true)}
-            >
-                {metadata.visibility === "public" ? "Publish" : "Done"}
-            </button>
-        </div>
-      )}
     </div>
   );
 }
