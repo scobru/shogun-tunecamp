@@ -199,7 +199,6 @@ export class Scanner implements ScannerService {
             download: null,
             price: 0,
             price_usdc: 0,
-            price_usdt: 0,
             currency: 'ETH',
             external_links: null,
             is_public: false,
@@ -372,7 +371,6 @@ export class Scanner implements ScannerService {
                     download: config.download || null,
                     price: 0,
                     price_usdc: 0,
-                    price_usdt: 0,
                     currency: 'ETH',                    external_links: linksJson,
                     visibility: 'private',
                     published_at: null,
@@ -604,7 +602,6 @@ export class Scanner implements ScannerService {
                 external_artwork: null,
                 price: 0,
                 price_usdc: 0,
-                price_usdt: 0,
                 currency: 'ETH',                hash: hash // Store the hash
             });
 

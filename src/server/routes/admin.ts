@@ -543,7 +543,6 @@ export function createAdminRoutes(
                                 title: td.title,
                                 price: td.price,
                                 price_usdc: td.priceUsdc,
-                                price_usdt: td.priceUsdt,
                                 currency: td.currency || 'ETH'
                             });
                         }
