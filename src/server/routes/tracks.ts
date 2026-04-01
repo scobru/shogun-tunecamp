@@ -893,14 +893,12 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
 
             // Update price
             const priceUsdc = req.body.priceUsdc;
-            const priceUsdt = req.body.priceUsdt;
-            if (price !== undefined || priceUsdc !== undefined || priceUsdt !== undefined) {
+            if (price !== undefined || priceUsdc !== undefined) {
                 const tr = database.getTrack(id);
                 const finalP = price !== undefined ? Number(price) : (tr?.price ?? 0);
                 const finalPu = priceUsdc !== undefined ? Number(priceUsdc) : (tr?.price_usdc ?? 0);
-                const finalPut = priceUsdt !== undefined ? Number(priceUsdt) : (tr?.price_usdt ?? 0);
                 const finalC = (currency || tr?.currency || 'ETH') as 'ETH' | 'USD';
-                database.updateTrackPrice(id, finalP, finalPu, finalPut, finalC);
+                database.updateTrackPrice(id, finalP, finalPu, finalC);
             }
 
             // Update lyrics
