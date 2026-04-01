@@ -327,8 +327,10 @@ export interface DatabaseService {
     updateAlbumLinks(id: number, links: string | null): void;
     promoteToRelease(id: number): void; // Mark library album as release
     deleteAlbum(id: number, keepTracks?: boolean): void;
+    searchAlbums(query: string, limit: number, publicOnly?: boolean): Album[];
     // Tracks
     getTracks(albumId?: number, publicOnly?: boolean): Track[];
+    getTracksByAlbum(albumId: number, publicOnly?: boolean): Track[];
     getTracksByArtist(artistId: number, publicOnly?: boolean): Track[];
     getTracksByOwner(ownerId: number, publicOnly?: boolean): Track[];
     getTracksByAlbumIds(albumIds: number[]): Track[];
@@ -2120,6 +2122,19 @@ export function createDatabase(dbPath: string): DatabaseService {
             throw new Error("Could not create unique slug for album");
         },
 
+        searchAlbums(query: string, limit: number, publicOnly = false): Album[] {
+            const likeQuery = `%${query}%`;
+            const sql = publicOnly
+                ? `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
+           LEFT JOIN artists ar ON a.artist_id = ar.id 
+           WHERE a.is_release = 0 AND a.visibility IN ('public', 'unlisted') AND (a.title LIKE ? OR ar.name LIKE ?) LIMIT ?`
+                : `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
+           LEFT JOIN artists ar ON a.artist_id = ar.id 
+           WHERE a.is_release = 0 AND (a.title LIKE ? OR ar.name LIKE ?) LIMIT ?`;
+            const rows = db.prepare(sql).all(likeQuery, likeQuery, limit);
+            return mapAlbums(rows);
+        },
+
         updateAlbumVisibility(id: number, visibility: 'public' | 'private' | 'unlisted'): void {
             const isPublic = visibility === 'public' || visibility === 'unlisted';
             const publishedAt = isPublic ? new Date().toISOString() : null;
@@ -2253,6 +2268,10 @@ export function createDatabase(dbPath: string): DatabaseService {
                 return getAllPublicTracksStmt.all() as Track[];
             }
             return getAllTracksStmt.all() as Track[];
+        },
+
+        getTracksByAlbum(albumId: number, publicOnly = false): Track[] {
+            return this.getTracks(albumId, publicOnly);
         },
 
         getTracksByArtist(artistId: number, publicOnly = false): Track[] {

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import fs from "fs-extra";
 import path from "path";
-import type { DatabaseService } from "../database.js";
+import type { DatabaseService, Album, Track } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { getPlaceholderSVG } from "../../utils/audioUtils.js";
 
@@ -35,7 +35,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             
             // Search only public/unlisted albums for non-admins
             const albums = database.searchAlbums(query, limit, !req.isAdmin);
-            res.json(albums.map(a => ({
+            res.json(albums.map((a: Album) => ({
                 ...a,
                 coverImage: a.cover_path
             })));
@@ -152,7 +152,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
             res.json({
                 ...album,
                 coverImage: album.cover_path,
-                tracks: tracks.map(t => ({
+                tracks: tracks.map((t: Track) => ({
                     ...t,
                     albumId: t.album_id,
                     artistId: t.artist_id,
@@ -211,8 +211,9 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
         if (!req.isAdmin && !req.isActive) {
             return res.status(403).json({ error: "Account not active" });
         }
+        let id: number | undefined;
         try {
-            const id = parseInt(req.params.id as string, 10);
+            id = parseInt(req.params.id as string, 10);
             const { relPath } = req.body;
 
             if (!relPath) {
