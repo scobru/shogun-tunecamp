@@ -42,6 +42,8 @@ interface LocalTrack {
   isDirty?: boolean; // Track if metadata changed
   lyrics?: string;
   showLyrics?: boolean; // Toggle visibility of lyrics editor
+  registrationStatus?: 'unknown' | 'registered' | 'unregistered';
+  isRegistering?: boolean;
 }
 
 interface LocalRelease {
@@ -132,6 +134,12 @@ export default function AdminReleaseEditor() {
       }
     }
   }, [id, isLoading, isAuthenticated, role, isAdmin, user]);
+
+  useEffect(() => {
+    if (metadata.use_nft && tracks.length > 0 && isReady) {
+      checkAllRegistrations();
+    }
+  }, [metadata.use_nft, isReady, tracks.length]);
 
   const loadArtists = async () => {
     try {
@@ -351,6 +359,97 @@ export default function AdminReleaseEditor() {
     }
   };
 
+  const checkAllRegistrations = async () => {
+    if (!activeSigner || !isReady || tracks.length === 0) return;
+    
+    try {
+      const settings = await API.getSiteSettings();
+      const checkoutAddress = settings?.web3_checkout_address;
+      if (!checkoutAddress) return;
+
+      const network = await activeSigner.provider!.getNetwork();
+      const chainId = String(network.chainId);
+      
+      const checkoutAbi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
+      if (!checkoutAbi) return;
+
+      const checkoutContract = new ethers.Contract(checkoutAddress, checkoutAbi, activeSigner as any);
+      const actualNftAddress = await checkoutContract.nft();
+      const nftAbi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampNFT"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampNFT"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampNFT"]?.abi;
+      const nftContract = new ethers.Contract(actualNftAddress, nftAbi, activeSigner as any);
+      
+      const newTracks = [...tracks];
+      let changed = false;
+
+      for (let i = 0; i < newTracks.length; i++) {
+        if (!newTracks[i].id || isNaN(Number(newTracks[i].id))) continue;
+        
+        try {
+          const currentArtist = await nftContract.trackArtist(newTracks[i].id);
+          const status = currentArtist === ethers.ZeroAddress ? 'unregistered' : 'registered';
+          if (newTracks[i].registrationStatus !== status) {
+            newTracks[i].registrationStatus = status;
+            changed = true;
+          }
+        } catch (e) {
+          console.warn(`Failed to check registration for track ${newTracks[i].id}`, e);
+        }
+      }
+
+      if (changed) {
+        setTracks(newTracks);
+      }
+    } catch (e) {
+      console.error("Failed to check registrations", e);
+    }
+  };
+
+  const handleRegisterTrack = async (idx: number) => {
+    if (!activeSigner || !isReady) {
+      alert("Wallet not connected.");
+      return;
+    }
+    
+    const track = tracks[idx];
+    const newTracks = [...tracks];
+    newTracks[idx].isRegistering = true;
+    setTracks(newTracks);
+
+    try {
+      const settings = await API.getSiteSettings();
+      const checkoutAddress = settings?.web3_checkout_address;
+      if (!checkoutAddress) throw new Error("Store instances not fully configured.");
+
+      const network = await activeSigner.provider!.getNetwork();
+      const chainId = String(network.chainId);
+      const checkoutAbi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
+      const checkoutContract = new ethers.Contract(checkoutAddress, checkoutAbi, activeSigner as any);
+      const actualNftAddress = await checkoutContract.nft();
+      const nftAbi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampNFT"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampNFT"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampNFT"]?.abi;
+      const nftContract = new ethers.Contract(actualNftAddress, nftAbi, activeSigner as any);
+      
+      const adminAddress = await activeSigner.getAddress();
+      
+      // Register
+      const txReg = await nftContract.registerTrack(track.id, adminAddress, 0, 0, 0);
+      await txReg.wait();
+
+      // Update status
+      const updatedTracks = [...tracks];
+      updatedTracks[idx].registrationStatus = 'registered';
+      updatedTracks[idx].isRegistering = false;
+      setTracks(updatedTracks);
+      
+      alert(`Track "${track.title}" registered successfully.`);
+    } catch (e: any) {
+      console.error(e);
+      alert(`Registration failed: ${e.message}`);
+      const updatedTracks = [...tracks];
+      updatedTracks[idx].isRegistering = false;
+      setTracks(updatedTracks);
+    }
+  };
+
   const handleSyncPrices = async () => {
     if (!activeSigner || !isReady) {
       alert("Wallet not connected.");
@@ -367,45 +466,21 @@ export default function AdminReleaseEditor() {
     try {
       const settings = await API.getSiteSettings();
       const checkoutAddress = settings?.web3_checkout_address;
-      const nftAddress = settings?.web3_nft_address;
-
-      if (!checkoutAddress || !nftAddress) {
-        throw new Error("Store instances not fully configured in Admin Settings.");
-      }
+      if (!checkoutAddress) throw new Error("Store instances not fully configured.");
 
       const network = await activeSigner.provider!.getNetwork();
       const chainId = String(network.chainId);
-      
       const checkoutAbi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
-      const nftAbi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampNFT"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampNFT"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampNFT"]?.abi;
-
-      if (!checkoutAbi || !nftAbi) throw new Error(`ABIs not found in SDK`);
-
       const checkoutContract = new ethers.Contract(checkoutAddress, checkoutAbi, activeSigner as any);
-      const actualNftAddress = await checkoutContract.nft();
-      const nftContract = new ethers.Contract(actualNftAddress, nftAbi, activeSigner as any);
       
-      const adminAddress = await activeSigner.getAddress();
-
       const pricingData = tracks.filter(t => 
-        (Number(t.price) > 0) || (metadata.price && Number(metadata.price) > 0)
+        (Number(t.price) > 0 || Number(t.priceUsdc) > 0) && t.registrationStatus === 'registered'
       );
 
       if (pricingData.length === 0) {
-        setSyncMessage("No priced tracks to sync.");
+        setSyncMessage("No registered and priced tracks to sync.");
         setIsSyncingPrices(false);
         return;
-      }
-
-      for (let i = 0; i < pricingData.length; i++) {
-         const t = pricingData[i];
-         const currentArtist = await nftContract.trackArtist(t.id);
-         
-         if (currentArtist === ethers.ZeroAddress) {
-            setSyncMessage(`Registering track ${i+1}/${pricingData.length}...`);
-            const txReg = await nftContract.registerTrack(t.id, adminAddress, 0, 0, 0);
-            await txReg.wait();
-         }
       }
 
       setSyncMessage("Sending price update transaction...");
@@ -417,10 +492,10 @@ export default function AdminReleaseEditor() {
       for (const t of pricingData) {
         trackIds.push(t.id);
         roles.push(0); // License
-        const priceUsdcToUse = Number(t.price) > 0 || Number(t.priceUsdc) > 0 ? String(t.priceUsdc || 0) : String(metadata.priceUsdc || 0);
-        pricesUSDC.push(ethers.parseUnits(priceUsdcToUse || "0", 6));
-        const priceToUse = Number(t.price) > 0 || Number(t.priceUsdc) > 0 ? String(t.price || 0) : String(metadata.price || 0);
-        pricesETH.push(ethers.parseEther(priceToUse || "0"));
+        const priceUsdcToUse = String(t.priceUsdc || 0);
+        pricesUSDC.push(ethers.parseUnits(priceUsdcToUse, 6));
+        const priceToUse = String(t.price || 0);
+        pricesETH.push(ethers.parseEther(priceToUse));
       }
 
       const tx = await checkoutContract.setPriceBatch(trackIds, roles, pricesUSDC, pricesETH);
@@ -634,6 +709,30 @@ export default function AdminReleaseEditor() {
                         {track.format || "MP3"}
                       </span>
                     )}
+                    
+                    {/* Registration Status Badge */}
+                    {metadata.use_nft && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        {track.registrationStatus === 'registered' ? (
+                          <span className="badge badge-success badge-sm gap-1 font-bold text-[10px]">
+                            Si
+                          </span>
+                        ) : track.registrationStatus === 'unregistered' ? (
+                          <button 
+                            className="btn btn-xs btn-outline btn-secondary font-bold text-[10px]"
+                            onClick={() => handleRegisterTrack(idx)}
+                            disabled={track.isRegistering}
+                          >
+                            {track.isRegistering ? <span className="loading loading-spinner loading-xs"></span> : "Register"}
+                          </button>
+                        ) : (
+                          <span className="badge badge-ghost badge-sm text-[10px] opacity-50">
+                            ...
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
                       <div className="text-sm opacity-50 font-mono">
                         {track.duration
@@ -654,16 +753,18 @@ export default function AdminReleaseEditor() {
                           <option value="ETH">ETH</option>
                           <option value="USD">USD</option>
                         </select>
-                        <label className="input input-sm input-bordered flex items-center gap-1 group-focus-within:border-primary w-28">
-                          <span className="opacity-50 text-xs">
-                            {track.currency === "USD" ? "$" : "Ξ"}
+                        <label className={`input input-sm input-bordered flex items-center gap-1 group-focus-within:border-primary w-28 ${metadata.use_nft && track.registrationStatus !== 'registered' ? 'opacity-50' : ''}`}>
+                          <span className="opacity-50 text-[10px]">
+                            {track.currency === "USD" ? "USD" : "ETH"}
                           </span>
                           <input
                             type="number"
                             step="any"
                             min="0"
-                            className="w-full bg-transparent"
+                            className={`w-full bg-transparent ${metadata.use_nft && track.registrationStatus !== 'registered' ? 'cursor-not-allowed opacity-30' : ''}`}
                             placeholder="0.00"
+                            disabled={metadata.use_nft && track.registrationStatus !== 'registered'}
+                            title={metadata.use_nft && track.registrationStatus !== 'registered' ? "Register track on blockchain first" : ""}
                             value={track.price ?? ""}
                             onChange={(e) => {
                               const newTracks = [...tracks];
@@ -674,14 +775,16 @@ export default function AdminReleaseEditor() {
                             }}
                           />
                         </label>
-                        <label className="input input-sm input-bordered flex items-center gap-1 group-focus-within:border-primary w-36">
+                        <label className={`input input-sm input-bordered flex items-center gap-1 group-focus-within:border-primary w-36 ${metadata.use_nft && track.registrationStatus !== 'registered' ? 'opacity-50' : ''}`}>
                           <span className="opacity-50 text-[10px]">USDC</span>
                           <input
                             type="number"
                             step="any"
                             min="0"
-                            className="w-full bg-transparent"
+                            className={`w-full bg-transparent ${metadata.use_nft && track.registrationStatus !== 'registered' ? 'cursor-not-allowed opacity-30' : ''}`}
                             placeholder="0.00"
+                            disabled={metadata.use_nft && track.registrationStatus !== 'registered'}
+                            title={metadata.use_nft && track.registrationStatus !== 'registered' ? "Register track on blockchain first" : ""}
                             value={track.priceUsdc ?? ""}
                             onChange={(e) => {
                               const newTracks = [...tracks];
@@ -1102,17 +1205,41 @@ export default function AdminReleaseEditor() {
             </div>
 
             {/* Sync Prices Button */}
-            {!isNew && (Number(metadata.price) > 0 || tracks.some(t => Number(t.price) > 0)) && (
+            {!isNew && metadata.use_nft && (
               <div className="form-control mt-2 mb-4 bg-secondary/10 p-4 border border-secondary/20 rounded-xl">
-                <label className="label pt-0"><span className="label-text-alt font-bold text-secondary">Web3 Actions</span></label>
-                <button
-                  type="button"
-                  className="btn btn-secondary w-full"
-                  disabled={isSyncingPrices || !isReady}
-                  onClick={handleSyncPrices}
-                >
-                  {isSyncingPrices ? syncMessage || "Syncing..." : "Sync Prices to Blockchain"}
-                </button>
+                <label className="label pt-0 border-b border-secondary/20 mb-3 pb-1">
+                  <span className="label-text-alt font-bold text-secondary uppercase tracking-widest">Web3 Actions</span>
+                </label>
+                
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="opacity-70">Registration Status:</span>
+                    <span className="font-bold">
+                      {tracks.filter(t => t.registrationStatus === 'registered').length}/{tracks.length} Tracks
+                    </span>
+                  </div>
+
+                  {tracks.some(t => t.registrationStatus === 'unregistered') && (
+                    <div className="alert alert-warning py-2 px-3 text-[10px] rounded-lg">
+                      Some tracks are not yet registered on the blockchain.
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary w-full btn-sm"
+                    disabled={isSyncingPrices || !isReady || tracks.every(t => t.registrationStatus !== 'registered')}
+                    onClick={handleSyncPrices}
+                  >
+                    {isSyncingPrices ? syncMessage || "Syncing..." : "Sync Prices to Blockchain"}
+                  </button>
+                  
+                  {tracks.every(t => t.registrationStatus === 'registered') && (
+                    <div className="text-[10px] text-success text-center font-medium">
+                      All tracks are registered. Prices are synced.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
