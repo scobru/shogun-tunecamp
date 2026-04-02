@@ -132,8 +132,14 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
      */
     router.get("/:id", (req: AuthenticatedRequest, res) => {
         try {
-            const id = parseInt(req.params.id as string, 10);
-            const album = database.getAlbum(id);
+            const param = req.params.id as string;
+            let album;
+
+            if (/^\d+$/.test(param)) {
+                album = database.getAlbum(parseInt(param, 10));
+            } else {
+                album = database.getAlbumBySlug(param);
+            }
 
             if (!album) {
                 return res.status(404).json({ error: "Album not found" });
@@ -175,8 +181,10 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
      */
     router.get("/:id/cover", async (req, res) => {
         try {
-            const id = parseInt(req.params.id as string, 10);
-            const album = database.getAlbum(id);
+            const param = req.params.id as string;
+            const album = /^\d+$/.test(param)
+                ? database.getAlbum(parseInt(param, 10))
+                : database.getAlbumBySlug(param);
 
             if (!album) {
                 return res.status(404).json({ error: "Album not found" });

@@ -14,6 +14,11 @@ export default defineConfig({
       buffer: 'buffer',
     },
   },
+  build: {
+    rollupOptions: {
+      external: ['shogun-contracts-sdk'],
+    },
+  },
   server: {
     port: 5173,
     proxy: {
@@ -28,3 +33,4 @@ export default defineConfig({
     }
   }
 })
+
