@@ -16,7 +16,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ['shogun-contracts-sdk'],
+      external: [],
     },
   },
   server: {
