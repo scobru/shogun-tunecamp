@@ -133,7 +133,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
     router.get("/:id", (req: AuthenticatedRequest, res) => {
         try {
             const param = req.params.id as string;
-            let album;
+            let album: Album | undefined;
 
             if (/^\d+$/.test(param)) {
                 album = database.getAlbum(parseInt(param, 10));
@@ -152,7 +152,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 }
             }
 
-            const tracks = database.getTracksByAlbum(id);
+            const tracks = database.getTracksByAlbum(album.id);
             const username = req.username;
 
             res.json({
