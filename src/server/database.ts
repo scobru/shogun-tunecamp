@@ -2028,7 +2028,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             const row = db.prepare(`SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
                    LEFT JOIN artists ar ON a.artist_id = ar.id
                    WHERE a.id = ?`).get(id) as any;
-            if (!row || row.is_release) return undefined; // Only return library albums
+            if (!row) return undefined; 
             return mapAlbum(row);
         },
 
@@ -2041,7 +2041,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                 const placeholders = chunk.map(() => "?").join(",");
                 const rows = db.prepare(`SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
                     LEFT JOIN artists ar ON a.artist_id = ar.id
-                    WHERE a.is_release = 0 AND a.id IN (${placeholders})`).all(...chunk);
+                    WHERE a.id IN (${placeholders})`).all(...chunk);
                 results.push(...mapAlbums(rows));
             }
             return results;
@@ -2052,7 +2052,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                 .prepare(
                     `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
-           WHERE a.is_release = 0 AND a.slug = ?`
+           WHERE a.slug = ?`
                 )
                 .get(slug);
             if (!row) {
@@ -2163,12 +2163,12 @@ export function createDatabase(dbPath: string): DatabaseService {
         searchAlbums(query: string, limit: number, publicOnly = false): Album[] {
             const likeQuery = `%${query}%`;
             const sql = publicOnly
-                ? `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
+                ? `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
-           WHERE a.is_release = 0 AND a.visibility IN ('public', 'unlisted') AND (a.title LIKE ? OR ar.name LIKE ?) LIMIT ?`
-                : `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
+           WHERE a.visibility IN ('public', 'unlisted') AND (a.title LIKE ? OR ar.name LIKE ?) LIMIT ?`
+                : `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
-           WHERE a.is_release = 0 AND (a.title LIKE ? OR ar.name LIKE ?) LIMIT ?`;
+           WHERE (a.title LIKE ? OR ar.name LIKE ?) LIMIT ?`;
             const rows = db.prepare(sql).all(likeQuery, likeQuery, limit);
             return mapAlbums(rows);
         },
