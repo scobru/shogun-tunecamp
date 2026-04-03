@@ -417,15 +417,35 @@ export const CheckoutModal = () => {
               )}
 
               {!hasEnoughBalance && !txHash && paymentMethod === "ETH" && (
-                <p className="text-error text-sm mb-4">
-                  Insufficient ETH balance in {activeWalletLabel}.
-                </p>
+                <div className="w-full">
+                  <p className="text-error text-sm mb-2">
+                    Insufficient ETH balance in {activeWalletLabel}.
+                  </p>
+                  <a
+                    href={`https://buy.coinbase.com/buy?address=${activeSigner ? (useExternalWallet ? externalAddress : wallet?.address) : ''}&network=base&asset=ETH`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-outline btn-sm btn-block mb-4 gap-2 border-white/10 hover:bg-primary/20"
+                  >
+                    💳 Fund with Credit Card / Coinbase
+                  </a>
+                </div>
               )}
 
               {!hasEnoughBalance && !txHash && paymentMethod === "USDC" && (
-                <p className="text-error text-sm mb-4">
-                  Insufficient {paymentMethod} balance in {activeWalletLabel}. You have {stableBalance} {paymentMethod}.
-                </p>
+                <div className="w-full">
+                  <p className="text-error text-sm mb-2">
+                    Insufficient {paymentMethod} balance in {activeWalletLabel}. You have {stableBalance} {paymentMethod}.
+                  </p>
+                  <a
+                    href={`https://buy.coinbase.com/buy?address=${activeSigner ? (useExternalWallet ? externalAddress : wallet?.address) : ''}&network=base&asset=USDC`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-outline btn-sm btn-block mb-4 gap-2 border-white/10 hover:bg-[#2775CA]/20"
+                  >
+                    💳 Buy USDC via Coinbase
+                  </a>
+                </div>
               )}
 
               {error && (

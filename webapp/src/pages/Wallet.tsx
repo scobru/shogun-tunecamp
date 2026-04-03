@@ -163,7 +163,7 @@ export const Wallet = () => {
                   </div>
                 </div>
 
-                <div className="card-actions mt-4">
+                <div className="card-actions mt-4 flex gap-2">
                   <button
                     className={clsx(
                       "btn flex-1",
@@ -174,6 +174,15 @@ export const Wallet = () => {
                   >
                     {!useExternalWallet ? "Currently Active" : "Set as Default"}
                   </button>
+                  <a
+                    href={`https://buy.coinbase.com/buy?address=${address}&network=base&asset=ETH`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-ghost border-white/10 hover:bg-primary/20"
+                    title="Fund with Credit Card / Coinbase"
+                  >
+                    <span className="text-lg">💳</span>
+                  </a>
                 </div>
               </div>
             )}
