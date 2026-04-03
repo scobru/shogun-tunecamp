@@ -323,8 +323,9 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
      * Get artist details with albums (supports numeric ID or slug)
      */
     router.get("/:idOrSlug", (req: AuthenticatedRequest, res) => {
+        const param = req.params.idOrSlug as string;
+        console.log(`🔍 [Debug] GET /api/artists/${param} requested by user: ${req.username || 'guest'}, isAdmin: ${req.isAdmin}`);
         try {
-            const param = req.params.idOrSlug as string;
             let artist;
 
             // Check if it's a numeric ID or a slug

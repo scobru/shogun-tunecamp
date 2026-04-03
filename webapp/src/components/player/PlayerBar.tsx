@@ -14,17 +14,24 @@ import {
   Music,
 } from "lucide-react";
 import clsx from "clsx";
-import { useColor } from "color-thief-react";
+import * as ColorThiefReactModule from "color-thief-react";
 import { LyricsPanel } from "./LyricsPanel";
 import { QueuePanel } from "./QueuePanel";
+
+// Robust interop for color-thief-react which has inconsistent exports across versions/builds
+const ColorThiefReact: any = ColorThiefReactModule;
+const useColor = ColorThiefReact.useColor || ColorThiefReact.default?.useColor;
 
 const PlayerBackground = ({ coverUrl }: { coverUrl: string }) => {
   const setDominantColor = usePlayerStore(state => state.setDominantColor);
   
-  const { data: dominantColor } = useColor(coverUrl || "", "hex", {
+  // Conditionally call hook if available
+  const colorResult = useColor ? useColor(coverUrl || "", "hex", {
     crossOrigin: "anonymous",
     quality: 10,
-  });
+  }) : { data: null };
+
+  const dominantColor = colorResult?.data;
 
   useEffect(() => {
     if (dominantColor) {
