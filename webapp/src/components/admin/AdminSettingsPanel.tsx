@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import API from "../../services/api";
-import { Save, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Save, CheckCircle2 } from "lucide-react";
 import type { SiteSettings } from "../../types";
 import { useWalletStore } from "../../stores/useWalletStore";
-import { TuneCampFactory, DEPLOYMENTS } from "shogun-contracts-sdk";
-import { ethers } from "ethers";
+import { TuneCampFactory } from "shogun-contracts-sdk";
 
 export const AdminSettingsPanel = () => {
   const [settings, setSettings] = useState<SiteSettings | null>(null);

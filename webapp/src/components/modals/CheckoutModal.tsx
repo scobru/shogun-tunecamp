@@ -49,6 +49,7 @@ export const CheckoutModal = () => {
     balanceEth,
     isWalletReady,
     externalWallet,
+    externalAddress,
     externalBalanceEth,
     isExternalConnected,
     useExternalWallet,

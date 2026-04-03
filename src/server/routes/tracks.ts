@@ -428,7 +428,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             let coverBase64 = null;
             if (common.picture && common.picture.length > 0) {
                 const pic = common.picture[0];
-                const base64 = pic.data.toString('base64');
+                const base64 = Buffer.from(pic.data).toString('base64');
                 coverBase64 = `data:${pic.format};base64,${base64}`;
             }
 
