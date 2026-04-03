@@ -165,16 +165,29 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 console.error("🚨 [GunDB] NO Server Identity (serverPair) found before authentication!");
             }
 
-            user.auth(serverPair, (ack: any) => {
-                if (ack.err) {
-                    console.error("❌ Failed to authenticate GunDB user:", ack.err);
-                    if (ack.err === '0 length key!') {
-                        console.error("🚨 [GunDB] CONFIRMED: 0 length key error during authentication.");
+            // Authenticate with a promise to wait for result
+            const authPromise = new Promise<void>((resolve, reject) => {
+                user.auth(serverPair, (ack: any) => {
+                    if (ack.err) {
+                        console.error("❌ Failed to authenticate GunDB user:", ack.err);
+                        if (ack.err === '0 length key!') {
+                            console.error("🚨 [GunDB] CONFIRMED: 0 length key error during authentication.");
+                        }
+                        reject(new Error(ack.err));
+                    } else {
+                        console.log(`🔐 GunDB Authenticated as pubKey: ${serverPair.pub.slice(0, 8)}...`);
+                        resolve();
                     }
-                } else {
-                    console.log(`🔐 GunDB Authenticated as pubKey: ${serverPair.pub.slice(0, 8)}...`);
-                }
+                });
+                // Max timeout for auth
+                setTimeout(() => resolve(), 10000);
             });
+
+            try {
+                await authPromise;
+            } catch (e) {
+                console.warn("⚠️ GunDB Authentication had errors, but continuing initialization.");
+            }
 
             initialized = true;
             console.log("🌐 GunDB Community Registry initialized (v1.2 w/ WebSocket)");
@@ -278,12 +291,19 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                             console.error("🚨 [GunDB] 0 length key! error while writing to secure graph. Possible corruption.");
                         }
 
-                        // Check for corruption (JSON error)
+                        // Check for corruption or key mismatch
                         const isJsonError = (typeof ack.err === 'string' && ack.err.includes("JSON error")) ||
                             (ack.err && ack.err.err === "JSON error!");
+                        
+                        const isUnverified = (typeof ack.err === 'string' && ack.err.includes("Unverified data")) ||
+                            (ack.err && ack.err.err === "Unverified data");
 
-                        if (isJsonError && retryCount < 1) {
-                            console.error("❌ GunDB Corruption detected (JSON error)! Attempting auto-recovery...");
+                        if ((isJsonError || isUnverified) && retryCount < 1) {
+                            if (isUnverified) {
+                                console.error("❌ GunDB identity mismatch (Unverified data)! This usually happens after a reset. Attempting auto-recovery...");
+                            } else {
+                                console.error("❌ GunDB Corruption detected (JSON error)! Attempting auto-recovery...");
+                            }
                             await clearRadata();
                             console.log("🔄 Retrying registration after recovery...");
                             const result = await attemptRegistration(retryCount + 1);
@@ -408,13 +428,19 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             const results = await Promise.all(promises);
             const error = results.find(e => {
                 if (!e) return false;
-                if (typeof e === 'string' && e.includes("JSON error")) return true;
-                if (typeof e === 'object' && (e as any).err === "JSON error!") return true;
-                return false;
+                const errStr = typeof e === 'string' ? e : (e as any).err || "";
+                return errStr.includes("JSON error") || errStr.includes("Unverified data");
             });
 
             if (error && retryCount < 1) {
-                console.error("❌ GunDB Corruption detected in registerTracks (JSON error)! Attempting auto-recovery...");
+                const isUnverified = (typeof error === 'string' && error.includes("Unverified data")) ||
+                                     (error && (error as any).err === "Unverified data");
+                
+                if (isUnverified) {
+                    console.error("❌ GunDB identity mismatch in registerTracks (Unverified data)! Attempting auto-recovery...");
+                } else {
+                    console.error("❌ GunDB Corruption detected in registerTracks (JSON error)! Attempting auto-recovery...");
+                }
                 await clearRadata();
                 console.log("🔄 Retrying track registration after recovery...");
                 return attemptRegisterTracks(retryCount + 1);
