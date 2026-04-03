@@ -78,100 +78,6 @@ export const AdminSettingsPanel = () => {
     }
   };
 
-  const [isSyncingPrices, setIsSyncingPrices] = useState(false);
-
-  const handleSyncPrices = async () => {
-    if (!activeSigner || !isReady) {
-      setMessage("Failed: Wallet not connected or not ready.");
-      return;
-    }
-
-    const checkoutAddress = settings?.web3_checkout_address;
-    const nftAddress = settings?.web3_nft_address;
-
-    if (!checkoutAddress || !nftAddress) {
-      setMessage("Failed: Store instance not fully configured.");
-      return;
-    }
-
-    setIsSyncingPrices(true);
-    setMessage("Fetching track prices from database...");
-
-    try {
-      const pricingData = await API.getBatchPricing();
-
-      if (!pricingData || pricingData.length === 0) {
-        setMessage("No tracks with prices found to synchronize.");
-        setIsSyncingPrices(false);
-        return;
-      }
-
-      // Instantiate contracts directly using ABI bypass
-      const network = await activeSigner.provider!.getNetwork();
-      const chainId = String(network.chainId);
-
-      const checkoutAbi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampCheckout"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampCheckout"]?.abi;
-      const nftAbi = (DEPLOYMENTS as any)[chainId]?.["TuneCampFactory#TuneCampNFT"]?.abi || (DEPLOYMENTS as any)["84532"]?.["TuneCampFactory#TuneCampNFT"]?.abi || (DEPLOYMENTS as any)["8453"]?.["TuneCampFactory#TuneCampNFT"]?.abi;
-
-      if (!checkoutAbi) throw new Error(`TuneCampCheckout ABI not found in SDK`);
-      if (!nftAbi) throw new Error(`TuneCampNFT ABI not found in SDK`);
-
-      const checkoutContract = new ethers.Contract(checkoutAddress, checkoutAbi, activeSigner as any);
-      const actualNftAddress = await checkoutContract.nft();
-      const nftContract = new ethers.Contract(actualNftAddress, nftAbi, activeSigner as any);
-
-      const adminAddress = await activeSigner.getAddress();
-
-      // Check and register tracks sequentially
-      for (let i = 0; i < pricingData.length; i++) {
-         const t = pricingData[i];
-         const currentArtist = await nftContract.trackArtist(t.trackId);
-
-         if (currentArtist === ethers.ZeroAddress) {
-            setMessage(`Registering track ${i+1}/${pricingData.length} on blockchain... Please confirm.`);
-            const targetArtist = t.walletAddress || adminAddress;
-            // Max supplies: 0 = unlimited
-            const txReg = await nftContract.registerTrack(t.trackId, targetArtist, 0, 0, 0);
-            await txReg.wait();
-         }
-      }
-
-      // Prepare arrays for the batch format
-      const trackIds: number[] = [];
-      const roles: number[] = [];
-      const pricesUSDC: bigint[] = [];
-      const pricesETH: bigint[] = [];
-
-      for (const t of pricingData) {
-        trackIds.push(t.trackId);
-        // Assuming TokenRole 0 is Standard/License per the smart contract
-        roles.push(0);
-        // Parse USDC string to 6 decimals
-        const usdcPrice = ethers.parseUnits(String(t.priceUSDC || t.price_usdc || 0), 6);
-        pricesUSDC.push(usdcPrice);
-        // Parse ETH string to wei
-        const weiPrice = ethers.parseEther(String(t.price || 0));
-        pricesETH.push(weiPrice);
-      }
-
-      setMessage("Please confirm the setPriceBatch transaction in your wallet...");
-
-      const tx = await checkoutContract.setPriceBatch(trackIds, roles, pricesUSDC, pricesETH);
-
-      setMessage("Transaction sent! Waiting for confirmation...");
-      await tx.wait();
-
-      const successMsg = `Successfully synchronized ${pricingData.length} track price(s) to the blockchain.`;
-      setMessage(successMsg);
-      alert(successMsg);
-    } catch (e: any) {
-      console.error(e);
-      setMessage(`Sync failed: ${e.message}`);
-    } finally {
-      setIsSyncingPrices(false);
-    }
-  };
-
   useEffect(() => {
     API.getSiteSettings().then(setSettings).catch(console.error);
   }, []);
@@ -456,16 +362,6 @@ export const AdminSettingsPanel = () => {
             disabled={loading}
           >
             <Save size={16} /> Save Changes
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary gap-2 flex-1"
-            disabled={loading || isSyncingPrices || !isReady}
-            onClick={handleSyncPrices}
-          >
-            <RefreshCw size={16} className={isSyncingPrices ? "animate-spin" : ""} />
-            {isSyncingPrices ? "Syncing..." : "Sync Prices to Blockchain"}
           </button>
         </div>
       </div>

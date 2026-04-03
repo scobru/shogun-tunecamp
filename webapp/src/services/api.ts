@@ -287,6 +287,8 @@ export const API = {
         formData.append('artistId', artistId);
         return handleResponse(api.post('/admin/upload/avatar', formData));
     },
+    uploadArtistAvatarUrl: (artistId: string | number, url: string) =>
+        handleResponse(api.post('/admin/upload/avatar-url', { artistId, url })),
     uploadBackgroundImage: (file: File) => {
         const formData = new FormData();
         formData.append('file', file);

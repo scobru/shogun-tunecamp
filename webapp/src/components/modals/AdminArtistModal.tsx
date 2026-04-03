@@ -25,6 +25,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarUrl, setAvatarUrl] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [currentUser, setCurrentUser] = useState<import("../../types").User | null>(null);
@@ -95,6 +96,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
             }
             
             setAvatarFile(null);
+            setAvatarUrl('');
             setError('');
             dialogRef.current?.showModal();
         };
@@ -141,9 +143,11 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 });
             }
 
-            // Upload avatar if selected
+            // Upload avatar if selected (file takes precedence over URL)
             if (avatarFile && artist) {
                 await API.uploadArtistAvatar(artist.id, avatarFile);
+            } else if (avatarUrl && artist) {
+                await API.uploadArtistAvatarUrl(artist.id, avatarUrl);
             }
 
             onArtistUpdated();
@@ -311,24 +315,36 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                         <label className="label">
                             <span className="label-text">Artist Avatar</span>
                         </label>
-                         <div className="flex items-center gap-4">
-                            {isEditing && editId && !avatarFile && (
-                                <div className="avatar">
-                                    <div className="w-16 h-16 rounded-full border border-white/10">
-                                        <img src={API.getArtistCoverUrl(editId, Date.now())} />
+                         <div className="flex flex-col gap-4">
+                            <div className="flex items-center gap-4">
+                                {isEditing && editId && !avatarFile && (
+                                    <div className="avatar">
+                                        <div className="w-16 h-16 rounded-full border border-white/10">
+                                            <img src={API.getArtistCoverUrl(editId, Date.now())} />
+                                        </div>
                                     </div>
+                                )}
+                                <div className="flex-1 space-y-2">
+                                    <input 
+                                        type="url" 
+                                        className="input input-bordered w-full text-sm"
+                                        placeholder="Paste image URL here..."
+                                        value={avatarUrl}
+                                        onChange={e => setAvatarUrl(e.target.value)}
+                                    />
+                                    <div className="divider text-[10px] opacity-30 my-0">OR UPLOAD FILE</div>
+                                    <input 
+                                        type="file" 
+                                        className="file-input file-input-bordered w-full file-input-sm"
+                                        accept="image/*"
+                                        onChange={e => setAvatarFile(e.target.files ? e.target.files[0] : null)}
+                                    />
                                 </div>
-                            )}
-                            <input 
-                                type="file" 
-                                className="file-input file-input-bordered w-full"
-                                accept="image/*"
-                                onChange={e => setAvatarFile(e.target.files ? e.target.files[0] : null)}
-                            />
-                            {avatarFile && <ImageIcon className="text-success" size={24}/>}
-                        </div>
+                                {avatarFile && <ImageIcon className="text-success" size={24}/>}
+                            </div>
+                         </div>
                          <label className="label">
-                            <span className="label-text-alt opacity-70">JPG or PNG, max 5MB.</span>
+                            <span className="label-text-alt opacity-70">JPG or PNG, max 5MB. Providing a URL will download the image to the server.</span>
                         </label>
                     </div>
                     

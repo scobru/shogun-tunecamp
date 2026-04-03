@@ -3,6 +3,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs-extra";
 import os from "os";
+import axios from "axios";
 import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
 import type { AuthService } from "../auth.js";
@@ -560,6 +561,67 @@ export function createUploadRoutes(
             console.error("❌ Track artwork upload error:", error);
             if (req.file) await fs.remove(req.file.path).catch(() => { });
             res.status(500).json({ error: "Track artwork upload failed" });
+        }
+    });
+
+    /**
+     * POST /api/admin/upload/avatar-url
+     * Download avatar for an artist from a URL
+     */
+    router.post("/avatar-url", async (req: any, res: any) => {
+        try {
+            const { artistId, url } = req.body;
+
+            if (!url || !artistId) {
+                return res.status(400).json({ error: "Artist ID and URL are required" });
+            }
+
+            if (!req.isAdmin && !req.isActive) {
+                return res.status(403).json({ error: "Access denied: Account must be activated by admin to upload avatars" });
+            }
+
+            const id = parseInt(artistId as string, 10);
+
+            // Permission Check
+            if (!req.isRootAdmin && req.artistId && req.artistId !== id) {
+                return res.status(403).json({ error: "Access denied: You can only upload avatars for your own artist" });
+            }
+
+            console.log(`👤 Downloading avatar for artist ${id} from: ${url}`);
+
+            const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
+            const contentType = response.headers['content-type'];
+            
+            if (!contentType || !contentType.startsWith('image/')) {
+                return res.status(400).json({ error: "URL does not point to a valid image" });
+            }
+
+            // Determine extension
+            let ext = '.jpg';
+            if (contentType.includes('png')) ext = '.png';
+            else if (contentType.includes('webp')) ext = '.webp';
+            else if (contentType.includes('gif')) ext = '.gif';
+
+            const assetsDir = path.join(musicDir, "assets");
+            await fs.ensureDir(assetsDir);
+
+            const avatarFilename = `avatar-${id}${ext}`;
+            const avatarPath = path.join(assetsDir, avatarFilename);
+
+            await fs.writeFile(avatarPath, response.data);
+
+            // Update artist in database (relative path)
+            const artist = database.getArtist(id);
+            if (artist) {
+                const dbPath = path.relative(musicDir, avatarPath).replace(/\\/g, "/");
+                database.updateArtist(artist.id, artist.bio || undefined, dbPath, artist.links ? JSON.parse(artist.links) : undefined);
+            }
+
+            res.json({ message: "Avatar downloaded and saved" });
+            console.log(`✅ Avatar URL download completed for artist ${id}`);
+        } catch (error: any) {
+            console.error("❌ Avatar URL download error:", error.message);
+            res.status(500).json({ error: "Failed to download image from URL" });
         }
     });
 
