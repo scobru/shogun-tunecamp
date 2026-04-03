@@ -2,8 +2,11 @@ import { Router } from "express";
 import { ethers } from "ethers";
 import fs from "fs-extra";
 import path from "path";
+import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import type { DatabaseService } from "../database.js";
 import { getEthUsdRate } from "../price.js";
+import type { ServerConfig } from "../config.js";
 
 // Setup Base RPC
 const provider = new ethers.JsonRpcProvider(process.env.TUNECAMP_RPC_URL || "https://mainnet.base.org");
@@ -21,8 +24,95 @@ const CHECKOUT_ABI = [
     "function purchaseWithUSDC(uint256 trackId, uint8 role, uint256 quantity)"
 ];
 
-export function createPaymentsRoutes(database: DatabaseService, musicDir: string): Router {
+export function createPaymentsRoutes(database: DatabaseService, musicDir: string, config: ServerConfig): Router {
     const router = Router();
+
+    /**
+     * POST /api/payments/onramp-session
+     * Create a Coinbase Onramp session using CDP API.
+     */
+    router.post("/onramp-session", async (req, res) => {
+        try {
+            const { address, asset, amount } = req.body;
+
+            const keyName = config.coinbaseCdpApiKeyName || database.getSetting("coinbase_cdp_api_key_name");
+            const keySecret = config.coinbaseCdpApiKeySecret || database.getSetting("coinbase_cdp_api_key_secret");
+
+            if (!keyName || !keySecret) {
+                return res.status(501).json({ 
+                    error: "Coinbase CDP is not configured on this server.",
+                    configured: false 
+                });
+            }
+
+            if (!address) {
+                return res.status(400).json({ error: "Destination address is required" });
+            }
+
+            const requestMethod = "POST";
+            const requestHost = "api.cdp.coinbase.com";
+            const requestPath = "/platform/v2/onramp/sessions";
+
+            const payload = {
+                iss: "coinbase-cloud",
+                nbf: Math.floor(Date.now() / 1000),
+                exp: Math.floor(Date.now() / 1000) + 120,
+                sub: keyName,
+                uri: `${requestMethod} ${requestHost} ${requestPath}`,
+            };
+
+            const token = jwt.sign(payload, keySecret, {
+                algorithm: "ES256",
+                header: {
+                    kid: keyName,
+                    nonce: crypto.randomBytes(16).toString("hex"),
+                },
+            } as any);
+
+            const body: any = {
+                destinationAddress: address,
+                destinationNetwork: "base",
+                purchaseCurrency: asset || "ETH",
+            };
+
+            if (amount) {
+                body.paymentAmount = amount;
+                body.paymentCurrency = "USD";
+            }
+
+            const response = await fetch(`https://${requestHost}${requestPath}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: JSON.stringify(body),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error("Coinbase Onramp API error:", errorData);
+                return res.status(response.status).json({ error: "Failed to create Coinbase Onramp session", details: errorData });
+            }
+
+            const data = await response.json();
+            res.json(data);
+
+        } catch (error) {
+            console.error("Onramp session error:", error);
+            res.status(500).json({ error: "Internal server error" });
+        }
+    });
+
+    /**
+     * GET /api/payments/onramp-config
+     * Check if Coinbase Onramp is configured.
+     */
+    router.get("/onramp-config", (req, res) => {
+        res.json({
+            configured: !!(config.coinbaseCdpApiKeyName && config.coinbaseCdpApiKeySecret)
+        });
+    });
 
     /**
      * POST /api/payments/verify

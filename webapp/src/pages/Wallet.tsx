@@ -14,6 +14,7 @@ import { GunAuth } from "../services/gun";
 import clsx from "clsx";
 import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
 import { TokenRole } from "shogun-contracts-sdk";
+import { openCoinbaseOnramp } from "../utils/onramp";
 
 export const Wallet = () => {
   const {
@@ -174,15 +175,13 @@ export const Wallet = () => {
                   >
                     {!useExternalWallet ? "Currently Active" : "Set as Default"}
                   </button>
-                  <a
-                    href={`https://buy.coinbase.com/buy?address=${address}&network=base&asset=ETH`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => openCoinbaseOnramp(address || "", "ETH")}
                     className="btn btn-ghost border-white/10 hover:bg-primary/20"
                     title="Fund with Credit Card / Coinbase"
                   >
                     <span className="text-lg">💳</span>
-                  </a>
+                  </button>
                 </div>
               </div>
             )}

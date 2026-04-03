@@ -15,7 +15,7 @@
     "buffer": "^6.0.3",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "color-thief-react": "^2.1.0",
+    "color-thief-react": "^1.0.2",
     "ethers": "^6.16.0",
     "gun": "git+https://github.com/scobru/gun",
     "lucide-react": "^0.563.0",

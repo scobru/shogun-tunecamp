@@ -157,7 +157,8 @@ export function createAdminRoutes(
 
             const { 
                 siteName, siteDescription, publicUrl, artistName, coverImage, mode, 
-                gunPeers, web3_checkout_address, web3_nft_address
+                gunPeers, web3_checkout_address, web3_nft_address,
+                coinbase_cdp_api_key_name, coinbase_cdp_api_key_secret
             } = req.body;
             let settingsChanged = false;
 
@@ -197,6 +198,12 @@ export function createAdminRoutes(
             }
             if (web3_nft_address !== undefined) {
                 database.setSetting("web3_nft_address", web3_nft_address);
+            }
+            if (coinbase_cdp_api_key_name !== undefined) {
+                database.setSetting("coinbase_cdp_api_key_name", coinbase_cdp_api_key_name);
+            }
+            if (coinbase_cdp_api_key_secret !== undefined) {
+                database.setSetting("coinbase_cdp_api_key_secret", coinbase_cdp_api_key_secret);
             }
 
             // Re-register on GunDB if settings changed and publicUrl is available

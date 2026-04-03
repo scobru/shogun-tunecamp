@@ -30,6 +30,13 @@ export const Profile = () => {
   const [activeTab, setActiveTab] = useState<
     "settings" | "favorites" | "collection" | "artist"
   >("settings");
+
+  // Ensure active tab is valid if user is not an artist
+  useEffect(() => {
+    if (!user?.artistId && activeTab === "artist") {
+      setActiveTab("settings");
+    }
+  }, [user?.artistId, activeTab]);
   const [artistData, setArtistData] = useState<any>(null);
   const [artistLoading, setArtistLoading] = useState(false);
   const [alias, setAlias] = useState(user?.gunProfile?.alias || "");
