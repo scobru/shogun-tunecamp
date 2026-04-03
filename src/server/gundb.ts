@@ -658,11 +658,32 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     async function getCommunitySites(): Promise<any[]> {
         if (!initialized || !gun) return [];
 
-        // Check cache
-        const now = Date.now();
-        if (cache.sites.data.length > 0 && (now - cache.sites.timestamp < cache.itemsTTL)) {
-            return cache.sites.data;
+        const CACHE_KEY = "community_sites";
+        const TTL = 60 * 60; // 1 hour
+
+        // 1. Try SQLite cache first for instant response
+        const cached = database.getGunCache(CACHE_KEY);
+        if (cached) {
+            // Return cached data immediately, but trigger background refresh
+            try {
+                const sites = JSON.parse(cached.value);
+                // Trigger background refresh if we haven't checked recently in this session
+                if (Date.now() - cache.sites.timestamp > cache.itemsTTL) {
+                    refreshCommunitySitesInBackground();
+                }
+                return sites;
+            } catch (e) {
+                console.error("Failed to parse cached sites:", e);
+            }
         }
+
+        // 2. If no cache or first run, do the normal scan
+        return refreshCommunitySitesInBackground();
+    }
+
+    async function refreshCommunitySitesInBackground(): Promise<any[]> {
+        const CACHE_KEY = "community_sites";
+        const TTL = 60 * 60; // 1 hour
 
         return new Promise((resolve) => {
             const sites: any[] = [];
@@ -719,37 +740,53 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             // Wait for data to collect
             setTimeout(() => {
-                console.log(`⏱️ Discovery: Found ${sites.length} potential community sites`);
-                // Update Cache
-                cache.sites = { data: sites, timestamp: Date.now() };
+                if (sites.length > 0) {
+                    console.log(`⏱️ Discovery: Found ${sites.length} potential community sites. Updating SQLite cache.`);
+                    // Update SQLite Cache
+                    database.setGunCache(CACHE_KEY, JSON.stringify(sites), "sites", TTL);
+                    // Update Memory Cache
+                    cache.sites = { data: sites, timestamp: Date.now() };
+                }
                 resolve(sites);
-            }, 3000); // Reduced from 6000
+            }, 3000); 
         });
     }
 
     async function getCommunityTracks(): Promise<any[]> {
         if (!initialized || !gun) return [];
 
-        // Check cache
-        const now = Date.now();
-        if (cache.tracks.data.length > 0 && (now - cache.tracks.timestamp < cache.itemsTTL)) {
-            return cache.tracks.data;
+        const CACHE_KEY = "community_tracks";
+        const TTL = 30 * 60; // 30 minutes
+
+        // 1. Try SQLite cache first
+        const cached = database.getGunCache(CACHE_KEY);
+        if (cached) {
+            try {
+                const tracks = JSON.parse(cached.value);
+                if (Date.now() - cache.tracks.timestamp > cache.itemsTTL) {
+                    refreshCommunityTracksInBackground();
+                }
+                return tracks;
+            } catch (e) {
+                console.error("Failed to parse cached tracks:", e);
+            }
         }
+
+        return refreshCommunityTracksInBackground();
+    }
+
+    async function refreshCommunityTracksInBackground(): Promise<any[]> {
+        const CACHE_KEY = "community_tracks";
+        const TTL = 30 * 60; // 30 minutes
 
         return new Promise((resolve) => {
             const tracks: any[] = [];
 
             // 1. Get sites
-            console.log("🔍 Scanning community sites...");
-            try {
-                const debugPair = serverPair ? "PRESENT" : "MISSING";
-                const debugPub = serverPair ? serverPair.pub : "N/A";
-                console.log(`[DEBUG] serverPair: ${debugPair}, pub: ${debugPub}`);
-            } catch (e) { console.log("[DEBUG] Error logging serverPair", e); }
-
+            console.log("🔍 Scanning community sites for tracks...");
+            
             // ALWAYS scan our own secure graph explicitly (bypass directory lag)
             if (serverPair && serverPair.pub) {
-                console.log(`🔐 Reading OWN secure graph (${serverPair.pub.slice(0, 8)}...)`);
                 gun.user(serverPair.pub)
                     .get('tunecamp')
                     .get('tracks')
@@ -783,18 +820,14 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 .once((siteData: any, siteId: string) => {
                     if (!siteData || siteId === "_") return; // Ignore meta
 
-                    console.log(`🔎 Found site: ${siteId} (Pub: ${siteData.pub ? 'Yes' : 'No'})`);
-
                     // Secure Mode (Trusted by User Graph)
                     if (siteData.pub) {
-                        console.log(`🔐 Reading secure graph for ${siteId} (${siteData.pub.slice(0, 8)}...)`);
                         gun.user(siteData.pub)
                             .get('tunecamp')
                             .get('tracks')
                             .map()
                             .once((trackData: any, slug: string) => {
                                 if (trackData && trackData.audioUrl && slug !== "_") {
-                                    // Map to NetworkTrack structure
                                     tracks.push({
                                         siteId: siteId,
                                         siteUrl: siteData.url,
@@ -855,8 +888,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             // Wait for data to collect
             setTimeout(() => {
-                console.log(`⏱️ Network scan finished. Raw tracks found: ${tracks.length}`);
-                // Deduplicate by slug (prefer secure) and limit to 500 tracks
                 const uniqueTracks = new Map();
                 for (const item of tracks) {
                     const track = item.track;
@@ -867,13 +898,15 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     if (uniqueTracks.size >= 500) break;
                 }
                 const result = Array.from(uniqueTracks.values());
-                console.log(`🌐 Found ${result.length} unique community tracks`);
-
-                // Update Cache
-                cache.tracks = { data: result, timestamp: Date.now() };
-
+                
+                if (result.length > 0) {
+                    console.log(`🌐 Found ${result.length} unique community tracks. Updating SQLite cache.`);
+                    database.setGunCache(CACHE_KEY, JSON.stringify(result), "tracks", TTL);
+                    cache.tracks = { data: result, timestamp: Date.now() };
+                }
+                
                 resolve(result);
-            }, 5000); // Reduced from 8000
+            }, 5000); 
         });
     }
 

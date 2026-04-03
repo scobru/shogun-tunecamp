@@ -105,6 +105,7 @@ export function createAuthService(
                     subsonic_password TEXT,
                     gun_pub TEXT,
                     gun_priv TEXT,
+                    gun_auth_mode TEXT NOT NULL DEFAULT 'local',
                     is_active INTEGER DEFAULT 1,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP

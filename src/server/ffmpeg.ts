@@ -12,13 +12,42 @@ if (ffprobePath && ffprobePath.path) {
     ffmpeg.setFfprobePath(ffprobePath.path);
 }
 
+// FFmpeg Concurrency Control
+const MAX_CONCURRENT_TASKS = 2;
+let activeTasks = 0;
+const taskQueue: (() => void)[] = [];
+
+async function acquireTaskSlot(): Promise<void> {
+    if (activeTasks < MAX_CONCURRENT_TASKS) {
+        activeTasks++;
+        return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+        taskQueue.push(resolve);
+    });
+}
+
+function releaseTaskSlot(): void {
+    activeTasks--;
+    if (taskQueue.length > 0) {
+        const nextTask = taskQueue.shift();
+        if (nextTask) {
+            activeTasks++;
+            nextTask();
+        }
+    }
+}
+
 /**
  * Get duration of an audio file using ffprobe
  * Returns the path to the new MP3 file
  */
-export function getDurationFromFfmpeg(filePath: string): Promise<number | null> {
+export async function getDurationFromFfmpeg(filePath: string): Promise<number | null> {
+    // ffprobe is fast, usually doesn't need strict queueing but we include it for safety
+    await acquireTaskSlot();
     return new Promise((resolve) => {
         ffmpeg.ffprobe(filePath, (err, metadata) => {
+            releaseTaskSlot();
             if (err) {
                 console.warn(`    [FFmpeg] ffprobe failed for ${path.basename(filePath)}: ${err.message}`);
                 resolve(null);
@@ -34,13 +63,15 @@ export function getDurationFromFfmpeg(filePath: string): Promise<number | null> 
  * Convert a Lossless file (WAV/FLAC) to MP3 using ffmpeg
  * Returns the path to the new MP3 file
  */
-export function convertWavToMp3(inputPath: string, bitrate: string = '320k'): Promise<string> {
+export async function convertWavToMp3(inputPath: string, bitrate: string = '320k'): Promise<string> {
+    await acquireTaskSlot();
     return new Promise((resolve, reject) => {
         // Safe extension replacement
         const parse = path.parse(inputPath);
         const mp3Path = path.join(parse.dir, `${parse.name}.mp3`);
 
         if (mp3Path === inputPath) {
+             releaseTaskSlot();
              return reject(new Error("Output path same as input path (not a supported lossless extension?)"));
         }
 
@@ -54,11 +85,13 @@ export function convertWavToMp3(inputPath: string, bitrate: string = '320k'): Pr
             .format('mp3')
             .outputOptions('-map_metadata', '0', '-id3v2_version', '3')
             .on('end', () => {
+                releaseTaskSlot();
                 const duration = ((Date.now() - startTime) / 1000).toFixed(1);
                 console.log(`    [FFmpeg] Converted to: ${path.basename(mp3Path)} in ${duration}s`);
                 resolve(mp3Path);
             })
             .on('error', (err) => {
+                releaseTaskSlot();
                 console.error(`    [FFmpeg] Conversion failed: ${err.message}`);
                 reject(err);
             })
@@ -69,6 +102,7 @@ export function convertWavToMp3(inputPath: string, bitrate: string = '320k'): Pr
 /**
  * Transcode an audio file on-the-fly to a specific format and bitrate
  * Returns a readable stream
+ * NOTE: Live transcoding bypasses the queue to ensure immediate playback
  */
 export function transcode(inputPath: string, format: string = 'mp3', bitrate?: number): any {
     const command = ffmpeg(inputPath);
@@ -101,7 +135,8 @@ export function transcode(inputPath: string, format: string = 'mp3', bitrate?: n
  * Update metadata for audio files (FLAC, OGG, M4A, etc.) using ffmpeg
  * Copies audio stream without re-encoding
  */
-export function writeMetadata(filePath: string, metadata: { title?: string, artist?: string, album?: string, track?: string }): Promise<void> {
+export async function writeMetadata(filePath: string, metadata: { title?: string, artist?: string, album?: string, track?: string }): Promise<void> {
+    await acquireTaskSlot();
     return new Promise((resolve, reject) => {
         const ext = path.extname(filePath);
         // Create a temp file path next to original
@@ -120,6 +155,7 @@ export function writeMetadata(filePath: string, metadata: { title?: string, arti
         command
             .save(tempPath)
             .on('end', async () => {
+                releaseTaskSlot();
                 try {
                     await fs.move(tempPath, filePath, { overwrite: true });
                     resolve();
@@ -129,6 +165,7 @@ export function writeMetadata(filePath: string, metadata: { title?: string, arti
                 }
             })
             .on('error', (err) => {
+                releaseTaskSlot();
                 fs.remove(tempPath).catch(() => {});
                 console.error(`    [FFmpeg] Metadata update failed for ${path.basename(filePath)}: ${err.message}`);
                 reject(err);

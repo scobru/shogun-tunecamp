@@ -265,6 +265,13 @@ export interface ListeningStats {
     playsThisMonth: number;
 }
 
+export interface GunCacheEntry {
+    key: string;
+    value: string;
+    type: string;
+    expires_at: number;
+}
+
 export interface DatabaseService {
     db: DatabaseType;
     // Artists
@@ -461,6 +468,11 @@ export interface DatabaseService {
     getBookmarks(username: string): any[];
     deleteBookmark(username: string, trackId: string): void;
     getBookmark(username: string, trackId: string): any | undefined;
+
+    // GunDB Cache
+    getGunCache(key: string): GunCacheEntry | undefined;
+    setGunCache(key: string, value: string, type: string, ttlSeconds: number): void;
+    clearExpiredGunCache(): void;
 }
 
 export function createDatabase(dbPath: string): DatabaseService {
@@ -501,6 +513,24 @@ export function createDatabase(dbPath: string): DatabaseService {
 
     // Create tables
     db.exec(`
+    CREATE TABLE IF NOT EXISTS admin (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      artist_id INTEGER DEFAULT NULL,
+      role TEXT NOT NULL DEFAULT 'admin',
+      storage_quota INTEGER NOT NULL DEFAULT 0,
+      storage_used INTEGER NOT NULL DEFAULT 0,
+      subsonic_token TEXT,
+      subsonic_password TEXT,
+      gun_pub TEXT,
+      gun_priv TEXT,
+      gun_auth_mode TEXT NOT NULL DEFAULT 'local',
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS artists (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
@@ -807,6 +837,14 @@ export function createDatabase(dbPath: string): DatabaseService {
     );
     CREATE INDEX IF NOT EXISTS idx_track_ownership_owner ON track_ownership(owner_id);
     CREATE INDEX IF NOT EXISTS idx_album_ownership_owner ON album_ownership(owner_id);
+
+    CREATE TABLE IF NOT EXISTS gun_cache (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      type TEXT NOT NULL,
+      expires_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_gun_cache_expires ON gun_cache(expires_at);
   `);
 
     // Migration: Move existing releases from 'albums' to 'releases' table
@@ -3309,6 +3347,34 @@ export function createDatabase(dbPath: string): DatabaseService {
         getAlbumOwners(albumId: number): number[] {
             const rows = db.prepare("SELECT owner_id FROM album_ownership WHERE album_id = ?").all(albumId) as { owner_id: number }[];
             return rows.map(r => r.owner_id);
+        },
+
+        getGunCache(key: string): GunCacheEntry | undefined {
+            const row = db.prepare("SELECT * FROM gun_cache WHERE key = ?").get(key) as GunCacheEntry | undefined;
+            if (!row) return undefined;
+            
+            // Check expiry
+            if (row.expires_at < Date.now()) {
+                db.prepare("DELETE FROM gun_cache WHERE key = ?").run(key);
+                return undefined;
+            }
+            return row;
+        },
+
+        setGunCache(key: string, value: string, type: string, ttlSeconds: number): void {
+            const expiresAt = Date.now() + (ttlSeconds * 1000);
+            db.prepare(`
+                INSERT INTO gun_cache (key, value, type, expires_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    type = excluded.type,
+                    expires_at = excluded.expires_at
+            `).run(key, value, type, expiresAt);
+        },
+
+        clearExpiredGunCache(): void {
+            db.prepare("DELETE FROM gun_cache WHERE expires_at < ?").run(Date.now());
         },
     };
 }
