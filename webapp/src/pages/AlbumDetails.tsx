@@ -54,7 +54,7 @@ export const AlbumDetails = () => {
     if (!e.target.files?.[0] || !album) return;
     setUploading(true);
     try {
-      await API.uploadAlbumCover(album.id, e.target.files[0]);
+      await API.uploadCover(e.target.files[0], album.slug);
       // Force refresh album data to show new cover
       const data = await (isRelease ? API.getRelease(idOrSlug!) : API.getAlbum(idOrSlug!));
       setAlbum(data);

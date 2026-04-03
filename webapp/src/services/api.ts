@@ -268,11 +268,6 @@ export const API = {
         }
         return handleResponse(api.post('/admin/upload/cover', formData));
     },
-    uploadAlbumCover: (id: string | number, file: File) => {
-        const formData = new FormData();
-        formData.append('cover', file);
-        return handleResponse(api.post<{ success: boolean, coverPath: string }>(`/albums/${id}/cover`, formData));
-    },
 
     uploadTrackArtwork: (trackId: string, file: File) => {
         const formData = new FormData();
