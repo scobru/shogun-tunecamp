@@ -269,41 +269,35 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             registeredAt: now,
             lastSeen: now,
             version: REGISTRY_VERSION,
-            type: "server",
+            type: "tunecamp-site", // Explicit type for verification
             pub: serverPair.pub // Public Key of the server
         };
 
         const attemptRegistration = async (retryCount = 0): Promise<boolean> => {
-            return new Promise((resolve) => {
+            return new Promise(async (resolve) => {
                 const user = gun.user();
 
-                // 1. Write to Private Node (User Graph) --> Signed by us
-                if (!user.is) {
-                    console.error("🚨 [GunDB] Cannot register site: User is NOT authenticated!");
-                    resolve(false);
-                    return;
-                }
+                // 1. Sign data manually to avoid "Unverified data" errors in public graph
+                const signedSite = await Gun.SEA.sign(siteRecord, serverPair);
 
-                user.get('tunecamp').get('profile').put(siteRecord, async (ack: any) => {
+                // 2. Write to Public Content Node (Identified by PubKey)
+                const contentRef = gun
+                    .get(REGISTRY_ROOT)
+                    .get(REGISTRY_NAMESPACE)
+                    .get("content")
+                    .get(serverPair.pub)
+                    .get("profile");
+
+                contentRef.put(signedSite, async (ack: any) => {
                     if (ack.err) {
-                        console.warn("Failed to write to user graph:", ack.err);
-                        if (ack.err === '0 length key!') {
-                            console.error("🚨 [GunDB] 0 length key! error while writing to secure graph. Possible corruption.");
-                        }
-
-                        // Check for corruption or key mismatch
+                        console.warn("Failed to write to public content node:", ack.err);
+                        
+                        // Check for corruption (JSON error)
                         const isJsonError = (typeof ack.err === 'string' && ack.err.includes("JSON error")) ||
                             (ack.err && ack.err.err === "JSON error!");
-                        
-                        const isUnverified = (typeof ack.err === 'string' && ack.err.includes("Unverified data")) ||
-                            (ack.err && ack.err.err === "Unverified data");
 
-                        if ((isJsonError || isUnverified) && retryCount < 1) {
-                            if (isUnverified) {
-                                console.error("❌ GunDB identity mismatch (Unverified data)! This usually happens after a reset. Attempting auto-recovery...");
-                            } else {
-                                console.error("❌ GunDB Corruption detected (JSON error)! Attempting auto-recovery...");
-                            }
+                        if (isJsonError && retryCount < 1) {
+                            console.error("❌ GunDB Corruption detected! Attempting auto-recovery...");
                             await clearRadata();
                             console.log("🔄 Retrying registration after recovery...");
                             const result = await attemptRegistration(retryCount + 1);
@@ -348,7 +342,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
                                 resolve(false);
                             } else {
-                                console.log(`✅ Server registered in Tunecamp Community (Secure Mode) - Site ID: ${siteId}`);
+                                console.log(`✅ Server registered in Tunecamp Community (Public-Verified Node) - Site ID: ${siteId}`);
                                 invalidateCache();
                                 resolve(true);
                             }
@@ -403,12 +397,23 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     coverUrl: coverUrl,
                     siteUrl: cleanBaseUrl,
                     addedAt: now,
+                    type: "tunecamp-track",
                     pub: serverPair.pub
                 };
 
-                return new Promise<string | null>((resolve) => {
+                return new Promise<string | null>(async (resolve) => {
+                    const signedTrack = await Gun.SEA.sign(trackData, serverPair);
                     let resolved = false;
-                    tracksRef.get(trackSlug).put(trackData, (ack: any) => {
+
+                    const trackRef = gun
+                        .get(REGISTRY_ROOT)
+                        .get(REGISTRY_NAMESPACE)
+                        .get("content")
+                        .get(serverPair.pub)
+                        .get("tracks")
+                        .get(trackSlug);
+
+                    trackRef.put(signedTrack, (ack: any) => {
                         if (resolved) return;
                         resolved = true;
                         if (ack.err) resolve(ack.err);
@@ -470,15 +475,20 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         }
 
         const tracks = database.getTracks(album.id);
-        const tracksRef = gun.user().get('tunecamp').get('tracks');
+        const tracksRef = gun
+            .get(REGISTRY_ROOT)
+            .get(REGISTRY_NAMESPACE)
+            .get("content")
+            .get(serverPair.pub)
+            .get("tracks");
 
         // Remove each track
         for (const track of tracks) {
             const trackSlug = generateTrackSlug(album.title, track.title);
-            tracksRef.get(trackSlug).put(null);
+            tracksRef.get(trackSlug).put(null as any);
         }
 
-        console.log(`🗑️ Unregistered tracks from "${album.title}" from secure graph`);
+        console.log(`🗑️ Unregistered tracks from "${album.title}" from public node map`);
         invalidateCache();
         return true;
     }
@@ -726,33 +736,58 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     if (processedIds.has(siteId)) return;
                     processedIds.add(siteId);
 
-                    // Check if secure mode (has pub key)
+                    // Check if discovery identifies a pub key
                     if (directoryData.pub) {
-                        // Read authoritative data from User Graph
-                        gun.user(directoryData.pub)
-                            .get('tunecamp')
-                            .get('profile')
-                            .once((profileData: any) => {
-                                if (profileData) {
-                                    sites.push({
-                                        ...profileData,
-                                        id: siteId,
-                                        name: profileData.title || profileData.name || directoryData.title || "Untitled",
-                                        // Ensure lastSeen is always present
-                                        lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
-                                        _secure: true
-                                    });
-                                } else {
-                                    // Fallback to directory data if user graph not reachable
-                                    sites.push({
-                                        id: siteId,
-                                        ...directoryData,
-                                        name: directoryData.title || directoryData.name || "Untitled",
-                                        lastSeen: directoryData.lastSeen || Date.now(),
-                                        _secure: false
-                                    });
-                                }
-                            });
+                        const registerPub = directoryData.pub;
+                        
+                        // Try NEW mechanism: Directed-Path Public Verified Node
+                        gun.get(REGISTRY_ROOT)
+                           .get(REGISTRY_NAMESPACE)
+                           .get("content")
+                           .get(registerPub)
+                           .get("profile")
+                           .once(async (signedData: any) => {
+                               if (signedData) {
+                                   // Verify manually
+                                   const profileData = await Gun.SEA.verify(signedData, registerPub);
+                                   if (profileData && profileData.type === "tunecamp-site") {
+                                       sites.push({
+                                           ...profileData,
+                                           id: siteId,
+                                           name: profileData.title || profileData.name || directoryData.title || "Untitled",
+                                           lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
+                                           _secure: true,
+                                           _verified: true
+                                       });
+                                       return; // Success, don't check legacy
+                                   }
+                               }
+
+                               // FALLBACK: Old mechanism (User Graph)
+                               gun.user(registerPub)
+                                   .get('tunecamp')
+                                   .get('profile')
+                                   .once((profileData: any) => {
+                                       if (profileData) {
+                                           sites.push({
+                                               ...profileData,
+                                               id: siteId,
+                                               name: profileData.title || profileData.name || directoryData.title || "Untitled",
+                                               lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
+                                               _secure: true
+                                           });
+                                       } else {
+                                           // Fallback to directory data if user graph not reachable
+                                           sites.push({
+                                               id: siteId,
+                                               ...directoryData,
+                                               name: directoryData.title || directoryData.name || "Untitled",
+                                               lastSeen: directoryData.lastSeen || Date.now(),
+                                               _secure: false
+                                           });
+                                       }
+                                   });
+                           });
                     } else {
                         // Legacy mode
                         sites.push({
@@ -846,35 +881,74 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 .once((siteData: any, siteId: string) => {
                     if (!siteData || siteId === "_") return; // Ignore meta
 
-                    // Secure Mode (Trusted by User Graph)
-                    if (siteData.pub) {
-                        gun.user(siteData.pub)
-                            .get('tunecamp')
-                            .get('tracks')
+                    // Directed-Path Public Verified Node
+                    const sitePub = siteData.pub;
+                    if (sitePub) {
+                        // 1. Try NEW mechanism: Signed Public Map
+                        gun.get(REGISTRY_ROOT)
+                            .get(REGISTRY_NAMESPACE)
+                            .get("content")
+                            .get(sitePub)
+                            .get("tracks")
                             .map()
-                            .once((trackData: any, slug: string) => {
-                                if (trackData && trackData.audioUrl && slug !== "_") {
-                                    tracks.push({
-                                        siteId: siteId,
-                                        siteUrl: siteData.url,
-                                        track: {
-                                            id: slug,
-                                            title: trackData.title || "Untitled",
-                                            artistId: "remote",
-                                            artistName: trackData.artistName || siteData.artistName || "Unknown Artist",
-                                            albumId: trackData.releaseTitle || "remote",
-                                            albumName: trackData.releaseTitle || "Remote Album",
-                                            duration: trackData.duration || 0,
-                                            path: trackData.audioUrl || "",
-                                            filename: slug,
-                                            playCount: 0,
-                                            coverUrl: trackData.coverUrl || siteData.coverImage || "",
-                                            coverImage: trackData.coverUrl || siteData.coverImage || "",
-                                            streamUrl: trackData.audioUrl || "" // Explicitly set streamUrl
-                                        },
-                                        _secure: true
-                                    });
+                            .once(async (signedData: any, slug: string) => {
+                                if (signedData && slug !== "_") {
+                                    const trackData = await Gun.SEA.verify(signedData, sitePub);
+                                    if (trackData && trackData.type === "tunecamp-track") {
+                                        tracks.push({
+                                            siteId: siteId,
+                                            siteUrl: siteData.url,
+                                            track: {
+                                                id: slug,
+                                                title: trackData.title || "Untitled",
+                                                artistId: "remote",
+                                                artistName: trackData.artistName || siteData.artistName || "Unknown Artist",
+                                                albumId: trackData.releaseTitle || "remote",
+                                                albumName: trackData.releaseTitle || "Remote Album",
+                                                duration: trackData.duration || 0,
+                                                path: trackData.audioUrl || "",
+                                                filename: slug,
+                                                playCount: 0,
+                                                coverUrl: trackData.coverUrl || siteData.coverImage || "",
+                                                coverImage: trackData.coverUrl || siteData.coverImage || "",
+                                                streamUrl: trackData.audioUrl || "" // Explicitly set streamUrl
+                                            },
+                                            _secure: true,
+                                            _verified: true
+                                        });
+                                        return;
+                                    }
                                 }
+                                
+                                // 2. FALLBACK: User Graph
+                                gun.user(sitePub)
+                                    .get('tunecamp')
+                                    .get('tracks')
+                                    .map()
+                                    .once((trackData: any, slug: string) => {
+                                        if (trackData && trackData.audioUrl && slug !== "_") {
+                                            tracks.push({
+                                                siteId: siteId,
+                                                siteUrl: siteData.url,
+                                                track: {
+                                                    id: slug,
+                                                    title: trackData.title || "Untitled",
+                                                    artistId: "remote",
+                                                    artistName: trackData.artistName || siteData.artistName || "Unknown Artist",
+                                                    albumId: trackData.releaseTitle || "remote",
+                                                    albumName: trackData.releaseTitle || "Remote Album",
+                                                    duration: trackData.duration || 0,
+                                                    path: trackData.audioUrl || "",
+                                                    filename: slug,
+                                                    playCount: 0,
+                                                    coverUrl: trackData.coverUrl || siteData.coverImage || "",
+                                                    coverImage: trackData.coverUrl || siteData.coverImage || "",
+                                                    streamUrl: trackData.audioUrl || "" // Explicitly set streamUrl
+                                                },
+                                                _secure: true
+                                            });
+                                        }
+                                    });
                             });
                     }
                     // 2nd source: Legacy Mode (Public Graph)
@@ -1293,7 +1367,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 }
             }
 
-            const tracksRef = gun.user().get('tunecamp').get('tracks');
+            const tracksRef = gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("content").get(serverPair.pub).get("tracks");
             tracksRef.map().once((data: any, key: string) => {
                 if (key === '_' || !data) return;
                 // If this track key is NOT in our valid list, remove it
