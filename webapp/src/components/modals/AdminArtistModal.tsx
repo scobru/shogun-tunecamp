@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import API from '../../services/api';
-import { User, Image as ImageIcon, Globe } from 'lucide-react';
+import { User, Image as ImageIcon, Globe, AlertTriangle } from 'lucide-react';
 
 interface AdminArtistModalProps {
     onArtistUpdated: () => void;
@@ -27,6 +27,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarUrl, setAvatarUrl] = useState('');
     const [error, setError] = useState('');
+    const [warning, setWarning] = useState('');
     const [loading, setLoading] = useState(false);
     const [currentUser, setCurrentUser] = useState<import("../../types").User | null>(null);
 
@@ -98,6 +99,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
             setAvatarFile(null);
             setAvatarUrl('');
             setError('');
+            setWarning('');
             dialogRef.current?.showModal();
         };
 
@@ -109,6 +111,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
         e.preventDefault();
         setLoading(true);
         setError('');
+        setWarning('');
 
         try {
             const postParamsValue = (mastodonInstance || mastodonToken) ? {
@@ -145,18 +148,34 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
 
             // Upload avatar if selected (file takes precedence over URL)
             if (avatarFile && artist) {
-                await API.uploadArtistAvatar(artist.id, avatarFile);
+                try {
+                    await API.uploadArtistAvatar(artist.id, avatarFile);
+                } catch (err: any) {
+                    setWarning("Profile saved, but avatar file upload failed.");
+                }
             } else if (avatarUrl && artist) {
-                await API.uploadArtistAvatarUrl(artist.id, avatarUrl);
+                try {
+                    await API.uploadArtistAvatarUrl(artist.id, avatarUrl);
+                } catch (err: any) {
+                    console.warn("Avatar URL download failed:", err);
+                    setWarning("Profile saved, but failed to download avatar from URL. You can try a different URL or upload a file.");
+                }
             }
 
-            onArtistUpdated();
-            dialogRef.current?.close();
+            if (!warning) {
+                onArtistUpdated();
+                dialogRef.current?.close();
+            } else {
+                // If there's a warning, we don't close automatically so user sees it
+                onArtistUpdated();
+                setLoading(false);
+            }
         } catch (e: unknown) {
             console.error(e);
             setError((e as Error).message || 'Failed to save artist');
-        } finally {
             setLoading(false);
+        } finally {
+            if (!warning) setLoading(false);
         }
     };
 
@@ -350,11 +369,27 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                     
                     {error && <div className="text-error text-sm text-center">{error}</div>}
 
-                    <div className="modal-action">
-                        <button type="button" className="btn btn-ghost" onClick={() => dialogRef.current?.close()}>Cancel</button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
-                            {loading ? 'Saving...' : (isEditing ? 'Update Artist' : 'Create Artist')}
-                        </button>
+                    {warning && (
+                        <div className="alert alert-warning text-sm py-2 bg-warning/10 border-warning/20 text-warning">
+                            <AlertTriangle size={16} />
+                            <span>{warning}</span>
+                        </div>
+                    )}
+
+                    <div className="modal-action flex justify-between items-center">
+                        {warning ? (
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => dialogRef.current?.close()}>
+                                Close Anyway
+                            </button>
+                        ) : (
+                            <div />
+                        )}
+                        <div className="flex gap-2">
+                            <button type="button" className="btn btn-ghost" onClick={() => dialogRef.current?.close()}>Cancel</button>
+                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                                {loading ? 'Saving...' : (isEditing ? 'Update Artist' : 'Create Artist')}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

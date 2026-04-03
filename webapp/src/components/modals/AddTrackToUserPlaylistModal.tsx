@@ -98,13 +98,17 @@ export const AddTrackToUserPlaylistModal = ({
 
   const filteredNetworkTracks = networkTracks
     .filter((nt) => {
+      if (!nt || !nt.track) return false;
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
+      const title = nt.track.title || "";
+      const artist = nt.track.artistName || "";
+      const site = nt.siteName || "";
+      
       return (
-        nt.track.title.toLowerCase().includes(q) ||
-        (nt.track.artistName &&
-          nt.track.artistName.toLowerCase().includes(q)) ||
-        nt.siteName.toLowerCase().includes(q)
+        title.toLowerCase().includes(q) ||
+        artist.toLowerCase().includes(q) ||
+        site.toLowerCase().includes(q)
       );
     })
     .slice(0, 30);
