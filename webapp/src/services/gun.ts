@@ -500,9 +500,17 @@ export const GunPlaylists = {
             let timeoutId: any;
             let bestData: any = null;
             let resolved = false;
+            const listeners: any[] = [];
 
             const processData = (data: any) => {
                 if (resolved) return;
+                resolved = true;
+                
+                if (timeoutId) clearTimeout(timeoutId);
+                // Clean up listeners
+                listeners.forEach(ev => {
+                    if (ev && ev.off) ev.off();
+                });
 
                 let tracks: UserPlaylistTrack[] = [];
                 try {
@@ -510,9 +518,6 @@ export const GunPlaylists = {
                         tracks = JSON.parse(data.tracksJson);
                     }
                 } catch { /* ignore */ }
-
-                resolved = true;
-                if (timeoutId) clearTimeout(timeoutId);
 
                 resolve({
                     id: data.id,
@@ -531,14 +536,13 @@ export const GunPlaylists = {
 
             const handleData = (data: any, ev: any) => {
                 if (!data || !data.id || resolved) return;
+                if (ev && !listeners.includes(ev)) listeners.push(ev);
 
                 // Merge data fields since Gun might emit them separately
                 bestData = { ...bestData, ...data };
 
-                // Only resolve if it feels complete enough (has tracks),
-                // or if it was saved without tracks previously? 'tracksJson' should be set on create.
+                // Only resolve early if it feels complete enough (has name and tracksJson)
                 if (bestData.name !== undefined && bestData.tracksJson !== undefined) {
-                    if (ev && ev.off) ev.off(); // Prevent memory leaks once we have the data
                     processData(bestData);
                 }
             };
@@ -558,10 +562,14 @@ export const GunPlaylists = {
             // Extended fallback timeout to prevent hanging UI (5 seconds to allow remote peer sync)
             timeoutId = setTimeout(() => {
                 if (!resolved) {
-                    resolved = true;
                     if (bestData && bestData.id) {
                         processData(bestData);
                     } else {
+                        resolved = true;
+                        // Clean up listeners
+                        listeners.forEach(ev => {
+                            if (ev && ev.off) ev.off();
+                        });
                         resolve(null);
                     }
                 }

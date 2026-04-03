@@ -47,24 +47,29 @@ export const MyPlaylistDetails = () => {
   const navigate = useNavigate();
   const [playlist, setPlaylist] = useState<UserPlaylist | null>(null);
   const [loading, setLoading] = useState(true);
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, isLoading: authLoading } = useAuthStore();
   const { playTrack } = usePlayerStore();
 
   useEffect(() => {
-    if (id) loadPlaylist(id);
-  }, [id]);
+    // Wait for auth to finish loading so Gun session is recalled if available
+    if (id && !authLoading) {
+      loadPlaylist(id);
+    }
+  }, [id, authLoading]);
 
   const loadPlaylist = async (playlistId: string) => {
     setLoading(true);
     try {
+      console.log(`[Playlist] Loading ${playlistId}...`);
       const data = await GunPlaylists.getPlaylist(playlistId);
       if (!data) {
+        console.warn(`[Playlist] Not found: ${playlistId}`);
         navigate("/my-playlists");
         return;
       }
       setPlaylist(data);
     } catch (e) {
-      console.error(e);
+      console.error("[Playlist] Load error:", e);
       navigate("/my-playlists");
     } finally {
       setLoading(false);
@@ -143,10 +148,11 @@ export const MyPlaylistDetails = () => {
 
   const isOwner = isAuthenticated && user?.gunProfile?.pub === playlist?.ownerPub;
 
-  if (loading)
+  if (loading || authLoading)
     return (
       <div className="text-center opacity-50 py-12">
         <span className="loading loading-spinner loading-lg"></span>
+        {authLoading && <p className="mt-4 text-xs">Waiting for GunDB...</p>}
       </div>
     );
   if (!playlist) return null;

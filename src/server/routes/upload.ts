@@ -589,7 +589,15 @@ export function createUploadRoutes(
 
             console.log(`👤 Downloading avatar for artist ${id} from: ${url}`);
 
-            const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
+            const response = await axios.get(url, { 
+                responseType: 'arraybuffer', 
+                timeout: 15000,
+                maxRedirects: 5,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+                }
+            });
             const contentType = response.headers['content-type'];
             
             if (!contentType || !contentType.startsWith('image/')) {
