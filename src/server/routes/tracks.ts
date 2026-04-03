@@ -566,7 +566,8 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 (database as any).db.prepare("UPDATE tracks SET external_artwork = ? WHERE id = ?").run(coverUrl, id);
             }
 
-            res.json({ message: "Metadata matched successfully", track: database.getTrack(id) });
+            const updatedTrack = database.getTrack(id);
+            res.json({ message: "Metadata matched successfully", track: updatedTrack ? mapTrack(updatedTrack, req.username) : null });
         } catch (error) {
             console.error("Metadata match error:", error);
             res.status(500).json({ error: "Failed to apply metadata" });

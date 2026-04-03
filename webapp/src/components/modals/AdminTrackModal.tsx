@@ -20,6 +20,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
   const [currency, setCurrency] = useState<'ETH' | 'USD' | 'USDC'>('USDC');
   const [artworkUrl, setArtworkUrl] = useState<string | null>(null);
   const [currentTrackData, setCurrentTrackData] = useState<any>(null);
+  const [hasCustomArtwork, setHasCustomArtwork] = useState(false);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,7 +46,8 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         setPrice(e.detail.price ? String(e.detail.price) : "");
         setPriceUsdc(e.detail.price_usdc ? String(e.detail.price_usdc) : "");
         setCurrency(e.detail.price_usdc ? 'USDC' : (e.detail.currency || 'ETH'));
-        setArtworkUrl(e.detail.external_artwork || null);
+        setArtworkUrl(e.detail.coverUrl || null);
+        setHasCustomArtwork(!!e.detail.external_artwork);
         setCurrentTrackData(e.detail);
 
         loadData();
@@ -91,7 +93,8 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
     setError("");
     try {
       const res = await API.uploadTrackArtwork(trackId, file);
-      setArtworkUrl(res.url);
+      setArtworkUrl(`${res.url}?v=${Date.now()}`);
+      setHasCustomArtwork(true);
       onTrackUpdated();
     } catch (err: any) {
       setError(err.message || "Failed to upload artwork");
@@ -220,7 +223,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
               accept="image/jpeg,image/png,image/webp" 
               onChange={handleArtworkChange} 
             />
-            {artworkUrl && (
+            {hasCustomArtwork && (
               <div className="text-xs opacity-50 mt-2 text-center max-w-xs truncate">
                 Custom artwork applied
               </div>
@@ -389,7 +392,8 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
             setTitle(updated.title || "");
             setArtistName((updated as any).artist_name || updated.artistName || "");
             setAlbumTitle((updated as any).album_title || updated.albumName || "");
-            setArtworkUrl((updated as any).external_artwork || updated.coverUrl || null);
+            setArtworkUrl(updated.coverUrl || null);
+            setHasCustomArtwork(!!(updated as any).external_artwork);
             setCurrentTrackData((prev: any) => ({ ...prev, ...updated }));
             onTrackUpdated();
             setShowMetadataModal(false);
