@@ -15,7 +15,6 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
   const [ownerName, setOwnerName] = useState("");
   const [trackId, setTrackId] = useState<string | null>(null);
   const [trackNum, setTrackNum] = useState<string>("");
-  const [trackNum, setTrackNum] = useState<string>("");
   const [artworkUrl, setArtworkUrl] = useState<string | null>(null);
   const [currentTrackData, setCurrentTrackData] = useState<any>(null);
   const [hasCustomArtwork, setHasCustomArtwork] = useState(false);
@@ -40,7 +39,6 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         setArtistName(e.detail.artist_name || "");
         setAlbumTitle(e.detail.album_title || "");
         setOwnerName(e.detail.owner_name || "");
-        setTrackNum(e.detail.track_num ? String(e.detail.track_num) : "");
         setTrackNum(e.detail.track_num ? String(e.detail.track_num) : "");
         setArtworkUrl(e.detail.coverUrl || null);
         setHasCustomArtwork(!!e.detail.external_artwork);
