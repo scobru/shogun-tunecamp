@@ -589,12 +589,16 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             // Security Check: Ensure track is public, user is admin, or user is owner
-            if (!req.isAdmin && track.owner_id !== req.artistId) {
+            const isOwner = (req.userId !== undefined && track.owner_id === req.userId) || 
+                            (req.artistId !== undefined && track.artist_id === req.artistId);
+            
+            if (!req.isAdmin && !isOwner) {
                 if (track.album_id) {
                     // Try to get as formal Release first, then fallback to library Album
                     const release = database.getRelease(track.album_id);
                     const album = release || database.getAlbum(track.album_id);
                     
+                    // If album/release exists and is private, deny access unless in a public playlist
                     if (album && album.visibility === 'private') {
                         // Check if track is in a public playlist
                         const isInPublicPlaylist = database.isTrackInPublicPlaylist(id);
@@ -605,13 +609,15 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                         }
                         console.log(`🔓 [Stream] Allowing private track ${id} because it is in a public playlist`);
                     }
-                } else if (track.artist_id !== req.artistId) {
-                    // Orphan track not owned by user
-                    console.warn(`🛑 [Stream] Access denied for track ${id} (orphan, not owner)`);
+                } else {
+                    // Orphan track not owned by user - deny access by default for security
+                    console.warn(`🛑 [Stream] Access denied for orphan track ${id} (not owner)`);
                     return res.status(403).json({ error: "Access denied" });
                 }
             } else if (req.isAdmin) {
                 console.log(`🔓 [Stream] Admin access granted for track ${id}`);
+            } else if (isOwner) {
+                console.log(`🔓 [Stream] Owner access granted for track ${id}`);
             }
 
             if (!track.file_path) {

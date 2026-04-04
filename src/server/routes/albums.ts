@@ -116,8 +116,8 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 return res.status(403).json({ error: "Access denied" });
             }
 
-            // Promote by setting is_release = 1
-            database.db.prepare("UPDATE albums SET is_release = 1, visibility = 'public', is_public = 1 WHERE id = ?").run(id);
+            // Promote via database service to ensure all tables (releases, release_tracks) are synced
+            database.promoteToRelease(id);
             
             res.json({ success: true, message: "Album promoted to release" });
         } catch (error) {

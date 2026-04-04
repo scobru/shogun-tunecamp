@@ -1639,11 +1639,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                 WHERE r.id = ?
             `).get(id) as any;
             if (!row) return undefined;
-            return {
-                ...row,
-                published_to_gundb: !!row.published_to_gundb,
-                published_to_ap: !!row.published_to_ap
-            } as any;
+            return mapAlbum(row) as any;
         },
 
         getReleaseBySlug(slug: string): Release | undefined {
@@ -1655,11 +1651,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             if (!row) {
                 return undefined;
             }
-            return {
-                ...row,
-                published_to_gundb: !!row.published_to_gundb,
-                published_to_ap: !!row.published_to_ap
-            } as any;
+            return mapAlbum(row) as any;
         },
 
         getReleasesByArtist(artistId: number, publicOnly = false): Release[] {
