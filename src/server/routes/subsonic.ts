@@ -138,7 +138,72 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     };
 
     // --- Formatters ---
-    // ... rest of formatters ...
+
+    const formatTrack = (track: Track, username: string) => {
+        const id = `tr_${track.id}`;
+        return {
+            '@id': id,
+            '@parent': track.album_id ? `al_${track.album_id}` : undefined,
+            '@isDir': false,
+            '@title': track.title,
+            '@album': track.album_title,
+            '@artist': track.artist_name,
+            '@track': track.track_num,
+            '@year': track.year,
+            '@genre': track.genre,
+            '@coverArt': track.album_id ? `al_${track.album_id}` : id,
+            '@size': 0,
+            '@contentType': getContentType(track.format),
+            '@suffix': track.format || 'mp3',
+            '@duration': Math.floor(track.duration || 0),
+            '@bitRate': track.bitrate ? Math.round(track.bitrate / 1000) : 128,
+            '@path': track.file_path,
+            '@albumId': track.album_id ? `al_${track.album_id}` : undefined,
+            '@artistId': track.artist_id ? `ar_${track.artist_id}` : undefined,
+            '@type': 'music',
+            '@created': track.created_at,
+            '@starred': db.isStarred(username, 'track', id) ? track.created_at || new Date().toISOString() : undefined,
+            '@userRating': db.getItemRating(username, 'track', id) || undefined,
+            '@averageRating': db.getItemRating(username, 'track', id) || undefined,
+            '@discNumber': (track as any).disc_number || 1,
+            '@samplingRate': track.sample_rate || 44100,
+            '@bitDepth': (track as any).bit_depth || 16
+        };
+    };
+
+    const formatAlbum = (album: any, username: string) => {
+        const id = `al_${album.id}`;
+        const artistId = album.artist_id ? `ar_${album.artist_id}` : undefined;
+        return {
+            '@id': id,
+            '@name': album.title,
+            '@title': album.title,
+            '@artist': album.artist_name || 'Unknown Artist',
+            '@artistId': artistId,
+            '@isDir': true,
+            '@coverArt': id,
+            '@songCount': album.songCount || 0,
+            '@duration': Math.floor(album.duration || 0),
+            '@created': album.created_at,
+            '@year': album.year || (album.date ? new Date(album.date).getFullYear() : undefined),
+            '@genre': album.genre,
+            '@starred': db.isStarred(username, 'album', id) ? album.created_at || new Date().toISOString() : undefined,
+            '@userRating': db.getItemRating(username, 'album', id) || undefined
+        };
+    };
+
+    const formatArtist = (artist: any, username: string) => {
+        const id = `ar_${artist.id}`;
+        return {
+            '@id': id,
+            '@name': artist.name,
+            '@coverArt': id,
+            '@artistImageUrl': `getCoverArt.view?id=${id}`,
+            '@albumCount': artist.albumCount || 0,
+            '@starred': db.isStarred(username, 'artist', id) ? artist.created_at || new Date().toISOString() : undefined,
+            '@userRating': db.getItemRating(username, 'artist', id) || undefined
+        };
+    };
 
     // --- Public Endpoints (No Auth Required) ---
 
@@ -197,8 +262,6 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     // --- Core Endpoints ---
 
-    router.all('/ping.view', (req, res) => sendResponse(res, req, {}));
-    
     router.all('/getLicense.view', (req, res) => {
         sendResponse(res, req, {
             license: {
