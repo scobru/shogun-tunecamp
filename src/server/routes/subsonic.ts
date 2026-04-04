@@ -596,6 +596,55 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         });
     });
 
+    // --- Artist Info ---
+
+    router.all(['/getArtistInfo.view', '/getArtistInfo2.view'], (req, res) => {
+        const id = ensureString(req.query.id);
+        if (!id) return sendError(res, req, 10, 'Missing parameter id');
+
+        const artistId = parseInt(id.startsWith('ar_') ? id.substring(3) : id);
+        const artist = db.getArtist(artistId);
+        if (!artist) return sendError(res, req, 70, 'Artist not found');
+
+        const wrapperKey = req.path.includes('getArtistInfo2') ? 'artistInfo2' : 'artistInfo';
+        sendResponse(res, req, {
+            [wrapperKey]: {
+                '@biography': artist.bio || '',
+                '@musicBrainzId': '',
+                '@lastFmUrl': '',
+                '@smallImageUrl': `getCoverArt.view?id=ar_${artist.id}`,
+                '@mediumImageUrl': `getCoverArt.view?id=ar_${artist.id}`,
+                '@largeImageUrl': `getCoverArt.view?id=ar_${artist.id}`,
+                similarArtist: []
+            }
+        });
+    });
+
+    // --- Album Info ---
+
+    router.all(['/getAlbumInfo.view', '/getAlbumInfo2.view'], (req, res) => {
+        const id = ensureString(req.query.id);
+        if (!id) return sendError(res, req, 10, 'Missing parameter id');
+
+        const albumId = parseInt(id.startsWith('al_') ? id.substring(3) : id);
+        const album = db.getAlbum(albumId);
+        if (!album) return sendError(res, req, 70, 'Album not found');
+
+        const wrapperKey = req.path.includes('getAlbumInfo2') ? 'albumInfo2' : 'albumInfo';
+        sendResponse(res, req, {
+            [wrapperKey]: {
+                '@notes': album.description || '',
+                '@musicBrainzId': '',
+                '@lastFmUrl': '',
+                '@smallImageUrl': `getCoverArt.view?id=al_${album.id}`,
+                '@mediumImageUrl': `getCoverArt.view?id=al_${album.id}`,
+                '@largeImageUrl': `getCoverArt.view?id=al_${album.id}`
+            }
+        });
+    });
+
+    // --- Genres ---
+
     router.all('/getGenres.view', (req, res) => {
         const albums = db.getAlbums(false);
         const genreMap = new Map<string, { count: number, songCount: number }>();
@@ -626,7 +675,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         
         const response: any = { artist: [], album: [], song: [] };
         starred.forEach(item => {
-            const id = parseInt(item.item_id.split('_')[1]);
+            const idParts = item.item_id.split('_');
+            const id = parseInt(idParts[1] || idParts[0]);
             if (item.item_type === 'artist') {
                 const a = db.getArtist(id);
                 if (a) response.artist.push(formatArtist(a, username));
@@ -658,7 +708,8 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     router.all('/getPlaylist.view', (req, res) => {
         const username = (req as any).user?.username || 'admin';
-        const id = parseInt(ensureString(req.query.id)?.split('_')[1] || '');
+        const idStr = ensureString(req.query.id);
+        const id = parseInt(idStr?.startsWith('pl_') ? idStr.substring(3) : (idStr || ''));
         const playlist = db.getPlaylist(id);
         if (!playlist) return sendError(res, req, 70, 'Playlist not found');
 
