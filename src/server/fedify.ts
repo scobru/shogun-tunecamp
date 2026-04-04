@@ -1,10 +1,10 @@
 import crypto from "crypto";
-import { createFederation, Person, Endpoints, CryptographicKey, Follow, Accept, Undo, Announce, type Federation, Service, Note, Like, Image } from "@fedify/fedify";
+import { createFederation, Person, Endpoints, CryptographicKey, Follow, Accept, Undo, Announce, Service, Note, Like, Image } from "@fedify/fedify";
 import { BetterSqliteKvStore } from "./fedify-kv.js";
 import type { DatabaseService } from "./database.js";
 import type { ServerConfig } from "./config.js";
 
-export function createFedify(dbService: DatabaseService, config: ServerConfig): Federation<void> {
+export function createFedify(dbService: DatabaseService, config: ServerConfig) {
     const db = dbService.db;
     const kv = new BetterSqliteKvStore(db);
 
