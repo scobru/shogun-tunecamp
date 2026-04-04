@@ -460,7 +460,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     // --- Selection & Lists ---
 
-    router.all('/getAlbumList.view', (req, res) => {
+    router.all(['/getAlbumList.view', '/getAlbumList2.view'], (req, res) => {
         const username = (req as any).user?.username || 'admin';
         const type = ensureString(req.query.type) || 'newest';
         const size = parseInt(ensureString(req.query.size) || '10');
@@ -477,16 +477,10 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         else if (type === 'newest' || type === 'recent') albums.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         else if (type === 'alphabeticalByName') albums.sort((a, b) => a.title.localeCompare(b.title));
         else if (type === 'alphabeticalByArtist') albums.sort((a, b) => (a.artist_name || '').localeCompare(b.artist_name || ''));
-        else if (type === 'frequent') albums.sort((a, b) => (b.play_count || 0) - (a.play_count || 0));
 
         const paginated = albums.slice(offset, offset + size);
         const wrapperKey = isV2 ? 'albumList2' : 'albumList';
         sendResponse(res, req, { [wrapperKey]: { album: paginated.map(a => formatAlbum(a, username)) } });
-    });
-
-    router.all('/getAlbumList2.view', (req, res) => {
-        // Simple redirect to the combined logic
-        return router.handle(req as any, res as any, () => {});
     });
 
     router.all('/getRandomSongs.view', (req, res) => {

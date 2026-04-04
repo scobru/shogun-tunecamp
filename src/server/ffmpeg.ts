@@ -104,8 +104,12 @@ export async function convertWavToMp3(inputPath: string, bitrate: string = '320k
  * Returns a readable stream
  * NOTE: Live transcoding bypasses the queue to ensure immediate playback
  */
-export function transcode(inputPath: string, format: string = 'mp3', bitrate?: number): any {
+export function transcode(inputPath: string, format: string = 'mp3', bitrate?: number, seek?: number): any {
     const command = ffmpeg(inputPath);
+
+    if (seek) {
+        command.seekInput(seek);
+    }
 
     if (format === 'mp3') {
         command.toFormat('mp3').audioCodec('libmp3lame');
