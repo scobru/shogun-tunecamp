@@ -1054,15 +1054,23 @@ export class Scanner implements ScannerService {
                     // Handle collision if file already exists at target
                     let finalNewPath = fullNewPath;
                     let finalDBPath = newPath;
-                    if (await fs.pathExists(fullNewPath)) {
-                        const uniqueId = Date.now().toString().slice(-4);
-                        finalNewPath = path.join(path.dirname(fullNewPath), `${newBaseName}_${uniqueId}${ext}`);
-                        finalDBPath = path.join(path.dirname(newPath), `${newBaseName}_${uniqueId}${ext}`).replace(/\\/g, "/");
+                    
+                    // Check if it's actually the same file (case-insensitive filesystem check)
+                    const isSameFile = fullOldPath.toLowerCase() === fullNewPath.toLowerCase();
+
+                    if (await fs.pathExists(fullNewPath) && !isSameFile) {
+                        // Use track ID for a stable unique filename instead of timestamp
+                        const uniqueSuffix = `_${track.id}`;
+                        finalNewPath = path.join(path.dirname(fullNewPath), `${newBaseName}${uniqueSuffix}${ext}`);
+                        finalDBPath = path.join(path.dirname(newPath), `${newBaseName}${uniqueSuffix}${ext}`).replace(/\\/g, "/");
                     }
 
-                    await fs.move(fullOldPath, finalNewPath, { overwrite: true });
-                    this.database.updateTrackPath(track.id, finalDBPath, track.album_id);
-                    movedAny = true;
+                    // Only move if the path actually changed or we need to fix case
+                    if (oldPath !== finalDBPath) {
+                        await fs.move(fullOldPath, finalNewPath, { overwrite: true });
+                        this.database.updateTrackPath(track.id, finalDBPath, track.album_id);
+                        movedAny = true;
+                    }
                 }
 
                 // Move lossless
@@ -1074,21 +1082,27 @@ export class Scanner implements ScannerService {
                         let finalDBLossless = newLossless;
                         const lExt = path.extname(oldLossless).toLowerCase();
                         
-                        if (await fs.pathExists(fullNewLossless)) {
-                            const uniqueId = Date.now().toString().slice(-4);
-                            finalNewLossless = path.join(path.dirname(fullNewLossless), `${newBaseName}_${uniqueId}${lExt}`);
-                            finalDBLossless = path.join(path.dirname(newLossless), `${newBaseName}_${uniqueId}${lExt}`).replace(/\\/g, "/");
+                        const isSameLossless = fullOldLossless.toLowerCase() === fullNewLossless.toLowerCase();
+
+                        if (await fs.pathExists(fullNewLossless) && !isSameLossless) {
+                            const uniqueSuffix = `_${track.id}`;
+                            finalNewLossless = path.join(path.dirname(fullNewLossless), `${newBaseName}${uniqueSuffix}${lExt}`);
+                            finalDBLossless = path.join(path.dirname(newLossless), `${newBaseName}${uniqueSuffix}${lExt}`).replace(/\\/g, "/");
                         }
 
-                        await fs.move(fullOldLossless, finalNewLossless, { overwrite: true });
-                        this.database.updateTrackLosslessPath(track.id, finalDBLossless);
-                        movedAny = true;
+                        if (oldLossless !== finalDBLossless) {
+                            await fs.move(fullOldLossless, finalNewLossless, { overwrite: true });
+                            this.database.updateTrackLosslessPath(track.id, finalDBLossless);
+                            movedAny = true;
+                        }
                     }
                 }
 
                 if (movedAny) {
                     success++;
-                    console.log(`  [Consolidate] Renamed ID ${track.id} to: ${newBaseName}`);
+                    console.log(`  [Consolidate] Renamed ID ${track.id}:`);
+                    console.log(`    From: ${oldPath}`);
+                    console.log(`    To:   ${finalDBPath}`);
                 } else {
                     skipped++;
                 }
