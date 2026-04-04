@@ -267,16 +267,28 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         });
     });
 
-    router.all('/getIndexes.view', (req, res) => {
+    router.all(['/getIndexes.view', '/getArtists.view'], (req, res) => {
         const username = (req as any).user?.username || 'admin';
         const artists = db.getArtists();
         const indexes: Record<string, any[]> = {};
+
+        // Get album counts per artist
+        const albumCounts = db.getArtistAlbumCounts();
+        const countMap = new Map<number, number>();
+        for (const row of albumCounts) {
+            countMap.set(row.artist_id, row.count);
+        }
 
         artists.forEach(artist => {
             let char = artist.name.charAt(0).toUpperCase();
             if (!/[A-Z]/.test(char)) char = '#';
             if (!indexes[char]) indexes[char] = [];
-            indexes[char].push(formatArtist(artist, username));
+            
+            const artistData = formatArtist({
+                ...artist,
+                albumCount: (countMap.get(artist.id) || 0)
+            }, username);
+            indexes[char].push(artistData);
         });
 
         const sortedKeys = Object.keys(indexes).sort();
@@ -285,8 +297,9 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             artist: indexes[key]
         }));
 
+        const rootKey = req.path.includes('getArtists') ? 'artists' : 'indexes';
         sendResponse(res, req, {
-            indexes: {
+            [rootKey]: {
                 '@lastModified': Date.now(),
                 '@ignoredArticles': 'The El La Los Las Le Les',
                 index: indexNodes
