@@ -1045,6 +1045,7 @@ export class Scanner implements ScannerService {
 
                 // Perform move operations
                 let movedAny = false;
+                let finalDBPath = newPath;
 
                 // Move primary
                 const fullOldPath = path.join(musicDir, oldPath);
@@ -1053,7 +1054,6 @@ export class Scanner implements ScannerService {
                 if (fullOldPath !== fullNewPath && await fs.pathExists(fullOldPath)) {
                     // Handle collision if file already exists at target
                     let finalNewPath = fullNewPath;
-                    let finalDBPath = newPath;
                     
                     // Check if it's actually the same file (case-insensitive filesystem check)
                     const isSameFile = fullOldPath.toLowerCase() === fullNewPath.toLowerCase();
