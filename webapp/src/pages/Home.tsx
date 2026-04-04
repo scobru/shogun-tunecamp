@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import API from "../services/api";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { Play, Library, Disc } from "lucide-react";
 import clsx from "clsx";
 
 export const Home = () => {
+  const navigate = useNavigate();
   const [recentAlbums, setRecentAlbums] = useState<any[]>([]);
   const [libraryAlbums, setLibraryAlbums] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({});
@@ -108,9 +110,9 @@ export const Home = () => {
             >
                Browse Music
             </button>
-            <a href="#/about" className="btn btn-ghost rounded-xl border border-white/10">
+            <Link to="/about" className="btn btn-ghost rounded-xl border border-white/10">
               Explore Network
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -158,9 +160,9 @@ export const Home = () => {
             <h2 className="text-3xl font-black tracking-tighter uppercase mb-1">Recent Releases</h2>
             <p className="text-sm opacity-40 font-medium">The latest published highlights</p>
           </div>
-          <a href="#/albums" className="btn btn-link btn-sm no-underline opacity-40 hover:opacity-100 uppercase tracking-widest font-black text-[10px]">
+          <Link to="/albums" className="btn btn-link btn-sm no-underline opacity-40 hover:opacity-100 uppercase tracking-widest font-black text-[10px]">
             View All →
-          </a>
+          </Link>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-8">
@@ -171,7 +173,7 @@ export const Home = () => {
                 key={album.id}
                 className="group cursor-pointer space-y-4"
                 onClick={() =>
-                  (window.location.hash = `#/releases/${album.slug || album.id}`)
+                  navigate(`/releases/${album.slug || album.id}`)
                 }
               >
                 <div className="aspect-square relative rounded-[1.5rem] overflow-hidden shadow-2xl bg-base-300 ring-1 ring-white/5 transition-all duration-500 group-hover:scale-[1.02] group-hover:ring-primary/20">
@@ -251,7 +253,7 @@ export const Home = () => {
                 key={album.id}
                 className="group cursor-pointer space-y-2"
                 onClick={() =>
-                  (window.location.hash = `#/albums/${album.slug || album.id}`)
+                  navigate(`/albums/${album.slug || album.id}`)
                 }
               >
                 <div className="aspect-square relative rounded-xl overflow-hidden bg-base-300 ring-1 ring-white/5 transition-all group-hover:ring-secondary/40">

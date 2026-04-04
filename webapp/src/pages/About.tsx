@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Music, Shield, Users, Zap, Globe, Cpu } from "lucide-react";
 
 export const About = () => {
@@ -109,9 +110,9 @@ export const About = () => {
           >
             GitHub
           </a>
-          <a href="#/" className="btn btn-ghost">
+          <Link to="/" className="btn btn-ghost">
             Back to Home
-          </a>
+          </Link>
         </div>
       </div>
     </div>

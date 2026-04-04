@@ -305,16 +305,15 @@ export const ActivityPubPanel = () => {
                                     </div>
                                     
                                     <div className="flex flex-col gap-2">
-                                        <a 
-                                            href={note.note_type === 'release' 
-                                                ? `/#/album/${note.content_slug}` 
-                                                : `/#/artist/${selectedArtist?.slug}?post=${note.content_slug}`
-                                            } 
-                                            target="_blank" 
-                                            rel="noopener noreferrer" 
+                                        <a
+                                            href={note.note_type === 'release'
+                                                ? `/albums/${note.content_slug}`
+                                                : `/artists/${selectedArtist?.slug}?post=${note.content_slug}`
+                                            }
+                                            target="_blank"
+                                            rel="noopener noreferrer"
                                             className="btn btn-ghost btn-sm btn-square"
-                                        >
-                                            <ExternalLink size={18}/>
+                                        >                                            <ExternalLink size={18}/>
                                         </a>
                                         <button 
                                             className="btn btn-error btn-outline btn-sm"
