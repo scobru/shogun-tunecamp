@@ -211,8 +211,10 @@ export function createUploadRoutes(
             }
 
             // SECURITY FIX: Prevent uploading to another artist's release (unless root admin)
-            if (release && !req.isRootAdmin && req.artistId && release.artist_id !== req.artistId) {
-                console.warn(`⛔ Access Denied: User ${(req as any).username} (Artist ${(req as any).artistId}) tried to upload to release ${release.slug} (Artist ${release.artist_id})`);
+            const isAuthorized = req.isRootAdmin || req.userId === undefined || release?.owner_id === req.userId || release?.artist_id === req.artistId;
+
+            if (release && !isAuthorized) {
+                console.warn(`⛔ Access Denied: User ${(req as any).username} (User ID ${req.userId}) tried to upload to release ${release.slug} (Owner ${release.owner_id})`);
                 // Cleanup temp files
                 await Promise.all(files.map(file => fs.remove(file.path).catch(() => {})));
                 return res.status(403).json({ error: "Access denied: Cannot upload tracks to another artist's release" });
@@ -346,7 +348,7 @@ export function createUploadRoutes(
                 }
 
                 const isAuthorized = req.isRootAdmin || req.userId === undefined || 
-                    targetItem.owner_id === req.userId;
+                    targetItem.owner_id === req.userId || targetItem.artist_id === req.artistId;
 
                 if (!isAuthorized) {
                     await fs.remove(file.path);

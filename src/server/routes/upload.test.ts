@@ -74,7 +74,7 @@ describe('Upload Routes - Authorization', () => {
 
     test('POST /upload/cover allows upload if user matches artist_id', async () => {
         const validSlug = 'test-album';
-        Object.assign(currentTestUser, { artistId: 5, isRootAdmin: false, isAdmin: true, isActive: true });
+        Object.assign(currentTestUser, { userId: 5, artistId: 5, isRootAdmin: false, isAdmin: true, isActive: true });
         
         (mockDatabase.getReleaseBySlug as jest.Mock).mockReturnValue({
             id: 1,
@@ -98,7 +98,7 @@ describe('Upload Routes - Authorization', () => {
 
     test('POST /upload/cover allows upload if user matches owner_id (THE FIX)', async () => {
         const validSlug = 'test-album';
-        Object.assign(currentTestUser, { artistId: 10, isRootAdmin: false, isAdmin: true, isActive: true });
+        Object.assign(currentTestUser, { userId: 10, artistId: 10, isRootAdmin: false, isAdmin: true, isActive: true });
         
         (mockDatabase.getReleaseBySlug as jest.Mock).mockReturnValue({
             id: 1,
@@ -122,7 +122,7 @@ describe('Upload Routes - Authorization', () => {
 
     test('POST /upload/cover denies upload if user matches neither', async () => {
         const validSlug = 'test-album';
-        Object.assign(currentTestUser, { artistId: 99, isRootAdmin: false, isAdmin: true, isActive: true });
+        Object.assign(currentTestUser, { userId: 99, artistId: 99, isRootAdmin: false, isAdmin: true, isActive: true });
         
         (mockDatabase.getReleaseBySlug as jest.Mock).mockReturnValue({
             id: 1,
