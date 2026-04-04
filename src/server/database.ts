@@ -880,15 +880,19 @@ export function createDatabase(dbPath: string): DatabaseService {
                         // But wait, the old 'release_tracks' table might have been dropped or renamed if I'm not careful.
                         // Actually, I haven't dropped it yet.
                         
-                        for (const track of oldTracks) {
-                            db.prepare(`
-                                INSERT INTO release_tracks (release_id, track_id, title, artist_name, track_num, duration, file_path, price, currency, created_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            `).run(
-                                album.id, track.id, track.title, track.artist_name, track.track_num, track.duration, 
-                                track.file_path, track.price, track.currency, track.created_at
-                            );
-                        }
+                        const insertTrack = db.prepare(`
+                            INSERT INTO release_tracks (release_id, track_id, title, artist_name, track_num, duration, file_path, price, currency, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `);
+                        const insertManyTracks = db.transaction((tracks: any[], albumId: number) => {
+                            for (const track of tracks) {
+                                insertTrack.run(
+                                    albumId, track.id, track.title, track.artist_name, track.track_num, track.duration,
+                                    track.file_path, track.price, track.currency, track.created_at
+                                );
+                            }
+                        });
+                        insertManyTracks(oldTracks, album.id);
                     }
 
                     // 3. Migrate unlock_codes
@@ -943,9 +947,12 @@ export function createDatabase(dbPath: string): DatabaseService {
                         INSERT INTO release_tracks (id, release_id, track_id, title, artist_name, track_num, duration, file_path, price, currency, created_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `);
-                    for (const row of data) {
-                        insert.run(row.id, row.release_id, row.track_id, row.title, row.artist_name, row.track_num, row.duration, row.file_path, row.price, row.currency, row.created_at);
-                    }
+                    const insertMany = db.transaction((rows: any[]) => {
+                        for (const row of rows) {
+                            insert.run(row.id, row.release_id, row.track_id, row.title, row.artist_name, row.track_num, row.duration, row.file_path, row.price, row.currency, row.created_at);
+                        }
+                    });
+                    insertMany(data);
                 }
 
                 // 5. Re-create indexes
