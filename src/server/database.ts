@@ -2025,9 +2025,18 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         getAlbum(id: number): Album | undefined {
-            const row = db.prepare(`SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
+            let row = db.prepare(`SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
                    LEFT JOIN artists ar ON a.artist_id = ar.id
                    WHERE a.id = ?`).get(id) as any;
+            
+            if (!row) {
+                // Fallback to releases table
+                row = db.prepare(`SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM releases r
+                       LEFT JOIN artists ar ON r.artist_id = ar.id
+                       WHERE r.id = ?`).get(id) as any;
+                if (row) row.is_release = 1;
+            }
+
             if (!row) return undefined; 
             return mapAlbum(row);
         },
@@ -2039,24 +2048,44 @@ export function createDatabase(dbPath: string): DatabaseService {
             for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
                 const chunk = ids.slice(i, i + CHUNK_SIZE);
                 const placeholders = chunk.map(() => "?").join(",");
+                // Fetch from albums table
                 const rows = db.prepare(`SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
                     LEFT JOIN artists ar ON a.artist_id = ar.id
                     WHERE a.id IN (${placeholders})`).all(...chunk);
                 results.push(...mapAlbums(rows));
+
+                // Find missing IDs to check releases table
+                const foundIds = new Set(results.map(r => r.id));
+                const missingIds = chunk.filter(id => !foundIds.has(id));
+
+                if (missingIds.length > 0) {
+                    const missingPlaceholders = missingIds.map(() => "?").join(",");
+                    const releaseRows = db.prepare(`SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM releases r
+                        LEFT JOIN artists ar ON r.artist_id = ar.id
+                        WHERE r.id IN (${missingPlaceholders})`).all(...missingIds);
+                    
+                    releaseRows.forEach((r: any) => r.is_release = 1);
+                    results.push(...mapAlbums(releaseRows));
+                }
             }
             return results;
         },
 
         getAlbumBySlug(slug: string): Album | undefined {
-            const row = db
+            let row = db
                 .prepare(
                     `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.slug = ?`
                 )
-                .get(slug);
+                .get(slug) as any;
+
             if (!row) {
-                return undefined;
+                // Fallback to releases table
+                row = db.prepare(`SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM releases r
+                       LEFT JOIN artists ar ON r.artist_id = ar.id
+                       WHERE r.slug = ?`).get(slug) as any;
+                if (row) row.is_release = 1;
             }
             return mapAlbum(row);
         },
