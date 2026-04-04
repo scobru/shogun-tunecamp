@@ -383,6 +383,7 @@ export interface DatabaseService {
     removeTrackFromPlaylist(playlistId: number, trackId: number): void;
     // Posts
     getPostsByArtist(artistId: number, publicOnly?: boolean): Post[];
+    getPublicPosts(): Post[];
     getPost(id: number): Post | undefined;
     getPostBySlug(slug: string): Post | undefined;
     createPost(artistId: number, content: string, visibility?: 'public' | 'private' | 'unlisted'): number;
@@ -2659,6 +2660,16 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         // Posts
+        getPublicPosts(): Post[] {
+            return db.prepare(`
+                SELECT p.*, a.name as artist_name, a.slug as artist_slug, a.photo_path as artist_photo
+                FROM posts p
+                JOIN artists a ON p.artist_id = a.id
+                WHERE p.visibility = 'public'
+                ORDER BY p.created_at DESC
+            `).all() as Post[];
+        },
+
         getPostsByArtist(artistId: number, publicOnly = false): Post[] {
             const sql = publicOnly
                 ? `SELECT p.*, a.name as artist_name, a.slug as artist_slug, a.photo_path as artist_photo
