@@ -1527,8 +1527,8 @@ export function createDatabase(dbPath: string): DatabaseService {
            LEFT JOIN admin own ON a.owner_id = own.id
            WHERE a.id = ?`);
     const getTrackStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
-            COALESCE(ar_t.id, ar_a.id) as artist_id,
-            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            ar_t.id as artist_id,
+            COALESCE(ar_t.name, t.artist_name, ar_a.name, 'Unknown Artist') as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
             own.username as owner_name

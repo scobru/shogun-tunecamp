@@ -131,6 +131,7 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
 
     try {
       const matchedArtist = artists.find(a => a.name.toLowerCase() === artistName.trim().toLowerCase());
+      const matchedAlbum = albums.find(a => a.title.toLowerCase() === albumTitle.trim().toLowerCase());
 
       const payload: any = {
         title,
@@ -141,11 +142,24 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         payload.artistId = String(matchedArtist.id);
       } else {
         payload.artist = artistName.trim();
-        if (!artistName.trim()) payload.artistId = null;
+        if (!artistName.trim()) {
+          payload.artistId = null;
+        } else {
+          // If name doesn't match a profile, clear artistId so it uses the string name
+          payload.artistId = null;
+        }
       }
 
-      payload.album = albumTitle.trim();
-      if (!albumTitle.trim()) payload.albumId = null;
+      if (matchedAlbum) {
+        payload.albumId = String(matchedAlbum.id);
+      } else {
+        payload.album = albumTitle.trim();
+        if (!albumTitle.trim()) {
+          payload.albumId = null;
+        } else {
+          payload.albumId = null;
+        }
+      }
 
       const matchedOwner = admins.find(a => a.username.toLowerCase() === ownerName.trim().toLowerCase());
       if (matchedOwner) {

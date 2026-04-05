@@ -960,8 +960,8 @@ export function createDatabase(dbPath) {
            LEFT JOIN artists ar ON a.artist_id = ar.id
            WHERE a.id = ?`);
     const getTrackStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
-            COALESCE(ar_t.id, ar_a.id) as artist_id,
-            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            ar_t.id as artist_id,
+            COALESCE(ar_t.name, t.artist_name, ar_a.name, 'Unknown Artist') as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id
            FROM tracks t
@@ -980,8 +980,8 @@ export function createDatabase(dbPath) {
              LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
              WHERE t.album_id = ? ORDER BY t.track_num`);
     const getPublicTracksByAlbumStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
-            COALESCE(ar_t.id, ar_a.id) as artist_id,
-            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            ar_t.id as artist_id,
+            COALESCE(ar_t.name, t.artist_name, ar_a.name, 'Unknown Artist') as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id
             FROM tracks t
@@ -991,8 +991,8 @@ export function createDatabase(dbPath) {
             WHERE t.album_id = ? AND a.is_public = 1
             ORDER BY t.track_num`);
     const getAllTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
-            COALESCE(ar_t.id, ar_a.id) as artist_id,
-            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            ar_t.id as artist_id,
+            COALESCE(ar_t.name, t.artist_name, ar_a.name, 'Unknown Artist') as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id
            FROM tracks t
@@ -1001,8 +1001,8 @@ export function createDatabase(dbPath) {
            LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
            ORDER BY artist_name, a.title, t.track_num`);
     const getAllPublicTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
-            COALESCE(ar_t.id, ar_a.id) as artist_id,
-            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            ar_t.id as artist_id,
+            COALESCE(ar_t.name, t.artist_name, ar_a.name, 'Unknown Artist') as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id
            FROM tracks t
@@ -1012,8 +1012,8 @@ export function createDatabase(dbPath) {
            WHERE a.is_public = 1 OR (t.album_id IS NULL AND ar_t.id IS NOT NULL)
            ORDER BY artist_name, a.title, t.track_num`);
     const getTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
-            COALESCE(ar_t.id, ar_a.id) as artist_id,
-            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            ar_t.id as artist_id,
+            COALESCE(ar_t.name, t.artist_name, ar_a.name, 'Unknown Artist') as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id
             FROM tracks t
@@ -1023,8 +1023,8 @@ export function createDatabase(dbPath) {
             WHERE t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?)
             ORDER BY a.title, t.track_num`);
     const getPublicTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
-            COALESCE(ar_t.id, ar_a.id) as artist_id,
-            COALESCE(ar_t.name, ar_a.name) as artist_name, 
+            ar_t.id as artist_id,
+            COALESCE(ar_t.name, t.artist_name, ar_a.name, 'Unknown Artist') as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id
             FROM tracks t
