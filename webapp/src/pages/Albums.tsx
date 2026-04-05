@@ -3,32 +3,46 @@ import API from '../services/api';
 import { Link } from 'react-router-dom';
 import { Disc, Library } from 'lucide-react';
 import type { Album } from '../types';
+import { useAuthStore } from '../stores/useAuthStore';
 import clsx from 'clsx';
 
 export const Albums = () => {
+    const { isAuthenticated } = useAuthStore();
     const [activeTab, setActiveTab] = useState<'releases' | 'library'>('releases');
     const [releases, setReleases] = useState<any[]>([]);
     const [library, setLibrary] = useState<Album[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        setLoading(true);
-        Promise.all([
-            API.getReleases().catch(err => {
-                console.error("Failed to load releases:", err);
-                return [];
-            }),
-            API.getAlbums().catch(err => {
-                console.error("Failed to load library albums:", err);
-                return [];
-            })
-        ]).then(([releasesData, libraryData]) => {
-            setReleases(releasesData);
-            setLibrary(libraryData);
-        }).finally(() => {
-            setLoading(false);
-        });
-    }, []);
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                // Always load public releases
+                const releasesData = await API.getReleases().catch(err => {
+                    console.error("Failed to load releases:", err);
+                    return [];
+                });
+                setReleases(releasesData);
+
+                // Only try to load library if authenticated
+                if (isAuthenticated && API.getToken()) {
+                    const libraryData = await API.getAlbums().catch(err => {
+                        // If it's a 401, we just ignore it here to prevent the global 401 handler
+                        // from potentially logging us out if the token is just fresh/desynced
+                        console.warn("Library fetch unauthorized or failed, skipping.");
+                        return [];
+                    });
+                    setLibrary(libraryData);
+                }
+            } catch (e) {
+                console.error("Error loading catalog data:", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadData();
+    }, [isAuthenticated]);
 
     const currentItems = useMemo(() => {
         return activeTab === 'releases' ? releases : library;
