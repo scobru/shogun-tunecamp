@@ -320,7 +320,7 @@ export interface DatabaseService {
     getAlbumBySlug(slug: string): Album | undefined;
     getAlbumByTitle(title: string, artistId?: number): Album | undefined;
     getArtistAlbumCounts(): { artist_id: number, count: number }[];
-    getAlbumsByArtist(artistId: number, publicOnly?: boolean): Album[];
+    getAlbumsByArtist(artistId: number, publicOnly?: boolean, artistName?: string): Album[];
     getAlbumsByOwner(ownerId: number, publicOnly?: boolean): Album[];
     createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number;
     updateAlbumVisibility(id: number, visibility: 'public' | 'private' | 'unlisted'): void;
@@ -339,7 +339,8 @@ export interface DatabaseService {
     // Tracks
     getTracks(albumId?: number, publicOnly?: boolean): Track[];
     getTracksByAlbum(albumId: number, publicOnly?: boolean): Track[];
-    getTracksByArtist(artistId: number, publicOnly?: boolean): Track[];
+    getTracksByArtist(artistId: number, publicOnly?: boolean, artistName?: string): Track[];
+    repairArtistLinks(artistId: number, artistName: string): { tracks: number, albums: number };
     getTracksByOwner(ownerId: number, publicOnly?: boolean): Track[];
     getTracksByAlbumIds(albumIds: number[]): Track[];
     getTracksByReleaseId(releaseId: number): Track[];
@@ -2124,7 +2125,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                    WHERE (a.artist_id = ? ${artistName ? 'OR (a.artist_id IS NULL AND (a.title LIKE ? OR EXISTS (SELECT 1 FROM tracks t WHERE t.album_id = a.id AND t.artist_name = ?)))' : ''}) 
                    AND a.is_release = 0 ORDER BY a.date DESC`;
             
-            const params = [artistId];
+            const params: (number | string)[] = [artistId];
             if (artistName) {
                 params.push(`%${artistName}%`);
                 if (!publicOnly) params.push(artistName);
