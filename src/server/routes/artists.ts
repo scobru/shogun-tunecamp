@@ -42,6 +42,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 const { private_key, ...safeArtist } = a;
                 return {
                     ...safeArtist,
+                    walletAddress: a.wallet_address,
                     // Use the canonical cover API URL so the frontend benefits from backend fallbacks
                     coverImage: `/api/artists/${a.id}/cover`,
                     starred: username ? database.isStarred(username, 'artist', String(a.id)) : false,
@@ -260,6 +261,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
 
             res.json({
                 ...safeArtist,
+                walletAddress: updatedArtist.wallet_address,
                 links: responseLinks,
                 postParams: responsePostParams
             });
@@ -402,6 +404,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 ...safeArtist,
                 links,
                 postParams,
+                walletAddress: artist.wallet_address,
                 coverImage,
                 albums: albums.map(a => ({ 
                     ...a, 
