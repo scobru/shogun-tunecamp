@@ -1555,12 +1555,12 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
-            own.name as owner_name
+            own.username as owner_name
             FROM tracks t
             JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-            LEFT JOIN artists own ON COALESCE(t.owner_id, a.owner_id) = own.id
+            LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
             WHERE t.album_id = ? AND (
                 a.is_public = 1 
                 OR (a.is_release = 0 AND (a.visibility IS NULL OR a.visibility != 'private'))
@@ -1572,24 +1572,24 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
-            own.name as owner_name
+            own.username as owner_name
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
            LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-           LEFT JOIN artists own ON COALESCE(t.owner_id, a.owner_id) = own.id
+           LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
            ORDER BY artist_name, a.title, t.track_num`);
     const getAllPublicTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
             COALESCE(ar_t.name, ar_a.name) as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
-            own.name as owner_name
+            own.username as owner_name
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-            LEFT JOIN artists own ON COALESCE(t.owner_id, a.owner_id) = own.id
+            LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
             WHERE a.is_public = 1 
                OR (a.is_release = 0 AND (a.visibility IS NULL OR a.visibility != 'private'))
                OR EXISTS (SELECT 1 FROM release_tracks rt JOIN releases r ON rt.release_id = r.id WHERE rt.track_id = t.id AND r.visibility IN ('public', 'unlisted'))
@@ -1701,7 +1701,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                         INSERT INTO releases (title, slug, artist_id, owner_id, date, cover_path, genre, description, type, year, download, price, price_usdc, currency, external_links, visibility, published_at, published_to_gundb, published_to_ap, license)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `).run(
-                        release.title, finalSlug, release.artist_id, release.owner_id || release.artist_id,
+                        release.title, finalSlug, release.artist_id, release.owner_id,
                         release.date, release.cover_path, release.genre, release.description, release.type, release.year,
                         release.download, release.price || 0, release.price_usdc || 0, release.currency || 'ETH', release.external_links,
                         release.visibility || 'private', release.published_at, 
@@ -2166,7 +2166,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                             album.title,
                             finalSlug,
                             album.artist_id,
-                            album.owner_id || album.artist_id, // Backwards compatibility for single column
+                            album.owner_id,
                             album.date,
                             album.cover_path,
                             album.genre,

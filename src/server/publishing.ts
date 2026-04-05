@@ -19,8 +19,10 @@ export class PublishingService {
         const siteDescription = this.db.getSetting("siteDescription") || "";
         const coverImage = this.db.getSetting("coverImage") || "";
 
-        // If artistName is provided (e.g. from an album), use it, otherwise use site artist name or fallback
-        const effectiveArtistName = artistName || this.db.getSetting("artistName") || "";
+        // If artistName is provided (e.g. from an album), use it, 
+        // otherwise use site artist name setting or fallback
+        const siteArtistName = this.db.getSetting("artistName");
+        const effectiveArtistName = artistName || siteArtistName || "Unknown Artist";
 
         return {
             url: publicUrl,
