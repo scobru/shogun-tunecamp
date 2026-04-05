@@ -370,12 +370,9 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 coverImage = albums[0].cover_path;
             }
 
-            // Get tracks by this artist that have no album (loose tracks) - only for admin
-            let looseTracks: ReturnType<typeof database.getTracks> = [];
-            if (req.isAdmin) {
-                const allTracks = database.getTracks();
-                looseTracks = allTracks.filter(t => t.artist_id === artist.id && !t.album_id);
-            }
+            // Get tracks by this artist that have no album (loose tracks)
+            const allArtistTracks = database.getTracksByArtist(artist.id, req.isAdmin !== true);
+            const looseTracks = allArtistTracks.filter(t => !t.album_id);
 
             // Parse links JSON if present
             let links = null;

@@ -12,6 +12,7 @@ export const ArtistDetails = () => {
     const [artist, setArtist] = useState<Artist | null>(null);
     const [formalReleases, setFormalReleases] = useState<Album[]>([]);
     const [libraryAlbums, setLibraryAlbums] = useState<Album[]>([]);
+    const [looseTracks, setLooseTracks] = useState<Track[]>([]);
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
     const { playTrack } = usePlayerStore();
@@ -31,6 +32,9 @@ export const ArtistDetails = () => {
                     setFormalReleases(formal);
                     setLibraryAlbums(library);
                 }
+                if (artistData.tracks) {
+                    setLooseTracks(artistData.tracks);
+                }
                 setPosts(artistPosts);
             })
             .catch(console.error)
@@ -42,10 +46,14 @@ export const ArtistDetails = () => {
     if (!artist) return <div className="p-12 text-center opacity-50">Artist not found.</div>;
 
     const handlePlay = () => {
-        // Maybe play top tracks? For now play first album.
+        // Play strategy: 
+        // 1. First album track if available
+        // 2. First loose track if available
         const albumsToUse = formalReleases.length > 0 ? formalReleases : libraryAlbums;
         if (albumsToUse.length > 0 && albumsToUse[0].tracks && albumsToUse[0].tracks.length > 0) {
             playTrack(albumsToUse[0].tracks[0], albumsToUse[0].tracks);
+        } else if (looseTracks.length > 0) {
+            playTrack(looseTracks[0], looseTracks);
         }
     };
 
@@ -214,6 +222,48 @@ export const ArtistDetails = () => {
                                 <p className="text-xs opacity-50">{album.year} • {album.type}</p>
                             </Link>
                         ))}
+                    </div>
+                </section>
+             )}
+
+             {/* Loose Tracks */}
+             {looseTracks.length > 0 && (
+                <section>
+                    <div className="flex items-center gap-2 mb-6 opacity-80 border-b border-white/5 pb-2">
+                        <Play size={20} />
+                        <h2 className="text-xl font-bold">Singles & Orphaned Tracks</h2>
+                    </div>
+                    <div className="overflow-x-auto bg-base-200/30 rounded-2xl border border-white/5">
+                        <table className="table w-full">
+                            <thead>
+                                <tr className="border-b border-white/10 opacity-50 text-xs uppercase tracking-wider">
+                                    <th className="w-12 text-center">#</th>
+                                    <th>Title</th>
+                                    <th className="text-right">Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {looseTracks.map((track, i) => (
+                                    <tr key={track.id} className="hover:bg-white/5 group border-b border-white/5 last:border-0 transition-colors cursor-pointer" onClick={() => playTrack(track, looseTracks)}>
+                                        <td className="text-center font-mono w-12 relative">
+                                            <span className="opacity-40 group-hover:opacity-0 transition-opacity absolute inset-0 flex items-center justify-center">
+                                                {i + 1}
+                                            </span>
+                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center text-primary">
+                                                <Play size={14} fill="currentColor" />
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div className="font-bold">{track.title}</div>
+                                            <div className="text-xs opacity-40">{track.artistName}</div>
+                                        </td>
+                                        <td className="text-right opacity-40 font-mono text-xs">
+                                            {new Date((track.duration || 0) * 1000).toISOString().substr(14, 5)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </section>
              )}
