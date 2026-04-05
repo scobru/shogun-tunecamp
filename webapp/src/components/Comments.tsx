@@ -61,7 +61,7 @@ export const Comments = ({ trackId }: CommentsProps) => {
       await API.postComment(trackId, {
         text: newComment,
         pubKey: user.gunProfile?.pub,
-        username: user.gunProfile?.alias,
+        username: user.username || user.gunProfile?.alias || "Anonymous",
         signature,
       });
 

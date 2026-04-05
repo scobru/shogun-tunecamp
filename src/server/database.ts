@@ -3065,9 +3065,19 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         // Gun Users
         syncGunUser(pub: string, epub: string, alias: string, avatar?: string): void {
+            // Prevent syncing public keys as aliases
+            let cleanAlias = alias;
+            if (alias && (alias === pub || alias.length > 64)) {
+                // If it looks like a pubkey, try to find the existing alias or keep as is if no better idea
+                const existing = this.getGunUser(pub);
+                if (existing && existing.alias && existing.alias !== pub) {
+                    cleanAlias = existing.alias;
+                }
+            }
+
             db.prepare(
                 "INSERT OR REPLACE INTO gun_users (pub, epub, alias, avatar) VALUES (?, ?, ?, ?)"
-            ).run(pub, epub, alias, avatar || null);
+            ).run(pub, epub, cleanAlias, avatar || null);
         },
 
         getGunUser(pub: string): { pub: string; epub: string; alias: string, avatar?: string } | undefined {

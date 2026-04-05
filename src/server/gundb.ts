@@ -1174,7 +1174,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
                         if (pubKey) {
                             const dbUser = database.getGunUser(pubKey);
-                            if (dbUser && dbUser.alias && dbUser.alias.trim() !== '') {
+                            // Only override if we found a better alias than what's in GunDB, 
+                            // and ensure we don't use the pubkey as an alias.
+                            if (dbUser && dbUser.alias && dbUser.alias.trim() !== '' && dbUser.alias !== pubKey) {
                                 displayUsername = dbUser.alias;
                             }
                         }
