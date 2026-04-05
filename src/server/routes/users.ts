@@ -71,40 +71,29 @@ export function createUsersRoutes(
                 }
             }
 
-            // 2. Create artist profile
-            const slug = username.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-            const artistId = database.createArtist(username, `Artist profile for ${username}`);
-
-            // 3. Generate AP keys for the new artist
-            try {
-                await apService.ensureArtistKeys(artistId);
-            } catch (e) {
-                console.warn("⚠️ Failed to generate AP keys for new user artist:", e);
-                // Non-fatal - AP can still work without pre-generated keys
-            }
-
-            // 4. Create DB user with artist link + storage quota (1GB) + GunDB pubKey
+            // 2. Create DB user without artist link (null) + storage quota (1GB) + GunDB pubKey
+            // Users are now standard listeners by default. Admin must promote them to artists.
             const DEFAULT_QUOTA = 1024 * 1024 * 1024; // 1GB
-            const { id: userId } = await authService.createUser(username, password, artistId, DEFAULT_QUOTA, pubKey);
+            const { id: userId } = await authService.createUser(username, password, null, DEFAULT_QUOTA, pubKey);
 
-            // 5. Generate JWT token for auto-login
+            // 3. Generate JWT token for auto-login
             const token = authService.generateToken({
                 userId,
                 isAdmin: false,
                 username,
-                artistId,
+                artistId: null,
                 role: 'user',
                 isActive: true
             });
 
-            console.log(`🆕 New user registered: ${username} (artist: ${artistId}, user: ${userId}, pubKey: ${pubKey ? 'linked' : 'none'})`);
+            console.log(`🆕 New user registered: ${username} (user: ${userId}, pubKey: ${pubKey ? 'linked' : 'none'})`);
 
             res.json({
                 success: true,
                 token,
                 expiresIn: "7d",
                 username,
-                artistId,
+                artistId: null,
                 role: 'user',
                 isActive: true,
                 storageQuota: DEFAULT_QUOTA,

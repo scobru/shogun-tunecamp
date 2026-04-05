@@ -47,7 +47,7 @@ export interface AuthService {
     verifyGunSignature(message: any, pubKey: string, proof: string): Promise<boolean>;
     verifySubsonicToken(username: string, token: string, salt: string): Promise<boolean>;
     createAdmin(username: string, password: string, artistId?: number | null): Promise<{ id: number }>;
-    createUser(username: string, password: string, artistId: number, storageQuota?: number, pubKey?: string): Promise<{ id: number }>;
+    createUser(username: string, password: string, artistId: number | null, storageQuota?: number, pubKey?: string): Promise<{ id: number }>;
     updateAdmin(id: number, artistId: number | null, role?: UserRole): void;
     updateStorageUsed(userId: number, bytesUsed: number): void;
     getStorageInfo(userId: number): { storage_quota: number; storage_used: number } | null;
@@ -342,11 +342,11 @@ export function createAuthService(
 
             let artistId = user.artist_id;
 
-            // Handle Artist Profile (Actor) Management - ensure everyone has an artist record for wallet support
+            // Handle Artist Profile (Actor) Management - Only link if already exists or manually set
             if (!artistId) {
-                console.log(`🎤 Checking missing artist profile for ${userRole} ${username}...`);
+                console.log(`🔍 Checking for existing artist profile for ${userRole} ${username}...`);
                 
-                // First, check if an artist with the same name exists
+                // Check if an artist with the same name exists (e.g. created manually by admin before user registered)
                 const existingArtist = db.prepare("SELECT id FROM artists WHERE name = ? COLLATE NOCASE").get(username) as { id: number } | undefined;
                 
                 if (existingArtist) {
@@ -354,29 +354,7 @@ export function createAuthService(
                     artistId = existingArtist.id;
                     db.prepare("UPDATE admin SET artist_id = ? WHERE id = ?").run(artistId, user.id);
                 } else {
-                    console.log(`🎤 Creating missing artist profile for ${username}...`);
-                    const slug = username.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-                    
-                    // Simple slug/name collision handling
-                    let finalSlug = slug;
-                    let finalName = username;
-                    let attempt = 0;
-                    while (attempt < 10) {
-                        try {
-                            const result = db.prepare("INSERT INTO artists (name, slug, bio) VALUES (?, ?, ?)").run(finalName, finalSlug, `Artist profile for ${username}`);
-                            artistId = result.lastInsertRowid as number;
-                            db.prepare("UPDATE admin SET artist_id = ? WHERE id = ?").run(artistId, user.id);
-                            break;
-                        } catch (e: any) {
-                            if (e.code === "SQLITE_CONSTRAINT_UNIQUE") {
-                                attempt++;
-                                finalSlug = `${slug}-${attempt}`;
-                                finalName = `${username} ${attempt}`;
-                            } else {
-                                throw e;
-                            }
-                        }
-                    }
+                    console.log(`👤 User ${username} is a standard listener (no artist profile).`);
                 }
             }
 

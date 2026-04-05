@@ -116,7 +116,7 @@ export const Sidebar = () => {
               {user?.isRootAdmin && (
                 <NavItem to="/browser" icon={Folder} label="Files" />
               )}
-              {(user?.isRootAdmin || user?.artistId) && (
+              {(user?.isRootAdmin || isAdmin) && (
                 <NavItem to="/my-music" icon={Upload} label="My Music" />
               )}
             </ul>
