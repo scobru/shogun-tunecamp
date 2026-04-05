@@ -104,7 +104,8 @@ export function createImportRoutes() {
             const tracks = trackinfo.map((t: any) => ({
                 title: t.title || t.name,
                 duration: t.duration || 0,
-                position: t.track_num || t.position
+                position: t.track_num || t.position,
+                lyrics: t.lyrics || null
             })).filter((t: any) => t.title);
 
             res.json({ title, artist, year, cover: finalCover, tracks });

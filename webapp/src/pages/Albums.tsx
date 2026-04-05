@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import API from '../services/api';
 import { Link } from 'react-router-dom';
-import { Disc, Library } from 'lucide-react';
+import { Disc, Library, Download } from 'lucide-react';
 import type { Album } from '../types';
 import { useAuthStore } from '../stores/useAuthStore';
 import clsx from 'clsx';
@@ -114,6 +114,13 @@ export const Albums = () => {
                                 <div className="hidden absolute inset-0 bg-neutral items-center justify-center opacity-30">
                                     <Disc size={48}/>
                                 </div>
+                                {item.download === 'free' && (
+                                    <div className="absolute top-2 right-2 z-10">
+                                        <div className="badge badge-accent shadow-lg border-none font-bold text-[10px] py-3 px-2 flex gap-1 items-center animate-pulse">
+                                            <Download size={10} /> FREE
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <span className="btn btn-circle btn-primary btn-sm scale-0 group-hover:scale-100 transition-transform delay-75">
                                         <Disc size={16}/>
