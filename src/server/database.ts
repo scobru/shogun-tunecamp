@@ -1605,7 +1605,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
             WHERE t.artist_id = ? 
                OR (t.artist_id IS NULL AND a.artist_id = ?)
-               OR (t.artist_id IS NULL AND a.artist_id IS NULL AND t.artist_name = ?)
+               OR (t.artist_id IS NULL AND a.artist_id IS NULL AND t.artist_name LIKE ?)
             ORDER BY a.title, t.track_num`);
     const getPublicTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
@@ -1618,7 +1618,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
             LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
-            WHERE (t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?) OR (t.artist_id IS NULL AND a.artist_id IS NULL AND t.artist_name = ?)) 
+            WHERE (t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?) OR (t.artist_id IS NULL AND a.artist_id IS NULL AND t.artist_name LIKE ?)) 
             AND (
                 (a.is_release = 1 AND a.visibility IN ('public', 'unlisted'))
                 OR EXISTS (SELECT 1 FROM release_tracks rt JOIN releases r ON rt.release_id = r.id WHERE rt.track_id = t.id AND r.visibility IN ('public', 'unlisted'))
@@ -1932,7 +1932,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         getArtistByName(name: string): Artist | undefined {
-            return db.prepare("SELECT *, wallet_address as walletAddress FROM artists WHERE name = ?").get(name) as Artist | undefined;
+            return db.prepare("SELECT *, wallet_address as walletAddress FROM artists WHERE name = ? COLLATE NOCASE").get(name) as Artist | undefined;
         },
 
         getArtistBySlug(slug: string): Artist | undefined {
@@ -2368,8 +2368,9 @@ export function createDatabase(dbPath: string): DatabaseService {
                 const trackRes = db.prepare(`
                     UPDATE tracks 
                     SET artist_id = ? 
-                    WHERE artist_id IS NULL AND (artist_name = ? OR artist_name LIKE ?)
-                `).run(artistId, artistName, `%${artistName}%`);
+                    WHERE (artist_id IS NULL OR artist_id IN (SELECT id FROM artists WHERE name LIKE ? AND id != ?))
+                      AND (artist_name LIKE ? OR artist_name = ?)
+                `).run(artistId, artistName, artistId, `%${artistName}%`, artistName);
 
                 // 2. Repair Albums (Library)
                 const albumRes = db.prepare(`

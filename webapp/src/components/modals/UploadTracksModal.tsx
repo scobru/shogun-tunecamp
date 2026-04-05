@@ -12,6 +12,7 @@ export const UploadTracksModal = ({
   const [files, setFiles] = useState<File[]>([]);
   const [releaseSlug, setReleaseSlug] = useState<string>("");
   const [releaseTitle, setReleaseTitle] = useState<string>("");
+  const [artistId, setArtistId] = useState<string | number>("");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0); // Mock progress for now
   const [error, setError] = useState("");
@@ -22,8 +23,9 @@ export const UploadTracksModal = ({
   useEffect(() => {
     const handleOpen = (e: CustomEvent) => {
       if (e.detail) {
-        setReleaseSlug(e.detail.slug);
-        setReleaseTitle(e.detail.title);
+        setReleaseSlug(e.detail.slug || "");
+        setReleaseTitle(e.detail.title || "");
+        setArtistId(e.detail.artistId || "");
         if (e.detail.slug) {
           loadExistingTracks(e.detail.slug);
         }
@@ -122,6 +124,7 @@ export const UploadTracksModal = ({
         try {
           await API.uploadTracks([file], {
             releaseSlug,
+            artistId,
             // We could track individual file progress here but for batching,
             // simple file counting is often smoother visually for the user
           });

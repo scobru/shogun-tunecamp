@@ -310,6 +310,7 @@ export default function AdminReleaseEditor() {
           setUploadingFileIndex(0);
           await API.uploadTracks(filesToUpload, {
             releaseSlug: currentSlug,
+            artistId: metadata.artist_id,
           });
         } catch (e) {
           console.error("Upload failed", e);

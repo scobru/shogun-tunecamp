@@ -30,7 +30,8 @@ const gun = Gun({
     radisk: false
 });
 
-const user = gun.user().recall({ sessionStorage: true });
+const user = gun.user().recall({ sessionStorage
+    : true });
 
 // Helper interface for Gun User Profile
 export interface GunProfile {

@@ -140,6 +140,15 @@ export const ArtistDetails = () => {
                                      <Shield size={12}/> {repairing ? 'Repairing...' : 'Repair Links'}
                                  </button>
                              )}
+                             {isAdminAuthenticated && (
+                                 <button 
+                                     className="btn btn-xs btn-secondary gap-1"
+                                     onClick={() => document.dispatchEvent(new CustomEvent('open-upload-tracks-modal', { detail: { artistId: artist.id } }))}
+                                 >
+                                     <Globe size={12}/> Upload Tracks
+                                 </button>
+                             )}
+
                           </div>
                      </div>
                      <div className="flex gap-2">

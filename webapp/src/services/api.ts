@@ -249,11 +249,14 @@ export const API = {
         handleResponse(api.post<{ message: string, track: Track }>(`/tracks/${id}/match-metadata`, metadata)),
 
     // --- Admin: Uploads ---
-    uploadTracks: (files: File[], options: { releaseSlug?: string, onProgress?: (percent: number) => void } = {}) => {
+    uploadTracks: (files: File[], options: { releaseSlug?: string, artistId?: string | number, onProgress?: (percent: number) => void } = {}) => {
         const formData = new FormData();
         if (options.releaseSlug) {
             formData.append('releaseSlug', options.releaseSlug);
             formData.append('type', 'release');
+        }
+        if (options.artistId) {
+            formData.append('artistId', options.artistId.toString());
         }
         files.forEach(file => formData.append('files', file));
         return handleResponse(api.post('/admin/upload/tracks', formData, {
