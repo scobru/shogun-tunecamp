@@ -341,7 +341,11 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 return res.status(404).json({ error: "Artist not found" });
             }
 
-            const libraryAlbums = database.getAlbumsByArtist(artist.id, req.isAdmin !== true);
+            // Get albums by this artist (library)
+            const libraryAlbums = database.getAlbumsByArtist(artist.id, false).filter(a => {
+                if (req.isAdmin) return true;
+                return a.is_public || a.visibility !== 'private';
+            });
             const formalReleases = database.getReleasesByArtist(artist.id, req.isAdmin !== true);
             
             // Create a Set of lowercased formal release titles

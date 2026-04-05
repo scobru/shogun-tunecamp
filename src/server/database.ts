@@ -1562,6 +1562,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             LEFT JOIN artists own ON COALESCE(t.owner_id, a.owner_id) = own.id
             WHERE t.album_id = ? AND (
                 a.is_public = 1 
+                OR (a.is_release = 0 AND (a.visibility IS NULL OR a.visibility != 'private'))
                 OR EXISTS (SELECT 1 FROM release_tracks rt JOIN releases r ON rt.release_id = r.id WHERE rt.track_id = t.id AND r.visibility IN ('public', 'unlisted'))
             )
             ORDER BY t.track_num`);
@@ -1589,6 +1590,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
             LEFT JOIN artists own ON COALESCE(t.owner_id, a.owner_id) = own.id
             WHERE a.is_public = 1 
+               OR (a.is_release = 0 AND (a.visibility IS NULL OR a.visibility != 'private'))
                OR EXISTS (SELECT 1 FROM release_tracks rt JOIN releases r ON rt.release_id = r.id WHERE rt.track_id = t.id AND r.visibility IN ('public', 'unlisted'))
                OR (t.album_id IS NULL AND ar_t.id IS NOT NULL)
             ORDER BY artist_name, a.title, t.track_num`);
@@ -1619,6 +1621,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             WHERE (t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?)) 
             AND (
                 a.is_public = 1 
+                OR (a.is_release = 0 AND (a.visibility IS NULL OR a.visibility != 'private'))
                 OR EXISTS (SELECT 1 FROM release_tracks rt JOIN releases r ON rt.release_id = r.id WHERE rt.track_id = t.id AND r.visibility IN ('public', 'unlisted'))
                 OR t.album_id IS NULL
             )
