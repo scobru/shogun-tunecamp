@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Play, Disc, Globe, Trash2, Shield } from 'lucide-react';
 import { usePlayerStore } from '../stores/usePlayerStore';
 import { useAuthStore } from '../stores/useAuthStore';
-import type { Artist, Album, Post } from '../types';
+import type { Artist, Album, Post, Track } from '../types';
 
 export const ArtistDetails = () => {
     const { idOrSlug } = useParams();

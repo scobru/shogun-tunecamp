@@ -110,6 +110,7 @@ export interface Artist {
     coverImage?: string;
     postParams?: any; // ActivityPub actor
     albums?: Album[];
+    tracks?: Track[];
     links?: ArtistLink[];
     donationLinks?: ArtistLink[];
     walletAddress?: string;
