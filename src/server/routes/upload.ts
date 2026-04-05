@@ -155,8 +155,26 @@ export function createUploadRoutes(
     router.post("/tracks", upload.array("files", 50) as any, async (req: any, res: any) => {
         try {
             const files = req.files as Express.Multer.File[];
-            const { releaseSlug } = req.body;
-            const artistId = (req as any).artistId;
+            const { releaseSlug, artistId: bodyArtistId } = req.body;
+
+            // Get release if applicable
+            const formalRelease = releaseSlug ? database.getReleaseBySlug(releaseSlug) : undefined;
+            const libraryAlbum = releaseSlug ? database.getAlbumBySlug(releaseSlug) : undefined;
+            const release = formalRelease || libraryAlbum;
+
+            // Determine the target artist ID for these tracks
+            // Default to uploader's own artistId (if they have one)
+            let targetArtistId = (req as any).artistId;
+
+            if (release) {
+                // If uploading to a specific release, tracks should belong to that release's artist
+                targetArtistId = release.artist_id;
+            } else if (req.isAdmin) {
+                // For admin uploading "orphaned" tracks (no release):
+                // 1. Use artistId from body if provided
+                // 2. Otherwise, use undefined to allow scanner to use file metadata
+                targetArtistId = bodyArtistId ? parseInt(bodyArtistId as string) : undefined;
+            }
 
             if (!req.isAdmin && !req.isActive) {
                 if (files) {
@@ -172,7 +190,11 @@ export function createUploadRoutes(
             console.log(`📤 Upload received: ${files.length} track(s)`);
             files.forEach(f => console.log(`   - ${f.originalname}: ${(f.size / 1024 / 1024).toFixed(2)} MB`));
             if (releaseSlug) {
-                console.log(`   Target Release Slug: ${releaseSlug}`);
+                console.log(`   Target Release Slug: ${releaseSlug} (Artist ID: ${targetArtistId})`);
+            } else if (targetArtistId) {
+                console.log(`   Target Artist ID: ${targetArtistId}`);
+            } else {
+                console.log(`   Target Artist: Determined by metadata`);
             }
 
             // Retrieve currentUser to use for quota and ownership attribution
@@ -200,11 +222,6 @@ export function createUploadRoutes(
                     });
                 }
             }
-
-            // Get release if applicable
-            const formalRelease = releaseSlug ? database.getReleaseBySlug(releaseSlug) : undefined;
-            const libraryAlbum = releaseSlug ? database.getAlbumBySlug(releaseSlug) : undefined;
-            const release = formalRelease || libraryAlbum;
 
             if (releaseSlug && !release) {
                 console.warn(`⚠️ Target release not found: ${releaseSlug}`);
@@ -259,7 +276,7 @@ export function createUploadRoutes(
 
                     // Process immediately to get Track ID, pass uploader's user ID as ownerId
                     const uploaderId = req.userId;
-                    const scanResult = await scanner.processAudioFile(destPath, musicDir, artistId, uploaderId);
+                    const scanResult = await scanner.processAudioFile(destPath, musicDir, targetArtistId, uploaderId);
 
                     if (scanResult && scanResult.success && scanResult.trackId) {
                         scannerResults.push(scanResult);
