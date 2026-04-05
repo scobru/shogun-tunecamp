@@ -35,7 +35,16 @@ import { ForcePasswordChangeModal } from "./components/modals/ForcePasswordChang
  * Otherwise redirects to home.
  */
 function AdminGuard({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isLoading } = useAuthStore();
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <span className="loading loading-spinner loading-lg text-primary"></span>
+      </div>
+    );
+  }
+
   if (!isAuthenticated || !user?.isRootAdmin) {
     return <Navigate to="/" replace />;
   }
@@ -43,7 +52,16 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
 }
 
 function EditorGuard({ children }: { children: React.ReactNode }) {
-  const { role, isAuthenticated } = useAuthStore();
+  const { role, isAuthenticated, isLoading } = useAuthStore();
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <span className="loading loading-spinner loading-lg text-primary"></span>
+      </div>
+    );
+  }
+
   if (!isAuthenticated || (role !== 'admin' && role !== 'user')) {
     return <Navigate to="/" replace />;
   }

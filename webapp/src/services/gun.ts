@@ -30,7 +30,7 @@ const gun = Gun({
     radisk: false
 });
 
-const user = gun.user().recall({ sessionStorage: true });
+const user = gun.user().recall({ localStorage: true });
 
 // Helper interface for Gun User Profile
 export interface GunProfile {
@@ -65,7 +65,7 @@ export const GunAuth = {
 
         return new Promise((resolve) => {
             // Attempt to recall session
-            user.recall({ sessionStorage: true }, (_ack: any) => {
+            user.recall({ localStorage: true }, (_ack: any) => {
                 if (user.is) {
                     const profile = {
                         pub: user.is.pub as string,

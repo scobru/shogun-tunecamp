@@ -114,14 +114,20 @@ export const ArtistDetails = () => {
                          )}
                           <div className="flex items-center gap-4 text-sm font-bold opacity-70">
                              <span>
-                                 {formalReleases.length} {formalReleases.length === 1 ? 'Release' : 'Releases'}
+                                 {formalReleases.length > 0 ? (
+                                     `${formalReleases.length} ${formalReleases.length === 1 ? 'Release' : 'Releases'}`
+                                 ) : (
+                                     isAdminAuthenticated ? 'Library Artist' : '0 Releases'
+                                 )}
                                  {isAdminAuthenticated && (libraryAlbums.length + looseTracks.length > 0) && (
-                                     <span className="opacity-60 ml-1"> (+{libraryAlbums.length + looseTracks.length} Library Items)</span>
+                                     <span className="opacity-60 ml-1"> 
+                                         ({formalReleases.length > 0 ? '+' : ''}{libraryAlbums.length + looseTracks.length} Library Items)
+                                     </span>
                                  )}
                              </span>
-                             {isAdminAuthenticated && formalReleases.length === 0 && (
+                             {isAdminAuthenticated && formalReleases.length === 0 && libraryAlbums.length === 0 && looseTracks.length === 0 && (
                                  <span className="badge badge-warning badge-sm gap-1 py-3 px-3 mr-2">
-                                     <Shield size={12}/> Library Artist
+                                     <Shield size={12}/> Empty Profile
                                  </span>
                              )}
                              {isAdminAuthenticated && (

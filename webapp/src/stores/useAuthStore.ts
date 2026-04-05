@@ -122,18 +122,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 isAdminLoading: false, // compat
                 isInitializing: false // compat
             });
-        } catch (e) {
-            set({ 
-                isAuthenticated: false, 
-                isAdminAuthenticated: false, 
-                user: null, 
-                adminUser: null, 
-                isLoading: false, 
-                isAdminLoading: false,
-                isInitializing: false,
-                isFirstRun: false, 
-                role: null 
-            });
+        } catch (e: any) {
+            console.error("Auth check failed:", e);
+            
+            // If it's a network error (status 0), don't clear the authenticated state 
+            // if we already have a token in localStorage. This avoids "logging out" 
+            // the user just because they are momentarily offline on mobile startup.
+            const isNetworkError = e.status === 0 || e.message?.includes('Network Error');
+            const hasToken = !!localStorage.getItem('tunecamp_token');
+            
+            if (isNetworkError && hasToken) {
+                console.warn("Network error during auth check, preserving existing (potential) session");
+                set({ 
+                    isLoading: false,
+                    isAdminLoading: false,
+                    isInitializing: false
+                });
+            } else {
+                set({ 
+                    isAuthenticated: false, 
+                    isAdminAuthenticated: false, 
+                    user: null, 
+                    adminUser: null, 
+                    isLoading: false, 
+                    isAdminLoading: false,
+                    isInitializing: false,
+                    isFirstRun: false, 
+                    role: null 
+                });
+            }
         }
     },
 
