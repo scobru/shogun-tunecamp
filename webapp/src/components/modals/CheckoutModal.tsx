@@ -58,29 +58,45 @@ export const CheckoutModal = () => {
 
   useEffect(() => {
     const handleOpen = async (e: any) => {
-      const t = e.detail.track as CheckoutTrack;
-      setTrack(t);
-      setIsOpen(true);
-      setTxHash(null);
-      setUnlockCode(null);
-      setError(null);
-      setIsProcessing(false);
-      setPaymentMethod("ETH");
-      setStableBalance("0");
-
-      if (t.currency === "USD") {
-        setIsLoadingRate(true);
-        try {
-          const res = await fetch("/api/payments/rate/USD");
-          const data = await res.json();
-          if (data.rate) setUsdRate(data.rate);
-        } catch (e) {
-          console.error("Failed to fetch USD rate", e);
-        } finally {
-          setIsLoadingRate(false);
+      try {
+        console.log("Opening checkout modal for track:", e.detail?.track);
+        const t = e.detail?.track as CheckoutTrack;
+        if (!t) {
+          console.error("No track data provided to checkout modal");
+          return;
         }
-      } else {
-        setUsdRate(null);
+
+        // Sanitize track ID (remove tr_ prefix if present)
+        const sanitizedTrack = {
+          ...t,
+          id: String(t.id).replace("tr_", "")
+        };
+
+        setTrack(sanitizedTrack);
+        setIsOpen(true);
+        setTxHash(null);
+        setUnlockCode(null);
+        setError(null);
+        setIsProcessing(false);
+        setPaymentMethod("ETH");
+        setStableBalance("0");
+
+        if (sanitizedTrack.currency === "USD") {
+          setIsLoadingRate(true);
+          try {
+            const res = await fetch("/api/payments/rate/USD");
+            const data = await res.json();
+            if (data.rate) setUsdRate(data.rate);
+          } catch (fetchErr) {
+            console.error("Failed to fetch USD rate", fetchErr);
+          } finally {
+            setIsLoadingRate(false);
+          }
+        } else {
+          setUsdRate(null);
+        }
+      } catch (err) {
+        console.error("Error in handleOpen checkout modal:", err);
       }
     };
     window.addEventListener("open-checkout-modal", handleOpen);

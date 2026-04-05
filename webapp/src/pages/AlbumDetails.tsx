@@ -447,7 +447,16 @@ export const AlbumDetails = () => {
                          ) : (
                            <a onClick={() => {
                              if (!isAdmin && !useAuthStore.getState().isAuthenticated) return window.dispatchEvent(new CustomEvent("open-auth-modal"));
-                             window.dispatchEvent(new CustomEvent("open-checkout-modal", { detail: { track: { ...track, albumId: album.id } } }));
+                             window.dispatchEvent(new CustomEvent("open-checkout-modal", { 
+                               detail: { 
+                                 track: { 
+                                   ...track, 
+                                   id: String(track.id).replace("tr_", ""),
+                                   albumId: album.id,
+                                   artist: track.artistName || track.artist_name || album.artist_name || "Unknown Artist"
+                                 } 
+                               } 
+                             }));
                            }}>
                              <Wallet size={16} className="text-secondary" /> Purchase Track
                            </a>
