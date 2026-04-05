@@ -17,7 +17,7 @@ export const Albums = () => {
         const loadData = async () => {
             setLoading(true);
             try {
-                // Always load public releases
+                // Always load public releases (no auth needed)
                 const releasesData = await API.getReleases().catch(err => {
                     console.error("Failed to load releases:", err);
                     return [];
@@ -25,14 +25,21 @@ export const Albums = () => {
                 setReleases(releasesData);
 
                 // Only try to load library if authenticated
-                if (isAuthenticated && API.getToken()) {
-                    const libraryData = await API.getAlbums().catch(() => {
-                        // If it's a 401, we just ignore it here to prevent the global 401 handler
-                        // from potentially logging us out if the token is just fresh/desynced
-                        console.warn("Library fetch unauthorized or failed, skipping.");
-                        return [];
-                    });
-                    setLibrary(libraryData);
+                // We add a small check for the token to avoid race conditions right after login
+                if (isAuthenticated) {
+                    const token = API.getToken();
+                    if (token) {
+                        const libraryData = await API.getAlbums().catch(async (err) => {
+                            // If it's a 401 right after login, it might be a race condition.
+                            // Try one more time after a very short delay.
+                            if (err.status === 401) {
+                                await new Promise(resolve => setTimeout(resolve, 500));
+                                return API.getAlbums().catch(() => []);
+                            }
+                            return [];
+                        });
+                        setLibrary(libraryData);
+                    }
                 }
             } catch (e) {
                 console.error("Error loading catalog data:", e);
