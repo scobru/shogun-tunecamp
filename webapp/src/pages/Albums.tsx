@@ -26,7 +26,7 @@ export const Albums = () => {
 
                 // Only try to load library if authenticated
                 if (isAuthenticated && API.getToken()) {
-                    const libraryData = await API.getAlbums().catch(err => {
+                    const libraryData = await API.getAlbums().catch(() => {
                         // If it's a 401, we just ignore it here to prevent the global 401 handler
                         // from potentially logging us out if the token is just fresh/desynced
                         console.warn("Library fetch unauthorized or failed, skipping.");
