@@ -1,66 +1,6 @@
-import { useEffect, useState } from 'react';
-import API from '../services/api';
-import { Heart, Github, Coffee, DollarSign, ExternalLink } from 'lucide-react';
+import { Heart, Github, Coffee } from 'lucide-react';
 
 export const Support = () => {
-    const [donationLinks, setDonationLinks] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const loadSupportInfo = async () => {
-             setLoading(true);
-             try {
-                 // Try site settings first
-                 const settings = await API.getSiteSettings();
-                 let links = settings.donationLinks || [];
-
-                 // If no site links, try first artist (legacy behavior fallback)
-                 if (!links || links.length === 0) {
-                     const artists = await API.getArtists();
-                     if (artists.length > 0) {
-                         // Parse first artist links
-                         const artist = artists[0];
-                         // @ts-ignore
-                         const rawLinks = typeof artist.links === 'string' ? JSON.parse(artist.links) : artist.links;
-                         // @ts-ignore
-                         const artistDonationLinks = artist.donationLinks;
-
-                         if (artistDonationLinks && artistDonationLinks.length > 0) {
-                            links = artistDonationLinks;
-                         } else if (Array.isArray(rawLinks)) {
-                             // Detect support links
-                             links = rawLinks.filter((l: any) => {
-                                 const label = (l.label || l.platform || '').toLowerCase();
-                                 const url = (l.url || '').toLowerCase();
-                                 return label.includes('patreon') || label.includes('ko-fi') || label.includes('paypal') || label.includes('donate') || url.includes('patreon') || url.includes('ko-fi');
-                             }).map((l: any) => ({
-                                 platform: l.label || l.platform,
-                                 url: l.url,
-                                 type: 'support',
-                                 description: 'Support via ' + (l.label || l.platform)
-                             }));
-                         }
-                     }
-                 }
-                 setDonationLinks(links);
-             } catch (e) {
-                 console.error('Failed to load support info', e);
-             } finally {
-                 setLoading(false);
-             }
-        };
-
-        loadSupportInfo();
-    }, []);
-
-    const getIcon = (platform: string = '') => {
-        const p = platform.toLowerCase();
-        if (p.includes('github')) return <Github size={20} />;
-        if (p.includes('coffee') || p.includes('ko-fi')) return <Coffee size={20} />;
-        if (p.includes('paypal') || p.includes('patreon')) return <DollarSign size={20} />;
-        return <ExternalLink size={20} />;
-    };
-
     return (
         <div className="p-4 lg:p-8 animate-fade-in max-w-2xl mx-auto">
             <div className="text-center mb-12">
