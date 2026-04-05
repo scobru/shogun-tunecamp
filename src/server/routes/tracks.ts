@@ -845,14 +845,20 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 // If explicit ID provided, use it (or null to clear)
                 database.updateTrackArtist(id, artistId ? parseInt(artistId) : null);
             } else if (artist !== undefined) {
-                // Fallback to name-based lookup/creation
-                let artistRecord = database.getArtistByName(artist);
-                if (!artistRecord && artist) {
-                    const newArtistId = database.createArtist(artist);
-                    artistRecord = database.getArtist(newArtistId);
-                }
-                if (artistRecord) {
-                    database.updateTrackArtist(id, artistRecord.id);
+                const trimmedArtist = artist.trim();
+                if (!trimmedArtist) {
+                    // If artist name is explicitly cleared, set artist_id to null
+                    database.updateTrackArtist(id, null);
+                } else {
+                    // Fallback to name-based lookup/creation
+                    let artistRecord = database.getArtistByName(trimmedArtist);
+                    if (!artistRecord) {
+                        const newArtistId = database.createArtist(trimmedArtist);
+                        artistRecord = database.getArtist(newArtistId);
+                    }
+                    if (artistRecord) {
+                        database.updateTrackArtist(id, artistRecord.id);
+                    }
                 }
             }
 

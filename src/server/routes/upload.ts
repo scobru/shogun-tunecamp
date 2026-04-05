@@ -163,8 +163,7 @@ export function createUploadRoutes(
             const release = formalRelease || libraryAlbum;
 
             // Determine the target artist ID for these tracks
-            // Default to uploader's own artistId (if they have one)
-            let targetArtistId = (req as any).artistId;
+            let targetArtistId: number | undefined = undefined;
 
             if (release) {
                 // If uploading to a specific release, tracks should belong to that release's artist
@@ -174,6 +173,9 @@ export function createUploadRoutes(
                 // 1. Use artistId from body if provided
                 // 2. Otherwise, use undefined to allow scanner to use file metadata
                 targetArtistId = bodyArtistId ? parseInt(bodyArtistId as string) : undefined;
+            } else {
+                // Default to uploader's own artistId (for non-admin artists)
+                targetArtistId = (req as any).artistId;
             }
 
             if (!req.isAdmin && !req.isActive) {
