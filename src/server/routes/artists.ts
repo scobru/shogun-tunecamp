@@ -58,6 +58,26 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
     });
 
     /**
+     * POST /api/artists/:id/repair-links
+     * Repair links for tracks and albums that should belong to this artist (ADMIN ONLY)
+     */
+    router.post("/:id/repair-links", (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
+
+        try {
+            const id = parseInt(req.params.id, 10);
+            const artist = database.getArtist(id);
+            if (!artist) return res.status(404).json({ error: "Artist not found" });
+
+            const results = database.repairArtistLinks(id, artist.name);
+            res.json({ success: true, ...results });
+        } catch (error) {
+            console.error("Error repairing artist links:", error);
+            res.status(500).json({ error: "Failed to repair links" });
+        }
+    });
+
+    /**
      * POST /api/artists/:id/star
      */
     router.post("/:id/star", (req: AuthenticatedRequest, res) => {
@@ -354,7 +374,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             // Get library albums - ONLY for admins
             let libraryAlbums: any[] = [];
             if (req.isAdmin) {
-                libraryAlbums = database.getAlbumsByArtist(artist.id, false);
+                libraryAlbums = database.getAlbumsByArtist(artist.id, false, artist.name);
             }
             
             // Create a Set of lowercased formal release titles to avoid duplicates
@@ -386,7 +406,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             // Get tracks by this artist that have no album (loose tracks) - ONLY for admins
             let looseTracks: any[] = [];
             if (req.isAdmin) {
-                const allArtistTracks = database.getTracksByArtist(artist.id, false);
+                const allArtistTracks = database.getTracksByArtist(artist.id, false, artist.name);
                 looseTracks = allArtistTracks.filter(t => !t.album_id);
             }
 

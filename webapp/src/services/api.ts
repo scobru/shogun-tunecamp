@@ -230,6 +230,7 @@ export const API = {
     createArtist: (data: Partial<Artist>) => handleResponse(api.post<Artist>('/artists', data)),
     updateArtist: (id: string, data: Partial<Artist>) => handleResponse(api.put<Artist>(`/artists/${id}`, data)),
     deleteArtist: (id: string) => handleResponse(api.delete(`/artists/${id}`)),
+    repairArtistLinks: (id: string | number) => handleResponse(api.post<{ success: boolean, tracks: number, albums: number }>(`/artists/${id}/repair-links`)),
 
     // --- Admin: Tracks ---
     getBatchPricing: () => handleResponse(api.get<any[]>('/tracks/pricing/batch')),

@@ -1604,7 +1604,9 @@ export function createDatabase(dbPath: string): DatabaseService {
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
             LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
-            WHERE t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?)
+            WHERE t.artist_id = ? 
+               OR (t.artist_id IS NULL AND a.artist_id = ?)
+               OR (t.artist_id IS NULL AND a.artist_id IS NULL AND t.artist_name = ?)
             ORDER BY a.title, t.track_num`);
     const getPublicTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
@@ -1617,7 +1619,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
             LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
-            WHERE (t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?)) 
+            WHERE (t.artist_id = ? OR (t.artist_id IS NULL AND a.artist_id = ?) OR (t.artist_id IS NULL AND a.artist_id IS NULL AND t.artist_name = ?)) 
             AND (
                 a.is_public = 1 
                 OR (a.is_release = 0 AND (a.visibility IS NULL OR a.visibility != 'private'))
@@ -2111,15 +2113,24 @@ export function createDatabase(dbPath: string): DatabaseService {
             return db.prepare(sql).all() as { artist_id: number, count: number }[];
         },
 
-        getAlbumsByArtist(artistId: number, publicOnly = false): Album[] {
+        getAlbumsByArtist(artistId: number, publicOnly = false, artistName?: string): Album[] {
             const sql = publicOnly
                 ? `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM albums a 
                    LEFT JOIN artists ar ON a.artist_id = ar.id 
-                   WHERE a.artist_id = ? AND a.is_release = 0 AND a.visibility = 'public' ORDER BY a.date DESC`
+                   WHERE (a.artist_id = ? ${artistName ? 'OR (a.artist_id IS NULL AND a.title LIKE ?)' : ''}) 
+                   AND a.is_release = 0 AND a.visibility = 'public' ORDER BY a.date DESC`
                 : `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM albums a 
                    LEFT JOIN artists ar ON a.artist_id = ar.id 
-                   WHERE a.artist_id = ? AND a.is_release = 0 ORDER BY a.date DESC`;
-            const rows = db.prepare(sql).all(artistId);
+                   WHERE (a.artist_id = ? ${artistName ? 'OR (a.artist_id IS NULL AND (a.title LIKE ? OR EXISTS (SELECT 1 FROM tracks t WHERE t.album_id = a.id AND t.artist_name = ?)))' : ''}) 
+                   AND a.is_release = 0 ORDER BY a.date DESC`;
+            
+            const params = [artistId];
+            if (artistName) {
+                params.push(`%${artistName}%`);
+                if (!publicOnly) params.push(artistName);
+            }
+            
+            const rows = db.prepare(sql).all(...params);
             return mapAlbums(rows);
         },
 
@@ -2345,11 +2356,48 @@ export function createDatabase(dbPath: string): DatabaseService {
             return this.getTracks(albumId, publicOnly);
         },
 
-        getTracksByArtist(artistId: number, publicOnly = false): Track[] {
+        getTracksByArtist(artistId: number, publicOnly = false, artistName?: string): Track[] {
             if (publicOnly) {
-                return getPublicTracksByArtistStmt.all(artistId, artistId) as Track[];
+                return (artistName 
+                    ? getPublicTracksByArtistStmt.all(artistId, artistId, artistName)
+                    : getPublicTracksByArtistStmt.all(artistId, artistId, null)) as Track[];
             }
-            return getTracksByArtistStmt.all(artistId, artistId) as Track[];
+            return (artistName 
+                ? getTracksByArtistStmt.all(artistId, artistId, artistName)
+                : getTracksByArtistStmt.all(artistId, artistId, null)) as Track[];
+        },
+
+        repairArtistLinks(artistId: number, artistName: string): { tracks: number, albums: number } {
+            const result = db.transaction(() => {
+                // 1. Repair Tracks
+                const trackRes = db.prepare(`
+                    UPDATE tracks 
+                    SET artist_id = ? 
+                    WHERE artist_id IS NULL AND (artist_name = ? OR artist_name LIKE ?)
+                `).run(artistId, artistName, `%${artistName}%`);
+
+                // 2. Repair Albums (Library)
+                const albumRes = db.prepare(`
+                    UPDATE albums
+                    SET artist_id = ?
+                    WHERE artist_id IS NULL AND (title = ? OR title LIKE ?)
+                `).run(artistId, artistName, `%${artistName}%`);
+                
+                // 3. Repair Albums that have tracks linked to this artist
+                const albumTracksRes = db.prepare(`
+                    UPDATE albums
+                    SET artist_id = ?
+                    WHERE artist_id IS NULL AND id IN (
+                        SELECT DISTINCT album_id FROM tracks WHERE artist_id = ? AND album_id IS NOT NULL
+                    )
+                `).run(artistId, artistId);
+
+                return { 
+                    tracks: trackRes.changes, 
+                    albums: albumRes.changes + albumTracksRes.changes 
+                };
+            })();
+            return result;
         },
 
         getTracksByOwner(ownerId: number, publicOnly = false): Track[] {

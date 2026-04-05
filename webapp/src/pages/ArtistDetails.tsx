@@ -17,29 +17,33 @@ export const ArtistDetails = () => {
     const [loading, setLoading] = useState(true);
     const { playTrack } = usePlayerStore();
     const { isAdminAuthenticated } = useAuthStore();
+    const [repairing, setRepairing] = useState(false);
+
+    const loadData = () => {
+        if (!idOrSlug) return;
+        setLoading(true);
+        Promise.all([
+            API.getArtist(idOrSlug),
+            API.getArtistPosts(idOrSlug)
+        ]).then(([artistData, artistPosts]) => {
+            setArtist(artistData);
+            if (artistData.albums) {
+                const formal = artistData.albums.filter((a: any) => a.is_formal_release || a.is_release);
+                const library = artistData.albums.filter((a: any) => !a.is_formal_release && !a.is_release);
+                setFormalReleases(formal);
+                setLibraryAlbums(library);
+            }
+            if (artistData.tracks) {
+                setLooseTracks(artistData.tracks);
+            }
+            setPosts(artistPosts);
+        })
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    };
 
     useEffect(() => {
-        if (idOrSlug) {
-            Promise.all([
-                API.getArtist(idOrSlug),
-                API.getArtistPosts(idOrSlug)
-            ]).then(([artistData, artistPosts]) => {
-                setArtist(artistData);
-                // Use albums directly from artist response if available
-                if (artistData.albums) {
-                    const formal = artistData.albums.filter((a: any) => a.is_formal_release || a.is_release);
-                    const library = artistData.albums.filter((a: any) => !a.is_formal_release && !a.is_release);
-                    setFormalReleases(formal);
-                    setLibraryAlbums(library);
-                }
-                if (artistData.tracks) {
-                    setLooseTracks(artistData.tracks);
-                }
-                setPosts(artistPosts);
-            })
-            .catch(console.error)
-            .finally(() => setLoading(false));
-        }
+        loadData();
     }, [idOrSlug]);
 
     if (loading) return <div className="p-12 text-center opacity-50">Loading artist...</div>;
@@ -54,6 +58,20 @@ export const ArtistDetails = () => {
             playTrack(albumsToUse[0].tracks[0], albumsToUse[0].tracks);
         } else if (looseTracks.length > 0) {
             playTrack(looseTracks[0], looseTracks);
+        }
+    };
+
+    const handleRepairLinks = async () => {
+        if (!artist || repairing) return;
+        setRepairing(true);
+        try {
+            const res = await API.repairArtistLinks(artist.id);
+            alert(`Repair complete!\nFixed ${res.tracks} tracks and ${res.albums} albums.`);
+            loadData();
+        } catch (e: any) {
+            alert("Repair failed: " + e.message);
+        } finally {
+            setRepairing(false);
         }
     };
 
@@ -102,9 +120,19 @@ export const ArtistDetails = () => {
                                  )}
                              </span>
                              {isAdminAuthenticated && formalReleases.length === 0 && (
-                                 <span className="badge badge-warning badge-sm gap-1 py-3 px-3">
+                                 <span className="badge badge-warning badge-sm gap-1 py-3 px-3 mr-2">
                                      <Shield size={12}/> Library Artist
                                  </span>
+                             )}
+                             {isAdminAuthenticated && (
+                                 <button 
+                                     className={`btn btn-xs btn-outline gap-1 ${repairing ? 'loading' : ''}`}
+                                     disabled={repairing}
+                                     onClick={handleRepairLinks}
+                                     title="Links unlinked tracks/albums by name"
+                                 >
+                                     <Shield size={12}/> {repairing ? 'Repairing...' : 'Repair Links'}
+                                 </button>
                              )}
                           </div>
                      </div>
