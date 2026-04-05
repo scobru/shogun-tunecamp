@@ -167,7 +167,7 @@ export function createUploadRoutes(
 
             if (release) {
                 // If uploading to a specific release, tracks should belong to that release's artist
-                targetArtistId = release.artist_id;
+                targetArtistId = release.artist_id ?? undefined;
             } else if (req.isAdmin) {
                 // For admin uploading "orphaned" tracks (no release):
                 // 1. Use artistId from body if provided
@@ -175,7 +175,7 @@ export function createUploadRoutes(
                 targetArtistId = bodyArtistId ? parseInt(bodyArtistId as string) : undefined;
             } else {
                 // Default to uploader's own artistId (for non-admin artists)
-                targetArtistId = (req as any).artistId;
+                targetArtistId = (req as any).artistId ?? undefined;
             }
 
             if (!req.isAdmin && !req.isActive) {
