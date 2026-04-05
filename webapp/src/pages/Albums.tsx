@@ -7,7 +7,9 @@ import { useAuthStore } from '../stores/useAuthStore';
 import clsx from 'clsx';
 
 export const Albums = () => {
-    const { isAuthenticated } = useAuthStore();
+    const { isAuthenticated, role, user } = useAuthStore();
+    const isAdmin = role === 'admin' || user?.isRootAdmin;
+    const isArtist = !!user?.artistId;
     const [activeTab, setActiveTab] = useState<'releases' | 'library'>('releases');
     const [releases, setReleases] = useState<any[]>([]);
     const [library, setLibrary] = useState<Album[]>([]);
@@ -24,17 +26,15 @@ export const Albums = () => {
                 });
                 setReleases(releasesData);
 
-                // Only try to load library if authenticated
-                // We add a small check for the token to avoid race conditions right after login
-                if (isAuthenticated) {
+                // Only try to load library if authenticated AND has appropriate role
+                // This prevents 403/401 errors for normal users
+                if (isAuthenticated && (isAdmin || isArtist)) {
                     const token = API.getToken();
                     if (token) {
                         const libraryData = await API.getAlbums().catch(async (err) => {
-                            // If it's a 401 right after login, it might be a race condition.
-                            // Try one more time after a very short delay.
-                            if (err.status === 401) {
-                                await new Promise(resolve => setTimeout(resolve, 500));
-                                return API.getAlbums().catch(() => []);
+                            // If it's a 401/403, just return empty library instead of failing page load
+                            if (err.status === 401 || err.status === 403) {
+                                return [];
                             }
                             return [];
                         });

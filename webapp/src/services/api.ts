@@ -37,10 +37,15 @@ const handleResponse = async <T>(request: Promise<{ data: T }>): Promise<T> => {
     } catch (error: any) {
         const status: number = error.response?.status ?? 0;
         if (status === 401) {
-            // Token expired or invalid
-            localStorage.removeItem('tunecamp_token');
-            // Trigger an event so the app knows to update auth state
-            window.dispatchEvent(new Event('auth:unauthorized'));
+            // Only log out if it's a genuine "No token" or "Invalid token" error
+            // to avoid disconnecting users when a specific resource returns 401 incorrectly
+            const isAuthEndpoint = error.config?.url?.includes('/auth/');
+            const hasToken = !!localStorage.getItem('tunecamp_token');
+            
+            if (isAuthEndpoint || hasToken) {
+                localStorage.removeItem('tunecamp_token');
+                window.dispatchEvent(new Event('auth:unauthorized'));
+            }
         }
         const errorData = error.response?.data;
         const errorMessage = errorData?.error || errorData?.message || (typeof errorData === 'string' ? errorData : null) || error.message;

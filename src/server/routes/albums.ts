@@ -15,7 +15,7 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
             if (!req.isAdmin) {
-                return res.status(401).json({ error: "Unauthorized" });
+                return res.status(403).json({ error: "Access denied: Admin only" });
             }
             res.json(database.getAlbums());
         } catch (error) {
