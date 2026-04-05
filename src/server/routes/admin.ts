@@ -671,6 +671,13 @@ export function createAdminRoutes(
             }
 
             // Permission Check
+            // Permission Check: 
+            // - Formal releases can ONLY be deleted by Root Admin
+            // - Library albums can be deleted by Root Admin or the owner
+            if (release && !req.isRootAdmin) {
+                return res.status(403).json({ error: "Only Root Admin can delete formal releases" });
+            }
+
             const ownerId = release ? release.owner_id : album?.owner_id;
             if (req.userId !== undefined && !req.isRootAdmin && ownerId !== req.userId) {
                 return res.status(403).json({ error: "Access denied" });

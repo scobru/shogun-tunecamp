@@ -145,10 +145,22 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 return res.status(404).json({ error: "Album not found" });
             }
 
-            // Non-admin can only see public/unlisted albums or their own
-            if (!req.isAdmin && !album.is_public && album.owner_id !== req.userId) {
+            // SECURITY: Access Level Enforcement
+            // - Root Admins and Artists/Admins (req.isAdmin) have full access to library and releases.
+            // - Base Users (Normal Users) have access ONLY to formal releases (is_release: true).
+            const isArtistOrAdmin = !!req.isAdmin;
+            const isOwner = req.userId !== undefined && album.owner_id === req.userId;
+
+            if (!isArtistOrAdmin && !isOwner) {
+                // Base User check
+                if (!album.is_release) {
+                    console.log(`⛔ [Security] Access denied: Base user ${req.username || 'guest'} attempted to access library album ${album.id}`);
+                    return res.status(403).json({ error: "Access denied: Music Library is restricted to artists" });
+                }
+                
+                // Visibility check for releases
                 if (album.visibility === 'private') {
-                   return res.status(404).json({ error: "Album not found" });
+                    return res.status(404).json({ error: "Release not found" });
                 }
             }
 

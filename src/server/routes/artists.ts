@@ -307,9 +307,9 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 return res.status(404).json({ error: "Artist not found" });
             }
 
-            // Only Root Admin can delete artists
-            if (req.artistId) {
-                return res.status(403).json({ error: "Restricted admins cannot delete artists" });
+            // Permission Check: Any Admin can delete artists (user said "gli admin POSSONO RIMUOVERE")
+            if (!req.isAdmin) {
+                return res.status(403).json({ error: "Only admins can delete artists" });
             }
 
             // Check if artist has releases, albums, or tracks
