@@ -94,9 +94,19 @@ export const ArtistDetails = () => {
                          {artist.bio && (
                              <p className="text-lg opacity-80 max-w-2xl line-clamp-2" title={artist.bio}>{artist.bio}</p>
                          )}
-                         <div className="flex items-center gap-4 text-sm font-bold opacity-70">
-                            <span>{formalReleases.length + libraryAlbums.length} Releases</span>
-                         </div>
+                          <div className="flex items-center gap-4 text-sm font-bold opacity-70">
+                             <span>
+                                 {formalReleases.length} {formalReleases.length === 1 ? 'Release' : 'Releases'}
+                                 {isAdminAuthenticated && (libraryAlbums.length + looseTracks.length > 0) && (
+                                     <span className="opacity-60 ml-1"> (+{libraryAlbums.length + looseTracks.length} Library Items)</span>
+                                 )}
+                             </span>
+                             {isAdminAuthenticated && formalReleases.length === 0 && (
+                                 <span className="badge badge-warning badge-sm gap-1 py-3 px-3">
+                                     <Shield size={12}/> Library Artist
+                                 </span>
+                             )}
+                          </div>
                      </div>
                      <div className="flex gap-2">
                         {artist.links?.map((link, i) => (
@@ -191,82 +201,82 @@ export const ArtistDetails = () => {
                 </section>
              )}
 
-             {/* Library Additions */}
-             {libraryAlbums.length > 0 && (
-                <section>
-                    <div className="flex items-center gap-2 mb-6 opacity-80 border-b border-white/5 pb-2">
-                        <Disc />
-                        <h2 className="text-xl font-bold">Library Additions</h2>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                        {libraryAlbums.map(album => (
-                            <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group">
-                                <figure className="aspect-square relative overflow-hidden rounded-lg shadow-lg mb-3">
-                                    <img 
-                                        src={API.getAlbumCoverUrl(album.id, coverVersion)} 
-                                        alt={album.title} 
-                                        className="absolute inset-0 object-cover w-full h-full group-hover:scale-105 transition-transform" 
-                                        onError={(e) => {
-                                           const target = e.target as HTMLImageElement;
-                                           target.style.display = 'none';
-                                           if (target.nextElementSibling) {
-                                              (target.nextElementSibling as HTMLElement).style.display = 'flex';
-                                           }
-                                        }}
-                                    />
-                                    <div className="hidden absolute inset-0 bg-neutral w-full h-full items-center justify-center opacity-30">
-                                        <Disc size={32} />
-                                    </div>
-                                </figure>
-                                <h3 className="font-bold truncate group-hover:text-primary transition-colors">{album.title}</h3>
-                                <p className="text-xs opacity-50">{album.year} • {album.type}</p>
-                            </Link>
-                        ))}
-                    </div>
-                </section>
-             )}
-
-             {/* Loose Tracks */}
-             {looseTracks.length > 0 && (
-                <section>
-                    <div className="flex items-center gap-2 mb-6 opacity-80 border-b border-white/5 pb-2">
-                        <Play size={20} />
-                        <h2 className="text-xl font-bold">Singles & Orphaned Tracks</h2>
-                    </div>
-                    <div className="overflow-x-auto bg-base-200/30 rounded-2xl border border-white/5">
-                        <table className="table w-full">
-                            <thead>
-                                <tr className="border-b border-white/10 opacity-50 text-xs uppercase tracking-wider">
-                                    <th className="w-12 text-center">#</th>
-                                    <th>Title</th>
-                                    <th className="text-right">Duration</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {looseTracks.map((track, i) => (
-                                    <tr key={track.id} className="hover:bg-white/5 group border-b border-white/5 last:border-0 transition-colors cursor-pointer" onClick={() => playTrack(track, looseTracks)}>
-                                        <td className="text-center font-mono w-12 relative">
-                                            <span className="opacity-40 group-hover:opacity-0 transition-opacity absolute inset-0 flex items-center justify-center">
-                                                {i + 1}
-                                            </span>
-                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center text-primary">
-                                                <Play size={14} fill="currentColor" />
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className="font-bold">{track.title}</div>
-                                            <div className="text-xs opacity-40">{track.artistName}</div>
-                                        </td>
-                                        <td className="text-right opacity-40 font-mono text-xs">
-                                            {new Date((track.duration || 0) * 1000).toISOString().substr(14, 5)}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-             )}
+              {/* Library Additions - ADMIN ONLY */}
+              {isAdminAuthenticated && libraryAlbums.length > 0 && (
+                 <section>
+                     <div className="flex items-center gap-2 mb-6 opacity-80 border-b border-white/5 pb-2">
+                         <Disc />
+                         <h2 className="text-xl font-bold">Library Additions</h2>
+                     </div>
+                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                         {libraryAlbums.map(album => (
+                             <Link to={`/albums/${album.slug || album.id}`} key={album.id} className="group">
+                                 <figure className="aspect-square relative overflow-hidden rounded-lg shadow-lg mb-3">
+                                     <img 
+                                         src={API.getAlbumCoverUrl(album.id, coverVersion)} 
+                                         alt={album.title} 
+                                         className="absolute inset-0 object-cover w-full h-full group-hover:scale-105 transition-transform" 
+                                         onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            target.style.display = 'none';
+                                            if (target.nextElementSibling) {
+                                               (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                                            }
+                                         }}
+                                     />
+                                     <div className="hidden absolute inset-0 bg-neutral w-full h-full items-center justify-center opacity-30">
+                                         <Disc size={32} />
+                                     </div>
+                                 </figure>
+                                 <h3 className="font-bold truncate group-hover:text-primary transition-colors">{album.title}</h3>
+                                 <p className="text-xs opacity-50">{album.year} • {album.type}</p>
+                             </Link>
+                         ))}
+                     </div>
+                 </section>
+              )}
+ 
+              {/* Loose Tracks - ADMIN ONLY */}
+              {isAdminAuthenticated && looseTracks.length > 0 && (
+                 <section>
+                     <div className="flex items-center gap-2 mb-6 opacity-80 border-b border-white/5 pb-2">
+                         <Play size={20} />
+                         <h2 className="text-xl font-bold">Singles & Orphaned Tracks</h2>
+                     </div>
+                     <div className="overflow-x-auto bg-base-200/30 rounded-2xl border border-white/5">
+                         <table className="table w-full">
+                             <thead>
+                                 <tr className="border-b border-white/10 opacity-50 text-xs uppercase tracking-wider">
+                                     <th className="w-12 text-center">#</th>
+                                     <th>Title</th>
+                                     <th className="text-right">Duration</th>
+                                 </tr>
+                             </thead>
+                             <tbody>
+                                 {looseTracks.map((track, i) => (
+                                     <tr key={track.id} className="hover:bg-white/5 group border-b border-white/5 last:border-0 transition-colors cursor-pointer" onClick={() => playTrack(track, looseTracks)}>
+                                         <td className="text-center font-mono w-12 relative">
+                                             <span className="opacity-40 group-hover:opacity-0 transition-opacity absolute inset-0 flex items-center justify-center">
+                                                 {i + 1}
+                                             </span>
+                                             <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center text-primary">
+                                                 <Play size={14} fill="currentColor" />
+                                             </div>
+                                         </td>
+                                         <td>
+                                             <div className="font-bold">{track.title}</div>
+                                             <div className="text-xs opacity-40">{track.artistName}</div>
+                                         </td>
+                                         <td className="text-right opacity-40 font-mono text-xs">
+                                             {new Date((track.duration || 0) * 1000).toISOString().substr(14, 5)}
+                                         </td>
+                                     </tr>
+                                 ))}
+                             </tbody>
+                         </table>
+                     </div>
+                 </section>
+              )}
         </div>
     );
 };

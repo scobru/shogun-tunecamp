@@ -26,8 +26,8 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             let filteredArtists = allArtists;
 
             if (!req.isAdmin) {
-                // Determine which artists are public
-                const publicReleases = database.getReleases(true); // publicOnly = true
+                // Determine which artists have public FORMAL releases
+                const publicReleases = database.getReleases(true).filter(r => r.visibility === 'public' || r.visibility === 'unlisted');
                 const publicArtistIds = new Set(
                     publicReleases.map(r => r.artist_id).filter(id => id !== null)
                 );
@@ -341,14 +341,23 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 return res.status(404).json({ error: "Artist not found" });
             }
 
-            // Get albums by this artist (library)
-            const libraryAlbums = database.getAlbumsByArtist(artist.id, false).filter(a => {
-                if (req.isAdmin) return true;
-                return a.is_public || a.visibility !== 'private';
-            });
+            // Get formal releases (visible to everyone if public)
             const formalReleases = database.getReleasesByArtist(artist.id, req.isAdmin !== true);
+            const publicFormalReleases = formalReleases.filter(r => r.visibility === 'public' || r.visibility === 'unlisted');
+
+            // SECURITY: If not admin and no public formal releases, hide the artist entirely
+            if (!req.isAdmin && publicFormalReleases.length === 0 && (!req.artistId || req.artistId !== artist.id)) {
+                console.log(`⛔ [Security] Denying access to library-only artist ${artist.name} to non-admin user`);
+                return res.status(404).json({ error: "Artist not found" });
+            }
+
+            // Get library albums - ONLY for admins
+            let libraryAlbums: any[] = [];
+            if (req.isAdmin) {
+                libraryAlbums = database.getAlbumsByArtist(artist.id, false);
+            }
             
-            // Create a Set of lowercased formal release titles
+            // Create a Set of lowercased formal release titles to avoid duplicates
             const formalReleaseTitles = new Set(
                 formalReleases.map(r => (r.title || "").toLowerCase().trim())
             );
@@ -374,9 +383,12 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 coverImage = albums[0].cover_path;
             }
 
-            // Get tracks by this artist that have no album (loose tracks)
-            const allArtistTracks = database.getTracksByArtist(artist.id, req.isAdmin !== true);
-            const looseTracks = allArtistTracks.filter(t => !t.album_id);
+            // Get tracks by this artist that have no album (loose tracks) - ONLY for admins
+            let looseTracks: any[] = [];
+            if (req.isAdmin) {
+                const allArtistTracks = database.getTracksByArtist(artist.id, false);
+                looseTracks = allArtistTracks.filter(t => !t.album_id);
+            }
 
             // Parse links JSON if present
             let links = null;
