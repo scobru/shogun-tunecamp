@@ -207,6 +207,8 @@ export const API = {
     updateRelease: (id: string, data: Partial<Release>) => handleResponse(api.put<Release>(`/admin/releases/${id}`, data)),
     deleteRelease: (id: string, keepFiles = false) =>
         handleResponse(api.delete(`/admin/releases/${id}${keepFiles ? '?keepFiles=true' : ''}`)),
+    deleteAlbum: (id: string, keepFiles = false) =>
+        handleResponse(api.delete(`/admin/releases/${id}${keepFiles ? '?keepFiles=true' : ''}`)),
 
     toggleReleaseVisibility: (id: string, visibility: boolean | 'public' | 'private' | 'unlisted') =>
         handleResponse(api.put(`/admin/releases/${id}/visibility`, typeof visibility === 'boolean' ? { isPublic: visibility } : { visibility })),
