@@ -9,7 +9,7 @@ import type { UserPlaylist, UserPlaylistTrack, Track } from '../types';
 
 
 const defaultPeers = [
-    "ws://localhost:1970/gun",
+    "wss://localhost:1970/gun",
     "wss://shogun-relay.scobrudot.dev/gun",
     "wss://gun.defucc.me/gun",
     "wss://gun.o8.is/gun",

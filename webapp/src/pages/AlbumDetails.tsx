@@ -452,40 +452,43 @@ export const AlbumDetails = () => {
                        <MoreHorizontal size={18} />
                     </div>
                     <ul tabIndex={0} className="dropdown-content z-[20] menu p-2 shadow-2xl bg-base-300 rounded-2xl w-52 border border-white/10 mt-2">
-                       <li>
-                         {unlocked ? (
-                           <a className="text-success font-bold" onClick={async () => {
-                              if (user?.artistId && (String(track.artistId) === String(user.artistId) || String(album?.artistId) === String(user.artistId))) {
-                                window.open(`/api/tracks/${track.id}/stream`, "_blank");
-                                return;
-                              }
-                              const code = await verifyAndGetCode(track.id);
-                              if (code) window.open(`/api/payments/download/${track.id}?code=${code}`, "_blank");
-                           }}>
-                             <CheckCircle2 size={16} /> Download
-                           </a>
-                         ) : album.download === "free" ? (
-                           <a href={`/api/albums/${album.slug || album.id}/download?format=${downloadFormat}`} target="_blank">
-                              <Download size={16} /> Free Download
-                           </a>
-                         ) : (
-                           <a onClick={() => {
-                             if (!isAdmin && !useAuthStore.getState().isAuthenticated) return window.dispatchEvent(new CustomEvent("open-auth-modal"));
-                             window.dispatchEvent(new CustomEvent("open-checkout-modal", { 
-                               detail: { 
-                                 track: { 
-                                   ...track, 
-                                   id: String(track.id).replace("tr_", ""),
-                                   albumId: album.id,
-                                   artist: track.artistName || track.artist_name || album.artist_name || "Unknown Artist"
+                       {(unlocked || album.download === "free" || isRelease) && (
+                         <li>
+                           {unlocked ? (
+                             <a className="text-success font-bold" onClick={async () => {
+                                if (user?.artistId && (String(track.artistId) === String(user.artistId) || String(album?.artistId) === String(user.artistId))) {
+                                  window.open(`/api/tracks/${track.id}/stream`, "_blank");
+                                  return;
+                                }
+                                const code = await verifyAndGetCode(track.id);
+                                if (code) window.open(`/api/payments/download/${track.id}?code=${code}`, "_blank");
+                             }}>
+                               <CheckCircle2 size={16} /> Download
+                             </a>
+                           ) : album.download === "free" ? (
+                             <a href={`/api/albums/${album.slug || album.id}/download?format=${downloadFormat}`} target="_blank">
+                                <Download size={16} /> Free Download
+                             </a>
+                           ) : isRelease && (
+                             <a onClick={() => {
+                               if (!isAdmin && !useAuthStore.getState().isAuthenticated) return window.dispatchEvent(new CustomEvent("open-auth-modal"));
+                               window.dispatchEvent(new CustomEvent("open-checkout-modal", { 
+                                 detail: { 
+                                   track: { 
+                                     ...track, 
+                                     id: String(track.id).replace("tr_", ""),
+                                     albumId: album.id,
+                                     artist: track.artistName || track.artist_name || album.artist_name || "Unknown Artist"
+                                   } 
                                  } 
-                               } 
-                             }));
-                           }}>
-                             <Wallet size={16} className="text-secondary" /> Purchase Track
-                           </a>
-                         )}
-                       </li>
+                               }));
+                             }}>
+                               <Wallet size={16} className="text-secondary" /> Purchase Track
+                             </a>
+                           )}
+                         </li>
+                       )}
+
                        <li>
                          <a onClick={() => handleShareTrack(track)}>
                             <Share2 size={16} /> Share Track
