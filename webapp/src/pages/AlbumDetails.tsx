@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import API from "../services/api";
-import { Share2, Trash2, Camera, Loader2 } from "lucide-react";
+import { Share2, Trash2, Camera, Loader2, Play, Heart, Download, Unlock, ExternalLink, MoreHorizontal, CheckCircle2, Wallet, Music, Copyright } from "lucide-react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
@@ -153,6 +153,11 @@ export const AlbumDetails = () => {
     }
   };
 
+  const handleUnlock = () => {
+    window.dispatchEvent(new CustomEvent("open-unlock-modal", { 
+        detail: { albumId: String(album.id) } 
+    }));
+  };
 
   const handlePlay = () => {
     if (album?.tracks && album.tracks.length > 0) {

@@ -251,7 +251,7 @@ export const API = {
         handleResponse(api.post<{ message: string, track: Track }>(`/tracks/${id}/match-metadata`, metadata)),
 
     // --- Admin: Uploads ---
-    uploadTracks: (files: File[], options: { releaseSlug?: string, artistId?: string | number, onProgress?: (percent: number) => void } = {}) => {
+    uploadTracks: (files: File[], options: { releaseSlug?: string, artistId?: string | number, artist?: string, album?: string, onProgress?: (percent: number) => void } = {}) => {
         const formData = new FormData();
         if (options.releaseSlug) {
             formData.append('releaseSlug', options.releaseSlug);
@@ -259,6 +259,12 @@ export const API = {
         }
         if (options.artistId) {
             formData.append('artistId', options.artistId.toString());
+        }
+        if (options.artist) {
+            formData.append('artist', options.artist);
+        }
+        if (options.album) {
+            formData.append('album', options.album);
         }
         files.forEach(file => formData.append('files', file));
         return handleResponse(api.post('/admin/upload/tracks', formData, {
