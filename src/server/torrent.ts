@@ -1,4 +1,4 @@
-import WebTorrentHybrid from "webtorrent-hybrid";
+import WebTorrent from "webtorrent";
 import type { Instance, Torrent, TorrentFile } from "webtorrent";
 import path from "path";
 import fs from "fs-extra";
@@ -15,7 +15,7 @@ export class TorrentService {
         private scanner: ScannerService,
         musicDir: string
     ) {
-        this.client = new WebTorrentHybrid();
+        this.client = new WebTorrent();
         this.musicDir = musicDir;
         this.downloadDir = path.join(musicDir, "downloads");
 
