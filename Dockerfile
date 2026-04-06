@@ -36,7 +36,7 @@ RUN echo "CapRover commit: ${CAPROVER_GIT_COMMIT_SHA:-none}" && \
     echo "Relay cache bust: ${RELAY_CACHE_BUST:-unset}"
 
 # Install build dependencies for native modules (better-sqlite3)
-RUN apk add --no-cache python3 make g++ curl git
+RUN apk add --no-cache python3 make g++ curl git libc6-compat gcompat
 
 
 # Copy package files
@@ -80,8 +80,8 @@ WORKDIR /app
 # Cache buster: forces this stage to rebuild every deploy (no "Using cache" on COPY --from=builder)
 RUN echo "Production deploy commit: ${CAPROVER_GIT_COMMIT_SHA:-none}"
 
-# Install runtime dependencies for better-sqlite3
-RUN apk add --no-cache python3 make g++
+# Install runtime dependencies for native modules
+RUN apk add --no-cache python3 make g++ libc6-compat gcompat
 
 # Copy package files and install production dependencies
 COPY package*.json ./
@@ -115,7 +115,7 @@ ENV COINBASE_CDP_API_KEY_SECRET=""
 EXPOSE 1970
 
 # Install runtime dependencies
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl libc6-compat gcompat
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
