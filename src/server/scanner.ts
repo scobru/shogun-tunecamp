@@ -240,7 +240,7 @@ export class Scanner implements ScannerService {
                     if (existingArtist) {
                         artistId = existingArtist.id;
                         // Update artist with bio/photo/links if they're in the config
-                        this.database.updateArtist(artistId, config.bio, avatarPath, config.links);
+                        this.database.updateArtist(artistId, config.name, config.bio, avatarPath, config.links);
                         console.log(`  Found existing artist: ${config.name}`);
                     } else {
                         artistId = this.database.createArtist(config.name, config.bio, avatarPath, config.links);
