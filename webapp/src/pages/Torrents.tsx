@@ -7,12 +7,11 @@ import {
   Users, 
   ArrowDown, 
   ArrowUp,
-  Clock,
   CheckCircle2,
   AlertCircle
 } from "lucide-react";
 import API from "../services/api";
-import { formatBytes } from "../utils/format";
+import { formatBytes } from "@/utils/format";
 
 interface TorrentFile {
   name: string;
