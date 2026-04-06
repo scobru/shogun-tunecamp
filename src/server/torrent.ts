@@ -15,7 +15,6 @@ export class TorrentService {
         private scanner: ScannerService,
         musicDir: string
     ) {
-        // @ts-ignore - webtorrent-hybrid doesn't have its own types, but follows webtorrent interface
         this.client = new WebTorrentHybrid();
         this.musicDir = musicDir;
         this.downloadDir = path.join(musicDir, "downloads");
