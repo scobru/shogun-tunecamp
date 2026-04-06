@@ -547,8 +547,11 @@ export function createUploadRoutes(
             const artist = database.getArtist(artistId);
             if (artist) {
                 const dbPath = path.relative(musicDir, avatarPath).replace(/\\/g, "/");
-                database.updateArtist(artist.id, artist.bio || undefined, dbPath, artist.links ? JSON.parse(artist.links) : undefined);
+                // Correct parameter order: (id, name, bio, photoPath, links)
+                // We pass undefined for name to avoid changing it.
+                database.updateArtist(artist.id, undefined, artist.bio || undefined, dbPath, artist.links ? JSON.parse(artist.links) : undefined);
             }
+
 
             res.json({
                 message: "Avatar uploaded",
@@ -682,8 +685,11 @@ export function createUploadRoutes(
             const artist = database.getArtist(id);
             if (artist) {
                 const dbPath = path.relative(musicDir, avatarPath).replace(/\\/g, "/");
-                database.updateArtist(artist.id, artist.bio || undefined, dbPath, artist.links ? JSON.parse(artist.links) : undefined);
+                // Correct parameter order: (id, name, bio, photoPath, links)
+                // We pass undefined for name to avoid changing it.
+                database.updateArtist(artist.id, undefined, artist.bio || undefined, dbPath, artist.links ? JSON.parse(artist.links) : undefined);
             }
+
 
             res.json({ message: "Avatar downloaded and saved" });
             console.log(`✅ Avatar URL download completed for artist ${id}`);

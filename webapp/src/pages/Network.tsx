@@ -24,8 +24,26 @@ const getHostname = (url: string) => {
   }
 };
 
+/**
+ * Resolves a URL that might be relative to a remote site's base URL.
+ * If the URL starts with "http", it is returned as-is.
+ * If the URL starts with "/", it is prepended with the baseUrl.
+ * Otherwise, it is returned as-is.
+ */
+const resolveUrl = (url?: string, baseUrl?: string) => {
+  if (!url) return undefined;
+  if (url.startsWith("http")) return url;
+  if (url.startsWith("/") && baseUrl) {
+    const cleanBase = baseUrl.replace(/\/$/, "");
+    return `${cleanBase}${url}`;
+  }
+  return url;
+};
+
 const SiteCard = memo(({ site }: { site: any }) => {
   const isLocal = site.federation === "local";
+  const coverUrl = resolveUrl(site.coverImage, site.url);
+  
   return (
     <a
       href={site.url}
@@ -34,12 +52,13 @@ const SiteCard = memo(({ site }: { site: any }) => {
       className={`card bg-base-200 border ${isLocal ? 'border-primary/50' : 'border-white/5'} hover:border-primary/30 transition-all hover:scale-[1.01] group`}
     >
       <figure className="h-32 bg-base-300 relative overflow-hidden">
-        {site.coverImage ? (
+        {coverUrl ? (
           <img
-            src={site.coverImage}
+            src={coverUrl}
             className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
             alt={site.name}
           />
+
         ) : (
           <div className="w-full h-full flex items-center justify-center text-4xl opacity-20 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
             <span>{isLocal ? "🏠" : "🏢"}</span>
@@ -86,22 +105,24 @@ const PostCard = memo(({
   isAdmin: boolean;
 }) => {
   const uniqueId = item.slug || "";
-  const siteUrl = item.siteUrl;
+    const baseUrl = item.siteUrl ? item.siteUrl.replace(/\/$/, "") : "";
+    const coverUrl = resolveUrl(item.coverUrl, baseUrl);
 
-  return (
-    <div
-      className={`card border hover:bg-base-200 transition-all group shadow-sm hover:shadow-md ${isHidden ? "bg-error/10 border-error/20 opacity-70" : "bg-base-200/50 border-white/5"}`}
-    >
-      <div className="p-4 flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary overflow-hidden">
-              {item.coverUrl ? (
-                <img src={item.coverUrl} className="w-full h-full object-cover" alt={item.artistName} />
-              ) : (
-                <span>{item.artistName?.charAt(0)}</span>
-              )}
-            </div>
+    return (
+      <div
+        className={`card border hover:bg-base-200 transition-all group shadow-sm hover:shadow-md ${isHidden ? "bg-error/10 border-error/20 opacity-70" : "bg-base-200/50 border-white/5"}`}
+      >
+        <div className="p-4 flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary overflow-hidden">
+                {coverUrl ? (
+                  <img src={coverUrl} className="w-full h-full object-cover" alt={item.artistName} />
+                ) : (
+                  <span>{item.artistName?.charAt(0)}</span>
+                )}
+              </div>
+
             <div className="flex flex-col">
               <span className="text-sm font-bold">{item.artistName}</span>
               <span className="text-[10px] opacity-50">
@@ -172,7 +193,8 @@ const TrackCard = memo(({
   
   if (isAP) {
     const uniqueId = item.slug || "";
-    const coverUrl = item.coverUrl;
+    const baseUrl = item.siteUrl ? item.siteUrl.replace(/\/$/, "") : "";
+    const coverUrl = resolveUrl(item.coverUrl, baseUrl);
     const siteUrl = item.siteUrl;
 
     return (
@@ -193,6 +215,7 @@ const TrackCard = memo(({
                 🎵
               </div>
             )}
+
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
               <Play size={20} className="text-white fill-current" />
             </div>
@@ -290,9 +313,9 @@ const TrackCard = memo(({
   const uniqueId = item.siteUrl + "::" + track.id;
 
   const baseUrl = item.siteUrl ? item.siteUrl.replace(/\/$/, "") : "";
-  let coverUrl = track.coverImage ||
+  let coverUrl = resolveUrl(track.coverImage, baseUrl) ||
     (track.albumId && baseUrl
-      ? `${baseUrl}/api/albums/${track.albumId}/cover`
+      ? `${baseUrl}/api/albums/${encodeURIComponent(track.albumId)}/cover`
       : undefined);
 
   if (
@@ -300,6 +323,7 @@ const TrackCard = memo(({
     !coverUrl.startsWith("http") &&
     !coverUrl.startsWith("/")
   ) {
+
     coverUrl = undefined;
   }
 
