@@ -403,8 +403,11 @@ export const API = {
     updateSettings: (data: Partial<SiteSettings>) => handleResponse(api.put<SiteSettings>('/admin/settings', data)),
 
     // --- Admin: Artist identity (ActivityPub keys per artist) ---
-    getArtistIdentity: (artistId: string) =>
-        handleResponse(api.get<{ publicKey: string, privateKey: string }>(`/admin/artists/${artistId}/identity`)),
+    // --- Torrents ---
+    getTorrents: () => handleResponse(api.get<any[]>('/torrents')),
+    addTorrent: (magnetUri: string) => handleResponse(api.post<{ success: boolean, infoHash: string }>('/torrents/add', { magnetUri })),
+    removeTorrent: (infoHash: string, deleteFiles: boolean = false) => 
+        handleResponse(api.delete(`/torrents/${infoHash}${deleteFiles ? '?deleteFiles=true' : ''}`)),
 };
 
 export default API;

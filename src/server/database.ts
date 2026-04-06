@@ -273,8 +273,43 @@ export interface GunCacheEntry {
     expires_at: number;
 }
 
+export interface Torrent {
+    info_hash: string;
+    name: string;
+    magnet_uri: string;
+    added_at: string;
+}
+
+export interface TorrentStatus {
+    infoHash: string;
+    name: string;
+    progress: number;
+    downloadSpeed: number;
+    uploadSpeed: number;
+    numPeers: number;
+    received: number;
+    uploaded: number;
+    size: number;
+    path: string;
+    timeRemaining: number;
+    done: boolean;
+    files: Array<{
+        name: string;
+        path: string;
+        progress: number;
+        length: number;
+        downloaded: number;
+    }>;
+}
+
 export interface DatabaseService {
     db: DatabaseType;
+    // Torrents
+    getTorrents(): Torrent[];
+    getTorrent(infoHash: string): Torrent | undefined;
+    createTorrent(torrent: Omit<Torrent, "added_at">): void;
+    deleteTorrent(infoHash: string): void;
+
     // Artists
     getArtists(): Artist[];
     getArtist(id: number): Artist | undefined;
@@ -800,6 +835,13 @@ export function createDatabase(dbPath: string): DatabaseService {
       current_track_id TEXT,
       position_ms INTEGER DEFAULT 0,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS torrents (
+      info_hash TEXT PRIMARY KEY,
+      name TEXT,
+      magnet_uri TEXT NOT NULL,
+      added_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS play_queue_tracks (
@@ -3485,6 +3527,21 @@ export function createDatabase(dbPath: string): DatabaseService {
         getAlbumOwners(albumId: number): number[] {
             const rows = db.prepare("SELECT owner_id FROM album_ownership WHERE album_id = ?").all(albumId) as { owner_id: number }[];
             return rows.map(r => r.owner_id);
+        },
+
+        // Torrents
+        getTorrents(): Torrent[] {
+            return db.prepare("SELECT * FROM torrents ORDER BY added_at DESC").all() as Torrent[];
+        },
+        getTorrent(infoHash: string): Torrent | undefined {
+            return db.prepare("SELECT * FROM torrents WHERE info_hash = ?").get(infoHash) as Torrent;
+        },
+        createTorrent(torrent: Omit<Torrent, "added_at">): void {
+            db.prepare("INSERT OR REPLACE INTO torrents (info_hash, name, magnet_uri) VALUES (?, ?, ?)")
+                .run(torrent.info_hash, torrent.name, torrent.magnet_uri);
+        },
+        deleteTorrent(infoHash: string): void {
+            db.prepare("DELETE FROM torrents WHERE info_hash = ?").run(infoHash);
         },
 
         getGunCache(key: string): GunCacheEntry | undefined {

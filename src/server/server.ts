@@ -39,6 +39,8 @@ import { createProxyRoutes } from "./routes/proxy.js";
 import { WaveformService } from "./modules/waveform/waveform.service.js";
 import { securityHeaders } from "./middleware/security.js";
 import { rateLimit } from "./middleware/rateLimit.js";
+import { TorrentService } from "./torrent.js";
+import { createTorrentRoutes } from "./routes/torrents.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,6 +83,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     // Initialize Publishing Service
     const publishingService = createPublishingService(database, gundbService, apService, config);
+
+    // Initialize Torrent Service
+    const torrentService = new TorrentService(database, scanner, config.musicDir);
 
     // Upload routes - MOVED BEFORE FEDIFY/BODY PARSERS to avoid stream consumption issues
     app.use("/api/admin/upload", authMiddleware.requireUser, createUploadRoutes(database, scanner, config.musicDir, publishingService, authService));
@@ -179,6 +184,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database, config.musicDir));
     app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database, publishingService, config.musicDir, authService));
     app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database));
+    app.use("/api/torrents", authMiddleware.requireAdmin, createTorrentRoutes(torrentService));
 
     app.use("/api/import", authMiddleware.requireUser, createImportRoutes());
 

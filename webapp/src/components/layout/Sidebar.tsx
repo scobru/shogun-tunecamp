@@ -18,6 +18,7 @@ import {
   LogOut,
   Heart,
   Upload,
+  Download,
 } from "lucide-react";
 import clsx from "clsx";
 import { WalletPill } from "../ui/WalletPill";
@@ -117,7 +118,10 @@ export const Sidebar = () => {
                 <NavItem to="/browser" icon={Folder} label="Files" />
               )}
               {(user?.isRootAdmin || isAdmin) && (
-                <NavItem to="/my-music" icon={Upload} label="My Music" />
+                <>
+                  <NavItem to="/my-music" icon={Upload} label="My Music" />
+                  <NavItem to="/torrents" icon={Download} label="Downloads" />
+                </>
               )}
             </ul>
           </div>
