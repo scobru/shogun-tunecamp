@@ -42,12 +42,12 @@ export function createTorrentRoutes(torrentService: TorrentService): Router {
      * DELETE /api/torrents/:infoHash
      * Remove a torrent and optionally its files
      */
-    router.delete("/:infoHash", (req: AuthenticatedRequest, res) => {
+    router.delete("/:infoHash", async (req: AuthenticatedRequest, res) => {
         try {
             const { infoHash } = req.params;
             const { deleteFiles } = req.query;
             
-            torrentService.removeTorrent(infoHash, deleteFiles === "true");
+            await torrentService.removeTorrent(infoHash, deleteFiles === "true");
             res.json({ success: true });
         } catch (error) {
             console.error("Error removing torrent:", error);

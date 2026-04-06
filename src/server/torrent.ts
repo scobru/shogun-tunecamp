@@ -114,20 +114,12 @@ export class TorrentService {
         }));
     }
 
-    public removeTorrent(infoHash: string, deleteFiles: boolean = false): void {
-        const torrent = this.client.get(infoHash);
-        if (torrent) {
-            torrent.destroy(() => {
-                console.log(`🗑️ Torrent removed: ${infoHash}`);
-                this.database.deleteTorrent(infoHash);
-                
-                if (deleteFiles) {
-                    const torrentPath = path.join(this.downloadDir, torrent.name);
-                    fs.remove(torrentPath).catch((err: any) => {
-                        console.error(`❌ Failed to delete files for ${infoHash}:`, err);
-                    });
-                }
-            });
+    public async removeTorrent(infoHash: string, deleteFiles: boolean = false): Promise<void> {
+        const t = await this.client.get(infoHash);
+        if (t) {
+            await this.client.remove(infoHash, { destroyStore: deleteFiles });
+            console.log(`🗑️ Torrent removed: ${infoHash}`);
+            this.database.deleteTorrent(infoHash);
         }
     }
 
