@@ -105,8 +105,9 @@ const PostCard = memo(({
   isAdmin: boolean;
 }) => {
   const uniqueId = item.slug || "";
-    const baseUrl = item.siteUrl ? item.siteUrl.replace(/\/$/, "") : "";
-    const coverUrl = resolveUrl(item.coverUrl, baseUrl);
+  const siteUrl = item.siteUrl;
+  const baseUrl = siteUrl ? siteUrl.replace(/\/$/, "") : "";
+  const coverUrl = resolveUrl(item.coverUrl, baseUrl);
 
     return (
       <div
