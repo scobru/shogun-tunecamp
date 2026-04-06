@@ -1966,16 +1966,28 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         updateArtist(id: number, name?: string, bio?: string, photoPath?: string, links?: any, postParams?: any, walletAddress?: string): void {
-            const linksJson = links ? JSON.stringify(links) : null;
-            const postParamsJson = postParams ? JSON.stringify(postParams) : null;
+            const linksJson = links ? JSON.stringify(links) : undefined;
+            const postParamsJson = postParams ? JSON.stringify(postParams) : undefined;
             
-            if (name !== undefined) {
-                db.prepare("UPDATE artists SET name = ?, bio = ?, photo_path = ?, links = ?, post_params = ?, wallet_address = ? WHERE id = ?")
-                    .run(name, bio || null, photoPath || null, linksJson, postParamsJson, walletAddress || null, id);
-            } else {
-                db.prepare("UPDATE artists SET bio = ?, photo_path = ?, links = ?, post_params = ?, wallet_address = ? WHERE id = ?")
-                    .run(bio || null, photoPath || null, linksJson, postParamsJson, walletAddress || null, id);
-            }
+            // Use COALESCE in SQL to only update fields that are not NULL in the provided params
+            db.prepare(`
+                UPDATE artists SET 
+                    name = COALESCE(?, name),
+                    bio = COALESCE(?, bio),
+                    photo_path = COALESCE(?, photo_path),
+                    links = COALESCE(?, links),
+                    post_params = COALESCE(?, post_params),
+                    wallet_address = COALESCE(?, wallet_address)
+                WHERE id = ?
+            `).run(
+                name ?? null, 
+                bio ?? null, 
+                photoPath ?? null, 
+                linksJson ?? null, 
+                postParamsJson ?? null, 
+                walletAddress ?? null, 
+                id
+            );
         },
 
         updateArtistKeys(id: number, publicKey: string, privateKey: string): void {

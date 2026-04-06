@@ -557,7 +557,8 @@ export class ActivityPubService {
     public generateNote(album: Album, artist: Artist, tracks: Track[]): any {
         const baseUrl = this.getBaseUrl();
         const userUrl = `${baseUrl}/users/${artist.slug}`;
-        const albumUrl = `${baseUrl}/albums/${album.slug}`;
+        const isRelease = (album as any).is_release;
+        const albumUrl = isRelease ? `${baseUrl}/releases/${album.slug}` : `${baseUrl}/albums/${album.slug}`;
         const published = album.published_at || album.created_at;
 
         const attachments: any[] = [];
@@ -572,7 +573,7 @@ export class ActivityPubService {
             attachments.push({
                 type: "Image",
                 mediaType: mediaType,
-                url: `${baseUrl}/api/albums/${album.slug}/cover`,
+                url: isRelease ? `${baseUrl}/api/releases/${album.slug}/cover` : `${baseUrl}/api/albums/${album.slug}/cover`,
                 name: "Cover Art"
             });
         }

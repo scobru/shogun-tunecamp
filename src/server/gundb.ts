@@ -385,7 +385,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 const trackSlug = generateTrackSlug(album.title, track.title);
                 const cleanBaseUrl = normalizeUrl(baseUrl);
                 const audioUrl = `${cleanBaseUrl}/api/tracks/${track.id}/stream`;
-                const coverUrl = album.id ? `${cleanBaseUrl}/api/albums/${album.id}/cover` : "";
+                const coverUrl = album.is_release 
+                    ? `${cleanBaseUrl}/api/releases/${album.id}/cover` 
+                    : (album.id ? `${cleanBaseUrl}/api/albums/${album.id}/cover` : "");
 
                 const trackData = {
                     slug: trackSlug,

@@ -52,7 +52,7 @@ export class PublishingService {
 
         // Register tracks (this uses the decoupled metadata)
         const tracks = this.db.getTracksByReleaseId(release.id);
-        await this.gundb.registerTracks(siteInfo, release as any, tracks);
+        await this.gundb.registerTracks(siteInfo, { ...release, is_release: true } as any, tracks);
     }
 
     /**
@@ -84,7 +84,7 @@ export class PublishingService {
                 const artist = this.db.getArtist(release.artist_id);
                 if (artist) {
                     const tracks = this.db.getTracksByReleaseId(release.id);
-                    const note = this.ap.generateNote(release as any, artist, tracks);
+                    const note = this.ap.generateNote({ ...release, is_release: true } as any, artist, tracks);
                     await this.ap.announceToRelay(note);
                 }
             }
@@ -119,7 +119,7 @@ export class PublishingService {
             console.log(`🚀 Updating library album "${album.title}" on GunDB...`);
             await this.gundb.registerSite(siteInfo);
             const tracks = this.db.getTracks(album.id);
-            await this.gundb.registerTracks(siteInfo, album, tracks);
+            await this.gundb.registerTracks(siteInfo, { ...album, is_release: false }, tracks);
         }
     }
 
