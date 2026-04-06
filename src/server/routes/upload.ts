@@ -155,7 +155,7 @@ export function createUploadRoutes(
     router.post("/tracks", upload.array("files", 50) as any, async (req: any, res: any) => {
         try {
             const files = req.files as Express.Multer.File[];
-            const { releaseSlug, artistId: bodyArtistId } = req.body;
+            const { releaseSlug, artistId: bodyArtistId, artist: bodyArtistName, album: bodyAlbumTitle } = req.body;
 
             // Get release if applicable
             const formalRelease = releaseSlug ? database.getReleaseBySlug(releaseSlug) : undefined;
@@ -168,14 +168,59 @@ export function createUploadRoutes(
             if (release) {
                 // If uploading to a specific release, tracks should belong to that release's artist
                 targetArtistId = release.artist_id ?? undefined;
-            } else if (req.isAdmin) {
-                // For admin uploading "orphaned" tracks (no release):
-                // 1. Use artistId from body if provided
-                // 2. Otherwise, use undefined to allow scanner to use file metadata
-                targetArtistId = bodyArtistId ? parseInt(bodyArtistId as string) : undefined;
-            } else {
+            } else if (bodyArtistId) {
+                // Explicit ID takes priority
+                targetArtistId = parseInt(bodyArtistId as string);
+            } else if (bodyArtistName && (req.isAdmin || req.isActive)) {
+                // Name-based lookup/creation for admins or active artists
+                const trimmedName = bodyArtistName.trim();
+                if (trimmedName) {
+                    const artist = database.getArtistByName(trimmedName);
+                    targetArtistId = artist ? artist.id : database.createArtist(trimmedName);
+                }
+            } else if (!req.isAdmin) {
                 // Default to uploader's own artistId (for non-admin artists)
                 targetArtistId = (req as any).artistId ?? undefined;
+            }
+
+            // Determine target album/release ID
+            let targetAlbumId: number | undefined = release?.id;
+
+            if (!targetAlbumId && bodyAlbumTitle && (req.isAdmin || req.isActive)) {
+                // Find or create library album by title
+                const trimmedTitle = bodyAlbumTitle.trim();
+                if (trimmedTitle) {
+                    const slug = "lib-" + trimmedTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                    let album = database.getAlbumBySlug(slug);
+                    if (!album) {
+                        const newAlbumId = database.createAlbum({
+                            title: trimmedTitle,
+                            slug: slug,
+                            artist_id: targetArtistId || null,
+                            owner_id: req.userId || null,
+                            date: null,
+                            cover_path: null,
+                            genre: "Unknown",
+                            description: `Auto-generated from upload`,
+                            type: 'album',
+                            year: new Date().getFullYear(),
+                            download: null,
+                            price: 0,
+                            price_usdc: 0,
+                            currency: 'ETH',
+                            external_links: null,
+                            is_public: false,
+                            visibility: 'private',
+                            is_release: false,
+                            published_at: null,
+                            published_to_gundb: false,
+                            published_to_ap: false,
+                            license: 'copyright',
+                        });
+                        album = database.getAlbum(newAlbumId);
+                    }
+                    targetAlbumId = album?.id;
+                }
             }
 
             if (!req.isAdmin && !req.isActive) {
@@ -278,7 +323,7 @@ export function createUploadRoutes(
 
                     // Process immediately to get Track ID, pass uploader's user ID as ownerId
                     const uploaderId = req.userId;
-                    const scanResult = await scanner.processAudioFile(destPath, musicDir, targetArtistId, uploaderId);
+                    const scanResult = await scanner.processAudioFile(destPath, musicDir, targetArtistId, uploaderId, targetAlbumId);
 
                     if (scanResult && scanResult.success && scanResult.trackId) {
                         scannerResults.push(scanResult);

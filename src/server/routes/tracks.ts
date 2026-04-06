@@ -841,38 +841,38 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             // Update artist
-            if (artistId !== undefined) {
-                // If explicit ID provided, use it (or null to clear)
-                database.updateTrackArtist(id, artistId ? parseInt(artistId) : null);
-            } else if (artist !== undefined) {
+            if (artistId) {
+                // If explicit ID provided, use it
+                database.updateTrackArtist(id, parseInt(artistId));
+            } else if (artist !== undefined && artist.trim() !== "") {
                 const trimmedArtist = artist.trim();
-                if (!trimmedArtist) {
-                    // If artist name is explicitly cleared, set artist_id to null
-                    database.updateTrackArtist(id, null);
-                } else {
-                    // Fallback to name-based lookup/creation
-                    let artistRecord = database.getArtistByName(trimmedArtist);
-                    if (!artistRecord) {
-                        const newArtistId = database.createArtist(trimmedArtist);
-                        artistRecord = database.getArtist(newArtistId);
-                    }
-                    if (artistRecord) {
-                        database.updateTrackArtist(id, artistRecord.id);
-                    }
+                // Fallback to name-based lookup/creation
+                let artistRecord = database.getArtistByName(trimmedArtist);
+                if (!artistRecord) {
+                    const newArtistId = database.createArtist(trimmedArtist);
+                    artistRecord = database.getArtist(newArtistId);
                 }
+                if (artistRecord) {
+                    database.updateTrackArtist(id, artistRecord.id);
+                }
+            } else if (artistId === null || artist === "") {
+                // Explicitly clear artist
+                database.updateTrackArtist(id, null);
             }
 
             // Update album
-            if (albumId !== undefined) {
-                database.updateTrackAlbum(id, albumId ? parseInt(albumId) : null);
-            } else if (album !== undefined) {
-                let albumRecord = database.getAlbumByTitle(album); // Try exact title first
-                if (!albumRecord && album) {
-                    const slug = "lib-" + album.toLowerCase().replace(/[^a-z0-9]/g, '-');
+            if (albumId) {
+                // If explicit ID provided, use it
+                database.updateTrackAlbum(id, parseInt(albumId));
+            } else if (album !== undefined && album.trim() !== "") {
+                const trimmedAlbum = album.trim();
+                let albumRecord = database.getAlbumByTitle(trimmedAlbum); // Try exact title first
+                if (!albumRecord) {
+                    const slug = "lib-" + trimmedAlbum.toLowerCase().replace(/[^a-z0-9]/g, '-');
                     albumRecord = database.getAlbumBySlug(slug);
                     if (!albumRecord) {
                         const newAlbumId = database.createAlbum({
-                            title: album,
+                            title: trimmedAlbum,
                             slug: slug,
                             artist_id: artistId ? parseInt(artistId) : (track.artist_id || null),
                             owner_id: req.userId || track.owner_id || null,
@@ -881,7 +881,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                             genre: genre || "Unknown",
                             description: `Auto-generated from track edit`,
                             type: 'album',
-                            year: null,
+                            year: new Date().getFullYear(),
                             download: null,
                             price: 0,
                             price_usdc: 0,
@@ -893,17 +893,17 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                             published_at: null,
                             published_to_gundb: false,
                             published_to_ap: false,
-                            license: null,
+                            license: 'copyright',
                         });
                         albumRecord = database.getAlbum(newAlbumId);
                     }
                 }
                 if (albumRecord) {
                     database.updateTrackAlbum(id, albumRecord.id);
-                } else if (!album) {
-                    // if album is explicitly empty string, unlink album
-                    database.updateTrackAlbum(id, null);
                 }
+            } else if (albumId === null || album === "") {
+                // Explicitly clear album
+                database.updateTrackAlbum(id, null);
             }
 
             // Update duration (optional, if provided in body)

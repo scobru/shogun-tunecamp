@@ -19,6 +19,10 @@ export const UploadTracksModal = ({
   const [success, setSuccess] = useState("");
   const [existingTracks, setExistingTracks] = useState<Track[]>([]);
   const [loadingExisting, setLoadingExisting] = useState(false);
+  const [artistName, setArtistName] = useState("");
+  const [albumTitle, setAlbumTitle] = useState("");
+  const [artists, setArtists] = useState<any[]>([]);
+  const [albums, setAlbums] = useState<any[]>([]);
 
   useEffect(() => {
     const handleOpen = (e: CustomEvent) => {
@@ -29,8 +33,14 @@ export const UploadTracksModal = ({
         if (e.detail.slug) {
           loadExistingTracks(e.detail.slug);
         }
+        setArtistName(e.detail.artistName || "");
+        setAlbumTitle(e.detail.albumTitle || "");
+        loadMetadataOptions();
       } else {
         setExistingTracks([]);
+        setArtistName("");
+        setAlbumTitle("");
+        loadMetadataOptions();
       }
       setFiles([]);
       setError("");
@@ -50,6 +60,17 @@ export const UploadTracksModal = ({
         handleOpen as EventListener,
       );
   }, []);
+
+  const loadMetadataOptions = async () => {
+    try {
+      const artistData = await API.getArtists();
+      setArtists(artistData);
+      const albumData = await API.getAlbums();
+      setAlbums(albumData);
+    } catch (e) {
+      console.error("Failed to load metadata options:", e);
+    }
+  };
 
   const loadExistingTracks = async (slug: string) => {
     setLoadingExisting(true);
@@ -125,8 +146,8 @@ export const UploadTracksModal = ({
           await API.uploadTracks([file], {
             releaseSlug,
             artistId,
-            // We could track individual file progress here but for batching,
-            // simple file counting is often smoother visually for the user
+            artist: artistName,
+            album: albumTitle,
           });
           successCount++;
         } catch (err: unknown) {
@@ -205,12 +226,51 @@ export const UploadTracksModal = ({
           </div>
         )}
 
-        {releaseTitle && (
+        {releaseTitle ? (
           <div className="alert alert-sm bg-base-200 mb-4 border-none flex-row">
             <Music size={16} className="opacity-50" />
             <span className="text-sm">
               Adding to: <span className="font-bold">{releaseTitle}</span>
             </span>
+          </div>
+        ) : (
+          <div className="space-y-4 mb-6">
+            <div className="form-control">
+              <label className="label py-1">
+                <span className="label-text-alt uppercase font-bold opacity-50">Artist Name</span>
+              </label>
+              <input
+                type="text"
+                list="upload-artist-options"
+                className="input input-bordered input-sm w-full"
+                placeholder="Various / Unknown"
+                value={artistName}
+                onChange={(e) => setArtistName(e.target.value)}
+              />
+              <datalist id="upload-artist-options">
+                {artists.map((a) => (
+                  <option key={a.id} value={a.name} />
+                ))}
+              </datalist>
+            </div>
+            <div className="form-control">
+              <label className="label py-1">
+                <span className="label-text-alt uppercase font-bold opacity-50">Library Album Title</span>
+              </label>
+              <input
+                type="text"
+                list="upload-album-options"
+                className="input input-bordered input-sm w-full"
+                placeholder="Singles / Miscellaneous"
+                value={albumTitle}
+                onChange={(e) => setAlbumTitle(e.target.value)}
+              />
+              <datalist id="upload-album-options">
+                {albums.map((a) => (
+                  <option key={a.id} value={a.title} />
+                ))}
+              </datalist>
+            </div>
           </div>
         )}
 

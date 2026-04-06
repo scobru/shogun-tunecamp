@@ -406,7 +406,7 @@ export class Scanner implements ScannerService {
         }
     }
 
-    public async processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
+    public async processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
         let currentFilePath = filePath;
         const ext = path.extname(currentFilePath).toLowerCase();
 
@@ -447,8 +447,8 @@ export class Scanner implements ScannerService {
         let existing = this.database.getTrackByPath(normalizedPath);
 
         // Determine album ID from folder map
-        const dir = path.dirname(currentFilePath);
-        let albumId = this.folderToAlbumMap.get(dir) || null;
+        // Determine album ID from override or folder map
+        let albumId = overrideAlbumId || this.folderToAlbumMap.get(dir) || null;
 
         // If track is in the "library" or "tracks" folder and map has no info, protect the existing link
         // This prevents the scanner from unlinking tracks that were manually uploaded/linked via API
