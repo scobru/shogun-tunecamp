@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import API from "../services/api";
-  Share2,
-  Trash2
-} from "lucide-react";
+import { Share2, Trash2, Camera, Loader2 } from "lucide-react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useAuthStore } from "../stores/useAuthStore";
@@ -13,8 +11,8 @@ import { GunSocial } from "../services/gun";
 import type { Track } from "../types";
 import clsx from "clsx";
 
+
 import { Comments } from "../components/Comments";
-import { Camera, Loader2 } from "lucide-react";
 
 export const AlbumDetails = () => {
   const { idOrSlug } = useParams();
