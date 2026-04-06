@@ -116,7 +116,7 @@ export interface ScannerService {
     scanDirectory(dir: string): Promise<ScanResult>;
     startWatching(dir: string): void;
     stopWatching(): void;
-    processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
+    processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
     consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number }>;
 }
 
@@ -409,6 +409,7 @@ export class Scanner implements ScannerService {
     public async processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
         let currentFilePath = filePath;
         const ext = path.extname(currentFilePath).toLowerCase();
+        const dir = path.dirname(currentFilePath);
 
         if (!AUDIO_EXTENSIONS.includes(ext)) {
             return null;
@@ -463,7 +464,6 @@ export class Scanner implements ScannerService {
             try {
                 // First try: Find by filename (basename) match in the same directory
                 // This handles cases where metadata is missing (e.g. fresh conversion) but filenames match (song.mp3 vs song.wav)
-                const dir = path.dirname(currentFilePath);
                 const baseName = path.basename(currentFilePath, ext);
                 const siblingExts = ['.wav', '.flac', '.mp3', '.m4a', '.ogg']; // Check common extensions
 
