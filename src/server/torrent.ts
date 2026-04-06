@@ -1,11 +1,12 @@
-import WebTorrent from "webtorrent-hybrid";
+import WebTorrentHybrid from "webtorrent-hybrid";
+import type { Instance, Torrent, TorrentFile } from "webtorrent";
 import path from "path";
 import fs from "fs-extra";
 import type { DatabaseService, TorrentStatus } from "./database.js";
 import type { ScannerService } from "./scanner.js";
 
 export class TorrentService {
-    private client: WebTorrent.Instance;
+    private client: Instance;
     private musicDir: string;
     private downloadDir: string;
 
@@ -14,7 +15,8 @@ export class TorrentService {
         private scanner: ScannerService,
         musicDir: string
     ) {
-        this.client = new WebTorrent();
+        // @ts-ignore - webtorrent-hybrid doesn't have its own types, but follows webtorrent interface
+        this.client = new WebTorrentHybrid();
         this.musicDir = musicDir;
         this.downloadDir = path.join(musicDir, "downloads");
 
@@ -37,7 +39,7 @@ export class TorrentService {
     public addTorrent(magnetUri: string, saveToDb: boolean = true): Promise<string> {
         return new Promise((resolve, reject) => {
             try {
-                const torrent = this.client.add(magnetUri, { path: this.downloadDir }, (t) => {
+                const torrent = this.client.add(magnetUri, { path: this.downloadDir }, (t: Torrent) => {
                     console.log(`🧲 Torrent added: ${t.name} (${t.infoHash})`);
                     
                     if (saveToDb) {
@@ -57,7 +59,7 @@ export class TorrentService {
                     resolve(t.infoHash);
                 });
 
-                torrent.on("error", (err) => {
+                torrent.on("error", (err: Error | string) => {
                     console.error(`❌ Torrent error (${magnetUri}):`, err);
                     reject(err);
                 });
@@ -67,7 +69,7 @@ export class TorrentService {
         });
     }
 
-    private async handleTorrentDone(torrent: WebTorrent.Torrent) {
+    private async handleTorrentDone(torrent: Torrent) {
         console.log(`📂 Processing finished torrent files for: ${torrent.name}`);
         
         for (const file of torrent.files) {
@@ -82,7 +84,7 @@ export class TorrentService {
                     // Trigger scanner for this file
                     // We don't provide an ownerId for now, or we could pass the admin ID
                     await this.scanner.processAudioFile(absolutePath, this.musicDir);
-                } catch (err) {
+                } catch (err: any) {
                     console.error(`❌ Failed to index file ${file.name}:`, err);
                 }
             }
@@ -90,7 +92,7 @@ export class TorrentService {
     }
 
     public getTorrentsStatus(): TorrentStatus[] {
-        return this.client.torrents.map(t => ({
+        return this.client.torrents.map((t: Torrent) => ({
             infoHash: t.infoHash,
             name: t.name,
             progress: t.progress,
@@ -103,7 +105,7 @@ export class TorrentService {
             path: t.path,
             timeRemaining: t.timeRemaining,
             done: t.done,
-            files: t.files.map(f => ({
+            files: t.files.map((f: TorrentFile) => ({
                 name: f.name,
                 path: f.path,
                 progress: f.progress,
@@ -122,7 +124,7 @@ export class TorrentService {
                 
                 if (deleteFiles) {
                     const torrentPath = path.join(this.downloadDir, torrent.name);
-                    fs.remove(torrentPath).catch(err => {
+                    fs.remove(torrentPath).catch((err: any) => {
                         console.error(`❌ Failed to delete files for ${infoHash}:`, err);
                     });
                 }
