@@ -851,6 +851,13 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 if (!artistRecord) {
                     const newArtistId = database.createArtist(trimmedArtist);
                     artistRecord = database.getArtist(newArtistId);
+                } else {
+                    // Update casing if it changed (getArtistByName is case-insensitive)
+                    if (artistRecord.name !== trimmedArtist) {
+                        console.log(`[Tracks] Updating artist casing: ${artistRecord.name} -> ${trimmedArtist}`);
+                        database.updateArtist(artistRecord.id, trimmedArtist);
+                        artistRecord.name = trimmedArtist; // Local update for subsequent logic
+                    }
                 }
                 if (artistRecord) {
                     database.updateTrackArtist(id, artistRecord.id);
@@ -896,6 +903,12 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                             license: 'copyright',
                         });
                         albumRecord = database.getAlbum(newAlbumId);
+                    } else {
+                        // Update title casing if it changed
+                        if (albumRecord.title !== trimmedAlbum) {
+                            console.log(`[Tracks] Updating album casing: ${albumRecord.title} -> ${trimmedAlbum}`);
+                            database.updateAlbumTitle(albumRecord.id, trimmedAlbum);
+                        }
                     }
                 }
                 if (albumRecord) {

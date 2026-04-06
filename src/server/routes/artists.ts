@@ -191,7 +191,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
         }
         try {
             const id = parseInt(req.params.id as string, 10);
-            const { bio, links, postParams, walletAddress } = req.body;
+            const { name, bio, links, postParams, walletAddress } = req.body;
 
             const artist = database.getArtist(id);
             if (!artist) {
@@ -259,7 +259,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 }
             }
 
-            database.updateArtist(id, bio || artist.bio || undefined, artist.photo_path || undefined, parsedLinks, finalPostParams, finalWalletAddress || undefined);
+            database.updateArtist(id, name || undefined, bio || artist.bio || undefined, artist.photo_path || undefined, parsedLinks, finalPostParams, finalWalletAddress || undefined);
 
             const updatedArtist = database.getArtist(id);
             if (!updatedArtist) {
