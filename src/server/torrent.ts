@@ -15,7 +15,9 @@ export class TorrentService {
         private scanner: ScannerService,
         musicDir: string
     ) {
-        this.client = new WebTorrent();
+        this.client = new WebTorrent({
+            maxConns: 50 // Limit connections to prevent EMFILE caps
+        });
         this.musicDir = musicDir;
         this.downloadDir = path.join(musicDir, "downloads");
 
@@ -92,17 +94,21 @@ export class TorrentService {
                     reject(err);
                 });
 
+                // Track the timeout so we can clear it upon resolving
+                let timeoutId: NodeJS.Timeout | null = null;
+
                 // Immediately resolve with infoHash to prevent hanging the HTTP response
                 if (torrent.infoHash) {
                     resolve(torrent.infoHash);
                 } else {
                     // Fallback to wait for infoHash event
                     torrent.on('infoHash', () => {
+                        if (timeoutId) clearTimeout(timeoutId);
                         resolve(torrent.infoHash);
                     });
                     
                     // If webtorrent takes too long to even get an infoHash (e.g. invalid DHT magnet), timeout
-                    setTimeout(() => {
+                    timeoutId = setTimeout(() => {
                         try { torrent.destroy(); } catch (e) { /* ignore */ }
                         reject(new Error("Timeout waiting for torrent infoHash"));
                     }, 10000);
@@ -136,27 +142,38 @@ export class TorrentService {
     }
 
     public getTorrentsStatus(): TorrentStatus[] {
-        return this.client.torrents.map((t: Torrent) => ({
-            infoHash: t.infoHash,
-            name: t.name,
-            progress: t.progress,
-            downloadSpeed: t.downloadSpeed,
-            uploadSpeed: t.uploadSpeed,
-            numPeers: t.numPeers,
-            received: t.received,
-            uploaded: t.uploaded,
-            size: t.length,
-            path: t.path,
-            timeRemaining: t.timeRemaining,
-            done: t.done,
-            files: t.files.map((f: TorrentFile) => ({
-                name: f.name,
-                path: f.path,
-                progress: f.progress,
-                length: f.length,
-                downloaded: f.downloaded
-            }))
-        }));
+        return this.client.torrents.map((t: Torrent) => {
+            let filesStatus: any[] = [];
+            try {
+                if (t.files && Array.isArray(t.files)) {
+                    filesStatus = t.files.map((f: TorrentFile) => ({
+                        name: f.name,
+                        path: f.path,
+                        progress: f.progress,
+                        length: f.length,
+                        downloaded: f.downloaded
+                    }));
+                }
+            } catch (err) {
+                console.error("Error mapping torrent files for status:", err);
+            }
+            
+            return {
+                infoHash: t.infoHash,
+                name: t.name,
+                progress: t.progress,
+                downloadSpeed: t.downloadSpeed,
+                uploadSpeed: t.uploadSpeed,
+                numPeers: t.numPeers,
+                received: t.received,
+                uploaded: t.uploaded,
+                size: t.length,
+                path: t.path,
+                timeRemaining: t.timeRemaining,
+                done: t.done,
+                files: filesStatus
+            };
+        });
     }
 
     public async removeTorrent(infoHash: string, deleteFiles: boolean = false): Promise<void> {
