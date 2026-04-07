@@ -1,8 +1,9 @@
 import { Router } from "express";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
+import type { GunDBService } from "../gundb.js";
 
-export function createPlaylistsRoutes(database: DatabaseService): Router {
+export function createPlaylistsRoutes(database: DatabaseService, gunDb?: GunDBService): Router {
     const router = Router();
 
     /**
@@ -50,6 +51,17 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
 
             const username = req.username || "admin";
             const id = database.createPlaylist(name, username, description);
+            
+            if (gunDb) {
+                const url = database.getSetting("publicUrl");
+                if (url) {
+                    const fullPlaylist = database.getPlaylist(id);
+                    if (fullPlaylist && fullPlaylist.isPublic) {
+                        gunDb.registerPlaylist({ url, title: database.getSetting("siteName") || "TuneCamp" }, fullPlaylist, []).catch(console.error);
+                    }
+                }
+            }
+            
             res.status(201).json({ id, name, username, description });
         } catch (error) {
             console.error("Error creating playlist:", error);
@@ -81,6 +93,19 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
             }
             if (coverPath !== undefined) {
                 database.updatePlaylistCover(id, coverPath || null);
+            }
+
+            if (gunDb) {
+                const url = database.getSetting("publicUrl");
+                const fullPlaylist = database.getPlaylist(id);
+                if (url && fullPlaylist) {
+                    if (fullPlaylist.isPublic) {
+                        const tracks = database.getPlaylistTracks(id);
+                        gunDb.registerPlaylist({ url, title: database.getSetting("siteName") || "TuneCamp" }, fullPlaylist, tracks).catch(console.error);
+                    } else if (isPublic === false) {
+                        gunDb.unregisterPlaylist(id).catch(console.error);
+                    }
+                }
             }
 
             res.json({ message: "Playlist updated" });
@@ -139,6 +164,8 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
             }
 
             database.deletePlaylist(id);
+            if (gunDb) gunDb.unregisterPlaylist(id).catch(console.error);
+            
             res.json({ message: "Playlist deleted" });
         } catch (error) {
             console.error("Error deleting playlist:", error);
@@ -176,6 +203,16 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
             }
 
             database.addTrackToPlaylist(playlistId, trackId);
+
+            if (gunDb) {
+                const url = database.getSetting("publicUrl");
+                const fullPlaylist = database.getPlaylist(playlistId);
+                if (url && fullPlaylist && fullPlaylist.isPublic) {
+                    const tracks = database.getPlaylistTracks(playlistId);
+                    gunDb.registerPlaylist({ url, title: database.getSetting("siteName") || "TuneCamp" }, fullPlaylist, tracks).catch(console.error);
+                }
+            }
+
             res.json({ message: "Track added to playlist" });
         } catch (error) {
             console.error("Error adding track to playlist:", error);
@@ -204,6 +241,16 @@ export function createPlaylistsRoutes(database: DatabaseService): Router {
             }
 
             database.removeTrackFromPlaylist(playlistId, trackId);
+
+            if (gunDb) {
+                const url = database.getSetting("publicUrl");
+                const fullPlaylist = database.getPlaylist(playlistId);
+                if (url && fullPlaylist && fullPlaylist.isPublic) {
+                    const tracks = database.getPlaylistTracks(playlistId);
+                    gunDb.registerPlaylist({ url, title: database.getSetting("siteName") || "TuneCamp" }, fullPlaylist, tracks).catch(console.error);
+                }
+            }
+
             res.json({ message: "Track removed from playlist" });
         } catch (error) {
             console.error("Error removing track from playlist:", error);

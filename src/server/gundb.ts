@@ -2,7 +2,7 @@ import Gun from "gun";
 import "gun/lib/yson.js";
 import "gun/sea.js";
 
-import type { DatabaseService, Album, Track } from "./database.js";
+import type { DatabaseService, Album, Track, Playlist } from "./database.js";
 import { generateTrackSlug, normalizeUrl } from "../utils/audioUtils.js";
 import { isSafeUrl } from "../utils/networkUtils.js";
 import fs from "fs-extra";
@@ -64,6 +64,10 @@ export interface GunDBService {
     // Community exploration
     getCommunitySites(): Promise<any[]>;
     getCommunityTracks(): Promise<any[]>;
+    // Playlists
+    registerPlaylist(siteInfo: SiteInfo, playlist: Playlist, tracks: Track[]): Promise<boolean>;
+    unregisterPlaylist(playlistId: number): Promise<boolean>;
+    getCommunityPlaylists(): Promise<any[]>;
     // User profiles
     registerUser(pubKey: string, username: string): Promise<boolean>;
     getUser(pubKey: string): Promise<UserProfile | null>;
@@ -497,6 +501,82 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
     // Download Stats namespace
     const STATS_NAMESPACE = "tunecamp-stats";
+
+    async function registerPlaylist(siteInfo: SiteInfo, playlist: Playlist, tracks: Track[]): Promise<boolean> {
+        if (!initialized || !gun || !serverPair) return false;
+        if (!playlist.isPublic) return false;
+
+        const siteId = await getPersistentSiteId(siteInfo);
+        const baseUrl = siteInfo.url;
+        const now = Date.now();
+
+        const playlistData = {
+            id: playlist.id,
+            name: playlist.name,
+            description: playlist.description || "",
+            owner: playlist.username,
+            tracks: tracks.map(t => ({ id: t.id, title: t.title, artist: t.artist_name || "" })),
+            siteUrl: baseUrl,
+            addedAt: now,
+            type: "tunecamp-playlist",
+            pub: serverPair.pub
+        };
+
+        return new Promise(async (resolve) => {
+            const signedPlaylist = await Gun.SEA.sign(playlistData, serverPair);
+            const playlistRef = gun
+                .get(REGISTRY_ROOT)
+                .get(REGISTRY_NAMESPACE)
+                .get("content")
+                .get(serverPair.pub)
+                .get("playlists")
+                .get(playlist.id.toString());
+
+            playlistRef.put(signedPlaylist, (ack: any) => {
+                if (ack.err) console.error("Failed to register playlist:", ack.err);
+                else console.log(`🎵 Registered playlist "${playlist.name}" to secure graph`);
+                resolve(!ack.err);
+            });
+
+            setTimeout(() => resolve(true), 5000);
+        });
+    }
+
+    async function unregisterPlaylist(playlistId: number): Promise<boolean> {
+        if (!initialized || !gun || !serverPair) return false;
+        const playlistRef = gun
+            .get(REGISTRY_ROOT)
+            .get(REGISTRY_NAMESPACE)
+            .get("content")
+            .get(serverPair.pub)
+            .get("playlists")
+            .get(playlistId.toString());
+
+        playlistRef.put(null as any);
+        console.log(`🗑️ Unregistered playlist ID ${playlistId} from public node map`);
+        return true;
+    }
+
+    async function getCommunityPlaylists(): Promise<any[]> {
+        if (!initialized || !gun) return [];
+        return new Promise((resolve) => {
+            const playlists: any[] = [];
+            const processedIds = new Set();
+            gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("sites").map().once((directoryData: any) => {
+                if (!directoryData || !directoryData.pub) return;
+                const registerPub = directoryData.pub;
+                gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("content").get(registerPub).get("playlists").map().once(async (signedData: any, id: string) => {
+                    if (!signedData || processedIds.has(id)) return;
+                    processedIds.add(id);
+                    const listData = await Gun.SEA.verify(signedData, registerPub);
+                    if (listData && listData.type === "tunecamp-playlist") {
+                        playlists.push(listData);
+                    }
+                });
+            });
+            setTimeout(() => resolve(playlists), 3000);
+        });
+    }
 
     async function getDownloadCount(releaseSlug: string): Promise<number> {
         if (!initialized || !gun) return 0;
@@ -1276,6 +1356,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         setTrackRating,
         getCommunitySites,
         getCommunityTracks,
+        registerPlaylist,
+        unregisterPlaylist,
+        getCommunityPlaylists,
         // User profiles
         registerUser,
         getUser,

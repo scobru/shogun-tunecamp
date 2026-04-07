@@ -733,6 +733,96 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         });
     });
 
+    router.all('/createPlaylist.view', (req, res) => {
+        const username = (req as any).user?.username || 'admin';
+        const name = ensureString(req.query.name);
+        if (!name) return sendError(res, req, 10, 'Missing name parameter');
+
+        const playlistId = db.createPlaylist(name, username, '');
+        
+        if (context.gundbService) {
+            const url = db.getSetting("publicUrl");
+            if (url) {
+                const p = db.getPlaylist(playlistId);
+                if (p && p.isPublic) context.gundbService.registerPlaylist({ url, title: db.getSetting("siteName") || "TuneCamp" }, p, []).catch(console.error);
+            }
+        }
+
+        const p = db.getPlaylist(playlistId);
+        if (!p) return sendError(res, req, 70, 'Playlist creation failed');
+
+        sendResponse(res, req, {
+            playlist: {
+                '@id': `pl_${p.id}`, '@name': p.name, '@owner': p.username, '@public': p.isPublic ? 'true' : 'false',
+                '@created': p.created_at, '@songCount': 0
+            }
+        });
+    });
+
+    router.all('/deletePlaylist.view', (req, res) => {
+        const idStr = ensureString(req.query.id);
+        if (!idStr) return sendError(res, req, 10, 'Missing id parameter');
+        const id = parseInt(idStr.startsWith('pl_') ? idStr.substring(3) : idStr);
+        
+        db.deletePlaylist(id);
+        
+        if (context.gundbService) {
+            context.gundbService.unregisterPlaylist(id).catch(console.error);
+        }
+        
+        sendResponse(res, req, {});
+    });
+
+    router.all('/updatePlaylist.view', (req, res) => {
+        const idStr = ensureString(req.query.playlistId);
+        if (!idStr) return sendError(res, req, 10, 'Missing playlistId parameter');
+        const id = parseInt(idStr.startsWith('pl_') ? idStr.substring(3) : idStr);
+
+        const playlist = db.getPlaylist(id);
+        if (!playlist) return sendError(res, req, 70, 'Playlist not found');
+
+        const pub = ensureString(req.query.public);
+        if (pub !== undefined) db.updatePlaylistVisibility(id, pub === 'true');
+
+        const addIdsRaw = req.query.songIdToAdd;
+        const addIds = (Array.isArray(addIdsRaw) ? addIdsRaw : (addIdsRaw ? [addIdsRaw] : [])).map(s => String(s));
+        
+        const removeIndexesRaw = req.query.songIndexToRemove;
+        const removeIdxs = (Array.isArray(removeIndexesRaw) ? removeIndexesRaw : (removeIndexesRaw ? [removeIndexesRaw] : [])).map(i => parseInt(String(i), 10));
+
+        let currentTracks = db.getPlaylistTracks(id);
+
+        const toRemoveIndexes = [...removeIdxs].sort((a, b) => b - a);
+        for (const idx of toRemoveIndexes) {
+            if (idx >= 0 && idx < currentTracks.length) {
+                const track = currentTracks[idx];
+                db.removeTrackFromPlaylist(id, track.id);
+            }
+        }
+
+        for (const tidStr of addIds) {
+            const trackId = parseInt(tidStr.startsWith('tr_') ? tidStr.substring(3) : tidStr);
+            if (!isNaN(trackId)) {
+                db.addTrackToPlaylist(id, trackId);
+            }
+        }
+
+        if (context.gundbService) {
+            const url = db.getSetting("publicUrl");
+            const fullPlaylist = db.getPlaylist(id);
+            if (url && fullPlaylist) {
+                if (fullPlaylist.isPublic) {
+                    const tracks = db.getPlaylistTracks(id);
+                    context.gundbService.registerPlaylist({ url, title: db.getSetting("siteName") || "TuneCamp" }, fullPlaylist, tracks).catch(console.error);
+                } else if (pub === 'false') {
+                    context.gundbService.unregisterPlaylist(id).catch(console.error);
+                }
+            }
+        }
+
+        sendResponse(res, req, {});
+    });
+
     router.all('/getUser.view', (req, res) => {
         const requestedUser = ensureString(req.query.username) || (req as any).user.username;
         sendResponse(res, req, {

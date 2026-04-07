@@ -89,6 +89,7 @@ export class TorrentService {
 
                 torrent.on("error", (err: any) => {
                     console.error(`❌ Torrent error (${magnetUri}):`, err.message || err);
+                    reject(err);
                 });
 
                 // Immediately resolve with infoHash to prevent hanging the HTTP response
@@ -99,6 +100,12 @@ export class TorrentService {
                     torrent.on('infoHash', () => {
                         resolve(torrent.infoHash);
                     });
+                    
+                    // If webtorrent takes too long to even get an infoHash (e.g. invalid DHT magnet), timeout
+                    setTimeout(() => {
+                        try { torrent.destroy(); } catch (e) { /* ignore */ }
+                        reject(new Error("Timeout waiting for torrent infoHash"));
+                    }, 10000);
                 }
             } catch (err) {
                 reject(err);
