@@ -21,8 +21,9 @@ export class TorrentService {
 
         // Global error handler for WebTorrent client
         // Prevents unhandled exceptions from crashing the process
-        this.client.on("error", (err: Error) => {
-            console.error("🌊 WebTorrent client global error:", err.message || err);
+        this.client.on("error", (err: string | Error) => {
+            const message = typeof err === "string" ? err : err.message;
+            console.error("🌊 WebTorrent client global error:", message);
         });
 
         // Ensure download directory exists
@@ -38,30 +39,26 @@ export class TorrentService {
         const torrents = this.database.getTorrents();
         for (const t of torrents) {
             try {
-                this.addTorrent(t.magnet_uri, false);
+                await this.addTorrent(t.magnet_uri, false);
             } catch (err) {
                 console.error(`❌ Failed to resume torrent ${t.info_hash}:`, err);
             }
         }
     }
 
-    public addTorrent(magnetUri: string, saveToDb: boolean = true): Promise<string> {
-        return new Promise((resolve, reject) => {
-            // Check if torrent already exists in the client
-            const existing = this.client.get(magnetUri);
-            if (existing) {
-                console.log(`🧲 Torrent already active: ${existing.name || existing.infoHash}`);
-                return resolve(existing.infoHash);
-            }
+    public async addTorrent(magnetUri: string, saveToDb: boolean = true): Promise<string> {
+        // Check if torrent already exists in the client
+        const existing = await this.client.get(magnetUri);
+        if (existing) {
+            console.log(`🧲 Torrent already active: ${existing.name || existing.infoHash}`);
+            return existing.infoHash;
+        }
 
+        return new Promise((resolve, reject) => {
             try {
                 // Set a timeout to avoid hanging the promise if metadata retrieval takes too long
-                // This won't stop the torrent from being added, just prevents the HTTP request from hanging
                 const timeout = setTimeout(() => {
-                    // We don't necessarily reject here, as it's still being added in the background
-                    // But we might want to return a status that it's "pending"
                     console.warn(`⏳ Torrent metadata timeout for: ${magnetUri}`);
-                    // Depending on preference, we could resolve with "pending" info or reject
                 }, 30000); // 30 seconds
 
                 const torrent = this.client.add(magnetUri, { path: this.downloadDir }, (t: Torrent) => {
@@ -89,14 +86,14 @@ export class TorrentService {
                     resolve(t.infoHash);
                 });
 
-                torrent.on("error", (err: any) => {
+                torrent.on("error", async (err: any) => {
                     clearTimeout(timeout);
                     console.error(`❌ Torrent error (${magnetUri}):`, err.message || err);
                     
                     // Specific handling for common errors like "duplicate info hash"
                     if (err.message && err.message.includes("duplicate info hash")) {
-                        const existing = this.client.get(magnetUri);
-                        if (existing) return resolve(existing.infoHash);
+                        const existingTorrent = await this.client.get(magnetUri);
+                        if (existingTorrent) return resolve(existingTorrent.infoHash);
                     }
                     
                     reject(err);
