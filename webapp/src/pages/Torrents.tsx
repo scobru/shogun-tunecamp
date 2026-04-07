@@ -63,8 +63,10 @@ export function Torrents() {
     const uri = magnetUri.trim();
     if (!uri) return;
 
-    if (!uri.startsWith("magnet:?")) {
-      setError("Invalid magnet URI. It must start with 'magnet:?'");
+    // Strict validation for magnet URI
+    const magnetRegex = /^magnet:\?xt=urn:bt[ih]{1,2}:[a-z0-9]{20,50}/i;
+    if (!magnetRegex.test(uri)) {
+      setError("Invalid magnet URI format. Please ensure it starts with 'magnet:?xt=urn:btih:' followed by a valid info hash.");
       return;
     }
 
@@ -75,7 +77,13 @@ export function Torrents() {
       setMagnetUri("");
       fetchStatus();
     } catch (err: any) {
-      setError(err.message || "Failed to add torrent");
+      // If the error message looks like HTML (e.g. NGINX 502 page), show a cleaner message
+      const msg = err.message || "";
+      if (msg.trim().startsWith("<")) {
+        setError("Server connection error (502/504). The background service might be restarting or overloaded.");
+      } else {
+        setError(msg || "Failed to add torrent");
+      }
     } finally {
       setIsLoading(false);
     }

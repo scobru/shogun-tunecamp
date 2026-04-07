@@ -4,6 +4,19 @@ import path from "path";
 import http from "http";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
+
+// Global crash protection for Torrent engine and other async modules
+process.on('uncaughtException', (err) => {
+    console.error('🌊 SEVERE: Uncaught Exception:', err);
+    // In many cases, we might want to shut down, but for torrent errors we might stay alive
+    if (err.message && err.message.includes('torrent')) {
+        console.warn('⚠️ Torrent engine error caught, staying alive...');
+    }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🌊 SEVERE: Unhandled Rejection at:', promise, 'reason:', reason);
+});
 import type { ServerConfig } from "./config.js";
 import { createDatabase } from "./database.js";
 import { createAuthService } from "./auth.js";

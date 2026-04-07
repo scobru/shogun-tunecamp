@@ -47,23 +47,32 @@ export class TorrentService {
     }
 
     public async addTorrent(magnetUri: string, saveToDb: boolean = true): Promise<string> {
+        console.log(`🧲 Attempting to add torrent: ${magnetUri.substring(0, 60)}...`);
+        
         // Check if torrent already exists in the client
-        const existing = await this.client.get(magnetUri);
-        if (existing) {
-            console.log(`🧲 Torrent already active: ${existing.name || existing.infoHash}`);
-            return existing.infoHash;
+        try {
+            const existing = await this.client.get(magnetUri);
+            if (existing) {
+                console.log(`🧲 Torrent already active in engine: ${existing.name || existing.infoHash}`);
+                return existing.infoHash;
+            }
+        } catch (getErr) {
+            // client.get might throw if input is totally invalid and not caught by frontend
+            console.warn(`⚠️ client.get failed for ${magnetUri.substring(0, 30)}:`, getErr);
         }
 
         return new Promise((resolve, reject) => {
             try {
                 // Set a timeout to avoid hanging the promise if metadata retrieval takes too long
                 const timeout = setTimeout(() => {
-                    console.warn(`⏳ Torrent metadata timeout for: ${magnetUri}`);
-                }, 30000); // 30 seconds
+                    console.warn(`⏳ Torrent metadata timeout (30s) for: ${magnetUri.substring(0, 60)}`);
+                    // We don't reject here, we let it continue in background
+                }, 30000); 
 
+                console.log(`📡 Calling client.add for ${magnetUri.substring(0, 40)}...`);
                 const torrent = this.client.add(magnetUri, { path: this.downloadDir }, (t: Torrent) => {
                     clearTimeout(timeout);
-                    console.log(`🧲 Torrent added: ${t.name} (${t.infoHash})`);
+                    console.log(`✅ Torrent metadata retrieved: ${t.name} (${t.infoHash})`);
                     
                     if (saveToDb) {
                         try {
