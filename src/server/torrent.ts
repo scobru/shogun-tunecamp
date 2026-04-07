@@ -53,14 +53,14 @@ export class TorrentService {
         
         // Check if torrent already exists in the client
         try {
-            const existing = await this.client.get(magnetUri);
+            const existing = await this.client.get(magnetUri) as any;
             if (existing) {
                 console.log(`🧲 Torrent already active in engine: ${existing.name || existing.infoHash}`);
                 return existing.infoHash;
             }
         } catch (getErr) {
-            // client.get might throw if input is totally invalid and not caught by frontend
-            console.warn(`⚠️ client.get failed for ${magnetUri.substring(0, 30)}:`, getErr);
+            // client.get might throw if input is totally invalid
+            console.warn(`⚠️ client.get failed for ${magnetUri.substring(0, 30)}:`, getErr instanceof Error ? getErr.message : String(getErr));
         }
 
         return new Promise((resolve, reject) => {
@@ -96,22 +96,43 @@ export class TorrentService {
 
                 // Track the timeout so we can clear it upon resolving
                 let timeoutId: NodeJS.Timeout | null = null;
+                let isSettled = false;
 
-                // Immediately resolve with infoHash to prevent hanging the HTTP response
+                const cleanup = () => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                        timeoutId = null;
+                    }
+                };
+
+                // Immediately resolve with infoHash if available (typical for magnet links)
                 if (torrent.infoHash) {
+                    console.log(`🧲 WebTorrent identified infoHash: ${torrent.infoHash}`);
+                    isSettled = true;
                     resolve(torrent.infoHash);
                 } else {
                     // Fallback to wait for infoHash event
-                    torrent.on('infoHash', () => {
-                        if (timeoutId) clearTimeout(timeoutId);
+                    torrent.once('infoHash', () => {
+                        if (isSettled) return;
+                        console.log(`📡 infoHash event for ${magnetUri.substring(0, 30)}: ${torrent.infoHash}`);
+                        cleanup();
+                        isSettled = true;
                         resolve(torrent.infoHash);
                     });
                     
                     // If webtorrent takes too long to even get an infoHash (e.g. invalid DHT magnet), timeout
                     timeoutId = setTimeout(() => {
-                        try { torrent.destroy(); } catch (e) { /* ignore */ }
-                        reject(new Error("Timeout waiting for torrent infoHash"));
-                    }, 10000);
+                        if (isSettled) return;
+                        console.warn(`⏱️ Timeout waiting for torrent infoHash (30s): ${magnetUri.substring(0, 40)}`);
+                        try { 
+                            // Only destroy if it hasn't succeeded in some way
+                            if (!(torrent as any).metadata) {
+                                torrent.destroy(); 
+                            }
+                        } catch (e) { /* ignore */ }
+                        isSettled = true;
+                        reject(new Error("Timeout waiting for torrent infoHash (metadata fetching slow)"));
+                    }, 30000); // 30 seconds
                 }
             } catch (err) {
                 reject(err);
