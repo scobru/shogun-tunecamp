@@ -51,8 +51,7 @@ export class TorrentService {
         
         // Check if torrent already exists in the client
         try {
-            // client.get is synchronous in most WebTorrent versions
-            const existing = this.client.get(magnetUri);
+            const existing = await this.client.get(magnetUri);
             if (existing) {
                 console.log(`🧲 Torrent already active in engine: ${existing.name || existing.infoHash}`);
                 return existing.infoHash;
