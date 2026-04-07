@@ -51,7 +51,8 @@ export class TorrentService {
         
         // Check if torrent already exists in the client
         try {
-            const existing = await this.client.get(magnetUri);
+            // client.get is synchronous in most WebTorrent versions
+            const existing = this.client.get(magnetUri);
             if (existing) {
                 console.log(`🧲 Torrent already active in engine: ${existing.name || existing.infoHash}`);
                 return existing.infoHash;
@@ -63,15 +64,9 @@ export class TorrentService {
 
         return new Promise((resolve, reject) => {
             try {
-                // Set a timeout to avoid hanging the promise if metadata retrieval takes too long
-                const timeout = setTimeout(() => {
-                    console.warn(`⏳ Torrent metadata timeout (30s) for: ${magnetUri.substring(0, 60)}`);
-                    // We don't reject here, we let it continue in background
-                }, 30000); 
-
                 console.log(`📡 Calling client.add for ${magnetUri.substring(0, 40)}...`);
+                // WebTorrent's client.add returns the torrent instance synchronously
                 const torrent = this.client.add(magnetUri, { path: this.downloadDir }, (t: Torrent) => {
-                    clearTimeout(timeout);
                     console.log(`✅ Torrent metadata retrieved: ${t.name} (${t.infoHash})`);
                     
                     if (saveToDb) {
@@ -91,22 +86,21 @@ export class TorrentService {
                         console.log(`✅ Torrent finished: ${t.name}`);
                         this.handleTorrentDone(t);
                     });
-
-                    resolve(t.infoHash);
                 });
 
-                torrent.on("error", async (err: any) => {
-                    clearTimeout(timeout);
+                torrent.on("error", (err: any) => {
                     console.error(`❌ Torrent error (${magnetUri}):`, err.message || err);
-                    
-                    // Specific handling for common errors like "duplicate info hash"
-                    if (err.message && err.message.includes("duplicate info hash")) {
-                        const existingTorrent = await this.client.get(magnetUri);
-                        if (existingTorrent) return resolve(existingTorrent.infoHash);
-                    }
-                    
-                    reject(err);
                 });
+
+                // Immediately resolve with infoHash to prevent hanging the HTTP response
+                if (torrent.infoHash) {
+                    resolve(torrent.infoHash);
+                } else {
+                    // Fallback to wait for infoHash event
+                    torrent.on('infoHash', () => {
+                        resolve(torrent.infoHash);
+                    });
+                }
             } catch (err) {
                 reject(err);
             }
