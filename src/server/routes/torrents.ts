@@ -30,11 +30,20 @@ export function createTorrentRoutes(torrentService: TorrentService): Router {
                 return res.status(400).json({ error: "magnetUri is required" });
             }
 
+            // Basic validation for magnet URI
+            if (!magnetUri.startsWith("magnet:?")) {
+                console.warn(`⚠️ Invalid magnet URI attempted: ${magnetUri}`);
+                return res.status(400).json({ 
+                    error: "Invalid magnet URI. It must start with 'magnet:?'" 
+                });
+            }
+
             const infoHash = await torrentService.addTorrent(magnetUri);
             res.json({ success: true, infoHash });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error adding torrent:", error);
-            res.status(500).json({ error: "Failed to add torrent: " + (error instanceof Error ? error.message : String(error)) });
+            const message = error.message || String(error);
+            res.status(500).json({ error: "Failed to add torrent: " + message });
         }
     });
 

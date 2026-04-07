@@ -60,12 +60,18 @@ export function Torrents() {
 
   const handleAddTorrent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!magnetUri) return;
+    const uri = magnetUri.trim();
+    if (!uri) return;
+
+    if (!uri.startsWith("magnet:?")) {
+      setError("Invalid magnet URI. It must start with 'magnet:?'");
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
     try {
-      await API.addTorrent(magnetUri);
+      await API.addTorrent(uri);
       setMagnetUri("");
       fetchStatus();
     } catch (err: any) {

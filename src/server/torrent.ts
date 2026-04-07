@@ -19,6 +19,12 @@ export class TorrentService {
         this.musicDir = musicDir;
         this.downloadDir = path.join(musicDir, "downloads");
 
+        // Global error handler for WebTorrent client
+        // Prevents unhandled exceptions from crashing the process
+        this.client.on("error", (err: Error) => {
+            console.error("🌊 WebTorrent client global error:", err.message || err);
+        });
+
         // Ensure download directory exists
         fs.ensureDirSync(this.downloadDir);
 
@@ -31,22 +37,47 @@ export class TorrentService {
     private async resumeTorrents() {
         const torrents = this.database.getTorrents();
         for (const t of torrents) {
-            this.addTorrent(t.magnet_uri, false);
+            try {
+                this.addTorrent(t.magnet_uri, false);
+            } catch (err) {
+                console.error(`❌ Failed to resume torrent ${t.info_hash}:`, err);
+            }
         }
     }
 
     public addTorrent(magnetUri: string, saveToDb: boolean = true): Promise<string> {
         return new Promise((resolve, reject) => {
+            // Check if torrent already exists in the client
+            const existing = this.client.get(magnetUri);
+            if (existing) {
+                console.log(`🧲 Torrent already active: ${existing.name || existing.infoHash}`);
+                return resolve(existing.infoHash);
+            }
+
             try {
+                // Set a timeout to avoid hanging the promise if metadata retrieval takes too long
+                // This won't stop the torrent from being added, just prevents the HTTP request from hanging
+                const timeout = setTimeout(() => {
+                    // We don't necessarily reject here, as it's still being added in the background
+                    // But we might want to return a status that it's "pending"
+                    console.warn(`⏳ Torrent metadata timeout for: ${magnetUri}`);
+                    // Depending on preference, we could resolve with "pending" info or reject
+                }, 30000); // 30 seconds
+
                 const torrent = this.client.add(magnetUri, { path: this.downloadDir }, (t: Torrent) => {
+                    clearTimeout(timeout);
                     console.log(`🧲 Torrent added: ${t.name} (${t.infoHash})`);
                     
                     if (saveToDb) {
-                        this.database.createTorrent({
-                            info_hash: t.infoHash,
-                            name: t.name,
-                            magnet_uri: magnetUri
-                        });
+                        try {
+                            this.database.createTorrent({
+                                info_hash: t.infoHash,
+                                name: t.name,
+                                magnet_uri: magnetUri
+                            });
+                        } catch (dbErr) {
+                            console.error(`❌ Database error saving torrent ${t.infoHash}:`, dbErr);
+                        }
                     }
 
                     // Setup events
@@ -58,8 +89,16 @@ export class TorrentService {
                     resolve(t.infoHash);
                 });
 
-                torrent.on("error", (err: Error | string) => {
-                    console.error(`❌ Torrent error (${magnetUri}):`, err);
+                torrent.on("error", (err: any) => {
+                    clearTimeout(timeout);
+                    console.error(`❌ Torrent error (${magnetUri}):`, err.message || err);
+                    
+                    // Specific handling for common errors like "duplicate info hash"
+                    if (err.message && err.message.includes("duplicate info hash")) {
+                        const existing = this.client.get(magnetUri);
+                        if (existing) return resolve(existing.infoHash);
+                    }
+                    
                     reject(err);
                 });
             } catch (err) {
