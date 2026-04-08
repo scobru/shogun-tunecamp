@@ -80,8 +80,9 @@ export function createSearchRoutes(
             });
 
             res.json({ success: true, downloadId });
-        } catch (error) {
-            res.status(500).json({ error: "Download failed" });
+        } catch (error: any) {
+            console.error("❌ Soulseek Download Route Error:", error);
+            res.status(500).json({ error: "Download failed", details: error.message });
         }
     });
 
