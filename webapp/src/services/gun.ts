@@ -24,9 +24,9 @@ const envPeers = (window as any).TUNECAMP_CONFIG?.gunPeers;
 let PEERS = defaultPeers;
 
 if (envPeers && typeof envPeers === 'string' && envPeers.trim().length > 0) {
-    // Robustly split and normalize peers
+    // Robustly split and normalize peers (handle commas and/or whitespace)
     PEERS = envPeers
-        .split(',')
+        .split(/[,\s]+/)
         .map(p => p.trim())
         .filter(p => p.length > 0 && (p.startsWith('ws://') || p.startsWith('wss://') || p.startsWith('http://') || p.startsWith('https://')));
     
@@ -64,7 +64,7 @@ export const GunAuth = {
         try {
             const settings = await API.getSiteSettings();
             if (settings.gunPeers) {
-                const settingPeers = settings.gunPeers.split(',').map(p => p.trim()).filter(p => p.length > 0);
+                const settingPeers = settings.gunPeers.split(/[,\s]+/).map(p => p.trim()).filter(p => p.length > 0);
                 if (settingPeers.length > 0) {
                     console.log(`🌐 Adding ${settingPeers.length} GunDB peers from site settings`);
                     gun.opt({ peers: settingPeers });

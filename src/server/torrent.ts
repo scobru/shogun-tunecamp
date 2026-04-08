@@ -190,6 +190,8 @@ export class TorrentService {
     }
 
     public getTorrentsStatus(): TorrentStatus[] {
+        if (!this.client || !this.client.torrents) return [];
+        
         return this.client.torrents.map((t: Torrent) => {
             let filesStatus: any[] = [];
             try {

@@ -71,7 +71,7 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
         corsOrigins: process.env.TUNECAMP_CORS_ORIGINS?.split(",") || [],
         publicUrl: process.env.TUNECAMP_PUBLIC_URL || overrides?.publicUrl,
         siteName: process.env.TUNECAMP_SITE_NAME || overrides?.siteName,
-        gunPeers: process.env.TUNECAMP_GUN_PEERS?.split(",") || overrides?.gunPeers,
+        gunPeers: process.env.TUNECAMP_GUN_PEERS?.split(/[,\s]+/).map(p => p.trim()).filter(p => p.length > 0) || overrides?.gunPeers,
         adminUser: process.env.TUNECAMP_ADMIN_USER || overrides?.adminUser || "admin",
         adminPass: process.env.TUNECAMP_ADMIN_PASS || overrides?.adminPass || "admin",
         torrentPort: parseInt(process.env.TUNECAMP_TORRENT_PORT || "6881", 10),

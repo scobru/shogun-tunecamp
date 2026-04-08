@@ -11,6 +11,7 @@ export function createTorrentRoutes(torrentService: TorrentService): Router {
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
+            console.log(`[Torrents API] GET / requested by ${req.username}`);
             const status = torrentService.getTorrentsStatus();
             res.json(status);
         } catch (error) {
