@@ -118,7 +118,7 @@ EXPOSE 1970
 RUN apk add --no-cache curl libc6-compat gcompat
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:1970/api/catalog || exit 1
 
 # Default command: run migrations then start server

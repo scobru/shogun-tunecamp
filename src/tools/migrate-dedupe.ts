@@ -20,7 +20,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import sqlite3 from 'better-sqlite3';
 import { loadConfig } from '../server/config.js';
-import { getFileHash, findAudioFiles } from '../utils/fileUtils.js';
+import { getFastFileHash, findAudioFiles } from '../utils/fileUtils.js';
 
 async function main() {
     const args = process.argv.slice(2);
@@ -106,7 +106,7 @@ Options:
         const absPath = path.join(musicDir, relPath);
         
         try {
-            const hash = await getFileHash(absPath);
+            const hash = await getFastFileHash(absPath);
             if (!hashToPaths.has(hash)) {
                 hashToPaths.set(hash, []);
             }

@@ -18,6 +18,46 @@ export async function getFileHash(filePath: string): Promise<string> {
   });
 }
 
+/**
+ * Returns basic file stats (size, mtime) for fast comparison
+ */
+export async function getFileStats(filePath: string) {
+  const stats = await fs.stat(filePath);
+  return {
+    size: stats.size,
+    mtime: stats.mtimeMs
+  };
+}
+
+/**
+ * Generates a "fast" hash based on file size and first/last 1MB of content.
+ * Much faster than hashing entire large files for most deduplication needs.
+ */
+export async function getFastFileHash(filePath: string): Promise<string> {
+  const stats = await fs.stat(filePath);
+  if (stats.size < 2 * 1024 * 1024) {
+    return getFileHash(filePath);
+  }
+
+  const fd = await fs.open(filePath, 'r');
+  try {
+    const head = Buffer.alloc(1024 * 1024);
+    const tail = Buffer.alloc(1024 * 1024);
+    
+    await fs.read(fd, head, 0, head.length, 0);
+    await fs.read(fd, tail, 0, tail.length, stats.size - tail.length);
+    
+    const hash = crypto.createHash('md5');
+    hash.update(head);
+    hash.update(tail);
+    hash.update(stats.size.toString());
+    
+    return hash.digest('hex');
+  } finally {
+    await fs.close(fd);
+  }
+}
+
 export async function findAudioFiles(directory: string): Promise<string[]> {
   const audioExtensions = ['mp3', 'flac', 'ogg', 'wav', 'm4a', 'aac', 'opus'];
   const pattern = `**/*.{${audioExtensions.join(',')}}`;
