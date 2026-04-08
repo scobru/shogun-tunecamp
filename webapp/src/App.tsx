@@ -36,7 +36,7 @@ import { ForcePasswordChangeModal } from "./components/modals/ForcePasswordChang
  * Otherwise redirects to home.
  */
 function AdminGuard({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, isLoading } = useAuthStore();
+  const { user, isAuthenticated, isLoading, role } = useAuthStore();
   
   if (isLoading) {
     return (
@@ -46,7 +46,8 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated || !user?.isRootAdmin) {
+  // Allow if user is explicitly a Root Admin OR if they have the 'admin' role
+  if (!isAuthenticated || (!user?.isRootAdmin && role !== 'admin')) {
     return <Navigate to="/" replace />;
   }
   return <>{children}</>;

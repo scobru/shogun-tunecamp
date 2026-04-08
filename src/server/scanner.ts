@@ -116,7 +116,8 @@ export interface ScannerService {
     scanDirectory(dir: string): Promise<ScanResult>;
     startWatching(dir: string): void;
     stopWatching(): void;
-    processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
+    processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number, suggestedCoverPath?: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
+    getOrCreateLibraryAlbum(dir: string, musicDir: string, forcedCoverPath?: string): Promise<number | null>;
     consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number }>;
 }
 
@@ -142,7 +143,7 @@ export class Scanner implements ScannerService {
     /**
      * Get or create an implicit 'Library' album for a directory that doesn't have a release.yaml
      */
-    private async getOrCreateLibraryAlbum(dir: string, musicDir: string): Promise<number | null> {
+    public async getOrCreateLibraryAlbum(dir: string, musicDir: string, forcedCoverPath?: string): Promise<number | null> {
         // Normalize dir relative to musicDir
         const relativeDir = this.normalizePath(dir, musicDir);
         if (relativeDir === "." || relativeDir === "") return null;
@@ -156,16 +157,23 @@ export class Scanner implements ScannerService {
         let album = this.database.getAlbumBySlug(slug);
 
         if (album) {
-            // Refresh cover art if missing
-            if (!album.cover_path) {
-                const coverNames = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png", "artwork.jpg", "artwork.png"];
-                for (const name of coverNames) {
-                    const p = path.resolve(dir, name);
-                    if (await fs.pathExists(p)) {
-                        const coverPath = this.normalizePath(p, musicDir);
-                        this.database.updateAlbumCover(album.id, coverPath);
-                        break;
+            // Update/Refresh cover art if missing OR if a forced cover path is provided
+            if (!album.cover_path || forcedCoverPath) {
+                let coverPath = forcedCoverPath ? this.normalizePath(forcedCoverPath, musicDir) : null;
+                
+                if (!coverPath) {
+                    const coverNames = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png", "artwork.jpg", "artwork.png"];
+                    for (const name of coverNames) {
+                        const p = path.resolve(dir, name);
+                        if (await fs.pathExists(p)) {
+                            coverPath = this.normalizePath(p, musicDir);
+                            break;
+                        }
                     }
+                }
+
+                if (coverPath && coverPath !== album.cover_path) {
+                    this.database.updateAlbumCover(album.id, coverPath);
                 }
             }
 
@@ -174,13 +182,16 @@ export class Scanner implements ScannerService {
         }
 
         // Resolve cover art - Scan for common filenames in the directory
-        let coverPath: string | null = null;
-        const coverNames = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png", "artwork.jpg", "artwork.png"];
-        for (const name of coverNames) {
-            const p = path.resolve(dir, name);
-            if (await fs.pathExists(p)) {
-                coverPath = this.normalizePath(p, musicDir);
-                break;
+        let coverPath: string | null = forcedCoverPath ? this.normalizePath(forcedCoverPath, musicDir) : null;
+        
+        if (!coverPath) {
+            const coverNames = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png", "artwork.jpg", "artwork.png"];
+            for (const name of coverNames) {
+                const p = path.resolve(dir, name);
+                if (await fs.pathExists(p)) {
+                    coverPath = this.normalizePath(p, musicDir);
+                    break;
+                }
             }
         }
 
@@ -406,7 +417,7 @@ export class Scanner implements ScannerService {
         }
     }
 
-    public async processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
+    public async processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number, suggestedCoverPath?: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
         let currentFilePath = filePath;
         const ext = path.extname(currentFilePath).toLowerCase();
         const dir = path.dirname(currentFilePath);
@@ -458,9 +469,13 @@ export class Scanner implements ScannerService {
         const normalizedPath = this.normalizePath(currentFilePath, musicDir);
         let existing = this.database.getTrackByPath(normalizedPath);
 
-        // Determine album ID from folder map
         // Determine album ID from override or folder map
         let albumId = overrideAlbumId || this.folderToAlbumMap.get(dir) || null;
+
+        // If no album ID found and we're inside the music library, try to get or create an implicit library album
+        if (albumId === null && dir.startsWith(musicDir)) {
+            albumId = await this.getOrCreateLibraryAlbum(dir, musicDir, suggestedCoverPath);
+        }
 
         // If track is in the "library" or "tracks" folder and map has no info, protect the existing link
         // This prevents the scanner from unlinking tracks that were manually uploaded/linked via API

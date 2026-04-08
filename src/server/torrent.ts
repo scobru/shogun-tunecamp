@@ -193,20 +193,85 @@ export class TorrentService {
     public async handleTorrentDone(torrent: Torrent, ownerId?: number | null) {
         console.log(`📂 Processing finished torrent files for: ${torrent.name}`);
         
+        // 1. Identify all files and group by directory to handle multi-album torrents
+        const dirFiles = new Map<string, string[]>();
+        const allImages: { path: string, name: string, size: number }[] = [];
+        
         for (const file of torrent.files) {
-            const ext = path.extname(file.name).toLowerCase();
-            const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
+            const dir = path.dirname(file.path);
+            if (!dirFiles.has(dir)) dirFiles.set(dir, []);
+            dirFiles.get(dir)!.push(file.path);
             
-            if (AUDIO_EXTENSIONS.includes(ext)) {
-                const absolutePath = path.join(this.downloadDir, file.path);
-                console.log(`🎵 Indexing downloaded track: ${file.name}`);
-                
+            const ext = path.extname(file.name).toLowerCase();
+            if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
+                allImages.push({ 
+                    path: path.join(this.downloadDir, file.path), 
+                    name: file.name.toLowerCase(),
+                    size: file.length 
+                });
+            }
+        }
+
+        // 2. Find best cover for each directory that has audio
+        const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
+        const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
+
+        for (const [dir, files] of dirFiles.entries()) {
+            const audioInDir = files.filter(f => AUDIO_EXTENSIONS.includes(path.extname(f).toLowerCase()));
+            if (audioInDir.length === 0) continue;
+
+            // Find best cover for THIS directory or root
+            let bestCover: string | undefined;
+            
+            // Heuristic A: Files in THIS directory matching standard names
+            const imagesInDir = allImages.filter(img => {
+                const imgDir = path.dirname(path.relative(this.downloadDir, img.path));
+                return imgDir === dir || imgDir === ".";
+            });
+
+            const priorityNames = ["cover", "folder", "front", "artwork", "album"];
+            const candidates = imagesInDir.sort((a, b) => b.size - a.size); // Sort by size descending
+
+            // Try exact matches first
+            for (const name of priorityNames) {
+                const match = candidates.find(c => path.basename(c.name, path.extname(c.name)) === name);
+                if (match) {
+                    bestCover = match.path;
+                    break;
+                }
+            }
+
+            // Try partial matches
+            if (!bestCover) {
+                for (const name of priorityNames) {
+                    const match = candidates.find(c => c.name.includes(name));
+                    if (match) {
+                        bestCover = match.path;
+                        break;
+                    }
+                }
+            }
+
+            // Fallback to largest image
+            if (!bestCover && candidates.length > 0) {
+                bestCover = candidates[0].path;
+            }
+
+            console.log(`🎵 Indexing ${audioInDir.length} tracks in ${dir || 'root'}. Cover: ${bestCover ? path.basename(bestCover) : 'none'}`);
+
+            for (const relativePath of audioInDir) {
+                const absolutePath = path.join(this.downloadDir, relativePath);
                 try {
-                    // Trigger scanner for this file
-                    // Use the ownerId retrieved from the torrent record or passed manually
-                    await this.scanner.processAudioFile(absolutePath, this.musicDir, undefined, ownerId || undefined);
+                    await this.scanner.processAudioFile(
+                        absolutePath, 
+                        this.musicDir, 
+                        undefined, 
+                        ownerId || undefined,
+                        undefined,
+                        bestCover
+                    );
                 } catch (err: any) {
-                    console.error(`❌ Failed to index file ${file.name}:`, err);
+                    console.error(`❌ Failed to index file ${path.basename(relativePath)}:`, err);
                 }
             }
         }
