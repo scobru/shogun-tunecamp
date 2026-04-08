@@ -8,7 +8,8 @@ import {
   ArrowDown, 
   ArrowUp,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Library
 } from "lucide-react";
 import API from "../services/api";
 import { formatBytes } from "@/utils/format";
@@ -86,6 +87,15 @@ export function Torrents() {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSync = async (infoHash: string) => {
+    try {
+      await API.syncTorrent(infoHash);
+      alert("Library sync triggered! Check your Tracks/Releases section in a moment.");
+    } catch (err: any) {
+      alert("Failed to sync library: " + err.message);
     }
   };
 
@@ -188,8 +198,18 @@ export function Torrents() {
 
                   <div className="flex items-center gap-2 w-full md:w-auto">
                     {t.done ? (
-                      <div className="badge badge-success gap-1 py-3 px-4">
-                        <CheckCircle2 className="w-4 h-4" /> Seeding
+                      <div className="flex items-center gap-2">
+                        <div className="badge badge-success gap-1 py-3 px-4">
+                          <CheckCircle2 className="w-4 h-4" /> Seeding
+                        </div>
+                        <button 
+                          className="btn btn-primary btn-sm gap-2"
+                          onClick={() => handleSync(t.infoHash)}
+                          title="Import tracks into your library"
+                        >
+                          <Library className="w-4 h-4" />
+                          Sync to Library
+                        </button>
                       </div>
                     ) : (
                       <div className="flex flex-col items-end gap-1">

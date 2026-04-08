@@ -55,6 +55,22 @@ export function createTorrentRoutes(torrentService: TorrentService): Router {
     });
 
     /**
+     * POST /api/torrents/:infoHash/sync
+     * Manually trigger library indexing for a finished torrent
+     */
+    router.post("/:infoHash/sync", async (req: AuthenticatedRequest, res) => {
+        try {
+            const { infoHash } = req.params;
+            console.log(`[Torrents API] Manual sync triggered by ${req.username} for ${infoHash}`);
+            await torrentService.syncTorrent(infoHash);
+            res.json({ success: true, message: "Torrent sync triggered successfully" });
+        } catch (error: any) {
+            console.error("[Torrents API] Error syncing torrent:", error);
+            res.status(500).json({ error: "Failed to sync torrent: " + (error.message || String(error)) });
+        }
+    });
+
+    /**
      * DELETE /api/torrents/:infoHash
      * Remove a torrent and optionally its files
      */

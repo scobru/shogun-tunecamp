@@ -187,7 +187,7 @@ export class TorrentService {
         });
     }
 
-    private async handleTorrentDone(torrent: Torrent) {
+    public async handleTorrentDone(torrent: Torrent) {
         console.log(`📂 Processing finished torrent files for: ${torrent.name}`);
         
         for (const file of torrent.files) {
@@ -207,6 +207,16 @@ export class TorrentService {
                 }
             }
         }
+    }
+
+    public async syncTorrent(infoHash: string): Promise<void> {
+        if (!this.client) throw new Error("Torrent client not initialized");
+        // In WebTorrent v2, client.get might be async or return a Promise in some type defs
+        const torrent = await (this.client as any).get(infoHash);
+        if (!torrent) throw new Error("Torrent not found in active client");
+        
+        console.log(`[TorrentService] Manual sync requested for: ${torrent.name} (${infoHash})`);
+        await this.handleTorrentDone(torrent);
     }
 
     public getTorrentsStatus(): TorrentStatus[] {

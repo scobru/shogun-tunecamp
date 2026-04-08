@@ -409,6 +409,7 @@ export const API = {
     // --- Torrents ---
     getTorrents: () => handleResponse(api.get<any[]>('/torrents')),
     addTorrent: (magnetUri: string) => handleResponse(api.post<{ success: boolean, infoHash: string }>('/torrents/add', { magnetUri })),
+    syncTorrent: (infoHash: string) => handleResponse(api.post<{ success: boolean, message: string }>(`/torrents/${infoHash}/sync`)),
     removeTorrent: (infoHash: string, deleteFiles: boolean = false) => 
         handleResponse(api.delete(`/torrents/${infoHash}${deleteFiles ? '?deleteFiles=true' : ''}`)),
 };
