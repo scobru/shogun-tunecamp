@@ -1,5 +1,5 @@
 // @ts-ignore
-import slsk from "slsk-client";
+import { SoulseekDownloader, SearchOptions, DownloadConfig, SoulseekSearchResult } from "andrade-soulseek-downloader";
 import path from "path";
 import fs from "fs-extra";
 
@@ -14,11 +14,11 @@ export interface SoulseekResult {
 }
 
 export class SoulseekService {
-    private client: any;
+    private downloader?: SoulseekDownloader;
     private musicDir: string;
     private downloadDir: string;
     private currentUsername: string | null = null;
-    private searchCache: Map<string, any> = new Map();
+    private searchCache: Map<string, SoulseekSearchResult> = new Map();
 
     constructor(musicDir: string, downloadDir: string) {
         this.musicDir = musicDir;
@@ -41,88 +41,103 @@ export class SoulseekService {
             return false;
         }
 
-        if (this.client && this.client.connected && this.currentUsername === username) {
+        if (this.currentUsername === username) {
             return true;
         }
 
-        return new Promise((resolve) => {
-            slsk.connect({
-                user: username,
-                pass: password,
-                shared: [this.musicDir]
-            }, (err: any, client: any) => {
-                if (err) {
-                    console.error("❌ Soulseek Connection Error:", err);
-                    resolve(false);
-                } else {
-                    console.log("✅ Soulseek Connected as", username);
-                    this.client = client;
-                    this.currentUsername = username;
-                    // Clear cache on new connection as peers list is reset
-                    this.searchCache.clear();
-                    resolve(true);
-                }
-            });
-        });
+        try {
+            // Set environment variables for the library to pick up
+            process.env.SOULSEEK_USER = username;
+            process.env.SOULSEEK_PASSWORD = password;
+            process.env.SOULSEEK_SHARED_MUSIC_DIR = this.musicDir;
+            process.env.SOULSEEK_DOWNLOAD_DIR = this.downloadDir;
+
+            const config: DownloadConfig = {
+                maxAttempts: 10,
+                downloadTimeout: 120000,
+                searchTimeout: 10000,
+                preferSlotsAvailable: true,
+                minSpeed: 100000, // 100kb/s
+                searchDelay: 3000,
+                downloadDelay: 2000
+            };
+
+            this.downloader = new SoulseekDownloader(config);
+            await this.downloader.connect();
+            
+            console.log("✅ Soulseek Connected as", username);
+            this.currentUsername = username;
+            this.searchCache.clear();
+            return true;
+        } catch (err) {
+            console.error("❌ Soulseek Connection Error:", err);
+            return false;
+        }
     }
 
     async search(query: string): Promise<SoulseekResult[]> {
-        if (!this.client) return [];
+        if (!this.downloader) return [];
 
-        return new Promise((resolve) => {
-            this.client.search({
-                req: query,
-                timeout: 5000
-            }, (err: any, res: any) => {
-                if (err) {
-                    console.error("❌ Soulseek Search Error:", err);
-                    resolve([]);
-                } else {
-                    const mapped = res.map((r: any) => {
-                        const id = Math.random().toString(36).substring(2, 11);
-                        this.searchCache.set(id, r);
-                        return {
-                            id,
-                            user: r.user,
-                            file: r.file,
-                            size: r.size,
-                            slots: r.slots,
-                            bitrate: r.bitrate,
-                            speed: r.speed
-                        };
-                    });
-                    resolve(mapped);
-                }
+        try {
+            // We'll use a broad search first
+            const [artist, title] = query.split(" - ").map(s => s.trim());
+            const options: SearchOptions = {
+                artist: artist || query,
+                title: title || "",
+                minBitrate: 128,
+                timeout: 10000,
+                maxResults: 50,
+                strictMatching: false
+            };
+
+            const results = await this.downloader.search(options);
+            
+            return results.map((r) => {
+                const id = Math.random().toString(36).substring(2, 11);
+                this.searchCache.set(id, r);
+                return {
+                    id,
+                    user: r.user,
+                    file: r.file,
+                    size: r.size,
+                    slots: r.slots,
+                    bitrate: r.bitrate,
+                    speed: r.speed
+                };
             });
-        });
+        } catch (error) {
+            console.error("❌ Soulseek Search Error:", error);
+            return [];
+        }
     }
 
     async download(result: SoulseekResult): Promise<string> {
-        if (!this.client || !this.client.connected) {
+        if (!this.downloader) {
             throw new Error("Soulseek client not connected");
         }
 
         const originalResult = this.searchCache.get(result.id);
-        if (!originalResult) {
-            throw new Error("Search result context expired. Please search again.");
+        
+        // Use a generic name if no cache found (fallback scenario)
+        const artist = result.file.split(/[/\\]/).slice(-2, -1)[0] || "Unknown Artist";
+        const title = result.file.split(/[/\\]/).pop()?.replace(/\.[^/.]+$/, "") || "Unknown Title";
+
+        try {
+            if (originalResult) {
+                const dl = await this.downloader.download(originalResult, artist, title);
+                if (dl.path) return dl.path;
+                if (dl.timeout) throw new Error("Download timed out");
+            }
+
+            // If manual selection fails or no result in cache, use the robust searchAndDownload (with fallbacks!)
+            console.log(`⚠️ Manual selection failed or context missing, triggering robust searchAndDownload for ${artist} - ${title}`);
+            const robustPath = await this.downloader.searchAndDownload(artist, title);
+            
+            if (robustPath) return robustPath;
+            throw new Error("Download failed after all attempts and fallbacks");
+        } catch (error: any) {
+            console.error("❌ Soulseek Download Error:", error);
+            throw error;
         }
-
-        const fileName = path.basename(result.file);
-        const dest = path.join(this.downloadDir, fileName);
-
-        return new Promise((resolve, reject) => {
-            this.client.download({
-                file: originalResult,
-                path: dest
-            }, (err: any, data: any) => {
-                if (err) {
-                    console.error("❌ Soulseek Download Error:", err);
-                    reject(err);
-                } else {
-                    console.log(`✅ Soulseek Download Finished: ${fileName}`);
-                    resolve(dest);
-                }
-            });
-        });
     }
 }
