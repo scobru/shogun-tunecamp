@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import API from "../../services/api";
-import { Link as LinkIcon, Edit, Trash2, CheckSquare, Square } from "lucide-react";
+import { Link as LinkIcon, Edit, Trash2 } from "lucide-react";
 import { BatchTrackEditModal } from "../modals/BatchTrackEditModal";
 
 export const AdminTracksList = ({ mine }: { mine?: boolean }) => {

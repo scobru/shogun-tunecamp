@@ -15,19 +15,16 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
   const [artistName, setArtistName] = useState("");
   const [albumTitle, setAlbumTitle] = useState("");
   const [ownerName, setOwnerName] = useState("");
-  const [genre, setGenre] = useState("");
   const [price, setPrice] = useState("");
   const [priceUsdc, setPriceUsdc] = useState("");
-  const [currency, setCurrency] = useState<"ETH" | "USD">("ETH");
-  const [lyrics, setLyrics] = useState("");
+  const currency = "ETH";
 
   // Control which fields are actually applied
   const [applyArtist, setApplyArtist] = useState(false);
   const [applyAlbum, setApplyAlbum] = useState(false);
   const [applyOwner, setApplyOwner] = useState(false);
-  const [applyGenre, setApplyGenre] = useState(false);
   const [applyPricing, setApplyPricing] = useState(false);
-  const [applyLyrics, setApplyLyrics] = useState(false);
+
 
   // Dropdown data
   const [artists, setArtists] = useState<any[]>([]);
@@ -86,7 +83,6 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
         } else {
           payload.album = albumTitle.trim();
           payload.albumId = null;
-          if (applyGenre) payload.genre = genre.trim();
         }
       }
 
@@ -105,11 +101,8 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
         payload.currency = currency;
       }
 
-      if (applyLyrics) {
-        payload.lyrics = lyrics.trim();
-      }
 
-      const res = await API.updateTracksBatch(selectedIds, payload);
+      const res = (await API.updateTracksBatch(selectedIds, payload)) as any;
       
       if (res.failed > 0) {
         setError(`Updated ${res.success} tracks, but ${res.failed} failed: ${res.errors.join(", ")}`);
