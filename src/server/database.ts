@@ -2483,7 +2483,12 @@ export function createDatabase(dbPath: string): DatabaseService {
                     LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
                     LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
                     LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
-                    WHERE (t.owner_id = ? OR (t.owner_id IS NULL AND a.owner_id = ?)) AND (a.is_public = 1 OR t.album_id IS NULL)
+                    WHERE (
+                        t.owner_id = ? 
+                        OR (t.owner_id IS NULL AND a.owner_id = ?)
+                        OR EXISTS (SELECT 1 FROM track_ownership to_ WHERE to_.track_id = t.id AND to_.owner_id = ?)
+                        OR EXISTS (SELECT 1 FROM album_ownership ao_ WHERE ao_.album_id = a.id AND ao_.owner_id = ?)
+                    ) AND (a.is_public = 1 OR t.album_id IS NULL)
                     ORDER BY a.title, t.track_num`
                 : `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
                     COALESCE(ar_t.id, ar_a.id) as artist_id,
@@ -2496,10 +2501,17 @@ export function createDatabase(dbPath: string): DatabaseService {
                     LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
                     LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
                     LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
-                    WHERE (t.owner_id = ? OR (t.owner_id IS NULL AND a.owner_id = ?))
+                    WHERE (
+                        t.owner_id = ? 
+                        OR (t.owner_id IS NULL AND a.owner_id = ?)
+                        OR EXISTS (SELECT 1 FROM track_ownership to_ WHERE to_.track_id = t.id AND to_.owner_id = ?)
+                        OR EXISTS (SELECT 1 FROM album_ownership ao_ WHERE ao_.album_id = a.id AND ao_.owner_id = ?)
+                    )
                     ORDER BY a.title, t.track_num`;
             
-            return publicOnly ? db.prepare(sql).all(ownerId, ownerId) as Track[] : db.prepare(sql).all(ownerId, ownerId) as Track[];
+            return publicOnly 
+                ? db.prepare(sql).all(ownerId, ownerId, ownerId, ownerId) as Track[] 
+                : db.prepare(sql).all(ownerId, ownerId, ownerId, ownerId) as Track[];
         },
 
         getTracksByAlbumIds(albumIds: number[]): Track[] {

@@ -427,9 +427,20 @@ export class Scanner implements ScannerService {
                 // Add ownership link
                 this.database.addTrackOwner(existingByHash.id, ownerId);
                 
+                // Update track.owner_id column if it's null (for simpler views)
+                if (existingByHash.owner_id === null) {
+                    this.database.db.prepare("UPDATE tracks SET owner_id = ? WHERE id = ?").run(ownerId, existingByHash.id);
+                }
+                
                 // Also link the owner to the album if it exists
                 if (existingByHash.album_id) {
                     this.database.addAlbumOwner(existingByHash.album_id, ownerId);
+                    
+                    // Update album.owner_id column if it's null
+                    const album = this.database.getAlbum(existingByHash.album_id);
+                    if (album && album.owner_id === null) {
+                        this.database.db.prepare("UPDATE albums SET owner_id = ? WHERE id = ?").run(ownerId, existingByHash.album_id);
+                    }
                 }
 
                 // If the uploaded file is a temp file (from upload), we can safely remove it now
@@ -512,8 +523,22 @@ export class Scanner implements ScannerService {
             // Ensure current user is an owner
             if (ownerId) {
                 this.database.addTrackOwner(existing.id, ownerId);
+                
+                // Update track.owner_id column if it's null
+                if (existing.owner_id === null) {
+                    this.database.db.prepare("UPDATE tracks SET owner_id = ? WHERE id = ?").run(ownerId, existing.id);
+                }
+
                 if (existing.album_id) {
                     this.database.addAlbumOwner(existing.album_id, ownerId);
+                    
+                    // Update album.owner_id column if it's null
+                    if (albumId) {
+                        const album = this.database.getAlbum(existing.album_id);
+                        if (album && album.owner_id === null) {
+                            this.database.db.prepare("UPDATE albums SET owner_id = ? WHERE id = ?").run(ownerId, existing.album_id);
+                        }
+                    }
                 }
             }
 
