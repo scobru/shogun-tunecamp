@@ -9,6 +9,8 @@ interface MetadataMatch {
   artist: string;
   albumTitle?: string;
   coverUrl?: string;
+  source?: "musicbrainz" | "discogs";
+  date?: string;
 }
 
 interface MetadataMatchModalProps {
@@ -107,7 +109,7 @@ export const MetadataMatchModal: React.FC<MetadataMatchModalProps> = ({
             <div className="alert alert-error text-sm py-2">{error}</div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             {results.length > 0 ? (
               results.map((match) => (
                 <div
@@ -126,16 +128,32 @@ export const MetadataMatchModal: React.FC<MetadataMatchModalProps> = ({
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold truncate group-hover:text-primary transition-colors">
-                      {match.title}
+                    <div className="flex items-center gap-2">
+                      <div className="font-bold truncate group-hover:text-primary transition-colors">
+                        {match.title}
+                      </div>
+                      {match.source && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border uppercase font-bold tracking-wider ${
+                          match.source === 'discogs' 
+                            ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' 
+                            : 'bg-primary/10 text-primary border-primary/20'
+                        }`}>
+                          {match.source}
+                        </span>
+                      )}
                     </div>
-                    <div className="text-sm opacity-60 flex items-center gap-3 mt-0.5">
+                    <div className="text-sm opacity-60 flex items-center flex-wrap gap-x-3 gap-y-1 mt-0.5">
                       <span className="flex items-center gap-1">
                         <User size={12} /> {match.artist}
                       </span>
                       {match.albumTitle && (
-                        <span className="flex items-center gap-1 truncate">
+                        <span className="flex items-center gap-1 truncate max-w-[200px]">
                           <Book size={12} /> {match.albumTitle}
+                        </span>
+                      )}
+                      {match.date && (
+                        <span className="text-xs opacity-50">
+                          ({match.date.substring(0, 4)})
                         </span>
                       )}
                     </div>
@@ -166,8 +184,12 @@ export const MetadataMatchModal: React.FC<MetadataMatchModalProps> = ({
         </div>
 
         <div className="p-4 bg-base-200/50 text-[10px] uppercase tracking-wider opacity-30 text-center">
-          Data provided by MusicBrainz API
+          Data provided by MusicBrainz and Discogs API
         </div>
+      </div>
+    </div>
+  );
+};
       </div>
     </div>
   );
