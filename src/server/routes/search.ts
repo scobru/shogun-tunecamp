@@ -59,7 +59,14 @@ export function createSearchRoutes(
      */
     router.post("/soulseek/download", async (req: AuthenticatedRequest, res) => {
         const { result } = req.body;
-        if (!result) return res.status(400).json({ error: "Result required" });
+        if (!result || !result.file) {
+            return res.status(400).json({ error: "Valid search result with file path required" });
+        }
+
+        if (!req.userId) {
+            console.error("❌ Soulseek Download: No userId in request");
+            return res.status(401).json({ error: "Unauthorized: User ID missing" });
+        }
 
         try {
             const downloadId = database.createSoulseekDownload({

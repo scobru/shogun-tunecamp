@@ -863,6 +863,17 @@ export function createDatabase(dbPath: string): DatabaseService {
       added_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS soulseek_downloads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        file_path TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        status TEXT NOT NULL,
+        progress REAL DEFAULT 0,
+        added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES admin (id)
+    );
+
     CREATE TABLE IF NOT EXISTS play_queue_tracks (
       username TEXT NOT NULL,
       track_id TEXT NOT NULL,
