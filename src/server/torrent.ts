@@ -71,7 +71,7 @@ export class TorrentService {
         }
     }
 
-    public async addTorrent(magnetUri: string, saveToDb: boolean = true): Promise<string> {
+    public async addTorrent(magnetUri: string, saveToDb: boolean = true, ownerId: number | null = null): Promise<string> {
         console.log(`🧲 Attempting to add torrent: ${magnetUri.substring(0, 60)}...`);
         
         // Check if torrent already exists in the client
@@ -113,7 +113,8 @@ export class TorrentService {
                             this.database.createTorrent({
                                 info_hash: t.infoHash,
                                 name: t.name || 'Unknown Torrent',
-                                magnet_uri: magnetUri
+                                magnet_uri: magnetUri,
+                                owner_id: ownerId
                             });
                         } catch (dbErr) {
                             console.error(`❌ Database error saving torrent ${t.infoHash}:`, dbErr);
@@ -121,9 +122,11 @@ export class TorrentService {
                     }
 
                     // Setup events
-                    t.on("done", () => {
+                    t.on("done", async () => {
                         console.log(`✅ Torrent finished: ${t.name}`);
-                        this.handleTorrentDone(t);
+                        // Retrieve owner from DB before processing
+                        const dbTorrent = this.database.getTorrent(t.infoHash);
+                        await this.handleTorrentDone(t, dbTorrent?.owner_id);
                     });
                 });
 
@@ -187,7 +190,7 @@ export class TorrentService {
         });
     }
 
-    public async handleTorrentDone(torrent: Torrent) {
+    public async handleTorrentDone(torrent: Torrent, ownerId?: number | null) {
         console.log(`📂 Processing finished torrent files for: ${torrent.name}`);
         
         for (const file of torrent.files) {
@@ -200,8 +203,8 @@ export class TorrentService {
                 
                 try {
                     // Trigger scanner for this file
-                    // We don't provide an ownerId for now, or we could pass the admin ID
-                    await this.scanner.processAudioFile(absolutePath, this.musicDir);
+                    // Use the ownerId retrieved from the torrent record or passed manually
+                    await this.scanner.processAudioFile(absolutePath, this.musicDir, undefined, ownerId || undefined);
                 } catch (err: any) {
                     console.error(`❌ Failed to index file ${file.name}:`, err);
                 }
@@ -209,14 +212,19 @@ export class TorrentService {
         }
     }
 
-    public async syncTorrent(infoHash: string): Promise<void> {
+    public async syncTorrent(infoHash: string, overrideOwnerId?: number): Promise<void> {
         if (!this.client) throw new Error("Torrent client not initialized");
         // In WebTorrent v2, client.get might be async or return a Promise in some type defs
         const torrent = await (this.client as any).get(infoHash);
         if (!torrent) throw new Error("Torrent not found in active client");
         
         console.log(`[TorrentService] Manual sync requested for: ${torrent.name} (${infoHash})`);
-        await this.handleTorrentDone(torrent);
+        
+        // Use provided owner ID or look up from DB
+        const dbTorrent = this.database.getTorrent(infoHash);
+        const finalOwnerId = overrideOwnerId ?? dbTorrent?.owner_id;
+        
+        await this.handleTorrentDone(torrent, finalOwnerId);
     }
 
     public getTorrentsStatus(): TorrentStatus[] {

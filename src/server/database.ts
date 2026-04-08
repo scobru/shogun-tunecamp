@@ -277,6 +277,7 @@ export interface Torrent {
     info_hash: string;
     name: string;
     magnet_uri: string;
+    owner_id: number | null;
     added_at: string;
 }
 
@@ -841,6 +842,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       info_hash TEXT PRIMARY KEY,
       name TEXT,
       magnet_uri TEXT NOT NULL,
+      owner_id INTEGER REFERENCES admin(id) ON DELETE SET NULL,
       added_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -893,6 +895,18 @@ export function createDatabase(dbPath: string): DatabaseService {
     );
     CREATE INDEX IF NOT EXISTS idx_gun_cache_expires ON gun_cache(expires_at);
   `);
+  
+    // Migration: Add owner_id to torrents table
+    try {
+        const tableInfo = db.pragma("table_info(torrents)") as any[];
+        const hasOwnerId = tableInfo.some(col => col.name === "owner_id");
+        if (!hasOwnerId) {
+            console.log("📦 Migrating database: Adding owner_id to torrents table...");
+            db.exec("ALTER TABLE torrents ADD COLUMN owner_id INTEGER REFERENCES admin(id) ON DELETE SET NULL");
+        }
+    } catch (e) {
+        console.error("Migration error (torrents owner_id):", e);
+    }
 
     // Migration: Move existing releases from 'albums' to 'releases' table
     try {
@@ -3537,8 +3551,8 @@ export function createDatabase(dbPath: string): DatabaseService {
             return db.prepare("SELECT * FROM torrents WHERE info_hash = ?").get(infoHash) as Torrent;
         },
         createTorrent(torrent: Omit<Torrent, "added_at">): void {
-            db.prepare("INSERT OR REPLACE INTO torrents (info_hash, name, magnet_uri) VALUES (?, ?, ?)")
-                .run(torrent.info_hash, torrent.name, torrent.magnet_uri);
+            db.prepare("INSERT OR REPLACE INTO torrents (info_hash, name, magnet_uri, owner_id) VALUES (?, ?, ?, ?)")
+                .run(torrent.info_hash, torrent.name, torrent.magnet_uri, torrent.owner_id || null);
         },
         deleteTorrent(infoHash: string): void {
             db.prepare("DELETE FROM torrents WHERE info_hash = ?").run(infoHash);

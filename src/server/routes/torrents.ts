@@ -42,8 +42,8 @@ export function createTorrentRoutes(torrentService: TorrentService): Router {
                 });
             }
 
-            console.log(`[Torrents API] Forwarding to TorrentService: ${magnetUri.substring(0, 40)}...`);
-            const infoHash = await torrentService.addTorrent(magnetUri);
+            console.log(`[Torrents API] Forwarding to TorrentService: ${magnetUri.substring(0, 40)}... requested by user ${req.userId}`);
+            const infoHash = await torrentService.addTorrent(magnetUri, true, req.userId || null);
             
             console.log(`[Torrents API] Successfully added torrent. infoHash: ${infoHash}`);
             res.json({ success: true, infoHash });
@@ -61,8 +61,8 @@ export function createTorrentRoutes(torrentService: TorrentService): Router {
     router.post("/:infoHash/sync", async (req: AuthenticatedRequest, res) => {
         try {
             const { infoHash } = req.params;
-            console.log(`[Torrents API] Manual sync triggered by ${req.username} for ${infoHash}`);
-            await torrentService.syncTorrent(infoHash);
+            console.log(`[Torrents API] Manual sync triggered by ${req.username} (ID: ${req.userId}) for ${infoHash}`);
+            await torrentService.syncTorrent(infoHash, req.userId);
             res.json({ success: true, message: "Torrent sync triggered successfully" });
         } catch (error: any) {
             console.error("[Torrents API] Error syncing torrent:", error);
