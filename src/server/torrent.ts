@@ -19,8 +19,8 @@ export class TorrentService {
     ) {
         this.client = new WebTorrent({
             maxConns: 50, // Limit connections to prevent EMFILE caps
-            torrentPort: torrentPort,
-            dht: { port: torrentPort }
+            torrentPort: torrentPort
+            // Removed dht: { port: torrentPort } to prevent unhandled UDP bind exceptions
         } as any);
         this.musicDir = musicDir;
         this.downloadDir = downloadDir || path.join(musicDir, "downloads");
@@ -90,13 +90,24 @@ export class TorrentService {
                         try {
                             this.database.createTorrent({
                                 info_hash: t.infoHash,
-                                name: t.name,
+                                name: t.name || 'Unknown Torrent',
                                 magnet_uri: magnetUri
                             });
                         } catch (dbErr) {
                             console.error(`❌ Database error saving torrent ${t.infoHash}:`, dbErr);
                         }
                     }
+
+                    // Auto-destroy dead torrents that never download metadata after 10 minutes
+                    setTimeout(() => {
+                        try {
+                            if (!(t as any).metadata) {
+                                console.log(`🗑️ Auto-destroying dead torrent (no metadata after 10m): ${t.infoHash}`);
+                                t.destroy();
+                                this.database.deleteTorrent(t.infoHash);
+                            }
+                        } catch (e) { }
+                    }, 10 * 60 * 1000);
 
                     // Setup events
                     t.on("done", () => {

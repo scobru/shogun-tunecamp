@@ -10,6 +10,14 @@ import path from 'path';
 import chalk from 'chalk';
 import { fileURLToPath } from 'url';
 
+process.on('uncaughtException', (err) => {
+  console.error('\n🚨 FATAL UNCAUGHT EXCEPTION:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('\n🚨 FATAL UNHANDLED REJECTION at:', promise, 'reason:', reason);
+});
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
