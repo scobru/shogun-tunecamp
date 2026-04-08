@@ -1,5 +1,7 @@
 // @ts-ignore
-import { SoulseekDownloader, SearchOptions, DownloadConfig, SoulseekSearchResult } from "andrade-soulseek-downloader";
+import pkg from "andrade-soulseek-downloader";
+const { SoulseekDownloader } = pkg;
+import type { SearchOptions, DownloadConfig, SoulseekSearchResult } from "andrade-soulseek-downloader";
 import path from "path";
 import fs from "fs-extra";
 
