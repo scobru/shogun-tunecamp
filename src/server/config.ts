@@ -15,6 +15,8 @@ export interface ServerConfig {
     gunPeers?: string[];
     adminUser?: string;
     adminPass?: string;
+    torrentPort?: number;
+    downloadDir?: string;
     coinbaseCdpApiKeyName?: string;
     coinbaseCdpApiKeySecret?: string;
 }
@@ -25,6 +27,7 @@ export interface ServerConfig {
 export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
     const defaultDbPath = path.join(process.cwd(), "tunecamp.db");
     const defaultMusicDir = path.join(process.cwd(), "music");
+    const defaultDownloadDir = path.join(path.dirname(process.env.TUNECAMP_DB_PATH || defaultDbPath), "downloads");
 
     // Generate a random JWT secret if not provided
     let jwtSecret = process.env.TUNECAMP_JWT_SECRET || overrides?.jwtSecret;
@@ -71,6 +74,8 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
         gunPeers: process.env.TUNECAMP_GUN_PEERS?.split(",") || overrides?.gunPeers,
         adminUser: process.env.TUNECAMP_ADMIN_USER || overrides?.adminUser || "admin",
         adminPass: process.env.TUNECAMP_ADMIN_PASS || overrides?.adminPass || "admin",
+        torrentPort: parseInt(process.env.TUNECAMP_TORRENT_PORT || "6881", 10),
+        downloadDir: process.env.TUNECAMP_DOWNLOAD_DIR || defaultDownloadDir,
         coinbaseCdpApiKeyName: process.env.COINBASE_CDP_API_KEY_NAME || overrides?.coinbaseCdpApiKeyName,
         coinbaseCdpApiKeySecret: process.env.COINBASE_CDP_API_KEY_SECRET?.replace(/\\n/g, '\n') || overrides?.coinbaseCdpApiKeySecret,
         ...overrides,

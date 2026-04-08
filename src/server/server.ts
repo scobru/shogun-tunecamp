@@ -98,7 +98,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const publishingService = createPublishingService(database, gundbService, apService, config);
 
     // Initialize Torrent Service
-    const torrentService = new TorrentService(database, scanner, config.musicDir);
+    const torrentService = new TorrentService(database, scanner, config.musicDir, config.downloadDir, config.torrentPort);
 
     // Upload routes - MOVED BEFORE FEDIFY/BODY PARSERS to avoid stream consumption issues
     app.use("/api/admin/upload", authMiddleware.requireUser, createUploadRoutes(database, scanner, config.musicDir, publishingService, authService));

@@ -21,7 +21,17 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
 }
 
 const envPeers = (window as any).TUNECAMP_CONFIG?.gunPeers;
-const PEERS = envPeers ? envPeers.split(',') : defaultPeers;
+let PEERS = defaultPeers;
+
+if (envPeers && typeof envPeers === 'string' && envPeers.trim().length > 0) {
+    // Robustly split and normalize peers
+    PEERS = envPeers
+        .split(',')
+        .map(p => p.trim())
+        .filter(p => p.length > 0 && (p.startsWith('ws://') || p.startsWith('wss://') || p.startsWith('http://') || p.startsWith('https://')));
+    
+    console.log(`📡 GunDB initialized with ${PEERS.length} custom peers from config`);
+}
 
 // Initialize Gun
 const gun = Gun({

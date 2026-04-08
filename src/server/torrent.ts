@@ -13,13 +13,17 @@ export class TorrentService {
     constructor(
         private database: DatabaseService,
         private scanner: ScannerService,
-        musicDir: string
+        musicDir: string,
+        downloadDir?: string,
+        torrentPort: number = 6881
     ) {
         this.client = new WebTorrent({
-            maxConns: 50 // Limit connections to prevent EMFILE caps
-        });
+            maxConns: 50, // Limit connections to prevent EMFILE caps
+            torrentPort: torrentPort,
+            dht: { port: torrentPort }
+        } as any);
         this.musicDir = musicDir;
-        this.downloadDir = path.join(musicDir, "downloads");
+        this.downloadDir = downloadDir || path.join(musicDir, "downloads");
 
         // Global error handler for WebTorrent client
         // Prevents unhandled exceptions from crashing the process
@@ -28,13 +32,25 @@ export class TorrentService {
             console.error("🌊 WebTorrent client global error:", message);
         });
 
-        // Ensure download directory exists
-        fs.ensureDirSync(this.downloadDir);
+        // Ensure download directory exists with robust error handling
+        try {
+            console.log(`📂 Ensuring download directory exists: ${this.downloadDir}`);
+            fs.ensureDirSync(this.downloadDir);
+            
+            // Test writability
+            const testFile = path.join(this.downloadDir, '.write-test');
+            fs.writeFileSync(testFile, 'test');
+            fs.removeSync(testFile);
+        } catch (err: any) {
+            console.error(`❌ FATAL: Download directory ${this.downloadDir} is NOT WRITABLE:`, err.message);
+            console.warn(`⚠️  Torrent service will be partially disabled. Fix permissions or change TUNECAMP_DOWNLOAD_DIR.`);
+            // We don't throw here to allow the rest of the server to start (avoiding 502)
+        }
 
         // Resume torrents from database
         this.resumeTorrents();
         
-        console.log(`📡 Torrent Service initialized. Downloads: ${this.downloadDir}`);
+        console.log(`📡 Torrent Service initialized. Ports: ${torrentPort}. Downloads: ${this.downloadDir}`);
     }
 
     private async resumeTorrents() {

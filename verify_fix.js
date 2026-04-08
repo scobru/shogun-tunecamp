@@ -1,43 +1,40 @@
-// Verification script for case-insensitive artist matching
-import { createDatabase } from "./dist/server/database.js";
-import path from "path";
-import process from "process";
+import fs from 'fs-extra';
+import path from 'path';
+import { TorrentService } from './dist/server/torrent.js';
 
-async function verify() {
-    const dbPath = path.join(process.cwd(), "tunecamp.db");
-    const dbService = createDatabase(dbPath);
+async function test() {
+  console.log("🧪 Testing TorrentService RO Error Handling...");
+  
+  const dummyDb = {
+    getTorrents: () => [],
+    createTorrent: () => {},
+    deleteTorrent: () => {},
+    getSetting: () => ""
+  };
+  
+  const dummyScanner = {
+    processAudioFile: async () => {}
+  };
 
-    console.log("--- Verifying Case-Insensitive Artist Match ---");
-    
-    // 1. Test getArtistByName
-    const recondite = dbService.getArtistBySlug("recondite");
-    if (!recondite) {
-        console.error("Artist 'recondite' not found in database. Skipping test.");
-        return;
-    }
-    console.log(`Found artist: ${recondite.name} (ID: ${recondite.id})`);
-
-    const resultLower = dbService.getArtistByName("recondite");
-    const resultUpper = dbService.getArtistByName("RECONDITE");
-    
-    console.log(`getArtistByName("recondite"): ${resultLower ? resultLower.name : "MISSING"} (ID: ${resultLower ? resultLower.id : "N/A"})`);
-    console.log(`getArtistByName("RECONDITE"): ${resultUpper ? resultUpper.name : "MISSING"} (ID: ${resultUpper ? resultUpper.id : "N/A"})`);
-
-    if (resultLower && resultUpper && resultLower.id === resultUpper.id) {
-        console.log("✅ getArtistByName is case-insensitive.");
-    } else {
-        console.error("❌ getArtistByName is still case-sensitive!");
-    }
-
-    // 2. Test repairArtistLinks
-    console.log("\n--- Verifying repairArtistLinks logic ---");
-    try {
-        const repairRes = dbService.repairArtistLinks(recondite.id, "RECONDITE");
-        console.log(`Repair Results for "RECONDITE": Tracks ${repairRes.tracks}, Albums ${repairRes.albums}`);
-        console.log("✅ repairArtistLinks logic executed.");
-    } catch (e) {
-        console.error("❌ repairArtistLinks failed", e);
-    }
+  const roDir = path.resolve('./test-ro-dir');
+  if (!fs.existsSync(roDir)) fs.mkdirSync(roDir);
+  
+  // Set to RO
+  fs.chmodSync(roDir, 0o444);
+  
+  try {
+    console.log(`Testing with RO dir (no downloadDir override): ${roDir}`);
+    const service = new TorrentService(dummyDb, dummyScanner, roDir, undefined, 6881);
+    console.log("✅ Success: Service handled RO error gracefully and stayed alive.");
+    service.destroy();
+  } catch (err) {
+    console.error("❌ Failed: TorrentService crashed!", err);
+    process.exit(1);
+  } finally {
+    // Cleanup
+    fs.chmodSync(roDir, 0o755);
+    fs.removeSync(roDir);
+  }
 }
 
-verify().catch(console.error);
+test();
