@@ -53,36 +53,45 @@ export class TorrentSearchService {
     async searchMusic(query: string): Promise<TorrentSearchResult[]> {
         console.log(`📡 Searching for torrents: ${query}`);
         try {
-            // 1. Try "Music" category first (Standard)
-            console.log(`🔍 Querying 'Music' category...`);
-            let results = await TorrentSearchApi.search(query, "Music", 30);
-            console.log(`📊 'Music' results found: ${results?.length || 0}`);
+            // Set a timeout for the search to avoid hanging the request
+            const searchPromise = (async () => {
+                // 1. Try "Music" category first (Standard)
+                console.log(`🔍 Querying 'Music' category...`);
+                let results = await TorrentSearchApi.search(query, "Music", 30);
+                
+                // 2. Fallback to "All" if no results found in Music
+                if (!results || results.length === 0) {
+                    console.log("⚠️ No results in 'Music' category, trying 'All'...");
+                    results = await TorrentSearchApi.search(query, "All", 30);
+                }
+                return results;
+            })();
 
-            // 2. Fallback to "All" if no results found in Music
-            if (!results || results.length === 0) {
-                console.log("⚠️ No results in 'Music' category, trying 'All'...");
-                results = await TorrentSearchApi.search(query, "All", 30);
-                console.log(`📊 'All' results found: ${results?.length || 0}`);
-            }
+            // 15 second timeout for scraping - sites in 2026 can be slow or blocked
+            const timeout = new Promise<any[]>((_, reject) => 
+                setTimeout(() => reject(new Error("Search timed out")), 15000)
+            );
+
+            const results = await Promise.race([searchPromise, timeout]);
 
             if (!results || results.length === 0) {
-                console.log("⚠️ No torrent results found even in 'All' category.");
-                // One last try: if query is short, maybe it's too specific? 
-                // No, nirvana is fine. 
+                console.log("⚠️ No torrent results found.");
                 return [];
             }
 
-            console.log(`✅ Found ${results.length} raw results. Resolving magnet links...`);
+            console.log(`✅ Found ${results.length} raw results. Resolving top magnets...`);
 
-            // 3. Resolve magnet links for results that don't have them
-            // We limit to top 15 results to avoid too many requests / timeouts
-            const topResults = results.slice(0, 15);
+            // 3. Resolve magnet links for top results
+            const topResults = results.slice(0, 10);
             const resolvedResults = await Promise.all(topResults.map(async (r: any) => {
                 try {
-                    // If magnet is missing or looks like a placeholder, fetch it
                     if (!r.magnet || !r.magnet.startsWith("magnet:")) {
-                        const magnet = await TorrentSearchApi.getMagnet(r);
-                        if (magnet) r.magnet = magnet;
+                        // Small timeout for individual magnet resolution
+                        const magnetPromise = TorrentSearchApi.getMagnet(r);
+                        const mTimeout = new Promise<string>((_, reject) => 
+                            setTimeout(() => reject(new Error("Magnet resolution timeout")), 5000)
+                        );
+                        r.magnet = await Promise.race([magnetPromise, mTimeout]);
                     }
                     return r;
                 } catch (e) {
@@ -92,9 +101,9 @@ export class TorrentSearchService {
 
             // 4. Map and filter
             const mappedResults: TorrentSearchResult[] = resolvedResults
-                .filter(r => r.magnet && r.magnet.startsWith("magnet:")) // Only keep results with a valid magnet
+                .filter(r => r.magnet && r.magnet.startsWith("magnet:"))
                 .map((r: any) => ({
-                    title: r.title,
+                    title: r.title || r.name || "Unknown Torrent",
                     magnet: r.magnet,
                     seeders: parseInt(r.seeds) || parseInt(r.seeders) || 0,
                     leechers: parseInt(r.peers) || parseInt(r.leechers) || 0,
@@ -103,14 +112,31 @@ export class TorrentSearchService {
                     provider: r.provider
                 }));
 
-            console.log(`✨ Successfully resolved ${mappedResults.length} torrents with valid magnets.`);
-
-            // Sort by seeders
             return mappedResults.sort((a, b) => b.seeders - a.seeders);
 
-        } catch (error) {
-            console.error("❌ Torrent Search Error:", error);
+        } catch (error: any) {
+            console.error("❌ Torrent Search Error:", error.message);
             return [];
         }
+    }
+
+    /**
+     * Minimal magnet parser for UI feedback
+     */
+    static decodeMagnet(magnet: string): { title: string; infoHash?: string } {
+        const result = { title: "New Torrent" };
+        try {
+            const params = new URLSearchParams(magnet.replace("magnet:?", ""));
+            const dn = params.get("dn");
+            if (dn) result.title = decodeURIComponent(dn).replace(/\+/g, " ");
+            
+            const xt = params.get("xt");
+            if (xt && xt.startsWith("urn:btih:")) {
+                (result as any).infoHash = xt.split(":")[2];
+            }
+        } catch (e) {
+            // Fallback to default
+        }
+        return result;
     }
 }
