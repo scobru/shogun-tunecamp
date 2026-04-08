@@ -121,6 +121,7 @@ export const Sidebar = () => {
                 <>
                   <NavItem to="/my-music" icon={Upload} label="My Music" />
                   <NavItem to="/torrents" icon={Download} label="Downloads" />
+                  <NavItem to="/search/content" icon={Globe} label="Search Content" />
                 </>
               )}
             </ul>

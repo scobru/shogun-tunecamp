@@ -412,6 +412,13 @@ export const API = {
     syncTorrent: (infoHash: string) => handleResponse(api.post<{ success: boolean, message: string }>(`/torrents/${infoHash}/sync`)),
     removeTorrent: (infoHash: string, deleteFiles: boolean = false) => 
         handleResponse(api.delete(`/torrents/${infoHash}${deleteFiles ? '?deleteFiles=true' : ''}`)),
+
+    // --- Content Search ---
+    searchTorrents: (query: string) => handleResponse(api.get<any[]>(`/search/content/torrents?q=${encodeURIComponent(query)}`)),
+    searchSoulseek: (query: string) => handleResponse(api.get<any[]>(`/search/content/soulseek?q=${encodeURIComponent(query)}`)),
+    downloadSoulseek: (result: any) => handleResponse(api.post<{ success: boolean, downloadId: number }>('/search/content/soulseek/download', { result })),
+    getSoulseekStatus: () => handleResponse(api.get<any[]>('/search/content/soulseek/status')),
+    updateSoulseekCredentials: (creds: { username: string, password?: string }) => handleResponse(api.post('/search/content/soulseek/credentials', creds)),
 };
 
 export default API;

@@ -54,6 +54,9 @@ import { securityHeaders } from "./middleware/security.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { TorrentService } from "./torrent.js";
 import { createTorrentRoutes } from "./routes/torrents.js";
+import { SoulseekService } from "./soulseek.js";
+import { TorrentSearchService } from "./torrent-search.js";
+import { createSearchRoutes } from "./routes/search.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -99,6 +102,12 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     // Initialize Torrent Service
     const torrentService = new TorrentService(database, scanner, config.musicDir, config.downloadDir, config.torrentPort);
+
+    // Initialize Content Search Services
+    const torrentSearchService = new TorrentSearchService();
+    const soulseekService = new SoulseekService(config.musicDir, config.downloadDir || path.join(config.musicDir, "downloads"));
+    // Try to connect with system credentials if available
+    soulseekService.connect().catch(err => console.error("Soulseek initial connection failed:", err));
 
     // Upload routes - MOVED BEFORE FEDIFY/BODY PARSERS to avoid stream consumption issues
     app.use("/api/admin/upload", authMiddleware.requireUser, createUploadRoutes(database, scanner, config.musicDir, publishingService, authService));
@@ -214,6 +223,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/payments", createPaymentsRoutes(database, config.musicDir, config));
     app.use("/api/ap", createActivityPubRoutes(apService, database, authMiddleware));
     app.use("/api/proxy", createProxyRoutes());
+    app.use("/api/search/content", authMiddleware.requireAdmin, createSearchRoutes(database, torrentSearchService, soulseekService, torrentService));
     // app.use("/.well-known", createWebFingerRoute(apService)); // Legacy, handled by Fedify
 
     // Funkwhale-compatible federation libraries endpoint

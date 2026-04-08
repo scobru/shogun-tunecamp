@@ -68,6 +68,8 @@
     "node-id3": "^0.2.9",
     "play-dl": "^1.9.7",
     "shogun-contracts-sdk": "^1.3.7",
+    "slsk-client": "^1.1.0",
+    "thepiratebay": "^1.4.8",
     "ts-pattern": "^5.9.0",
     "vercel": "^32.3.0",
     "waveform-data": "^4.5.2",

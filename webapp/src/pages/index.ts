@@ -22,3 +22,4 @@ export { Wallet } from './Wallet';
 export { Profile } from './Profile';
 export { SharePage } from './SharePage';
 export { Torrents } from './Torrents';
+export { ContentSearch } from './ContentSearch';

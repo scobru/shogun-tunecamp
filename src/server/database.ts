@@ -303,6 +303,16 @@ export interface TorrentStatus {
     }>;
 }
 
+export interface SoulseekDownload {
+    id: number;
+    user_id: number;
+    file_path: string;
+    filename: string;
+    status: 'pending' | 'downloading' | 'completed' | 'failed';
+    progress: number;
+    added_at: string;
+}
+
 export interface DatabaseService {
     db: DatabaseType;
     // Torrents
@@ -514,6 +524,13 @@ export interface DatabaseService {
     getGunCache(key: string): GunCacheEntry | undefined;
     setGunCache(key: string, value: string, type: string, ttlSeconds: number): void;
     clearExpiredGunCache(): void;
+
+    // Soulseek
+    updateUserSoulseekCredentials(userId: number, username: string, password_encrypted: string): void;
+    getUserSoulseekCredentials(userId: number): { username: string, password_encrypted: string } | undefined;
+    createSoulseekDownload(download: Omit<SoulseekDownload, "id" | "added_at" | "progress">): number;
+    updateSoulseekDownloadProgress(id: number, progress: number, status?: SoulseekDownload['status']): void;
+    getSoulseekDownloads(userId?: number): SoulseekDownload[];
 }
 
 export function createDatabase(dbPath: string): DatabaseService {
@@ -1316,6 +1333,15 @@ export function createDatabase(dbPath: string): DatabaseService {
         console.log("📦 Migrated database: added lyrics column to tracks");
     } catch (e) {
         // Column already exists
+    }
+
+    // Migration: Add Soulseek credentials to admin
+    try {
+        db.exec(`ALTER TABLE admin ADD COLUMN slsk_username TEXT`);
+        db.exec(`ALTER TABLE admin ADD COLUMN slsk_password TEXT`);
+        console.log("📦 Migrated database: added slsk_username and slsk_password to admin");
+    } catch (e) {
+        // ignore
     }
 
     // Migration: Add date index to albums
@@ -3596,6 +3622,38 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         clearExpiredGunCache(): void {
             db.prepare("DELETE FROM gun_cache WHERE expires_at < ?").run(Date.now());
+        },
+
+        // Soulseek
+        updateUserSoulseekCredentials(userId: number, username: string, password_encrypted: string): void {
+            db.prepare("UPDATE admin SET slsk_username = ?, slsk_password = ? WHERE id = ?").run(username, password_encrypted, userId);
+        },
+
+        getUserSoulseekCredentials(userId: number): { username: string, password_encrypted: string } | undefined {
+            return db.prepare("SELECT slsk_username as username, slsk_password as password_encrypted FROM admin WHERE id = ?").get(userId) as any;
+        },
+
+        createSoulseekDownload(download: Omit<SoulseekDownload, "id" | "added_at" | "progress">): number {
+            const res = db.prepare(`
+                INSERT INTO soulseek_downloads (user_id, file_path, filename, status)
+                VALUES (?, ?, ?, ?)
+            `).run(download.user_id, download.file_path, download.filename, download.status);
+            return res.lastInsertRowid as number;
+        },
+
+        updateSoulseekDownloadProgress(id: number, progress: number, status?: SoulseekDownload['status']): void {
+            if (status) {
+                db.prepare("UPDATE soulseek_downloads SET progress = ?, status = ? WHERE id = ?").run(progress, status, id);
+            } else {
+                db.prepare("UPDATE soulseek_downloads SET progress = ? WHERE id = ?").run(progress, id);
+            }
+        },
+
+        getSoulseekDownloads(userId?: number): SoulseekDownload[] {
+            if (userId) {
+                return db.prepare("SELECT * FROM soulseek_downloads WHERE user_id = ? ORDER BY added_at DESC").all(userId) as SoulseekDownload[];
+            }
+            return db.prepare("SELECT * FROM soulseek_downloads ORDER BY added_at DESC").all() as SoulseekDownload[];
         },
     };
 }
