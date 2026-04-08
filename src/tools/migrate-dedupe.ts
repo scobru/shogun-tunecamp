@@ -20,7 +20,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import sqlite3 from 'better-sqlite3';
 import { loadConfig } from '../server/config.js';
-import { getFastFileHash, findAudioFiles } from '../utils/fileUtils.js';
+import { getFastFileHash, getFileHash, findAudioFiles } from '../utils/fileUtils.js';
 
 async function main() {
     const args = process.argv.slice(2);
