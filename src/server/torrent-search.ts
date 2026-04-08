@@ -14,7 +14,19 @@ export class TorrentSearchService {
     constructor() {
         try {
             // Explicitly enable reliable providers
-            const providers = ['1337x', 'ThePirateBay', 'Limetorrents', 'KickassTorrents', 'TorrentProject'];
+            // Using a wider set of providers as some might be blocked or down
+            const providers = [
+                '1337x', 
+                'ThePirateBay', 
+                'Limetorrents', 
+                'KickassTorrents', 
+                'TorrentProject',
+                'Zooqle',
+                'Torrentz2',
+                'Yts',
+                'Torrent9',
+                'Rarbg'
+            ];
             
             for (const provider of providers) {
                 try {
@@ -29,6 +41,10 @@ export class TorrentSearchService {
             
             const active = TorrentSearchApi.getActiveProviders().map(p => p.name);
             console.log("✅ Torrent Search API: Active providers:", active.join(", "));
+            
+            if (active.length === 0) {
+                console.warn("⚠️ WARNING: No torrent providers are active! Search will not work.");
+            }
         } catch (error) {
             console.error("❌ Error enabling torrent providers:", error);
         }
@@ -38,16 +54,21 @@ export class TorrentSearchService {
         console.log(`📡 Searching for torrents: ${query}`);
         try {
             // 1. Try "Music" category first (Standard)
+            console.log(`🔍 Querying 'Music' category...`);
             let results = await TorrentSearchApi.search(query, "Music", 30);
+            console.log(`📊 'Music' results found: ${results?.length || 0}`);
 
             // 2. Fallback to "All" if no results found in Music
             if (!results || results.length === 0) {
                 console.log("⚠️ No results in 'Music' category, trying 'All'...");
                 results = await TorrentSearchApi.search(query, "All", 30);
+                console.log(`📊 'All' results found: ${results?.length || 0}`);
             }
 
             if (!results || results.length === 0) {
                 console.log("⚠️ No torrent results found even in 'All' category.");
+                // One last try: if query is short, maybe it's too specific? 
+                // No, nirvana is fine. 
                 return [];
             }
 
@@ -75,8 +96,8 @@ export class TorrentSearchService {
                 .map((r: any) => ({
                     title: r.title,
                     magnet: r.magnet,
-                    seeders: r.seeds || 0,
-                    leechers: r.peers || 0,
+                    seeders: parseInt(r.seeds) || parseInt(r.seeders) || 0,
+                    leechers: parseInt(r.peers) || parseInt(r.leechers) || 0,
                     size: r.size || "Unknown",
                     verified: !!r.vip || !!r.trusted,
                     provider: r.provider
