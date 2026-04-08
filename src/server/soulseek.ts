@@ -1,7 +1,6 @@
-// @ts-ignore
-import pkg from "andrade-soulseek-downloader";
-const { SoulseekDownloader } = pkg;
-import type { SearchOptions, DownloadConfig, SoulseekSearchResult } from "andrade-soulseek-downloader";
+import * as pkg from "andrade-soulseek-downloader";
+const SoulseekDownloader = (pkg as any).SoulseekDownloader;
+import type { SoulseekDownloader as TSoulseekDownloader, SearchOptions, DownloadConfig, SoulseekSearchResult } from "andrade-soulseek-downloader";
 import path from "path";
 import fs from "fs-extra";
 
@@ -16,7 +15,7 @@ export interface SoulseekResult {
 }
 
 export class SoulseekService {
-    private downloader?: SoulseekDownloader;
+    private downloader?: TSoulseekDownloader;
     private musicDir: string;
     private downloadDir: string;
     private currentUsername: string | null = null;
@@ -64,8 +63,9 @@ export class SoulseekService {
                 downloadDelay: 2000
             };
 
-            this.downloader = new SoulseekDownloader(config);
-            await this.downloader.connect();
+            const downloader = new SoulseekDownloader(config);
+            await downloader.connect();
+            this.downloader = downloader;
             
             console.log("✅ Soulseek Connected as", username);
             this.currentUsername = username;
@@ -78,7 +78,8 @@ export class SoulseekService {
     }
 
     async search(query: string): Promise<SoulseekResult[]> {
-        if (!this.downloader) return [];
+        const downloader = this.downloader;
+        if (!downloader) return [];
 
         try {
             // We'll use a broad search first
@@ -92,9 +93,9 @@ export class SoulseekService {
                 strictMatching: false
             };
 
-            const results = await this.downloader.search(options);
+            const results = await downloader.search(options);
             
-            return results.map((r) => {
+            return results.map((r: SoulseekSearchResult) => {
                 const id = Math.random().toString(36).substring(2, 11);
                 this.searchCache.set(id, r);
                 return {
@@ -114,7 +115,8 @@ export class SoulseekService {
     }
 
     async download(result: SoulseekResult): Promise<string> {
-        if (!this.downloader) {
+        const downloader = this.downloader;
+        if (!downloader) {
             throw new Error("Soulseek client not connected");
         }
 
@@ -126,14 +128,14 @@ export class SoulseekService {
 
         try {
             if (originalResult) {
-                const dl = await this.downloader.download(originalResult, artist, title);
+                const dl = await downloader.download(originalResult, artist, title);
                 if (dl.path) return dl.path;
                 if (dl.timeout) throw new Error("Download timed out");
             }
 
             // If manual selection fails or no result in cache, use the robust searchAndDownload (with fallbacks!)
             console.log(`⚠️ Manual selection failed or context missing, triggering robust searchAndDownload for ${artist} - ${title}`);
-            const robustPath = await this.downloader.searchAndDownload(artist, title);
+            const robustPath = await downloader.searchAndDownload(artist, title);
             
             if (robustPath) return robustPath;
             throw new Error("Download failed after all attempts and fallbacks");
