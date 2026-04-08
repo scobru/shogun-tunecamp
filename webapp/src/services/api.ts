@@ -243,9 +243,13 @@ export const API = {
     createExternalTrack: (url: string, albumId?: number) =>
         handleResponse(api.post<Track>('/tracks/external', { url, albumId })),
     updateTrack: (id: string | number, data: Partial<Track>) => handleResponse(api.put<Track>(`/tracks/${id}`, data)),
+    updateTracksBatch: (trackIds: (string | number)[], data: any) => handleResponse(api.put('/tracks/batch', { trackIds, data })),
     deleteTrack: (id: string | number, deleteFile = false) =>
         handleResponse(api.delete(`/tracks/${id}${deleteFile ? '?deleteFile=true' : ''}`)),
+    deleteTracksBatch: (trackIds: (string | number)[], deleteFiles = false) =>
+        handleResponse(api.delete('/tracks/batch', { data: { trackIds, deleteFiles } })),
     getTrackMetadata: (id: string | number) => handleResponse(api.get<any>(`/tracks/${id}/metadata`)),
+
     searchTrackMetadata: (query: string) => handleResponse(api.get<any[]>(`/tracks/search-metadata?q=${encodeURIComponent(query)}`)),
     matchTrackMetadata: (id: string | number, metadata: { title: string, artist: string, albumTitle?: string, coverUrl?: string }) =>
         handleResponse(api.post<{ message: string, track: Track }>(`/tracks/${id}/match-metadata`, metadata)),
