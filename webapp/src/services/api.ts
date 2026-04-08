@@ -418,6 +418,9 @@ export const API = {
     searchSoulseek: (query: string) => handleResponse(api.get<any[]>(`/search/content/soulseek?q=${encodeURIComponent(query)}`)),
     downloadSoulseek: (result: any) => handleResponse(api.post<{ success: boolean, downloadId: number }>('/search/content/soulseek/download', { result })),
     getSoulseekStatus: () => handleResponse(api.get<any[]>('/search/content/soulseek/status')),
+    syncSoulseekDownload: (id: number) => handleResponse(api.post<{ success: boolean, result: any }>(`/search/content/soulseek/sync/${id}`)),
+    deleteSoulseekDownload: (id: number) => handleResponse(api.delete(`/search/content/soulseek/status/${id}`)),
+    clearFailedSoulseekDownloads: () => handleResponse(api.delete('/search/content/soulseek/status/failed')),
     updateSoulseekCredentials: (creds: { username: string, password?: string }) => handleResponse(api.post('/search/content/soulseek/credentials', creds)),
 };
 

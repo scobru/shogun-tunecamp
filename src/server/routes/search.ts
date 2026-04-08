@@ -4,12 +4,15 @@ import type { AuthenticatedRequest } from "../middleware/auth.js";
 import type { TorrentSearchService } from "../torrent-search.js";
 import type { SoulseekService } from "../soulseek.js";
 import type { TorrentService } from "../torrent.js";
+import type { ScannerService } from "../scanner.js";
+import path from "path";
 
 export function createSearchRoutes(
     database: DatabaseService,
     torrentSearch: TorrentSearchService,
     soulseek: SoulseekService,
-    torrentService: TorrentService
+    torrentService: TorrentService,
+    scanner: ScannerService
 ): Router {
     const router = Router();
 
@@ -121,6 +124,66 @@ export function createSearchRoutes(
             res.json(downloads);
         } catch (error) {
             res.status(500).json({ error: "Failed to fetch status" });
+        }
+    });
+
+    /**
+     * POST /api/search/content/soulseek/sync/:id
+     * Manually trigger library indexing for a completed Soulseek download
+     */
+    router.post("/soulseek/sync/:id", async (req: AuthenticatedRequest, res) => {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.status(400).json({ error: "Invalid ID" });
+
+        try {
+            const download = database.getSoulseekDownload(id);
+            if (!download) return res.status(404).json({ error: "Download not found" });
+            if (download.status !== 'completed') return res.status(400).json({ error: "Download not completed" });
+            if (!download.file_path) return res.status(400).json({ error: "No file path available" });
+            if (download.user_id !== req.userId) return res.status(403).json({ error: "Forbidden" });
+
+            // Trigger scanner
+            const settings = database.getAllSettings();
+            const musicDir = settings.musicDir || process.env.TUNECAMP_MUSIC_DIR || "music";
+            
+            const result = await scanner.processAudioFile(download.file_path, musicDir, undefined, req.userId);
+            res.json({ success: true, result });
+        } catch (error: any) {
+            console.error("❌ Soulseek Sync Error:", error);
+            res.status(500).json({ error: "Sync failed", details: error.message });
+        }
+    });
+
+    /**
+     * DELETE /api/search/content/soulseek/status/failed
+     * Clear all failed Soulseek downloads for the current user
+     */
+    router.delete("/soulseek/status/failed", async (req: AuthenticatedRequest, res) => {
+        try {
+            database.clearFailedSoulseekDownloads(req.userId!);
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({ error: "Failed to clear downloads" });
+        }
+    });
+
+    /**
+     * DELETE /api/search/content/soulseek/status/:id
+     * Remove a specific Soulseek download entry
+     */
+    router.delete("/soulseek/status/:id", async (req: AuthenticatedRequest, res) => {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.status(400).json({ error: "Invalid ID" });
+
+        try {
+            const download = database.getSoulseekDownload(id);
+            if (!download) return res.status(404).json({ error: "Download not found" });
+            if (download.user_id !== req.userId) return res.status(403).json({ error: "Forbidden" });
+
+            database.deleteSoulseekDownload(id);
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({ error: "Failed to delete download" });
         }
     });
 

@@ -531,6 +531,9 @@ export interface DatabaseService {
     createSoulseekDownload(download: Omit<SoulseekDownload, "id" | "added_at" | "progress">): number;
     updateSoulseekDownloadProgress(id: number, progress: number, status?: SoulseekDownload['status']): void;
     getSoulseekDownloads(userId?: number): SoulseekDownload[];
+    getSoulseekDownload(id: number): SoulseekDownload | undefined;
+    deleteSoulseekDownload(id: number): void;
+    clearFailedSoulseekDownloads(userId: number): void;
 }
 
 export function createDatabase(dbPath: string): DatabaseService {
@@ -3665,6 +3668,18 @@ export function createDatabase(dbPath: string): DatabaseService {
                 return db.prepare("SELECT * FROM soulseek_downloads WHERE user_id = ? ORDER BY added_at DESC").all(userId) as SoulseekDownload[];
             }
             return db.prepare("SELECT * FROM soulseek_downloads ORDER BY added_at DESC").all() as SoulseekDownload[];
+        },
+
+        getSoulseekDownload(id: number): SoulseekDownload | undefined {
+            return db.prepare("SELECT * FROM soulseek_downloads WHERE id = ?").get(id) as SoulseekDownload | undefined;
+        },
+
+        deleteSoulseekDownload(id: number): void {
+            db.prepare("DELETE FROM soulseek_downloads WHERE id = ?").run(id);
+        },
+
+        clearFailedSoulseekDownloads(userId: number): void {
+            db.prepare("DELETE FROM soulseek_downloads WHERE user_id = ? AND status = 'failed'").run(userId);
         },
     };
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API } from '../services/api';
-import { Search, Download, Settings, Activity, Database } from 'lucide-react';
+import { Search, Download, Settings, Activity, Database, RefreshCw, Trash2 } from 'lucide-react';
 
 export const ContentSearch: React.FC = () => {
     const [query, setQuery] = useState('');
@@ -68,6 +68,36 @@ export const ContentSearch: React.FC = () => {
         }
     };
 
+    const handleSyncSoulseek = async (id: number) => {
+        try {
+            await API.syncSoulseekDownload(id);
+            console.log('Sync triggered');
+            fetchDownloads();
+        } catch (err: any) {
+            console.error(`Failed to sync: ${err.message}`);
+        }
+    };
+
+    const handleDeleteSoulseek = async (id: number) => {
+        if (!confirm('Are you sure you want to remove this transfer record?')) return;
+        try {
+            await API.deleteSoulseekDownload(id);
+            fetchDownloads();
+        } catch (err: any) {
+            console.error(`Failed to delete: ${err.message}`);
+        }
+    };
+
+    const handleClearFailedSoulseek = async () => {
+        if (!confirm('Are you sure you want to clear all failed transfers?')) return;
+        try {
+            await API.clearFailedSoulseekDownloads();
+            fetchDownloads();
+        } catch (err: any) {
+            console.error(`Failed to clear failed: ${err.message}`);
+        }
+    };
+
     const handleUpdateCreds = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
@@ -92,6 +122,14 @@ export const ContentSearch: React.FC = () => {
                         className="btn btn-ghost btn-sm gap-2"
                     >
                         <Settings size={16} /> Credentials
+                    </button>
+                )}
+                {activeTab === 'downloads' && downloads.some(d => d.status === 'failed') && (
+                    <button 
+                        onClick={handleClearFailedSoulseek}
+                        className="btn btn-error btn-outline btn-sm gap-2"
+                    >
+                        <Trash2 size={16} /> Clear All Failed
                     </button>
                 )}
             </header>
@@ -209,6 +247,7 @@ export const ContentSearch: React.FC = () => {
                                 <th>Status</th>
                                 <th>Progress</th>
                                 <th>Added</th>
+                                <th className="text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -237,6 +276,26 @@ export const ContentSearch: React.FC = () => {
                                         ></progress>
                                     </td>
                                     <td className="text-xs opacity-60">{new Date(dl.added_at).toLocaleString()}</td>
+                                    <td className="text-right">
+                                        <div className="flex justify-end gap-1">
+                                            {dl.status === 'completed' && (
+                                                <button 
+                                                    onClick={() => handleSyncSoulseek(dl.id)}
+                                                    className="btn btn-ghost btn-xs text-success gap-1"
+                                                    title="Sync to Library"
+                                                >
+                                                    <RefreshCw size={14} /> Sync
+                                                </button>
+                                            )}
+                                            <button 
+                                                onClick={() => handleDeleteSoulseek(dl.id)}
+                                                className="btn btn-ghost btn-xs text-error"
+                                                title="Remove Transfer"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

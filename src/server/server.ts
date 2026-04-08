@@ -223,7 +223,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/payments", createPaymentsRoutes(database, config.musicDir, config));
     app.use("/api/ap", createActivityPubRoutes(apService, database, authMiddleware));
     app.use("/api/proxy", createProxyRoutes());
-    app.use("/api/search/content", authMiddleware.requireAdmin, createSearchRoutes(database, torrentSearchService, soulseekService, torrentService));
+    app.use("/api/search/content", authMiddleware.requireAdmin, createSearchRoutes(database, torrentSearchService, soulseekService, torrentService, scanner));
     // app.use("/.well-known", createWebFingerRoute(apService)); // Legacy, handled by Fedify
 
     // Funkwhale-compatible federation libraries endpoint
