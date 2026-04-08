@@ -27,22 +27,28 @@ export function createTorrentRoutes(torrentService: TorrentService): Router {
     router.post("/add", async (req: AuthenticatedRequest, res) => {
         try {
             const { magnetUri } = req.body;
+            console.log(`[Torrents API] POST /add requested by ${req.username}`);
+
             if (!magnetUri) {
+                console.warn("[Torrents API] Missing magnetUri in request body");
                 return res.status(400).json({ error: "magnetUri is required" });
             }
 
             // Basic validation for magnet URI
             if (!magnetUri.startsWith("magnet:?")) {
-                console.warn(`⚠️ Invalid magnet URI attempted: ${magnetUri}`);
+                console.warn(`[Torrents API] Invalid magnet URI attempted by ${req.username}: ${magnetUri.substring(0, 50)}...`);
                 return res.status(400).json({ 
                     error: "Invalid magnet URI. It must start with 'magnet:?'" 
                 });
             }
 
+            console.log(`[Torrents API] Forwarding to TorrentService: ${magnetUri.substring(0, 40)}...`);
             const infoHash = await torrentService.addTorrent(magnetUri);
+            
+            console.log(`[Torrents API] Successfully added torrent. infoHash: ${infoHash}`);
             res.json({ success: true, infoHash });
         } catch (error: any) {
-            console.error("Error adding torrent:", error);
+            console.error("[Torrents API] FATAL error adding torrent:", error);
             const message = error.message || String(error);
             res.status(500).json({ error: "Failed to add torrent: " + message });
         }

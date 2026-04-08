@@ -18,7 +18,8 @@ export class TorrentService {
         torrentPort: number = 6881
     ) {
         this.client = new WebTorrent({
-            maxConns: 50, // Limit connections to prevent EMFILE caps
+            maxConns: 30, // Reduced from 50 to save resources in Docker
+            utp: false,   // Disable utp to avoid native UDP issues in some environments
             torrentPort: torrentPort
             // Removed dht: { port: torrentPort } to prevent unhandled UDP bind exceptions
         } as any);
@@ -54,13 +55,19 @@ export class TorrentService {
     }
 
     private async resumeTorrents() {
-        const torrents = this.database.getTorrents();
-        for (const t of torrents) {
-            try {
-                await this.addTorrent(t.magnet_uri, false);
-            } catch (err) {
-                console.error(`❌ Failed to resume torrent ${t.info_hash}:`, err);
+        try {
+            const torrents = this.database.getTorrents();
+            console.log(`📡 Resuming ${torrents.length} torrents from database...`);
+            for (const t of torrents) {
+                try {
+                    // Use a slightly different flow for resume to avoid flooding
+                    await this.addTorrent(t.magnet_uri, false);
+                } catch (err) {
+                    console.error(`❌ Failed to resume torrent ${t.info_hash}:`, err);
+                }
             }
+        } catch (err) {
+            console.error("❌ Critical error in resumeTorrents:", err);
         }
     }
 
@@ -75,17 +82,32 @@ export class TorrentService {
                 return existing.infoHash;
             }
         } catch (getErr) {
-            // client.get might throw if input is totally invalid
             console.warn(`⚠️ client.get failed for ${magnetUri.substring(0, 30)}:`, getErr instanceof Error ? getErr.message : String(getErr));
         }
 
         return new Promise((resolve, reject) => {
+            let timeoutId: NodeJS.Timeout | null = null;
+            let deadTorrentTimeoutId: NodeJS.Timeout | null = null;
+            let isSettled = false;
+
+            const cleanup = () => {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+            };
+
             try {
                 console.log(`📡 Calling client.add for ${magnetUri.substring(0, 40)}...`);
-                // WebTorrent's client.add returns the torrent instance synchronously
                 const torrent = this.client.add(magnetUri, { path: this.downloadDir }, (t: Torrent) => {
                     console.log(`✅ Torrent metadata retrieved: ${t.name} (${t.infoHash})`);
                     
+                    // Clear the dead torrent timeout since we found metadata
+                    if (deadTorrentTimeoutId) {
+                        clearTimeout(deadTorrentTimeoutId);
+                        deadTorrentTimeoutId = null;
+                    }
+
                     if (saveToDb) {
                         try {
                             this.database.createTorrent({
@@ -98,17 +120,6 @@ export class TorrentService {
                         }
                     }
 
-                    // Auto-destroy dead torrents that never download metadata after 10 minutes
-                    setTimeout(() => {
-                        try {
-                            if (!(t as any).metadata) {
-                                console.log(`🗑️ Auto-destroying dead torrent (no metadata after 10m): ${t.infoHash}`);
-                                t.destroy();
-                                this.database.deleteTorrent(t.infoHash);
-                            }
-                        } catch (e) { }
-                    }, 10 * 60 * 1000);
-
                     // Setup events
                     t.on("done", () => {
                         console.log(`✅ Torrent finished: ${t.name}`);
@@ -116,27 +127,35 @@ export class TorrentService {
                     });
                 });
 
-                torrent.on("error", (err: any) => {
-                    console.error(`❌ Torrent error (${magnetUri}):`, err.message || err);
-                    reject(err);
-                });
-
-                // Track the timeout so we can clear it upon resolving
-                let timeoutId: NodeJS.Timeout | null = null;
-                let isSettled = false;
-
-                const cleanup = () => {
-                    if (timeoutId) {
-                        clearTimeout(timeoutId);
-                        timeoutId = null;
+                // Auto-destroy dead torrents that never download metadata after 10 minutes
+                // Moved OUTSIDE the metadata callback so it actually works
+                deadTorrentTimeoutId = setTimeout(() => {
+                    try {
+                        if (!(torrent as any).metadata) {
+                            console.warn(`🗑️ Auto-destroying dead torrent (no metadata after 10m): ${torrent.infoHash || 'unknown'}`);
+                            torrent.destroy();
+                            if (torrent.infoHash) this.database.deleteTorrent(torrent.infoHash);
+                        }
+                    } catch (e) { 
+                        console.error("Error in dead torrent cleanup:", e);
                     }
-                };
+                }, 10 * 60 * 1000);
+
+                torrent.on("error", (err: any) => {
+                    console.error(`❌ Torrent error handler (${magnetUri.substring(0, 30)}):`, err.message || err);
+                    cleanup();
+                    if (!isSettled) {
+                        isSettled = true;
+                        reject(err);
+                    }
+                });
 
                 // Immediately resolve with infoHash if available (typical for magnet links)
                 if (torrent.infoHash) {
                     console.log(`🧲 WebTorrent identified infoHash: ${torrent.infoHash}`);
                     isSettled = true;
                     resolve(torrent.infoHash);
+                    // We don't cleanup() yet because we might want the infoHash event below for logging
                 } else {
                     // Fallback to wait for infoHash event
                     torrent.once('infoHash', () => {
@@ -147,12 +166,11 @@ export class TorrentService {
                         resolve(torrent.infoHash);
                     });
                     
-                    // If webtorrent takes too long to even get an infoHash (e.g. invalid DHT magnet), timeout
+                    // If webtorrent takes too long to even get an infoHash, timeout
                     timeoutId = setTimeout(() => {
                         if (isSettled) return;
                         console.warn(`⏱️ Timeout waiting for torrent infoHash (30s): ${magnetUri.substring(0, 40)}`);
                         try { 
-                            // Only destroy if it hasn't succeeded in some way
                             if (!(torrent as any).metadata) {
                                 torrent.destroy(); 
                             }
@@ -162,6 +180,8 @@ export class TorrentService {
                     }, 30000); // 30 seconds
                 }
             } catch (err) {
+                console.error("❌ Synchronous error in client.add:", err);
+                cleanup();
                 reject(err);
             }
         });
