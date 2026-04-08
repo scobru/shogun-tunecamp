@@ -529,7 +529,7 @@ export interface DatabaseService {
     updateUserSoulseekCredentials(userId: number, username: string, password_encrypted: string): void;
     getUserSoulseekCredentials(userId: number): { username: string, password_encrypted: string } | undefined;
     createSoulseekDownload(download: Omit<SoulseekDownload, "id" | "added_at" | "progress">): number;
-    updateSoulseekDownloadProgress(id: number, progress: number, status?: SoulseekDownload['status']): void;
+    updateSoulseekDownloadProgress(id: number, progress: number, status?: SoulseekDownload['status'], filePath?: string): void;
     getSoulseekDownloads(userId?: number): SoulseekDownload[];
     getSoulseekDownload(id: number): SoulseekDownload | undefined;
     deleteSoulseekDownload(id: number): void;
@@ -3655,9 +3655,13 @@ export function createDatabase(dbPath: string): DatabaseService {
             return res.lastInsertRowid as number;
         },
 
-        updateSoulseekDownloadProgress(id: number, progress: number, status?: SoulseekDownload['status']): void {
-            if (status) {
+        updateSoulseekDownloadProgress(id: number, progress: number, status?: SoulseekDownload['status'], filePath?: string): void {
+            if (status && filePath) {
+                db.prepare("UPDATE soulseek_downloads SET progress = ?, status = ?, file_path = ? WHERE id = ?").run(progress, status, filePath, id);
+            } else if (status) {
                 db.prepare("UPDATE soulseek_downloads SET progress = ?, status = ? WHERE id = ?").run(progress, status, id);
+            } else if (filePath) {
+                db.prepare("UPDATE soulseek_downloads SET progress = ?, file_path = ? WHERE id = ?").run(progress, filePath, id);
             } else {
                 db.prepare("UPDATE soulseek_downloads SET progress = ? WHERE id = ?").run(progress, id);
             }

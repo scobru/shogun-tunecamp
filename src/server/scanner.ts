@@ -418,10 +418,11 @@ export class Scanner implements ScannerService {
     }
 
     public async processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number, suggestedCoverPath?: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
-        // Path sanitization: remove weird prefixes like '@@hnttf' and normalize slashes
+        // Path sanitization: remove weird prefixes like '@@hnttf' or '@@krzst' and normalize slashes
         let currentFilePath = filePath
-            .replace(/^@@hnttf\\?/, "") // Remove the specific junk prefix
-            .replace(/\\/g, "/");       // Convert all backslashes to forward slashes
+            .replace(/^@@[a-z0-9]+\\?/, "") // Remove generic junk prefix like @@tag\
+            .replace(/\\/g, "/")           // Convert all backslashes to forward slashes
+            .replace(/\/+/g, "/");         // Remove double slashes
 
         // If the path was absolute but with the junk prefix, it might now be relative or still have issues
         // We'll try to resolve it relative to the musicDir if it doesn't exist as an absolute path

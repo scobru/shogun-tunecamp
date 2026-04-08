@@ -81,11 +81,11 @@ export function createSearchRoutes(
 
             // Start download in background
             soulseek.download(result).then(async (dest) => {
-                database.updateSoulseekDownloadProgress(downloadId, 1, 'completed');
+                database.updateSoulseekDownloadProgress(downloadId, 1, 'completed', dest);
                 // Trigger scanner on the new file
-                // Note: We might need to handle scanning here or in a separate step
                 console.log(`📡 Soulseek download finished: ${dest}`);
             }).catch(err => {
+                console.error(`❌ Soulseek background download failed:`, err);
                 database.updateSoulseekDownloadProgress(downloadId, 0, 'failed');
             });
 
