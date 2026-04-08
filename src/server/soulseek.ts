@@ -1,6 +1,5 @@
-import * as pkg from "andrade-soulseek-downloader";
-const SoulseekDownloader = (pkg as any).SoulseekDownloader;
-import type { SoulseekDownloader as TSoulseekDownloader, SearchOptions, DownloadConfig, SoulseekSearchResult } from "andrade-soulseek-downloader";
+import { SoulseekDownloader } from "andrade-soulseek-downloader/dist/index";
+import type { SoulseekDownloader as TSoulseekDownloader, SearchOptions, DownloadConfig, SoulseekSearchResult } from "andrade-soulseek-downloader/dist/index";
 import path from "path";
 import fs from "fs-extra";
 
