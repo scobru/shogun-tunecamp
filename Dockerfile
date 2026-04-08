@@ -86,8 +86,20 @@ WORKDIR /app
 # Cache buster: forces this stage to rebuild every deploy (no "Using cache" on COPY --from=builder)
 RUN echo "Production deploy commit: ${CAPROVER_GIT_COMMIT_SHA:-none}"
 
-# Install runtime dependencies for native modules
-RUN apk add --no-cache python3 make g++ libc6-compat gcompat
+# Install runtime dependencies for native modules and Puppeteer/Chrome
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    libc6-compat \
+    gcompat \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    udev
 
 # Copy package files and install production dependencies
 COPY package*.json ./
@@ -122,6 +134,10 @@ ENV TUNECAMP_TORRENT_PORT=$TUNECAMP_TORRENT_PORT
 ENV TUNECAMP_DOWNLOAD_DIR=$TUNECAMP_DOWNLOAD_DIR
 ENV COINBASE_CDP_API_KEY_NAME=""
 ENV COINBASE_CDP_API_KEY_SECRET=""
+
+# Puppeteer configuration for Alpine
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # Expose default port
 EXPOSE 1970

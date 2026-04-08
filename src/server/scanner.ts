@@ -418,7 +418,20 @@ export class Scanner implements ScannerService {
     }
 
     public async processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number, suggestedCoverPath?: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
-        let currentFilePath = filePath;
+        // Path sanitization: remove weird prefixes like '@@hnttf' and normalize slashes
+        let currentFilePath = filePath
+            .replace(/^@@hnttf\\?/, "") // Remove the specific junk prefix
+            .replace(/\\/g, "/");       // Convert all backslashes to forward slashes
+
+        // If the path was absolute but with the junk prefix, it might now be relative or still have issues
+        // We'll try to resolve it relative to the musicDir if it doesn't exist as an absolute path
+        if (!path.isAbsolute(currentFilePath) && !await fs.pathExists(currentFilePath)) {
+            const resolved = path.join(musicDir, currentFilePath);
+            if (await fs.pathExists(resolved)) {
+                currentFilePath = resolved;
+            }
+        }
+
         const ext = path.extname(currentFilePath).toLowerCase();
         const dir = path.dirname(currentFilePath);
 
