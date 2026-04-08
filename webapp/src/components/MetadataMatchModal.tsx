@@ -190,7 +190,3 @@ export const MetadataMatchModal: React.FC<MetadataMatchModalProps> = ({
     </div>
   );
 };
-      </div>
-    </div>
-  );
-};
