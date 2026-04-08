@@ -284,7 +284,7 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
             <button
               type="submit"
               className="btn btn-primary gap-2"
-              disabled={loading || (!applyArtist && !applyAlbum && !applyOwner && !applyPricing && !applyLyrics)}
+              disabled={loading || (!applyArtist && !applyAlbum && !applyOwner && !applyPricing)}
             >
               <Save size={18} /> {loading ? "Updating..." : `Update ${selectedIds.length} Tracks`}
             </button>
