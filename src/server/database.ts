@@ -29,6 +29,7 @@ export interface Artist {
     private_key: string | null;
     wallet_address: string | null;
     walletAddress?: string | null; // Added for frontend compatibility
+    isLibraryArtist?: number; // 1 if metadata-only, 0 if user/release artist
     created_at: string;
 }
 
@@ -1617,7 +1618,14 @@ export function createDatabase(dbPath: string): DatabaseService {
     }
 
     // Optimized: Pre-compile frequent queries
-    const getArtistStmt = db.prepare("SELECT *, wallet_address as walletAddress FROM artists WHERE id = ?");
+    const getArtistStmt = db.prepare(`
+        SELECT a.*, a.wallet_address as walletAddress,
+        (CASE WHEN EXISTS (SELECT 1 FROM admin WHERE artist_id = a.id) 
+              OR EXISTS (SELECT 1 FROM releases WHERE artist_id = a.id) 
+              OR EXISTS (SELECT 1 FROM albums WHERE artist_id = a.id AND is_release = 1)
+              THEN 0 ELSE 1 END) as isLibraryArtist
+        FROM artists a WHERE a.id = ?
+    `);
     const getAlbumStmt = db.prepare(`SELECT a.*, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress, own.username as owner_name FROM albums a
            LEFT JOIN artists ar ON a.artist_id = ar.id
            LEFT JOIN admin own ON a.owner_id = own.id
@@ -2007,7 +2015,14 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         // Artists
         getArtists(): Artist[] {
-            return db.prepare("SELECT *, wallet_address as walletAddress FROM artists ORDER BY name").all() as Artist[];
+            return db.prepare(`
+                SELECT a.*, a.wallet_address as walletAddress,
+                (CASE WHEN EXISTS (SELECT 1 FROM admin WHERE artist_id = a.id) 
+                      OR EXISTS (SELECT 1 FROM releases WHERE artist_id = a.id) 
+                      OR EXISTS (SELECT 1 FROM albums WHERE artist_id = a.id AND is_release = 1)
+                      THEN 0 ELSE 1 END) as isLibraryArtist
+                FROM artists a ORDER BY a.name
+            `).all() as Artist[];
         },
 
         getArtist(id: number): Artist | undefined {
@@ -2021,18 +2036,39 @@ export function createDatabase(dbPath: string): DatabaseService {
             for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
                 const chunk = ids.slice(i, i + CHUNK_SIZE);
                 const placeholders = chunk.map(() => "?").join(",");
-                const rows = db.prepare(`SELECT *, wallet_address as walletAddress FROM artists WHERE id IN (${placeholders})`).all(...chunk) as Artist[];
+                const rows = db.prepare(`
+                    SELECT a.*, a.wallet_address as walletAddress,
+                    (CASE WHEN EXISTS (SELECT 1 FROM admin WHERE artist_id = a.id) 
+                          OR EXISTS (SELECT 1 FROM releases WHERE artist_id = a.id) 
+                          OR EXISTS (SELECT 1 FROM albums WHERE artist_id = a.id AND is_release = 1)
+                          THEN 0 ELSE 1 END) as isLibraryArtist
+                    FROM artists a WHERE a.id IN (${placeholders})
+                `).all(...chunk) as Artist[];
                 results.push(...rows);
             }
             return results;
         },
 
         getArtistByName(name: string): Artist | undefined {
-            return db.prepare("SELECT *, wallet_address as walletAddress FROM artists WHERE name = ? COLLATE NOCASE").get(name) as Artist | undefined;
+            return db.prepare(`
+                SELECT a.*, a.wallet_address as walletAddress,
+                (CASE WHEN EXISTS (SELECT 1 FROM admin WHERE artist_id = a.id) 
+                      OR EXISTS (SELECT 1 FROM releases WHERE artist_id = a.id) 
+                      OR EXISTS (SELECT 1 FROM albums WHERE artist_id = a.id AND is_release = 1)
+                      THEN 0 ELSE 1 END) as isLibraryArtist
+                FROM artists a WHERE a.name = ? COLLATE NOCASE
+            `).get(name) as Artist | undefined;
         },
 
         getArtistBySlug(slug: string): Artist | undefined {
-            return db.prepare("SELECT *, wallet_address as walletAddress FROM artists WHERE slug = ?").get(slug) as Artist | undefined;
+            return db.prepare(`
+                SELECT a.*, a.wallet_address as walletAddress,
+                (CASE WHEN EXISTS (SELECT 1 FROM admin WHERE artist_id = a.id) 
+                      OR EXISTS (SELECT 1 FROM releases WHERE artist_id = a.id) 
+                      OR EXISTS (SELECT 1 FROM albums WHERE artist_id = a.id AND is_release = 1)
+                      THEN 0 ELSE 1 END) as isLibraryArtist
+                FROM artists a WHERE a.slug = ?
+            `).get(slug) as Artist | undefined;
         },
 
         createArtist(name: string, bio?: string, photoPath?: string, links?: any, postParams?: any, walletAddress?: string): number {

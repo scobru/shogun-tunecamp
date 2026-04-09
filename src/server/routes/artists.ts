@@ -43,6 +43,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 return {
                     ...safeArtist,
                     walletAddress: a.wallet_address,
+                    isLibraryArtist: !!a.isLibraryArtist,
                     // Use the canonical cover API URL so the frontend benefits from backend fallbacks
                     coverImage: `/api/artists/${a.id}/cover`,
                     starred: username ? database.isStarred(username, 'artist', String(a.id)) : false,
@@ -437,6 +438,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 ...safeArtist,
                 links,
                 postParams,
+                isLibraryArtist: !!artist.isLibraryArtist,
                 walletAddress: artist.wallet_address,
                 coverImage,
                 albums: albums.map(a => ({ 

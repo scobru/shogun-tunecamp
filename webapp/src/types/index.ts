@@ -114,6 +114,7 @@ export interface Artist {
     links?: ArtistLink[];
     donationLinks?: ArtistLink[];
     walletAddress?: string;
+    isLibraryArtist?: boolean;
     starred?: boolean;
     rating?: number;
 }
