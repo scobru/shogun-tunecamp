@@ -1,14 +1,14 @@
 <div align="center">
   <img src="./logo.svg" alt="Tunecamp Logo" width="150" height="150">
   <h1>Tunecamp</h1>
-  <p><strong>A decentralized music platform for independent artists and labels.</strong></p>
+  <p><strong>A self-hosted, federated music platform for independent artists and labels.</strong></p>
 </div>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Why This Exists
 
-Streaming platforms take significant cuts from artists and lock their communities into walled gardens. Tunecamp allows you to host your own music with a beautiful web interface, fully compatible with existing Subsonic mobile apps. It connects you to the Fediverse (via ActivityPub) and creates a global, decentralized music discovery network (via GunDB)—giving artists ownership of their distribution without sacrificing reach.
+Streaming platforms take significant cuts from artists and lock their communities into walled gardens. Tunecamp allows you to host your own music with a beautiful web interface, fully compatible with existing Subsonic mobile apps. It connects you to the Fediverse (via ActivityPub) and uses a hybrid federation model—GunDB for instance discovery and identity, direct HTTP for content sharing—giving artists ownership of their distribution without sacrificing reach.
 
 ## Quick Start
 
@@ -42,12 +42,13 @@ docker-compose up -d --build
 ### Decentralization & Federation
 - 🔐 **GunDB Identity**: Cryptographic keypairs (SEA) for signing, identity roaming across instances, and decentralized comments/stats.
 - 📡 **ActivityPub**: Connect with the Fediverse (Mastodon, Funkwhale, Pleroma). Artists are ActivityPub actors with followers, posts, and release broadcasts.
-- 🌐 **Community Network**: Discover other Tunecamp instances via the GunDB peer network.
+- 🌐 **Community Network**: Discover other Tunecamp instances via GunDB signaling, then fetch catalogs directly via HTTP REST for always-fresh content.
+- 🔗 **HTTP Federation**: Instances expose a public `/api/catalog` endpoint, enabling direct instance-to-instance content discovery without intermediary replication.
 
 ### Streaming & Clients
 - 🔊 **Subsonic/OpenSubsonic API**: Full compatibility (v1.16.1) with mobile apps like DSub, Symfonium, Tempo, Substreamer, Amuse, and play:Sub.
 - 🎧 **Built-in Player**: Waveform visualization, queue management, lyrics display, and keyboard shortcuts.
-- 📋 **Playlists**: Create and share playlists (public/private), synced via GunDB.
+- 📋 **Playlists**: Create and share playlists (public/private).
 
 ### Web3 & Monetization
 - 💰 **On-chain Payments**: NFT-based purchases (ERC-1155) with USDC and ETH on the Base Network.
@@ -184,9 +185,18 @@ For production deployments, using Nginx as a reverse proxy is recommended for SS
 
 See the [Nginx Configuration Guide →](./docs/NGINX.md)
 
-### Federation
+### Federation & Network Architecture
 
-Tunecamp is compatible with Funkwhale and Mastodon via ActivityPub, and with other Tunecamp instances via GunDB.
+Tunecamp uses a **hybrid federation model**:
+
+| Layer | Protocol | Purpose |
+|:------|:---------|:--------|
+| **Discovery** | GunDB | Instance URL signaling — announces presence to the network |
+| **Identity** | GunDB SEA | Cryptographic keypairs, wallet derivation, comments, play/like stats |
+| **Content** | HTTP REST | Direct catalog fetching between instances (`/api/catalog`) |
+| **Social** | ActivityPub | Artist federation, followers, release broadcasts, posts |
+
+Instances register their URL on GunDB. The Network page then fetches catalogs directly from each discovered instance via HTTP, ensuring content is always fresh and eliminating stale CRDT data. ActivityPub handles artist-level social features and is compatible with Mastodon and Funkwhale.
 
 See the [Federation Guide →](./docs/FEDERATION.md)
 
