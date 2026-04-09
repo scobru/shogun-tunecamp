@@ -29,7 +29,6 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
     const [error, setError] = useState('');
     const [warning, setWarning] = useState('');
     const [loading, setLoading] = useState(false);
-    const [isReleasing, setIsReleasing] = useState(false);
     const [currentUser, setCurrentUser] = useState<import("../../types").User | null>(null);
     const [isLibraryOnly, setIsLibraryOnly] = useState(false);
 
@@ -85,7 +84,6 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 
                 setWalletAddress(artist.walletAddress || '');
                 setIsLibraryOnly(!!artist.isLibraryArtist);
-                setIsReleasing(!!artist.isReleasing);
 
             } else {
                 // Create Mode
@@ -100,7 +98,6 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 setSocialLinks([]);
                 setWalletAddress('');
                 setIsLibraryOnly(false); // Manually created artists get all fields
-                setIsReleasing(false);
             }
             
             setAvatarFile(null);
