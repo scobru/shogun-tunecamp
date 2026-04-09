@@ -29,6 +29,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
     const [error, setError] = useState('');
     const [warning, setWarning] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isReleasing, setIsReleasing] = useState(false);
     const [currentUser, setCurrentUser] = useState<import("../../types").User | null>(null);
 
     const isRootAdmin = !!currentUser?.isRootAdmin;
@@ -81,6 +82,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 }
                 
                 setWalletAddress(artist.walletAddress || '');
+                setIsReleasing(!!artist.isReleasing);
 
             } else {
                 // Create Mode
@@ -94,6 +96,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 setDonationUrl('');
                 setSocialLinks([]);
                 setWalletAddress('');
+                setIsReleasing(false);
             }
             
             setAvatarFile(null);
@@ -229,106 +232,110 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text font-bold text-success">Donation / Support URL</span>
-                            </label>
-                            <input 
-                                type="url" 
-                                className="input input-bordered w-full border-success/30" 
-                                value={donationUrl}
-                                onChange={e => setDonationUrl(e.target.value)}
-                                placeholder="https://ko-fi.com/..."
-                            />
-                        </div>
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text">Social Links (comma separated URLs)</span>
-                            </label>
-                            <input 
-                                type="text" 
-                                className="input input-bordered w-full" 
-                                value={socialLinks.map(l => l.url).join(', ')}
-                                onChange={e => {
-                                    const urls = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                                    setSocialLinks(urls.map(url => {
-                                        let platform = 'Social';
-                                        if (url.includes('twitter')) platform = 'Twitter';
-                                        if (url.includes('x.com')) platform = 'X';
-                                        if (url.includes('instagram')) platform = 'Instagram';
-                                        if (url.includes('facebook')) platform = 'Facebook';
-                                        if (url.includes('youtube')) platform = 'YouTube';
-                                        return { platform, url };
-                                    }));
-                                }}
-                                placeholder="twitter.com/..., instagram.com/..."
-                            />
-                        </div>
-                    </div>
-                    
-                    <div className="form-control">
-                        <label className="label">
-                            <span className="label-text font-bold text-accent">Payment Wallet Address (optional)</span>
-                        </label>
-                        <input 
-                            type="text" 
-                            className="input input-bordered w-full border-accent/30 font-mono text-sm" 
-                            value={walletAddress}
-                            onChange={e => setWalletAddress(e.target.value)}
-                            placeholder="0x..."
-                            disabled={!canEditSensitive && walletAddress !== ''}
-                        />
-                         <label className="label">
-                            <span className="label-text-alt opacity-70">
-                                {(!canEditSensitive && walletAddress !== '') ? 
-                                    "Only the artist can change their wallet once set." : 
-                                    "If provided, payments for this artist's releases will be sent directly to this address."
-                                }
-                            </span>
-                        </label>
-                    </div>
-                    
-                    <div className="divider text-xs opacity-50 uppercase tracking-widest">ActivityPub / Mastodon Config</div>
-                    <div className="bg-base-200 p-4 rounded-lg space-y-4">
-                         <div className="alert alert-info py-2 text-xs bg-info/10 border-info/20 mb-2">
-                            <Globe size={16}/> 
-                            <div>
-                                <p className="font-bold">Mastodon Auto-Posting</p>
-                                <p>This section is for cross-posting your releases to an <strong>external</strong> Mastodon account. 
-                                Internal ActivityPub federation uses keys automatically managed by the system.</p>
+                    {isReleasing && (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="form-control">
+                                    <label className="label">
+                                        <span className="label-text font-bold text-success">Donation / Support URL</span>
+                                    </label>
+                                    <input 
+                                        type="url" 
+                                        className="input input-bordered w-full border-success/30" 
+                                        value={donationUrl}
+                                        onChange={e => setDonationUrl(e.target.value)}
+                                        placeholder="https://ko-fi.com/..."
+                                    />
+                                </div>
+                                <div className="form-control">
+                                    <label className="label">
+                                        <span className="label-text">Social Links (comma separated URLs)</span>
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        className="input input-bordered w-full" 
+                                        value={socialLinks.map(l => l.url).join(', ')}
+                                        onChange={e => {
+                                            const urls = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                            setSocialLinks(urls.map(url => {
+                                                let platform = 'Social';
+                                                if (url.includes('twitter')) platform = 'Twitter';
+                                                if (url.includes('x.com')) platform = 'X';
+                                                if (url.includes('instagram')) platform = 'Instagram';
+                                                if (url.includes('facebook')) platform = 'Facebook';
+                                                if (url.includes('youtube')) platform = 'YouTube';
+                                                return { platform, url };
+                                            }));
+                                        }}
+                                        placeholder="twitter.com/..., instagram.com/..."
+                                    />
+                                </div>
                             </div>
-                        </div>
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text">Instance URL</span>
-                            </label>
-                            <input 
-                                type="url" 
-                                className="input input-bordered w-full" 
-                                value={mastodonInstance}
-                                onChange={e => setMastodonInstance(e.target.value)}
-                                placeholder="https://mastodon.social"
-                                disabled={!canEditSensitive}
-                            />
-                        </div>
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text">Access Token</span>
-                            </label>
-                            <input 
-                                type="password" 
-                                className="input input-bordered w-full" 
-                                value={mastodonToken}
-                                onChange={e => setMastodonToken(e.target.value)}
-                                placeholder="Bearer Token"
-                                disabled={!canEditSensitive}
-                            />
-                        </div>
-                        {!canEditSensitive && (
-                            <p className="text-[10px] opacity-40 px-1 italic">Note: Only the artist can manage their Mastodon cross-posting credentials.</p>
-                        )}
-                    </div>
+                            
+                            <div className="form-control">
+                                <label className="label">
+                                    <span className="label-text font-bold text-accent">Payment Wallet Address (optional)</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    className="input input-bordered w-full border-accent/30 font-mono text-sm" 
+                                    value={walletAddress}
+                                    onChange={e => setWalletAddress(e.target.value)}
+                                    placeholder="0x..."
+                                    disabled={!canEditSensitive && walletAddress !== ''}
+                                />
+                                <label className="label">
+                                    <span className="label-text-alt opacity-70">
+                                        {(!canEditSensitive && walletAddress !== '') ? 
+                                            "Only the artist can change their wallet once set." : 
+                                            "If provided, payments for this artist's releases will be sent directly to this address."
+                                        }
+                                    </span>
+                                </label>
+                            </div>
+                            
+                            <div className="divider text-xs opacity-50 uppercase tracking-widest">ActivityPub / Mastodon Config</div>
+                            <div className="bg-base-200 p-4 rounded-lg space-y-4">
+                                <div className="alert alert-info py-2 text-xs bg-info/10 border-info/20 mb-2">
+                                    <Globe size={16}/> 
+                                    <div>
+                                        <p className="font-bold">Mastodon Auto-Posting</p>
+                                        <p>This section is for cross-posting your releases to an <strong>external</strong> Mastodon account. 
+                                        Internal ActivityPub federation uses keys automatically managed by the system.</p>
+                                    </div>
+                                </div>
+                                <div className="form-control">
+                                    <label className="label">
+                                        <span className="label-text">Instance URL</span>
+                                    </label>
+                                    <input 
+                                        type="url" 
+                                        className="input input-bordered w-full" 
+                                        value={mastodonInstance}
+                                        onChange={e => setMastodonInstance(e.target.value)}
+                                        placeholder="https://mastodon.social"
+                                        disabled={!canEditSensitive}
+                                    />
+                                </div>
+                                <div className="form-control">
+                                    <label className="label">
+                                        <span className="label-text">Access Token</span>
+                                    </label>
+                                    <input 
+                                        type="password" 
+                                        className="input input-bordered w-full" 
+                                        value={mastodonToken}
+                                        onChange={e => setMastodonToken(e.target.value)}
+                                        placeholder="Bearer Token"
+                                        disabled={!canEditSensitive}
+                                    />
+                                </div>
+                                {!canEditSensitive && (
+                                    <p className="text-[10px] opacity-40 px-1 italic">Note: Only the artist can manage their Mastodon cross-posting credentials.</p>
+                                )}
+                            </div>
+                        </>
+                    )}
 
                     <div className="form-control">
                         <label className="label">
