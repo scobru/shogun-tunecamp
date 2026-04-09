@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import API from "../../services/api";
-import { Save, CheckCircle2 } from "lucide-react";
+import { Save, CheckCircle2, Globe, Palette, Cog, Layout, Wallet, Shield } from "lucide-react";
 import type { SiteSettings } from "../../types";
 import { useWalletStore } from "../../stores/useWalletStore";
 import { TuneCampFactory } from "shogun-contracts-sdk";
@@ -165,204 +165,260 @@ export const AdminSettingsPanel = () => {
   const nftAddress = settings.web3_nft_address || "";
 
   return (
-    <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
-      <h3 className="font-bold text-lg">Site Settings</h3>
-
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text">Site Name</span>
-        </label>
-        <input
-          type="text"
-          className="input input-bordered"
-          value={settings.siteName}
-          onChange={(e) =>
-            setSettings({ ...settings, siteName: e.target.value })
-          }
-        />
-      </div>
-
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text">Description</span>
-        </label>
-        <textarea
-          className="textarea textarea-bordered h-24"
-          value={settings.siteDescription || ""}
-          onChange={(e) =>
-            setSettings({ ...settings, siteDescription: e.target.value })
-          }
-        />
-      </div>
-
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text">
-            Public URL (for ActivityPub & GunDB)
-          </span>
-          <span className="label-text-alt opacity-50">
-            Example: https://sudorecords.scobrudot.dev
-          </span>
-        </label>
-        <input
-          type="url"
-          className="input input-bordered"
-          value={settings.publicUrl || ""}
-          onChange={(e) =>
-            setSettings({ ...settings, publicUrl: e.target.value })
-          }
-          placeholder="https://your-site.com"
-        />
-      </div>
-
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text">
-            GunDB Peers (Comma separated)
-          </span>
-          <span className="label-text-alt opacity-50">
-            Leave empty for defaults
-          </span>
-        </label>
-        <textarea
-          className="textarea textarea-bordered h-20"
-          value={settings.gunPeers || ""}
-          onChange={(e) =>
-            setSettings({ ...settings, gunPeers: e.target.value })
-          }
-          placeholder="https://peer1.com/gun, https://peer2.com/gun"
-        />
-      </div>
-
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text">Background Image URL</span>
-        </label>
-        <input
-          type="text"
-          className="input input-bordered"
-          value={settings.backgroundImage || ""}
-          onChange={(e) =>
-            setSettings({ ...settings, backgroundImage: e.target.value })
-          }
-          placeholder="/images/bg.jpg"
-        />
-      </div>
-
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text">Upload Background</span>
-        </label>
-        <input
-          type="file"
-          className="file-input file-input-bordered w-full"
-          accept="image/*"
-          onChange={(e) => setBgFile(e.target.files ? e.target.files[0] : null)}
-        />
-      </div>
-
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text">Site Cover (Network List Image)</span>
-          <span className="label-text-alt opacity-50">
-            Displayed on other nodes
-          </span>
-        </label>
-        <input
-          type="file"
-          className="file-input file-input-bordered w-full"
-          accept="image/*"
-          onChange={(e) =>
-            setCoverFile(e.target.files ? e.target.files[0] : null)
-          }
-        />
-      </div>
-
-      <div className="form-control">
-        <label className="label cursor-pointer justify-start gap-4">
-          <span className="label-text">Allow Public Registration</span>
-          <input
-            type="checkbox"
-            className="toggle toggle-primary"
-            checked={settings.allowPublicRegistration || false}
-            onChange={(e) =>
-              setSettings({
-                ...settings,
-                allowPublicRegistration: e.target.checked,
-              })
-            }
-          />
-        </label>
-      </div>
-
-      <div className="pt-4 space-y-4">
-        <h4 className="font-bold border-b border-white/10 pb-2">Web3 Store Configuration</h4>
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text">Checkout Contract Address</span>
-            <span className="label-text-alt opacity-50">Deployed TuneCampCheckout address</span>
-          </label>
-          <input
-            type="text"
-            className="input input-bordered font-mono text-sm"
-            value={settings.web3_checkout_address !== undefined ? settings.web3_checkout_address : checkoutAddress}
-            onChange={(e) =>
-              setSettings({ ...settings, web3_checkout_address: e.target.value })
-            }
-            placeholder="0x..."
-          />
+    <form onSubmit={handleSave} className="space-y-8 max-w-4xl">
+      <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
+        <div className="flex items-center gap-3">
+          <Cog className="text-primary" size={24} />
+          <h3 className="font-bold text-2xl">Site Settings</h3>
         </div>
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text">NFT Contract Address</span>
-            <span className="label-text-alt opacity-50">Deployed TuneCampNFT address</span>
-          </label>
-          <input
-            type="text"
-            className="input input-bordered font-mono text-sm"
-            value={settings.web3_nft_address !== undefined ? settings.web3_nft_address : nftAddress}
-            onChange={(e) =>
-              setSettings({ ...settings, web3_nft_address: e.target.value })
-            }
-            placeholder="0x..."
-          />
-        </div>
+        <button
+          type="submit"
+          className="btn btn-primary gap-2"
+          disabled={loading}
+        >
+          <Save size={18} /> Save Changes
+        </button>
+      </div>
 
-        {hasDeployedStore ? (
-          <div className="alert alert-success bg-success/20 border border-success/30 text-success-content mt-4 rounded-xl">
-            <CheckCircle2 className="shrink-0" />
-            <span>Store is currently active with configured contracts.</span>
+      {message && (
+        <div className={`alert ${message.includes("Failed") ? "alert-error" : "alert-success"} shadow-lg rounded-xl mb-6`}>
+          {message.includes("Failed") ? <OctagonAlert size={20} /> : <CheckCircle2 size={20} />}
+          <span>{message}</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* General Settings */}
+        <div className="bg-base-200/40 p-6 rounded-2xl border border-white/5 space-y-4">
+          <div className="flex items-center gap-2 mb-2 text-primary/80">
+            <Layout size={18} />
+            <h4 className="font-bold uppercase text-xs tracking-wider">General Configuration</h4>
           </div>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-secondary w-full"
-            onClick={handleDeploy}
-            disabled={loading || !isReady || isCheckingOnChain}
-          >
-            {loading ? "Deploying..." : isCheckingOnChain ? "Checking chain..." : "Deploy New Store Instance"}
-          </button>
-        )}
+          
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-medium text-sm">Site Name</span>
+            </label>
+            <input
+              type="text"
+              className="input input-bordered bg-base-300/50"
+              value={settings.siteName}
+              onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
+              placeholder="My Music Label"
+            />
+          </div>
+
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-medium text-sm">Site Description</span>
+            </label>
+            <textarea
+              className="textarea textarea-bordered bg-base-300/50 h-28"
+              value={settings.siteDescription || ""}
+              onChange={(e) => setSettings({ ...settings, siteDescription: e.target.value })}
+              placeholder="Describe your site for search engines and social sharing..."
+            />
+          </div>
+
+          <div className="form-control pt-2 border-t border-white/5 mt-4">
+            <label className="label cursor-pointer justify-between">
+              <div className="flex items-center gap-2">
+                <Shield size={16} className="opacity-60" />
+                <span className="label-text font-medium">Public Registration</span>
+              </div>
+              <input
+                type="checkbox"
+                className="toggle toggle-primary toggle-sm"
+                checked={settings.allowPublicRegistration || false}
+                onChange={(e) =>
+                  setSettings({ ...settings, allowPublicRegistration: e.target.checked })
+                }
+              />
+            </label>
+            <p className="text-[10px] opacity-40 px-1 mt-1">If enabled, anyone can create an account on your node.</p>
+          </div>
+        </div>
+
+        {/* Federation Settings */}
+        <div className="bg-base-200/40 p-6 rounded-2xl border border-white/5 space-y-4">
+          <div className="flex items-center gap-2 mb-2 text-secondary/80">
+            <Globe size={18} />
+            <h4 className="font-bold uppercase text-xs tracking-wider">Federation & Network</h4>
+          </div>
+
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-medium text-sm">Public URL</span>
+            </label>
+            <input
+              type="url"
+              className="input input-bordered bg-base-300/50"
+              value={settings.publicUrl || ""}
+              onChange={(e) => setSettings({ ...settings, publicUrl: e.target.value })}
+              placeholder="https://sudorecords.dev"
+            />
+            <label className="label">
+              <span className="label-text-alt opacity-40">Required for ActivityPub and remote GunDB peers.</span>
+            </label>
+          </div>
+
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-medium text-sm">GunDB Peers</span>
+            </label>
+            <textarea
+              className="textarea textarea-bordered bg-base-300/50 h-28 font-mono text-xs"
+              value={settings.gunPeers || ""}
+              onChange={(e) => setSettings({ ...settings, gunPeers: e.target.value })}
+              placeholder="https://peer1.com/gun, https://peer2.com/gun"
+            />
+            <label className="label">
+              <span className="label-text-alt opacity-40 text-[10px]">Comma-separated list of relay nodes.</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Branding Settings */}
+        <div className="bg-base-200/40 p-6 rounded-2xl border border-white/5 space-y-4 md:col-span-2">
+          <div className="flex items-center gap-2 mb-2 text-accent/80">
+            <Palette size={18} />
+            <h4 className="font-bold uppercase text-xs tracking-wider">Branding & Appearance</h4>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium text-sm">Background URL</span>
+                </label>
+                <input
+                  type="text"
+                  className="input input-bordered bg-base-300/50"
+                  value={settings.backgroundImage || ""}
+                  onChange={(e) => setSettings({ ...settings, backgroundImage: e.target.value })}
+                  placeholder="/images/custom-bg.jpg"
+                />
+              </div>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium text-sm">Upload New Background</span>
+                </label>
+                <input
+                  type="file"
+                  className="file-input file-input-bordered file-input-sm bg-base-300/50 w-full"
+                  accept="image/*"
+                  onChange={(e) => setBgFile(e.target.files ? e.target.files[0] : null)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium text-sm">Node Cover Upload</span>
+                </label>
+                <input
+                  type="file"
+                  className="file-input file-input-bordered file-input-sm bg-base-300/50 w-full"
+                  accept="image/*"
+                  onChange={(e) => setCoverFile(e.target.files ? e.target.files[0] : null) }
+                />
+                <label className="label">
+                  <span className="label-text-alt opacity-50 text-[10px]">This image represents your node in the global network list.</span>
+                </label>
+              </div>
+              
+              {settings.backgroundImage && (
+                <div className="mt-2 text-xs flex items-center gap-2 opacity-60 bg-base-300/30 p-2 rounded-lg border border-white/5">
+                  <div className="w-8 h-8 rounded bg-cover bg-center shrink-0 border border-white/10" style={{ backgroundImage: `url(${settings.backgroundImage})` }}></div>
+                  <span className="truncate">Current Background: {settings.backgroundImage}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Web3 Settings */}
+        <div className="bg-base-200/40 p-6 rounded-2xl border border-white/5 space-y-4 md:col-span-2">
+          <div className="flex items-center gap-2 mb-2 text-yellow-400">
+            <Wallet size={18} />
+            <h4 className="font-bold uppercase text-xs tracking-wider">Web3 Store Configuration (Base Network)</h4>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium text-sm">Checkout Contract</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered bg-base-300/50 font-mono text-xs"
+                value={settings.web3_checkout_address !== undefined ? settings.web3_checkout_address : checkoutAddress}
+                onChange={(e) => setSettings({ ...settings, web3_checkout_address: e.target.value })}
+                placeholder="0x..."
+              />
+            </div>
+
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium text-sm">NFT Contract</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered bg-base-300/50 font-mono text-xs"
+                value={settings.web3_nft_address !== undefined ? settings.web3_nft_address : nftAddress}
+                onChange={(e) => setSettings({ ...settings, web3_nft_address: e.target.value })}
+                placeholder="0x..."
+              />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-white/5">
+            {hasDeployedStore ? (
+              <div className="bg-success/10 border border-success/30 p-4 rounded-xl flex items-center gap-3">
+                <div className="p-2 bg-success/20 rounded-full text-success">
+                  <CheckCircle2 size={16} />
+                </div>
+                <div>
+                  <p className="text-success text-sm font-bold">Web3 Store Active</p>
+                  <p className="text-[10px] opacity-70 text-success">NFT and Checkout contracts are correctly configured.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col md:flex-row items-center gap-4">
+                <div className="flex-1 opacity-60 text-xs">
+                  <p>You haven't deployed your smart contracts yet. You can deploy them automatically on Base Network.</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-md rounded-xl px-8"
+                  onClick={handleDeploy}
+                  disabled={loading || !isReady || isCheckingOnChain}
+                >
+                  {loading ? (
+                    <span className="loading loading-spinner loading-xs"></span>
+                  ) : isCheckingOnChain ? (
+                    "Checking..."
+                  ) : (
+                    "Deploy Store Instance"
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="pt-4">
-        {message && (
-          <div
-            className={`mb-4 text-sm ${message.includes("Failed") ? "text-error" : "text-success"}`}
-          >
-            {message}
-          </div>
-        )}
-
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            className="btn btn-primary gap-2 flex-1"
-            disabled={loading}
-          >
-            <Save size={16} /> Save Changes
-          </button>
-        </div>
+      <div className="flex justify-end pt-6">
+        <button
+          type="submit"
+          className="btn btn-primary btn-lg rounded-xl px-12 gap-3"
+          disabled={loading}
+        >
+          {loading ? <span className="loading loading-spinner loading-md"></span> : <Save size={20} />}
+          Save All Settings
+        </button>
       </div>
     </form>
   );
