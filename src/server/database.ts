@@ -440,7 +440,7 @@ export interface DatabaseService {
     updatePostVisibility(id: number, visibility: 'public' | 'private' | 'unlisted'): void;
     deletePost(id: number): void;
     // Stats
-    getStats(artistId?: number): Promise<{ artists: number; albums: number; tracks: number; publicAlbums: number; totalUsers: number; storageUsed: number; networkSites: number; totalTracks: number; genresCount: number }>;
+    getStats(artistId?: number, ownerId?: number): Promise<{ artists: number; albums: number; tracks: number; publicAlbums: number; totalUsers: number; storageUsed: number; networkSites: number; totalTracks: number; genresCount: number }>;
     getPublicTracksCount(): number;
     // Play History
     recordPlay(trackId: number, playedAt?: string): void;
