@@ -38,12 +38,17 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             }
 
             // Map to frontend expected format and EXCLUDE private_key for EVERYONE
-            const mappedArtists = filteredArtists.map(a => {
+            const mappedArtists = allArtists.map(a => {
                 const { private_key, ...safeArtist } = a;
+                // Check if artist has ANY formal releases (across ANY of their albums)
+                const releases = database.getReleasesByArtist(a.id, false);
+                const hasReleases = releases.length > 0;
+
                 return {
                     ...safeArtist,
                     walletAddress: a.wallet_address,
                     isLibraryArtist: !!a.isLibraryArtist,
+                    isReleasing: hasReleases,
                     // Use the canonical cover API URL so the frontend benefits from backend fallbacks
                     coverImage: `/api/artists/${a.id}/cover`,
                     starred: username ? database.isStarred(username, 'artist', String(a.id)) : false,
@@ -439,6 +444,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 links,
                 postParams,
                 isLibraryArtist: !!artist.isLibraryArtist,
+                isReleasing: publicFormalReleases.length > 0 || formalReleases.length > 0,
                 walletAddress: artist.wallet_address,
                 coverImage,
                 albums: albums.map(a => ({ 

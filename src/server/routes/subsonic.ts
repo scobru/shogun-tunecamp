@@ -468,18 +468,37 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const needsTranscode = offset > 0 || (targetFormat && sourceFormat !== targetFormat) || (targetBitrate && (track.bitrate || 0) / 1000 > targetBitrate);
 
         if (!needsTranscode) {
-            return res.sendFile(fullPath);
+            console.log(`[Subsonic] Streaming ${track.id} (direct) - ${fullPath}`);
+            return res.sendFile(fullPath, (err) => {
+                if (err) {
+                    console.error(`[Subsonic] Direct streaming error for ${track.id}:`, err);
+                    if (!res.headersSent) sendError(res, req, 80, 'Streaming failed');
+                }
+            });
         }
 
-        console.log(`[Subsonic] Streaming ${track.id} (${targetFormat}) from offset ${offset}s`);
+        console.log(`[Subsonic] Streaming ${track.id} (transcode to ${targetFormat}, ${targetBitrate || 'default'}k) from offset ${offset}s`);
         const transcodeStream = transcode(fullPath, targetFormat, targetBitrate, offset);
         
+        transcodeStream.on('start', (commandLine: string) => {
+            console.log(`[Subsonic] FFmpeg started: ${commandLine}`);
+        });
+
         transcodeStream.on('error', (err: any) => {
+            // "Output stream closed" is normal when user stops playback
+            if (err.message && (err.message.includes('Output stream closed') || err.message.includes('EPIPE'))) {
+                console.log(`[Subsonic] Streaming ${track.id} stopped by client`);
+                return;
+            }
             console.error('[Subsonic] Streaming error:', err);
             if (!res.headersSent) sendError(res, req, 80, 'Streaming failed');
         });
 
-        transcodeStream.pipe(res);
+        transcodeStream.on('end', () => {
+            console.log(`[Subsonic] Streaming ${track.id} completed`);
+        });
+
+        transcodeStream.pipe(res, { end: true });
     });
 
     // --- Selection & Lists ---

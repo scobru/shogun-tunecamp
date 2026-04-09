@@ -29,6 +29,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
     const [error, setError] = useState('');
     const [warning, setWarning] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isReleasing, setIsReleasing] = useState(false);
     const [currentUser, setCurrentUser] = useState<import("../../types").User | null>(null);
     const [isLibraryOnly, setIsLibraryOnly] = useState(false);
 
@@ -84,6 +85,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 
                 setWalletAddress(artist.walletAddress || '');
                 setIsLibraryOnly(!!artist.isLibraryArtist);
+                setIsReleasing(!!artist.isReleasing);
 
             } else {
                 // Create Mode
@@ -98,6 +100,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                 setSocialLinks([]);
                 setWalletAddress('');
                 setIsLibraryOnly(false); // Manually created artists get all fields
+                setIsReleasing(false);
             }
             
             setAvatarFile(null);
@@ -285,7 +288,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                                     placeholder="0x..."
                                     disabled={!canEditSensitive && walletAddress !== ''}
                                 />
-                                 <label className="label">
+                                <label className="label">
                                     <span className="label-text-alt opacity-70">
                                         {(!canEditSensitive && walletAddress !== '') ? 
                                             "Only the artist can change their wallet once set." : 
@@ -297,7 +300,7 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                             
                             <div className="divider text-xs opacity-50 uppercase tracking-widest">ActivityPub / Mastodon Config</div>
                             <div className="bg-base-200 p-4 rounded-lg space-y-4">
-                                 <div className="alert alert-info py-2 text-xs bg-info/10 border-info/20 mb-2">
+                                <div className="alert alert-info py-2 text-xs bg-info/10 border-info/20 mb-2">
                                     <Globe size={16}/> 
                                     <div>
                                         <p className="font-bold">Mastodon Auto-Posting</p>
