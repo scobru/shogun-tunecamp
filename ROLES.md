@@ -1,99 +1,99 @@
-# Ruoli e Permessi in TuneCamp
+# Roles & Permissions in TuneCamp
 
-Questo documento descrive le diverse figure (ruoli) all'interno di un'istanza TuneCamp, le loro funzionalità e i relativi permessi di sicurezza.
+This document describes the different roles within a TuneCamp instance, their capabilities, and their associated security constraints.
 
-TuneCamp utilizza un sistema di controllo degli accessi basato su ruoli (RBAC) per garantire che ogni utente possa operare solo nell'ambito delle proprie competenze.
+TuneCamp uses a Role-Based Access Control (RBAC) system to ensure that each user can only operate within the scope of their assigned role.
 
 ---
 
 ## 1. Root Admin (Superuser)
-Il **Root Admin** è il proprietario dell'istanza o l'amministratore di sistema principale. Corrisponde solitamente al primo utente creato (ID 1).
+The **Root Admin** is the instance owner or primary system administrator. This typically corresponds to the first user created (ID 1).
 
-### Funzionalità Esclusive:
-- **Gestione Globale del Sito:** Modifica del nome del sito, descrizione, URL pubblico, loghi e immagini di background.
-- **Configurazione Web3:** Impostazione degli indirizzi per i pagamenti in USDC/USDT e contratti NFT.
-- **Gestione Utenti Completa:** 
-  - Creazione di nuovi amministratori e utenti.
-  - Abilitazione/Disabilitazione di account.
-  - Reset delle password per qualsiasi utente.
-  - Eliminazione di account (tranne se stesso o l'ultimo admin rimasto).
-- **Gestione Identità di Sistema:** Accesso e modifica delle chiavi crittografiche GunDB e ActivityPub dell'istanza.
-- **Manutenzione di Sistema:** 
-  - Consolidamento dei file sul filesystem.
-  - Pulizia globale della rete GunDB.
-  - Sincronizzazione forzata della rete.
-- **Visibilità Totale:** Accesso a tutte le release e statistiche globali di tutti gli artisti presenti nell'istanza.
+### Exclusive Capabilities:
+- **Global Site Management:** Modify the site name, description, public URL, logos, and background images.
+- **Web3 Configuration:** Set wallet addresses for USDC/USDT payments and NFT contracts.
+- **Full User Management:**
+  - Create new admins and users.
+  - Enable/Disable accounts.
+  - Reset passwords for any user.
+  - Delete accounts (except their own or the last remaining admin).
+- **System Identity Management:** Access and modify the instance's GunDB and ActivityPub cryptographic keys.
+- **System Maintenance:**
+  - Consolidate files on the filesystem.
+  - Global GunDB network cleanup.
+  - Force network synchronization.
+- **Total Visibility:** Access to all releases and global statistics across all artists on the instance.
 
-### Vincoli di Sicurezza:
-- Non può essere eliminato.
-- Non può essere disabilitato.
-- Non può essere declassato a un ruolo inferiore.
-
----
-
-## 2. Admin (Amministratore Standard)
-L'**Admin** è una figura con poteri amministrativi delegati, utile per gestire la comunità e i contenuti senza avere il controllo totale del server.
-
-### Funzionalità:
-- **Monitoraggio Utenti:** Può visualizzare la lista degli utenti registrati (ma non può modificarli o eliminarli).
-- **Gestione della Rete Federata:**
-  - Seguire o smettere di seguire altre istanze/attori ActivityPub.
-  - Sincronizzare i contenuti dai peer federati.
-- **Gestione Contenuti:** Può gestire le proprie release e i propri post social.
-- **Supporto Artisti:** Se assegnato a un profilo artista, può operare come tale.
-- **Moderazione Post:** Può visualizzare e gestire post e commenti (se implementato nel sistema di moderazione).
-
-### Vincoli di Sicurezza:
-- Non può modificare le impostazioni globali del sito.
-- Non può accedere alle chiavi di identità del server.
-- Non può resettare password altrui.
+### Security Constraints:
+- Cannot be deleted.
+- Cannot be disabled.
+- Cannot be demoted to a lower role.
 
 ---
 
-## 3. Artist / User (Utente Standard)
-La figura dell'**Artist** (o utente standard) rappresenta l'utente che pubblica musica e interagisce con la piattaforma. Ogni utente in TuneCamp è associato a un profilo artista.
+## 2. Admin (Standard Administrator)
+The **Admin** is a user with delegated administrative powers, useful for managing the community and content without having full server control.
 
-### Funzionalità:
-- **Gestione Discografia:**
-  - Caricamento di tracce audio (MP3, FLAC, ecc.).
-  - Creazione e modifica di album e formal release.
-  - Gestione dei metadati (titoli, generi, licenze).
-  - Impostazione dei prezzi (ETH, USD, USDC, USDT) e visibilità (pubblico, privato, non in elenco).
-- **Social Feed:** Creazione, modifica ed eliminazione di post per il proprio profilo.
-- **Profilo Artista:** Modifica della biografia, link esterni, avatar e immagini di copertina.
-- **Statistiche Personali:** Visualizzazione dei dati di ascolto e vendita relativi ai propri contenuti.
-- **Accesso Subsonic:** Utilizzo delle credenziali per lo streaming tramite app compatibili con l'API Subsonic.
-- **Gestione Password:** Modifica della propria password.
+### Capabilities:
+- **User Monitoring:** Can view the list of registered users (but cannot modify or delete them).
+- **Federated Network Management:**
+  - Follow or unfollow other ActivityPub instances/actors.
+  - Synchronize content from federated peers.
+- **Content Management:** Can manage their own releases and social posts.
+- **Artist Support:** If assigned to an artist profile, can operate as that artist.
+- **Post Moderation:** Can view and manage posts and comments (if implemented in the moderation system).
 
-### Vincoli di Sicurezza:
-- **Quota Disco:** È soggetto a un limite di spazio su disco (storage quota) configurato dall'amministratore.
-- **Attivazione:** Deve essere attivato (`isActive`) da un amministratore per poter effettuare upload o modifiche (se la configurazione lo richiede).
-- **Isolamento:** Non può visualizzare o modificare contenuti di altri artisti.
-- **Chiavi Private:** Può visualizzare solo le proprie chiavi di identità artista.
+### Security Constraints:
+- Cannot modify global site settings.
+- Cannot access server identity keys.
+- Cannot reset other users' passwords.
 
 ---
 
-## Matrice dei Permessi (Sintesi)
+## 3. Artist / User (Standard User)
+The **Artist** (or standard user) represents the user who publishes music and interacts with the platform. Every user in TuneCamp is associated with an artist profile.
 
-| Funzionalità | Root Admin | Admin | Artist/User |
+### Capabilities:
+- **Discography Management:**
+  - Upload audio tracks (MP3, FLAC, etc.).
+  - Create and edit albums and formal releases.
+  - Manage metadata (titles, genres, licenses).
+  - Set prices (ETH, USD, USDC, USDT) and visibility (public, private, unlisted).
+- **Social Feed:** Create, edit, and delete posts for their own profile.
+- **Artist Profile:** Edit biography, external links, avatar, and cover images.
+- **Personal Statistics:** View play and sales data related to their own content.
+- **Subsonic Access:** Use their credentials for streaming via Subsonic-compatible apps.
+- **Password Management:** Change their own password.
+
+### Security Constraints:
+- **Storage Quota:** Subject to a disk space limit (storage quota) configured by the administrator.
+- **Activation:** Must be activated (`isActive`) by an administrator before being able to upload or edit content (if the configuration requires it).
+- **Isolation:** Cannot view or modify other artists' content.
+- **Private Keys:** Can only view their own artist identity keys.
+
+---
+
+## Permission Matrix (Summary)
+
+| Capability | Root Admin | Admin | Artist/User |
 | :--- | :---: | :---: | :---: |
-| Modifica Impostazioni Sito | ✅ | ❌ | ❌ |
-| Creazione/Eliminazione Utenti | ✅ | ❌ | ❌ |
-| Reset Password Altrui | ✅ | ❌ | ❌ |
-| Caricamento Musica | ✅ | ✅ | ✅ (se attivo) |
-| Gestione Contenuti Propri | ✅ | ✅ | ✅ |
-| Gestione Contenuti Altrui | ✅ | ❌ | ❌ |
-| Seguire Istanze Remote (AP) | ✅ | ✅ | ❌ |
-| Accesso Chiavi Server | ✅ | ❌ | ❌ |
-| Gestione Quota Disco | ✅ | ❌ | ❌ |
+| Modify Site Settings | ✅ | ❌ | ❌ |
+| Create/Delete Users | ✅ | ❌ | ❌ |
+| Reset Other Users' Passwords | ✅ | ❌ | ❌ |
+| Upload Music | ✅ | ✅ | ✅ (if active) |
+| Manage Own Content | ✅ | ✅ | ✅ |
+| Manage Others' Content | ✅ | ❌ | ❌ |
+| Follow Remote Instances (AP) | ✅ | ✅ | ❌ |
+| Access Server Keys | ✅ | ❌ | ❌ |
+| Manage Storage Quotas | ✅ | ❌ | ❌ |
 
 ---
 
-## Verifica della Sicurezza
+## Security Verification
 
-TuneCamp implementa questi controlli a livello di API:
-1. **Middleware JWT:** Ogni richiesta autenticata verifica il ruolo (`isAdmin`) e l'identità (`userId`).
-2. **Proprietà dei Contenuti:** Le API di modifica (`PUT`, `DELETE`) verificano che `owner_id` corrisponda al `userId` del richiedente, a meno che quest'ultimo non sia un amministratore.
-3. **SSRF Protection:** Le operazioni di rete (ActivityPub follow) sono protette contro attacchi SSRF tramite validazione degli URL.
-4. **Sanitizzazione:** I nomi dei file e i metadati vengono sanitizzati per prevenire Path Traversal e attacchi XSS.
-5. **Quota Check:** Durante l'upload viene verificato dinamicamente lo spazio disponibile per l'utente prima di accettare i file.
+TuneCamp implements these controls at the API level:
+1. **JWT Middleware:** Every authenticated request verifies the role (`isAdmin`) and identity (`userId`).
+2. **Content Ownership:** Modification APIs (`PUT`, `DELETE`) verify that `owner_id` matches the requester's `userId`, unless the requester is an administrator.
+3. **SSRF Protection:** Network operations (ActivityPub follow) are protected against SSRF attacks via URL validation.
+4. **Sanitization:** File names and metadata are sanitized to prevent Path Traversal and XSS attacks.
+5. **Quota Check:** During upload, the user's available disk space is dynamically verified before accepting files.

@@ -1,22 +1,31 @@
 openapi: 3.1.0
 info:
   title: Tunecamp REST API
-  version: 1.0.0
+  version: 2.0.0
   description: |
-    The Tunecamp API provides programmatic access to the platform's music library, artists, albums, and tracks.
-    It supports querying the catalog, fetching metadata, and interacting with the decentralized ecosystem.
+    The Tunecamp API provides programmatic access to the platform's music library, artists, albums, tracks,
+    releases, playlists, and administrative functions. It supports the decentralized music ecosystem via
+    GunDB and ActivityPub integrations.
 
     ## Authentication
-    Many endpoints are public (e.g., browsing the catalog). Administrative endpoints require a Bearer token in the `Authorization` header.
+    Public endpoints (catalog browsing, streaming) require no authentication.
+    User endpoints require a Bearer token from `/api/auth/login`.
+    Admin endpoints require a Bearer token with an admin role.
 
     ## Subsonic API
-    This specification covers the native Tunecamp REST API (typically mapped under `/api/v1/`).
-    For Subsonic compatibility, use the `/rest` endpoint. See [SUBSONIC_API.md](./SUBSONIC_API.md) for details.
+    For Subsonic/OpenSubsonic client compatibility, use the `/rest` endpoint.
+    See [SUBSONIC.md](./SUBSONIC.md) for the full endpoint reference.
+
+servers:
+  - url: /api
+    description: Tunecamp API base path
 
 paths:
-  /api/auth/login:
+  # ── Authentication ──────────────────────────────────────────────────────────
+  /auth/login:
     post:
       summary: User Login
+      tags: [Authentication]
       description: |
         Authenticates a user. Supports decentralized proof-of-possession (roaming) via GunDB.
         If the user is known on the GunDB peer network but not locally, the backend lazily creates a local profile.
@@ -38,18 +47,33 @@ paths:
                   description: Optional GunDB public key for decentralized roaming.
                 proof:
                   type: string
-                  description: Cryptographic signature of the username proving ownership of the pubKey.
+                  description: Cryptographic signature proving ownership of the pubKey.
       responses:
         '200':
-          description: Successful authentication. Returns JWT and GunDB pair.
+          description: Successful authentication. Returns JWT and user info.
         '401':
           description: Invalid credentials or signature.
 
-  /api/users/register:
+  /auth/me:
+    get:
+      summary: Get Current User
+      tags: [Authentication]
+      description: Returns the currently authenticated user's profile.
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user info.
+        '401':
+          description: Not authenticated.
+
+  # ── Users ───────────────────────────────────────────────────────────────────
+  /users/register:
     post:
       summary: User Registration
-      description: |
-        Registers a new user on the platform. Prioritizes GunDB identity linking.
+      tags: [Users]
+      description: Registers a new user. Prioritizes GunDB identity linking.
       operationId: register
       requestBody:
         required: true
@@ -68,17 +92,30 @@ paths:
                   description: The user's GunDB SEA public key.
                 signature:
                   type: string
-                  description: A proof-of-possession signature to verify the identity link.
+                  description: Proof-of-possession signature.
       responses:
         '200':
           description: Registration successful.
         '409':
           description: Username already taken.
 
-  /api/artists:
+  # ── Catalog (Public) ────────────────────────────────────────────────────────
+  /catalog:
+    get:
+      summary: Get Full Catalog
+      tags: [Catalog]
+      description: Returns the complete public catalog with site metadata, artists, albums, and tracks.
+      operationId: getCatalog
+      responses:
+        '200':
+          description: The full catalog.
+
+  # ── Artists ─────────────────────────────────────────────────────────────────
+  /artists:
     get:
       summary: List Artists
-      description: Retrieves a list of all public artists in the Tunecamp catalog.
+      tags: [Artists]
+      description: Retrieves all public artists.
       operationId: getArtists
       responses:
         '200':
@@ -90,10 +127,11 @@ paths:
                 items:
                   $ref: '#/components/schemas/Artist'
 
-  /api/artists/{slug}:
+  /artists/{slug}:
     get:
       summary: Get Artist Details
-      description: Retrieves detailed information for a specific artist, including their profile and description.
+      tags: [Artists]
+      description: Retrieves detailed information for a specific artist by slug or ID.
       operationId: getArtistBySlug
       parameters:
         - name: slug
@@ -101,10 +139,9 @@ paths:
           required: true
           schema:
             type: string
-          description: The URL-friendly slug of the artist.
       responses:
         '200':
-          description: The artist details.
+          description: The artist details with albums and tracks.
           content:
             application/json:
               schema:
@@ -112,10 +149,28 @@ paths:
         '404':
           description: Artist not found.
 
-  /api/albums:
+  /artists/{slug}/cover:
+    get:
+      summary: Get Artist Cover Image
+      tags: [Artists]
+      description: Returns the artist's profile photo/avatar.
+      operationId: getArtistCover
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Image file.
+
+  # ── Albums ──────────────────────────────────────────────────────────────────
+  /albums:
     get:
       summary: List Albums
-      description: Retrieves a list of all public albums across all artists.
+      tags: [Albums]
+      description: Retrieves all public albums.
       operationId: getAlbums
       responses:
         '200':
@@ -127,11 +182,53 @@ paths:
                 items:
                   $ref: '#/components/schemas/Album'
 
-  /api/tracks:
+  /albums/{idOrSlug}:
+    get:
+      summary: Get Album Details
+      tags: [Albums]
+      description: Retrieves album details with track listing by ID or slug.
+      operationId: getAlbum
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Album with tracks.
+        '404':
+          description: Album not found.
+
+  /albums/{id}/cover:
+    get:
+      summary: Get Album Cover Art
+      tags: [Albums]
+      description: Returns the album's cover art image.
+      operationId: getAlbumCover
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Image file.
+
+  # ── Tracks ──────────────────────────────────────────────────────────────────
+  /tracks:
     get:
       summary: List Tracks
-      description: Retrieves a list of all public tracks.
+      tags: [Tracks]
+      description: Retrieves all public tracks. Supports filtering by album.
       operationId: getTracks
+      parameters:
+        - name: albumId
+          in: query
+          schema:
+            type: integer
+          description: Filter tracks by album ID.
       responses:
         '200':
           description: A list of tracks.
@@ -142,69 +239,667 @@ paths:
                 items:
                   $ref: '#/components/schemas/Track'
 
+  /tracks/{id}:
+    get:
+      summary: Get Track Details
+      tags: [Tracks]
+      description: Get a single track by ID.
+      operationId: getTrack
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Track details.
+        '404':
+          description: Track not found.
+    put:
+      summary: Update Track
+      tags: [Tracks]
+      description: Update track metadata (requires authentication, ownership check).
+      operationId: updateTrack
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Track updated.
+    delete:
+      summary: Delete Track
+      tags: [Tracks]
+      description: Delete a track (requires authentication, ownership check).
+      operationId: deleteTrack
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Track deleted.
+
+  /tracks/{id}/stream:
+    get:
+      summary: Stream Track Audio
+      tags: [Tracks]
+      description: Stream the audio file for a track. Supports range requests.
+      operationId: streamTrack
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Audio stream.
+        '404':
+          description: Track not found.
+
+  /tracks/{id}/cover:
+    get:
+      summary: Get Track Cover Art
+      tags: [Tracks]
+      description: Returns the cover art for a track (from album or embedded).
+      operationId: getTrackCover
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Image file.
+
+  /tracks/batch:
+    put:
+      summary: Batch Update Tracks
+      tags: [Tracks]
+      description: Update metadata for multiple tracks at once.
+      operationId: batchUpdateTracks
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Tracks updated.
+    delete:
+      summary: Batch Delete Tracks
+      tags: [Tracks]
+      description: Delete multiple tracks at once.
+      operationId: batchDeleteTracks
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Tracks deleted.
+
+  # ── Releases ────────────────────────────────────────────────────────────────
+  /releases:
+    get:
+      summary: List Releases
+      tags: [Releases]
+      description: Retrieves all public published releases.
+      operationId: getReleases
+      responses:
+        '200':
+          description: A list of releases.
+    post:
+      summary: Create Release
+      tags: [Releases]
+      description: Create a new release (requires authentication).
+      operationId: createRelease
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Release created.
+
+  /releases/{id}:
+    get:
+      summary: Get Release Details
+      tags: [Releases]
+      description: Get release details with track listing.
+      operationId: getRelease
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Release with tracks.
+    put:
+      summary: Update Release
+      tags: [Releases]
+      description: Update a release (requires ownership or admin).
+      operationId: updateRelease
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Release updated.
+    delete:
+      summary: Delete Release
+      tags: [Releases]
+      description: Delete a release (requires ownership or admin).
+      operationId: deleteRelease
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Release deleted.
+
+  # ── Playlists ───────────────────────────────────────────────────────────────
+  /playlists:
+    get:
+      summary: List Playlists
+      tags: [Playlists]
+      description: Retrieves all public playlists.
+      operationId: getPlaylists
+      responses:
+        '200':
+          description: A list of playlists.
+    post:
+      summary: Create Playlist
+      tags: [Playlists]
+      description: Create a new playlist (requires authentication).
+      operationId: createPlaylist
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Playlist created.
+
+  /playlists/{id}:
+    get:
+      summary: Get Playlist
+      tags: [Playlists]
+      description: Get a playlist with its tracks.
+      operationId: getPlaylist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Playlist with tracks.
+    delete:
+      summary: Delete Playlist
+      tags: [Playlists]
+      description: Delete a playlist (requires ownership).
+      operationId: deletePlaylist
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Playlist deleted.
+
+  # ── Stats ───────────────────────────────────────────────────────────────────
+  /stats:
+    get:
+      summary: Get Instance Statistics
+      tags: [Stats]
+      description: Returns play counts, top tracks/artists, and listening stats.
+      operationId: getStats
+      responses:
+        '200':
+          description: Statistics summary.
+
+  /stats/library:
+    get:
+      summary: Get Library Statistics
+      tags: [Stats]
+      description: Returns library-level statistics (track/album/artist counts, storage, genres).
+      operationId: getLibraryStats
+      responses:
+        '200':
+          description: Library statistics.
+
+  # ── Comments ────────────────────────────────────────────────────────────────
+  /comments:
+    get:
+      summary: Get Comments
+      tags: [Comments]
+      description: Get comments for a track or album from GunDB.
+      operationId: getComments
+      responses:
+        '200':
+          description: List of comments.
+
+  # ── Payments & Unlock ───────────────────────────────────────────────────────
+  /payments:
+    post:
+      summary: Record Payment
+      tags: [Payments]
+      description: Record an on-chain payment verification for a release/track.
+      operationId: recordPayment
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Payment recorded.
+
+  /unlock:
+    post:
+      summary: Validate Unlock Code
+      tags: [Payments]
+      description: Validate and redeem an unlock code for a gated release.
+      operationId: validateUnlockCode
+      responses:
+        '200':
+          description: Code validation result.
+
+  # ── Admin ───────────────────────────────────────────────────────────────────
+  /admin/scan:
+    post:
+      summary: Scan Music Library
+      tags: [Admin]
+      description: Trigger a full scan of the music directory to index new files.
+      operationId: scanLibrary
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Scan started or completed.
+
+  /admin/settings:
+    get:
+      summary: Get Site Settings
+      tags: [Admin]
+      description: Get all site configuration settings.
+      operationId: getSettings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Settings object.
+    put:
+      summary: Update Site Settings
+      tags: [Admin]
+      description: Update site configuration (name, description, URL, etc.).
+      operationId: updateSettings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Settings updated.
+
+  /admin/upload:
+    post:
+      summary: Upload Tracks
+      tags: [Admin]
+      description: Upload one or more audio files with metadata.
+      operationId: uploadTracks
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '200':
+          description: Upload result with created track IDs.
+
+  /admin/backup:
+    post:
+      summary: Create Backup
+      tags: [Admin]
+      description: Create a full database backup (admin only).
+      operationId: createBackup
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Backup created, returns download link.
+
+  # ── ActivityPub ─────────────────────────────────────────────────────────────
+  /ap/followers/{artistId}:
+    get:
+      summary: Get Artist Followers
+      tags: [ActivityPub]
+      description: Get the list of ActivityPub followers for an artist.
+      operationId: getArtistFollowers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: artistId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of followers.
+
+  /ap/remote-actors:
+    get:
+      summary: List Remote Actors
+      tags: [ActivityPub]
+      description: Get all known remote ActivityPub actors.
+      operationId: getRemoteActors
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of remote actors.
+
+  # ── Waveform ────────────────────────────────────────────────────────────────
+  /waveform/{id}:
+    get:
+      summary: Get Track Waveform
+      tags: [Tracks]
+      description: Returns an SVG waveform visualization for a track.
+      operationId: getWaveform
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SVG waveform image.
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+
+  # ── Search ──────────────────────────────────────────────────────────────────
+  /catalog/search:
+    get:
+      summary: Search Catalog
+      tags: [Search]
+      description: Full-text search across artists, albums, and tracks.
+      operationId: searchCatalog
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query.
+      responses:
+        '200':
+          description: Search results grouped by type.
+
+  /search/content:
+    get:
+      summary: Search External Content
+      tags: [Search]
+      description: Search torrents and Soulseek for music content (admin only).
+      operationId: searchContent
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: External search results.
+
+  # ── Proxy ───────────────────────────────────────────────────────────────────
+  /proxy:
+    get:
+      summary: Proxy External Resources
+      tags: [Proxy]
+      description: Proxy external images/resources to avoid CORS issues (e.g., remote cover art).
+      operationId: proxyResource
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Proxied resource.
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     Artist:
       type: object
       properties:
         id:
-          type: string
-          description: The unique identifier for the artist.
+          type: integer
         name:
           type: string
-          description: The display name of the artist.
         slug:
           type: string
-          description: URL-friendly identifier.
-        description:
+        bio:
           type: string
-          description: Markdown-formatted biography or description.
-        coverImage:
+          nullable: true
+        photo_path:
           type: string
-          description: URL to the artist's profile image.
-        walletAddress:
+          nullable: true
+        links:
           type: string
-          description: Blockchain wallet address for tips or purchases.
+          nullable: true
+          description: JSON string of external links.
+        wallet_address:
+          type: string
+          nullable: true
+          description: Blockchain wallet address.
+        public_key:
+          type: string
+          nullable: true
+          description: ActivityPub RSA public key (PEM).
+        created_at:
+          type: string
+          format: date-time
 
     Album:
       type: object
       properties:
         id:
-          type: string
+          type: integer
         title:
           type: string
-        artistId:
+        slug:
           type: string
-        artistName:
+        artist_id:
+          type: integer
+          nullable: true
+        artist_name:
           type: string
-        releaseDate:
+        date:
           type: string
-          format: date
-        coverImage:
+          nullable: true
+        cover_path:
           type: string
+          nullable: true
+        genre:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [album, single, ep]
+          nullable: true
+        year:
+          type: integer
+          nullable: true
         price:
           type: number
-          format: float
+          nullable: true
+        price_usdc:
+          type: number
+          nullable: true
+        currency:
+          type: string
+          enum: [ETH, USD]
+        visibility:
+          type: string
+          enum: [public, private, unlisted]
+        is_release:
+          type: boolean
+        published_to_gundb:
+          type: boolean
+        published_to_ap:
+          type: boolean
+        license:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
 
     Track:
       type: object
       properties:
         id:
-          type: string
+          type: integer
         title:
           type: string
-        artistId:
+        album_id:
+          type: integer
+          nullable: true
+        album_title:
           type: string
-        albumId:
+        artist_id:
+          type: integer
+          nullable: true
+        artist_name:
           type: string
+        track_num:
+          type: integer
+          nullable: true
         duration:
           type: number
+          nullable: true
           description: Duration in seconds.
-        playCount:
-          type: integer
-        streamUrl:
+        file_path:
           type: string
-          description: The URL to stream the audio file.
+          nullable: true
+        format:
+          type: string
+          nullable: true
+        bitrate:
+          type: integer
+          nullable: true
+        sample_rate:
+          type: integer
+          nullable: true
+        price:
+          type: number
+          nullable: true
+        price_usdc:
+          type: number
+          nullable: true
+        currency:
+          type: string
+          enum: [ETH, USD]
+        lyrics:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Release:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        artist_id:
+          type: integer
+          nullable: true
+        owner_id:
+          type: integer
+          nullable: true
+        artist_name:
+          type: string
+        type:
+          type: string
+          enum: [album, single, ep]
+        visibility:
+          type: string
+          enum: [public, private, unlisted]
+        published_to_gundb:
+          type: boolean
+        published_to_ap:
+          type: boolean
+        price:
+          type: number
+          nullable: true
+        license:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Playlist:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        username:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isPublic:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
 
     Error:
       type: object

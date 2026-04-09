@@ -1,4 +1,4 @@
-import type { DatabaseService, Album, Post, Track, Release } from "./database.js";
+import type { DatabaseService, Post, Release } from "./database.js";
 import type { GunDBService, SiteInfo } from "./gundb.js";
 import type { ActivityPubService } from "./activitypub.js";
 import type { ServerConfig } from "./config.js";
@@ -19,8 +19,6 @@ export class PublishingService {
         const siteDescription = this.db.getSetting("siteDescription") || "";
         const coverImage = this.db.getSetting("coverImage") || "";
 
-        // If artistName is provided (e.g. from an album), use it, 
-        // otherwise use site artist name setting or fallback
         const siteArtistName = this.db.getSetting("artistName");
         const effectiveArtistName = artistName || siteArtistName || "Unknown Artist";
 
@@ -34,37 +32,6 @@ export class PublishingService {
     }
 
     // --- Releases ---
-
-    /**
-     * Publishes a release to GunDB.
-     */
-    async publishReleaseToGunDB(release: Release): Promise<void> {
-        const siteInfo = this.getSiteInfo(release.artist_name);
-        if (!siteInfo) {
-            console.warn("⚠️ Cannot publish to GunDB: No public URL configured.");
-            return;
-        }
-
-        console.log(`🚀 Publishing release "${release.title}" to GunDB...`);
-
-        // Ensure site is registered first
-        await this.gundb.registerSite(siteInfo);
-
-        // Register tracks (this uses the decoupled metadata)
-        const tracks = this.db.getTracksByReleaseId(release.id);
-        await this.gundb.registerTracks(siteInfo, { ...release, is_release: true } as any, tracks);
-    }
-
-    /**
-     * Removes a release from GunDB.
-     */
-    async unpublishReleaseFromGunDB(release: Release): Promise<void> {
-        const siteInfo = this.getSiteInfo(release.artist_name);
-        if (!siteInfo) return;
-
-        console.log(`🗑️ Unpublishing release "${release.title}" from GunDB...`);
-        await this.gundb.unregisterTracks(siteInfo, release as any);
-    }
 
     /**
      * Broadcasts a release via ActivityPub.
@@ -106,20 +73,13 @@ export class PublishingService {
     }
 
     /**
-     * Synchronizes an album's published state (legacy library albums).
+     * Ensures the instance is registered in the GunDB community directory.
+     * Called during release sync to keep our instance visible.
      */
-    async syncAlbum(albumId: number): Promise<void> {
-        const album = this.db.getAlbum(albumId);
-        if (!album) return;
-
-        const isPublic = album.visibility === 'public' || album.visibility === 'unlisted';
-        const siteInfo = this.getSiteInfo(album.artist_name);
-
-        if (isPublic && siteInfo) {
-            console.log(`🚀 Updating library album "${album.title}" on GunDB...`);
+    private async ensureSiteRegistered(artistName?: string): Promise<void> {
+        const siteInfo = this.getSiteInfo(artistName);
+        if (siteInfo) {
             await this.gundb.registerSite(siteInfo);
-            const tracks = this.db.getTracks(album.id);
-            await this.gundb.registerTracks(siteInfo, { ...album, is_release: false }, tracks);
         }
     }
 
@@ -129,27 +89,12 @@ export class PublishingService {
     async syncRelease(releaseId: number): Promise<void> {
         try {
             const release = this.db.getRelease(releaseId);
-            if (!release) {
-                // Check if it's a legacy album
-                const album = this.db.getAlbum(releaseId);
-                if (album) {
-                    await this.syncAlbum(releaseId);
-                }
-                return;
-            }
+            if (!release) return;
 
             const isPublic = release.visibility === 'public' || release.visibility === 'unlisted';
 
-            // GunDB Logic
-            try {
-                if (isPublic && release.published_to_gundb) {
-                    await this.publishReleaseToGunDB(release);
-                } else {
-                    await this.unpublishReleaseFromGunDB(release);
-                }
-            } catch (e) {
-                console.error(`❌ GunDB sync failed for release ${releaseId}:`, e);
-            }
+            // Ensure our instance is registered in GunDB for discovery
+            await this.ensureSiteRegistered(release.artist_name);
 
             // ActivityPub Logic
             try {
@@ -161,9 +106,6 @@ export class PublishingService {
             } catch (e) {
                 console.error(`❌ ActivityPub sync failed for release ${releaseId}:`, e);
             }
-
-            // Trigger network sync to clean up any orphaned data in GunDB
-            this.gundb.syncNetwork().catch(e => console.error("Network sync failed:", e));
         } catch (error) {
             console.error(`🔥 Critical error in syncRelease for ${releaseId}:`, error);
         }

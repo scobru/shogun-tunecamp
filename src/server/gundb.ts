@@ -2,8 +2,8 @@ import Gun from "gun";
 import "gun/lib/yson.js";
 import "gun/sea.js";
 
-import type { DatabaseService, Album, Track, Playlist } from "./database.js";
-import { generateTrackSlug, normalizeUrl } from "../utils/audioUtils.js";
+import type { DatabaseService } from "./database.js";
+import { normalizeUrl } from "../utils/audioUtils.js";
 import { isSafeUrl } from "../utils/networkUtils.js";
 import fs from "fs-extra";
 import path from "path";
@@ -47,9 +47,9 @@ export interface Comment {
 
 export interface GunDBService {
     init(): Promise<boolean>;
+    // Instance signaling (discovery)
     registerSite(siteInfo: SiteInfo): Promise<boolean>;
-    registerTracks(siteInfo: SiteInfo, album: Album, tracks: Track[]): Promise<boolean>;
-    unregisterTracks(siteInfo: SiteInfo, album: Album): Promise<boolean>;
+    getCommunitySites(): Promise<any[]>;
     // Download stats
     getDownloadCount(releaseSlug: string): Promise<number>;
     incrementDownloadCount(releaseSlug: string): Promise<number>;
@@ -61,13 +61,6 @@ export interface GunDBService {
     incrementTrackLikeCount(releaseSlug: string, trackId: string): Promise<number>;
     decrementTrackLikeCount(releaseSlug: string, trackId: string): Promise<number>;
     setTrackRating(releaseSlug: string, trackId: string, rating: number): Promise<void>;
-    // Community exploration
-    getCommunitySites(): Promise<any[]>;
-    getCommunityTracks(): Promise<any[]>;
-    // Playlists
-    registerPlaylist(siteInfo: SiteInfo, playlist: Playlist, tracks: Track[]): Promise<boolean>;
-    unregisterPlaylist(playlistId: number): Promise<boolean>;
-    getCommunityPlaylists(): Promise<any[]>;
     // User profiles
     registerUser(pubKey: string, username: string): Promise<boolean>;
     getUser(pubKey: string): Promise<UserProfile | null>;
@@ -96,13 +89,11 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     // Cache for community data to prevent CPU starvation on frequent requests
     const cache = {
         sites: { data: [] as any[], timestamp: 0 },
-        tracks: { data: [] as any[], timestamp: 0 },
         itemsTTL: 10 * 60 * 1000 // 10 minutes
     };
 
     function invalidateCache() {
         cache.sites = { data: [], timestamp: 0 };
-        cache.tracks = { data: [], timestamp: 0 };
         console.log("🧹 GunDB Community Cache invalidated.");
     }
 
@@ -194,10 +185,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             }
 
             initialized = true;
-            console.log("🌐 GunDB Community Registry initialized (v1.2 w/ WebSocket)");
-
-            // Start background cleanup task (every 12 hours)
-            setInterval(cleanupNetwork, 12 * 60 * 60 * 1000);
+            console.log("🌐 GunDB initialized (signaling + identity + stats)");
 
             return true;
         } catch (error) {
@@ -248,6 +236,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         }
     }
 
+    // ─── Instance Signaling ─────────────────────────────────────────────────────
+
     async function registerSite(siteInfo: SiteInfo): Promise<boolean> {
         if (!initialized || !gun || !serverPair) {
             console.warn("GunDB not initialized or no keys");
@@ -273,14 +263,12 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             registeredAt: now,
             lastSeen: now,
             version: REGISTRY_VERSION,
-            type: "tunecamp-site", // Explicit type for verification
-            pub: serverPair.pub // Public Key of the server
+            type: "tunecamp-site",
+            pub: serverPair.pub
         };
 
         const attemptRegistration = async (retryCount = 0): Promise<boolean> => {
             return new Promise(async (resolve) => {
-                const user = gun.user();
-
                 // 1. Sign data manually to avoid "Unverified data" errors in public graph
                 const signedSite = await Gun.SEA.sign(siteRecord, serverPair);
 
@@ -296,7 +284,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     if (ack.err) {
                         console.warn("Failed to write to public content node:", ack.err);
                         
-                        // Check for corruption (JSON error)
                         const isJsonError = (typeof ack.err === 'string' && ack.err.includes("JSON error")) ||
                             (ack.err && ack.err.err === "JSON error!");
 
@@ -331,12 +318,11 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                             if (pubAck.err) {
                                 console.warn("Failed to register site in directory:", pubAck.err);
 
-                                // Check for corruption (JSON error)
                                 const isJsonError = (typeof pubAck.err === 'string' && pubAck.err.includes("JSON error")) ||
                                     (pubAck.err && pubAck.err.err === "JSON error!");
 
                                 if (isJsonError && retryCount < 1) {
-                                    console.error("❌ GunDB Corruption detected in public directory (JSON error)! Attempting auto-recovery...");
+                                    console.error("❌ GunDB Corruption detected in public directory! Attempting auto-recovery...");
                                     await clearRadata();
                                     console.log("🔄 Retrying registration after recovery...");
                                     const result = await attemptRegistration(retryCount + 1);
@@ -361,365 +347,192 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         return attemptRegistration();
     }
 
-    async function registerTracks(
-        siteInfo: SiteInfo,
-        album: Album,
-        tracks: Track[]
-    ): Promise<boolean> {
-        if (!initialized || !gun || !tracks || tracks.length === 0 || !serverPair) {
-            return false;
-        }
+    // ─── Community Site Discovery ────────────────────────────────────────────────
 
-        const siteId = await getPersistentSiteId(siteInfo);
-        const baseUrl = siteInfo.url;
-        const now = Date.now();
+    async function getCommunitySites(): Promise<any[]> {
+        if (!initialized || !gun) return [];
 
-        // Write to User Graph -> tunecamp -> tracks
-        const tracksRef = gun.user().get('tunecamp').get('tracks');
-        const artistName = album.artist_name || siteInfo.artistName || "";
+        const CACHE_KEY = "community_sites";
+        const TTL = 60 * 60; // 1 hour
 
-        const attemptRegisterTracks = async (retryCount = 0): Promise<boolean> => {
-            const user = gun.user();
-            if (!user.is) {
-                console.error("🚨 [GunDB] Cannot register tracks: User is NOT authenticated!");
-                return false;
-            }
-
-            const promises = tracks.map(track => {
-                const trackSlug = generateTrackSlug(album.title, track.title);
-                const cleanBaseUrl = normalizeUrl(baseUrl);
-                const audioUrl = `${cleanBaseUrl}/api/tracks/${track.id}/stream`;
-                const coverUrl = album.is_release 
-                    ? `${cleanBaseUrl}/api/releases/${album.id}/cover` 
-                    : (album.id ? `${cleanBaseUrl}/api/albums/${album.id}/cover` : "");
-
-                const trackData = {
-                    slug: trackSlug,
-                    title: track.title || "Untitled",
-                    audioUrl: audioUrl,
-                    duration: track.duration || 0,
-                    releaseTitle: album.title || "Unknown Release",
-                    artistName: artistName,
-                    coverUrl: coverUrl,
-                    siteUrl: cleanBaseUrl,
-                    addedAt: now,
-                    type: "tunecamp-track",
-                    pub: serverPair.pub
-                };
-
-                return new Promise<string | null>(async (resolve) => {
-                    const signedTrack = await Gun.SEA.sign(trackData, serverPair);
-                    let resolved = false;
-
-                    const trackRef = gun
-                        .get(REGISTRY_ROOT)
-                        .get(REGISTRY_NAMESPACE)
-                        .get("content")
-                        .get(serverPair.pub)
-                        .get("tracks")
-                        .get(trackSlug);
-
-                    trackRef.put(signedTrack, (ack: any) => {
-                        if (resolved) return;
-                        resolved = true;
-                        if (ack.err) resolve(ack.err);
-                        else resolve(null);
-                    });
-
-                    // Fallback resolve if no ack
-                    setTimeout(() => {
-                        if (resolved) return;
-                        resolved = true;
-                        resolve(null);
-                    }, 5000);
-                });
-            });
-
-            // Wait for all puts (or errors)
-            const results = await Promise.all(promises);
-            const error = results.find(e => {
-                if (!e) return false;
-                const errStr = typeof e === 'string' ? e : (e as any).err || "";
-                return errStr.includes("JSON error") || errStr.includes("Unverified data");
-            });
-
-            if (error && retryCount < 1) {
-                const isUnverified = (typeof error === 'string' && error.includes("Unverified data")) ||
-                                     (error && (error as any).err === "Unverified data");
-                
-                if (isUnverified) {
-                    console.error("❌ GunDB identity mismatch in registerTracks (Unverified data)! Attempting auto-recovery...");
-                } else {
-                    console.error("❌ GunDB Corruption detected in registerTracks (JSON error)! Attempting auto-recovery...");
+        // 1. Try SQLite cache first for instant response
+        const cached = database.getGunCache(CACHE_KEY);
+        if (cached) {
+            try {
+                const sites = JSON.parse(cached.value);
+                // Trigger background refresh if we haven't checked recently in this session
+                if (Date.now() - cache.sites.timestamp > cache.itemsTTL) {
+                    refreshCommunitySitesInBackground();
                 }
-                await clearRadata();
-                console.log("🔄 Retrying track registration after recovery...");
-                return attemptRegisterTracks(retryCount + 1);
+                return sites;
+            } catch (e) {
+                console.error("Failed to parse cached sites:", e);
             }
-
-            if (error) {
-                console.warn("Some tracks failed to register:", error);
-                // But we don't return false because some might have succeeded?
-                // Actually if one fails with JSON error, likely all fail or the file is bad.
-                // If we retry, we hope it works. If it still fails, we give up.
-            }
-
-            console.log(`🎵 Registered ${tracks.length} tracks from "${album.title}" to secure graph`);
-            invalidateCache();
-            return true;
-        };
-
-        return attemptRegisterTracks();
-    }
-
-    async function unregisterTracks(
-        siteInfo: SiteInfo,
-        album: Album
-    ): Promise<boolean> {
-        if (!initialized || !gun || !serverPair) {
-            return false;
         }
 
-        const tracks = database.getTracks(album.id);
-        const tracksRef = gun
-            .get(REGISTRY_ROOT)
-            .get(REGISTRY_NAMESPACE)
-            .get("content")
-            .get(serverPair.pub)
-            .get("tracks");
-
-        // Remove each track
-        for (const track of tracks) {
-            const trackSlug = generateTrackSlug(album.title, track.title);
-            tracksRef.get(trackSlug).put(null as any);
-        }
-
-        console.log(`🗑️ Unregistered tracks from "${album.title}" from public node map`);
-        invalidateCache();
-        return true;
+        // 2. If no cache or first run, do the normal scan
+        return refreshCommunitySitesInBackground();
     }
 
-    // Download Stats namespace
-    const STATS_NAMESPACE = "tunecamp-stats";
+    async function refreshCommunitySitesInBackground(): Promise<any[]> {
+        const CACHE_KEY = "community_sites";
+        const TTL = 60 * 60; // 1 hour
 
-    async function registerPlaylist(siteInfo: SiteInfo, playlist: Playlist, tracks: Track[]): Promise<boolean> {
-        if (!initialized || !gun || !serverPair) return false;
-        if (!playlist.isPublic) return false;
+        return new Promise((resolve) => {
+            const sites: any[] = [];
+            const processedIds = new Set();
 
-        const siteId = await getPersistentSiteId(siteInfo);
-        const baseUrl = siteInfo.url;
-        const now = Date.now();
-
-        const playlistData = {
-            id: playlist.id,
-            name: playlist.name,
-            description: playlist.description || "",
-            owner: playlist.username,
-            tracks: tracks.map(t => ({ id: t.id, title: t.title, artist: t.artist_name || "" })),
-            siteUrl: baseUrl,
-            addedAt: now,
-            type: "tunecamp-playlist",
-            pub: serverPair.pub
-        };
-
-        return new Promise(async (resolve) => {
-            const signedPlaylist = await Gun.SEA.sign(playlistData, serverPair);
-            const playlistRef = gun
+            // Read from Public Directory
+            gun
                 .get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
-                .get("content")
-                .get(serverPair.pub)
-                .get("playlists")
-                .get(playlist.id.toString());
+                .get("sites")
+                .map()
+                .once((directoryData: any, siteId: string) => {
+                    if (!directoryData || siteId === "_") return;
+                    if (processedIds.has(siteId)) return;
+                    processedIds.add(siteId);
 
-            playlistRef.put(signedPlaylist, (ack: any) => {
-                if (ack.err) console.error("Failed to register playlist:", ack.err);
-                else console.log(`🎵 Registered playlist "${playlist.name}" to secure graph`);
-                resolve(!ack.err);
-            });
+                    if (directoryData.pub) {
+                        const registerPub = directoryData.pub;
+                        
+                        // Try NEW mechanism: Directed-Path Public Verified Node
+                        gun.get(REGISTRY_ROOT)
+                           .get(REGISTRY_NAMESPACE)
+                           .get("content")
+                           .get(registerPub)
+                           .get("profile")
+                           .once(async (signedData: any) => {
+                               if (signedData) {
+                                   const profileData = await Gun.SEA.verify(signedData, registerPub);
+                                   if (profileData && profileData.type === "tunecamp-site") {
+                                       sites.push({
+                                           ...profileData,
+                                           id: siteId,
+                                           name: profileData.title || profileData.name || directoryData.title || "Untitled",
+                                           lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
+                                           _secure: true,
+                                           _verified: true
+                                       });
+                                       return;
+                                   }
+                               }
 
-            setTimeout(() => resolve(true), 5000);
-        });
-    }
-
-    async function unregisterPlaylist(playlistId: number): Promise<boolean> {
-        if (!initialized || !gun || !serverPair) return false;
-        const playlistRef = gun
-            .get(REGISTRY_ROOT)
-            .get(REGISTRY_NAMESPACE)
-            .get("content")
-            .get(serverPair.pub)
-            .get("playlists")
-            .get(playlistId.toString());
-
-        playlistRef.put(null as any);
-        console.log(`🗑️ Unregistered playlist ID ${playlistId} from public node map`);
-        return true;
-    }
-
-    async function getCommunityPlaylists(): Promise<any[]> {
-        if (!initialized || !gun) return [];
-        return new Promise((resolve) => {
-            const playlists: any[] = [];
-            const processedIds = new Set();
-            gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("sites").map().once((directoryData: any) => {
-                if (!directoryData || !directoryData.pub) return;
-                const registerPub = directoryData.pub;
-                gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("content").get(registerPub).get("playlists").map().once(async (signedData: any, id: string) => {
-                    if (!signedData || processedIds.has(id)) return;
-                    processedIds.add(id);
-                    const listData = await Gun.SEA.verify(signedData, registerPub);
-                    if (listData && listData.type === "tunecamp-playlist") {
-                        playlists.push(listData);
+                               // FALLBACK: Old mechanism (User Graph)
+                               gun.user(registerPub)
+                                   .get('tunecamp')
+                                   .get('profile')
+                                   .once((profileData: any) => {
+                                       if (profileData) {
+                                           sites.push({
+                                               ...profileData,
+                                               id: siteId,
+                                               name: profileData.title || profileData.name || directoryData.title || "Untitled",
+                                               lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
+                                               _secure: true
+                                           });
+                                       } else {
+                                           sites.push({
+                                               id: siteId,
+                                               ...directoryData,
+                                               name: directoryData.title || directoryData.name || "Untitled",
+                                               lastSeen: directoryData.lastSeen || Date.now(),
+                                               _secure: false
+                                           });
+                                       }
+                                   });
+                           });
+                    } else {
+                        // Legacy mode
+                        sites.push({
+                            id: siteId,
+                            ...directoryData,
+                            name: directoryData.title || directoryData.name || "Untitled",
+                            lastSeen: directoryData.lastSeen || Date.now()
+                        });
                     }
                 });
-            });
-            setTimeout(() => resolve(playlists), 3000);
+
+            // Wait for data to collect
+            setTimeout(() => {
+                if (sites.length > 0) {
+                    console.log(`⏱️ Discovery: Found ${sites.length} potential community sites. Updating SQLite cache.`);
+                    database.setGunCache(CACHE_KEY, JSON.stringify(sites), "sites", TTL);
+                    cache.sites = { data: sites, timestamp: Date.now() };
+                }
+                resolve(sites);
+            }, 3000); 
         });
     }
+
+    // ─── Download / Play / Like Stats ────────────────────────────────────────────
+
+    const STATS_NAMESPACE = "tunecamp-stats";
 
     async function getDownloadCount(releaseSlug: string): Promise<number> {
         if (!initialized || !gun) return 0;
-
         return new Promise((resolve) => {
-            gun
-                .get(REGISTRY_ROOT)
-                .get(STATS_NAMESPACE)
-                .get("releases")
-                .get(releaseSlug)
-                .get("downloads")
-                .once((data: any) => {
-                    resolve(data ? parseInt(data, 10) || 0 : 0);
-                });
-
-            // Timeout fallback
+            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug).get("downloads")
+                .once((data: any) => { resolve(data ? parseInt(data, 10) || 0 : 0); });
             setTimeout(() => resolve(0), 3000);
         });
     }
 
     async function incrementDownloadCount(releaseSlug: string): Promise<number> {
         if (!initialized || !gun) return 0;
-
         const currentCount = await getDownloadCount(releaseSlug);
         const newCount = currentCount + 1;
-
         return new Promise((resolve) => {
-            gun
-                .get(REGISTRY_ROOT)
-                .get(STATS_NAMESPACE)
-                .get("releases")
-                .get(releaseSlug)
-                .get("downloads")
-                .put(newCount, (ack: any) => {
-                    if (ack.err) {
-                        console.error("Error incrementing download count:", ack.err);
-                        resolve(currentCount);
-                    } else {
-                        resolve(newCount);
-                    }
-                });
-
-            // Timeout fallback
+            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug).get("downloads")
+                .put(newCount, (ack: any) => { resolve(ack.err ? currentCount : newCount); });
             setTimeout(() => resolve(newCount), 2000);
         });
     }
 
     async function getTrackPlayCount(releaseSlug: string, trackId: string): Promise<number> {
         if (!initialized || !gun) return 0;
-
         return new Promise((resolve) => {
-            gun
-                .get(REGISTRY_ROOT)
-                .get(STATS_NAMESPACE)
-                .get("releases")
-                .get(releaseSlug)
-                .get("tracks")
-                .get(trackId)
-                .get("plays")
-                .once((data: any) => {
+            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+                .get("tracks").get(trackId).get("plays").once((data: any) => {
                     resolve(data ? parseInt(data, 10) || 0 : 0);
                 });
-
-            // Timeout fallback
             setTimeout(() => resolve(0), 3000);
         });
     }
 
     async function incrementTrackPlayCount(releaseSlug: string, trackId: string): Promise<number> {
         if (!initialized || !gun) return 0;
-
         const currentCount = await getTrackPlayCount(releaseSlug, trackId);
         const newCount = currentCount + 1;
-
         return new Promise((resolve) => {
-            gun
-                .get(REGISTRY_ROOT)
-                .get(STATS_NAMESPACE)
-                .get("releases")
-                .get(releaseSlug)
-                .get("tracks")
-                .get(trackId)
-                .get("plays")
-                .put(newCount, (ack: any) => {
-                    if (ack.err) {
-                        console.error("Error incrementing track play count:", ack.err);
-                        resolve(currentCount);
-                    } else {
-                        resolve(newCount);
-                    }
+            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+                .get("tracks").get(trackId).get("plays").put(newCount, (ack: any) => {
+                    resolve(ack.err ? currentCount : newCount);
                 });
-
-            // Timeout fallback
             setTimeout(() => resolve(newCount), 2000);
         });
     }
 
     async function getTrackDownloadCount(releaseSlug: string, trackId: string): Promise<number> {
         if (!initialized || !gun) return 0;
-
         return new Promise((resolve) => {
-            gun
-                .get(REGISTRY_ROOT)
-                .get(STATS_NAMESPACE)
-                .get("releases")
-                .get(releaseSlug)
-                .get("tracks")
-                .get(trackId)
-                .get("downloads")
-                .once((data: any) => {
+            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+                .get("tracks").get(trackId).get("downloads").once((data: any) => {
                     resolve(data ? parseInt(data, 10) || 0 : 0);
                 });
-
-            // Timeout fallback
             setTimeout(() => resolve(0), 3000);
         });
     }
 
     async function incrementTrackDownloadCount(releaseSlug: string, trackId: string): Promise<number> {
         if (!initialized || !gun) return 0;
-
         const currentCount = await getTrackDownloadCount(releaseSlug, trackId);
         const newCount = currentCount + 1;
-
         return new Promise((resolve) => {
-            gun
-                .get(REGISTRY_ROOT)
-                .get(STATS_NAMESPACE)
-                .get("releases")
-                .get(releaseSlug)
-                .get("tracks")
-                .get(trackId)
-                .get("downloads")
-                .put(newCount, (ack: any) => {
-                    if (ack.err) {
-                        console.error("Error incrementing track download count:", ack.err);
-                        resolve(currentCount);
-                    } else {
-                        resolve(newCount);
-                    }
+            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+                .get("tracks").get(trackId).get("downloads").put(newCount, (ack: any) => {
+                    resolve(ack.err ? currentCount : newCount);
                 });
-
-            // Timeout fallback
             setTimeout(() => resolve(newCount), 2000);
         });
     }
@@ -773,326 +586,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         });
     }
 
-    async function getCommunitySites(): Promise<any[]> {
-        if (!initialized || !gun) return [];
+    // ─── User Profiles ──────────────────────────────────────────────────────────
 
-        const CACHE_KEY = "community_sites";
-        const TTL = 60 * 60; // 1 hour
-
-        // 1. Try SQLite cache first for instant response
-        const cached = database.getGunCache(CACHE_KEY);
-        if (cached) {
-            // Return cached data immediately, but trigger background refresh
-            try {
-                const sites = JSON.parse(cached.value);
-                // Trigger background refresh if we haven't checked recently in this session
-                if (Date.now() - cache.sites.timestamp > cache.itemsTTL) {
-                    refreshCommunitySitesInBackground();
-                }
-                return sites;
-            } catch (e) {
-                console.error("Failed to parse cached sites:", e);
-            }
-        }
-
-        // 2. If no cache or first run, do the normal scan
-        return refreshCommunitySitesInBackground();
-    }
-
-    async function refreshCommunitySitesInBackground(): Promise<any[]> {
-        const CACHE_KEY = "community_sites";
-        const TTL = 60 * 60; // 1 hour
-
-        return new Promise((resolve) => {
-            const sites: any[] = [];
-            const processedIds = new Set();
-
-            // Read from Public Directory
-            gun
-                .get(REGISTRY_ROOT)
-                .get(REGISTRY_NAMESPACE)
-                .get("sites")
-                .map()
-                .once((directoryData: any, siteId: string) => {
-                    if (!directoryData || siteId === "_") return;
-                    if (processedIds.has(siteId)) return;
-                    processedIds.add(siteId);
-
-                    // Check if discovery identifies a pub key
-                    if (directoryData.pub) {
-                        const registerPub = directoryData.pub;
-                        
-                        // Try NEW mechanism: Directed-Path Public Verified Node
-                        gun.get(REGISTRY_ROOT)
-                           .get(REGISTRY_NAMESPACE)
-                           .get("content")
-                           .get(registerPub)
-                           .get("profile")
-                           .once(async (signedData: any) => {
-                               if (signedData) {
-                                   // Verify manually
-                                   const profileData = await Gun.SEA.verify(signedData, registerPub);
-                                   if (profileData && profileData.type === "tunecamp-site") {
-                                       sites.push({
-                                           ...profileData,
-                                           id: siteId,
-                                           name: profileData.title || profileData.name || directoryData.title || "Untitled",
-                                           lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
-                                           _secure: true,
-                                           _verified: true
-                                       });
-                                       return; // Success, don't check legacy
-                                   }
-                               }
-
-                               // FALLBACK: Old mechanism (User Graph)
-                               gun.user(registerPub)
-                                   .get('tunecamp')
-                                   .get('profile')
-                                   .once((profileData: any) => {
-                                       if (profileData) {
-                                           sites.push({
-                                               ...profileData,
-                                               id: siteId,
-                                               name: profileData.title || profileData.name || directoryData.title || "Untitled",
-                                               lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
-                                               _secure: true
-                                           });
-                                       } else {
-                                           // Fallback to directory data if user graph not reachable
-                                           sites.push({
-                                               id: siteId,
-                                               ...directoryData,
-                                               name: directoryData.title || directoryData.name || "Untitled",
-                                               lastSeen: directoryData.lastSeen || Date.now(),
-                                               _secure: false
-                                           });
-                                       }
-                                   });
-                           });
-                    } else {
-                        // Legacy mode
-                        sites.push({
-                            id: siteId,
-                            ...directoryData,
-                            name: directoryData.title || directoryData.name || "Untitled",
-                            lastSeen: directoryData.lastSeen || Date.now()
-                        });
-                    }
-                });
-
-            // Wait for data to collect
-            setTimeout(() => {
-                if (sites.length > 0) {
-                    console.log(`⏱️ Discovery: Found ${sites.length} potential community sites. Updating SQLite cache.`);
-                    // Update SQLite Cache
-                    database.setGunCache(CACHE_KEY, JSON.stringify(sites), "sites", TTL);
-                    // Update Memory Cache
-                    cache.sites = { data: sites, timestamp: Date.now() };
-                }
-                resolve(sites);
-            }, 3000); 
-        });
-    }
-
-    async function getCommunityTracks(): Promise<any[]> {
-        if (!initialized || !gun) return [];
-
-        const CACHE_KEY = "community_tracks";
-        const TTL = 30 * 60; // 30 minutes
-
-        // 1. Try SQLite cache first
-        const cached = database.getGunCache(CACHE_KEY);
-        if (cached) {
-            try {
-                const tracks = JSON.parse(cached.value);
-                if (Date.now() - cache.tracks.timestamp > cache.itemsTTL) {
-                    refreshCommunityTracksInBackground();
-                }
-                return tracks;
-            } catch (e) {
-                console.error("Failed to parse cached tracks:", e);
-            }
-        }
-
-        return refreshCommunityTracksInBackground();
-    }
-
-    async function refreshCommunityTracksInBackground(): Promise<any[]> {
-        const CACHE_KEY = "community_tracks";
-        const TTL = 30 * 60; // 30 minutes
-
-        return new Promise((resolve) => {
-            const tracks: any[] = [];
-
-            // 1. Get sites
-            console.log("🔍 Scanning community sites for tracks...");
-            
-            // ALWAYS scan our own secure graph explicitly (bypass directory lag)
-            if (serverPair && serverPair.pub) {
-                gun.user(serverPair.pub)
-                    .get('tunecamp')
-                    .get('tracks')
-                    .map()
-                    .once((trackData: any, slug: string) => {
-                        if (trackData && trackData.audioUrl && slug !== "_") {
-                            tracks.push({
-                                siteId: 'local',
-                                siteUrl: '/', // Self
-                                track: {
-                                    ...trackData,
-                                    id: slug,
-                                    artistId: "local",
-                                    artistName: trackData.artistName || "Me",
-                                    albumId: trackData.releaseTitle || "local",
-                                    playCount: 0,
-                                    coverUrl: trackData.coverUrl || "",
-                                    streamUrl: trackData.audioUrl || "" // Explicitly set streamUrl
-                                },
-                                _secure: true,
-                                _isSelf: true
-                            });
-                        }
-                    });
-            }
-
-            gun.get(REGISTRY_ROOT)
-                .get(REGISTRY_NAMESPACE)
-                .get("sites")
-                .map()
-                .once((siteData: any, siteId: string) => {
-                    if (!siteData || siteId === "_") return; // Ignore meta
-
-                    // Directed-Path Public Verified Node
-                    const sitePub = siteData.pub;
-                    if (sitePub) {
-                        // 1. Try NEW mechanism: Signed Public Map
-                        gun.get(REGISTRY_ROOT)
-                            .get(REGISTRY_NAMESPACE)
-                            .get("content")
-                            .get(sitePub)
-                            .get("tracks")
-                            .map()
-                            .once(async (signedData: any, slug: string) => {
-                                if (signedData && slug !== "_") {
-                                    const trackData = await Gun.SEA.verify(signedData, sitePub);
-                                    if (trackData && trackData.type === "tunecamp-track") {
-                                        tracks.push({
-                                            siteId: siteId,
-                                            siteUrl: siteData.url,
-                                            track: {
-                                                id: slug,
-                                                title: trackData.title || "Untitled",
-                                                artistId: "remote",
-                                                artistName: trackData.artistName || siteData.artistName || "Unknown Artist",
-                                                albumId: trackData.releaseTitle || "remote",
-                                                albumName: trackData.releaseTitle || "Remote Album",
-                                                duration: trackData.duration || 0,
-                                                path: trackData.audioUrl || "",
-                                                filename: slug,
-                                                playCount: 0,
-                                                coverUrl: trackData.coverUrl || siteData.coverImage || "",
-                                                coverImage: trackData.coverUrl || siteData.coverImage || "",
-                                                streamUrl: trackData.audioUrl || "" // Explicitly set streamUrl
-                                            },
-                                            _secure: true,
-                                            _verified: true
-                                        });
-                                        return;
-                                    }
-                                }
-                                
-                                // 2. FALLBACK: User Graph
-                                gun.user(sitePub)
-                                    .get('tunecamp')
-                                    .get('tracks')
-                                    .map()
-                                    .once((trackData: any, slug: string) => {
-                                        if (trackData && trackData.audioUrl && slug !== "_") {
-                                            tracks.push({
-                                                siteId: siteId,
-                                                siteUrl: siteData.url,
-                                                track: {
-                                                    id: slug,
-                                                    title: trackData.title || "Untitled",
-                                                    artistId: "remote",
-                                                    artistName: trackData.artistName || siteData.artistName || "Unknown Artist",
-                                                    albumId: trackData.releaseTitle || "remote",
-                                                    albumName: trackData.releaseTitle || "Remote Album",
-                                                    duration: trackData.duration || 0,
-                                                    path: trackData.audioUrl || "",
-                                                    filename: slug,
-                                                    playCount: 0,
-                                                    coverUrl: trackData.coverUrl || siteData.coverImage || "",
-                                                    coverImage: trackData.coverUrl || siteData.coverImage || "",
-                                                    streamUrl: trackData.audioUrl || "" // Explicitly set streamUrl
-                                                },
-                                                _secure: true
-                                            });
-                                        }
-                                    });
-                            });
-                    }
-                    // 2nd source: Legacy Mode (Public Graph)
-                    else {
-                        gun.get(REGISTRY_ROOT)
-                            .get(REGISTRY_NAMESPACE)
-                            .get("sites")
-                            .get(siteId)
-                            .get("tracks")
-                            .map()
-                            .once((trackData: any, slug: string) => {
-                                if (trackData && trackData.audioUrl && slug !== "_") {
-                                    tracks.push({
-                                        siteId: siteId,
-                                        siteUrl: siteData.url,
-                                        track: {
-                                            id: slug,
-                                            title: trackData.title || "Untitled",
-                                            artistId: "remote",
-                                            artistName: trackData.artistName || siteData.artistName || "Unknown Artist",
-                                            albumId: trackData.releaseTitle || "remote",
-                                            albumName: trackData.releaseTitle || "Remote Album",
-                                            duration: trackData.duration || 0,
-                                            path: trackData.audioUrl || "",
-                                            filename: slug,
-                                            playCount: 0,
-                                            coverUrl: trackData.coverUrl || siteData.coverImage || "",
-                                            coverImage: trackData.coverUrl || siteData.coverImage || "",
-                                            streamUrl: trackData.audioUrl || "" // Explicitly set streamUrl
-                                        },
-                                        _secure: false
-                                    });
-                                }
-                            });
-                    }
-                });
-
-            // Wait for data to collect
-            setTimeout(() => {
-                const uniqueTracks = new Map();
-                for (const item of tracks) {
-                    const track = item.track;
-                    const key = `${item.siteUrl}::${track.id}`;
-                    if (!uniqueTracks.has(key) || item._secure) {
-                        uniqueTracks.set(key, item);
-                    }
-                    if (uniqueTracks.size >= 500) break;
-                }
-                const result = Array.from(uniqueTracks.values());
-                
-                if (result.length > 0) {
-                    console.log(`🌐 Found ${result.length} unique community tracks. Updating SQLite cache.`);
-                    database.setGunCache(CACHE_KEY, JSON.stringify(result), "tracks", TTL);
-                    cache.tracks = { data: result, timestamp: Date.now() };
-                }
-                
-                resolve(result);
-            }, 5000); 
-        });
-    }
-
-    // User profiles namespace
     const USERS_NAMESPACE = "tunecamp-users";
 
     async function registerUser(pubKey: string, username: string): Promise<boolean> {
@@ -1106,12 +601,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         };
 
         return new Promise((resolve) => {
-            // Store user by pubKey
-            gun
-                .get(REGISTRY_ROOT)
-                .get(USERS_NAMESPACE)
-                .get("byPubKey")
-                .get(pubKey)
+            gun.get(REGISTRY_ROOT).get(USERS_NAMESPACE).get("byPubKey").get(pubKey)
                 .put(userRecord, (ack: any) => {
                     if (ack.err) {
                         console.warn("Failed to register user:", ack.err);
@@ -1119,12 +609,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     }
                 });
 
-            // Also store username -> pubKey mapping
-            gun
-                .get(REGISTRY_ROOT)
-                .get(USERS_NAMESPACE)
-                .get("byUsername")
-                .get(username.toLowerCase())
+            gun.get(REGISTRY_ROOT).get(USERS_NAMESPACE).get("byUsername").get(username.toLowerCase())
                 .put({ pubKey, username }, (ack: any) => {
                     if (ack.err) {
                         resolve(false);
@@ -1134,20 +619,14 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     }
                 });
 
-            // Timeout fallback
             setTimeout(() => resolve(true), 3000);
         });
     }
 
     async function getUser(pubKey: string): Promise<UserProfile | null> {
         if (!initialized || !gun) return null;
-
         return new Promise((resolve) => {
-            gun
-                .get(REGISTRY_ROOT)
-                .get(USERS_NAMESPACE)
-                .get("byPubKey")
-                .get(pubKey)
+            gun.get(REGISTRY_ROOT).get(USERS_NAMESPACE).get("byPubKey").get(pubKey)
                 .once((data: any) => {
                     if (data && data.username) {
                         resolve({
@@ -1160,20 +639,14 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                         resolve(null);
                     }
                 });
-
             setTimeout(() => resolve(null), 3000);
         });
     }
 
     async function getUserByUsername(username: string): Promise<UserProfile | null> {
         if (!initialized || !gun) return null;
-
         return new Promise((resolve) => {
-            gun
-                .get(REGISTRY_ROOT)
-                .get(USERS_NAMESPACE)
-                .get("byUsername")
-                .get(username.toLowerCase())
+            gun.get(REGISTRY_ROOT).get(USERS_NAMESPACE).get("byUsername").get(username.toLowerCase())
                 .once(async (data: any) => {
                     if (data && data.pubKey) {
                         const user = await getUser(data.pubKey);
@@ -1182,12 +655,12 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                         resolve(null);
                     }
                 });
-
             setTimeout(() => resolve(null), 3000);
         });
     }
 
-    // Comments namespace
+    // ─── Comments ────────────────────────────────────────────────────────────────
+
     const COMMENTS_NAMESPACE = "tunecamp-comments";
 
     async function addComment(
@@ -1199,7 +672,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         const commentId = `${trackId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const now = Date.now();
 
-        // GunDB doesn't accept undefined values, so use empty string for optional fields
         const comment: Comment = {
             id: commentId,
             trackId,
@@ -1212,11 +684,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
         return new Promise((resolve) => {
             let handled = false;
-            gun
-                .get(REGISTRY_ROOT)
-                .get(COMMENTS_NAMESPACE)
-                .get(`track-${trackId}`)
-                .get(commentId)
+            gun.get(REGISTRY_ROOT).get(COMMENTS_NAMESPACE).get(`track-${trackId}`).get(commentId)
                 .put(comment, (ack: any) => {
                     if (handled) return;
                     handled = true;
@@ -1244,20 +712,14 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         return new Promise((resolve) => {
             const comments: Comment[] = [];
 
-            gun
-                .get(REGISTRY_ROOT)
-                .get(COMMENTS_NAMESPACE)
-                .get(`track-${trackId}`)
-                .map()
-                .once((data: any, id: string) => {
+            gun.get(REGISTRY_ROOT).get(COMMENTS_NAMESPACE).get(`track-${trackId}`)
+                .map().once((data: any, id: string) => {
                     if (data && data.text && id !== "_") {
                         const pubKey = data.pubKey || "";
                         let displayUsername = data.username || "Anonymous";
 
                         if (pubKey) {
                             const dbUser = database.getGunUser(pubKey);
-                            // Only override if we found a better alias than what's in GunDB, 
-                            // and ensure we don't use the pubkey as an alias.
                             if (dbUser && dbUser.alias && dbUser.alias.trim() !== '' && dbUser.alias !== pubKey) {
                                 displayUsername = dbUser.alias;
                             }
@@ -1275,7 +737,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     }
                 });
 
-            // Wait for data to collect, then sort by time
             setTimeout(() => {
                 comments.sort((a, b) => b.createdAt - a.createdAt);
                 resolve(comments);
@@ -1286,12 +747,10 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     async function deleteComment(commentId: string, pubKey: string, signature?: string): Promise<boolean> {
         if (!initialized || !gun) return false;
 
-        // 1. Verify ownership proof if signature provided
-        // We expect the signature to be of the commentId itself
+        // Verify ownership proof if signature provided
         if (signature) {
             try {
                 const isValid = await (Gun.SEA as any).verify(signature, pubKey);
-                // The data signed should be the commentId
                 if (isValid !== commentId) {
                     console.warn(`❌ Invalid signature for comment deletion: ${commentId}`);
                     return false;
@@ -1302,29 +761,18 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             }
         }
 
-        // Extract trackId from commentId
         const parts = commentId.split("-");
         const trackId = parts[0];
 
         return new Promise((resolve) => {
-            // Check ownership in the graph
-            gun
-                .get(REGISTRY_ROOT)
-                .get(COMMENTS_NAMESPACE)
-                .get(`track-${trackId}`)
-                .get(commentId)
+            gun.get(REGISTRY_ROOT).get(COMMENTS_NAMESPACE).get(`track-${trackId}`).get(commentId)
                 .once((data: any) => {
                     if (!data || data.pubKey !== pubKey) {
                         resolve(false);
                         return;
                     }
 
-                    // Delete by setting to null
-                    gun
-                        .get(REGISTRY_ROOT)
-                        .get(COMMENTS_NAMESPACE)
-                        .get(`track-${trackId}`)
-                        .get(commentId)
+                    gun.get(REGISTRY_ROOT).get(COMMENTS_NAMESPACE).get(`track-${trackId}`).get(commentId)
                         .put(null, (ack: any) => {
                             if (ack.err) {
                                 resolve(false);
@@ -1339,152 +787,32 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         });
     }
 
-    return {
-        init,
-        registerSite,
-        registerTracks,
-        unregisterTracks,
-        getDownloadCount,
-        incrementDownloadCount,
-        getTrackDownloadCount,
-        incrementTrackDownloadCount,
-        getTrackPlayCount,
-        incrementTrackPlayCount,
-        getTrackLikeCount,
-        incrementTrackLikeCount,
-        decrementTrackLikeCount,
-        setTrackRating,
-        getCommunitySites,
-        getCommunityTracks,
-        registerPlaylist,
-        unregisterPlaylist,
-        getCommunityPlaylists,
-        // User profiles
-        registerUser,
-        getUser,
-        getUserByUsername,
-        // Comments
-        addComment,
-        getComments,
-        deleteComment,
-        // Key Management
-        getIdentityKeyPair,
-        setIdentityKeyPair,
-        syncNetwork: cleanupNetwork,
-        cleanupGlobalNetwork,
-        invalidateCache,
-        getPeerCount: () => {
-            if (!gun) return 0;
-            try {
-                // Gun.chain.back(Infinity) usually gives the root, 
-                // but getting peers is internal. 
-                // We can access via gun._.opt.peers
-                const peers = gun._.opt.peers;
-                return Object.keys(peers || {}).filter(k => peers[k].wire && peers[k].wire.readyState === 1).length;
-            } catch (e) {
-                return 0;
-            }
-        }
-    };
+    // ─── Network Cleanup (sites only) ────────────────────────────────────────────
 
-    /**
-     * Get or create a persistent Site ID
-     */
-    async function getPersistentSiteId(siteInfo: SiteInfo): Promise<string> {
-        // Try to get from settings
-        const storedId = database.getSetting("siteId");
-        if (storedId) return storedId;
-
-        // Generate new one (compatible with old logic if possible, or just random)
-        // usage of old logic for migration if title/artist match? 
-        // Better to just generate a robust one now.
-        const identifier = `${(siteInfo.title || "untitled").toLowerCase().trim()}::${(siteInfo.artistName || "unknown").toLowerCase().trim()}::${Date.now()}`;
-        let hash = 0;
-        for (let i = 0; i < identifier.length; i++) {
-            const char = identifier.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
-        }
-        const newId = Math.abs(hash).toString(36) + Math.random().toString(36).substr(2, 5);
-
-        // Save it
-        database.setSetting("siteId", newId);
-        console.log(`🆔 Generated new persistent Site ID: ${newId}`);
-        return newId;
-    }
-
-    /**
-     * Background task to clean up invalid tracks from the network
-     * This compares what we are advertising on GunDB with what is actually in our database (public)
-     */
     async function cleanupNetwork() {
         if (!initialized || !gun || !serverPair) return;
 
         try {
-            // Get current site info to determine our valid ID
             const publicUrl = database.getSetting("publicUrl");
-            // If we don't have a public URL, we shouldn't be registered at all? 
-            // For now, proceed only if we can determine our expected ID.
             if (!publicUrl) return;
 
             const siteName = database.getSetting("siteName") || "TuneCamp Server";
             const artistName = database.getSetting("artistName") || "";
-
             const siteInfo = { url: publicUrl, title: siteName, artistName };
             const currentSiteId = await getPersistentSiteId(siteInfo);
 
-            console.log(`🧹 Starting secure network cleanup (Current Site ID: ${currentSiteId})...`);
+            console.log(`🧹 Starting network cleanup (Site ID: ${currentSiteId})...`);
 
-            // --- 1. TCleanup TRACKS (Secure Graph) ---
-            const publicAlbums = database.getAlbums(true);
-            const publicReleases = database.getReleases(true);
-            const validTrackSlugs = new Set<string>();
-
-            for (const album of publicAlbums) {
-                const tracks = database.getTracks(album.id);
-                for (const track of tracks) {
-                    validTrackSlugs.add(generateTrackSlug(album.title, track.title));
-                }
-            }
-
-            for (const release of publicReleases) {
-                const tracks = database.getTracksByReleaseId(release.id);
-                for (const track of tracks) {
-                    validTrackSlugs.add(generateTrackSlug(release.title, track.title));
-                }
-            }
-
-            const tracksRef = gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("content").get(serverPair.pub).get("tracks");
-            tracksRef.map().once((data: any, key: string) => {
-                if (key === '_' || !data) return;
-                // If this track key is NOT in our valid list, remove it
-                if (!validTrackSlugs.has(key)) {
-                    console.log(`🧹 Removing orphaned track from secure graph: ${key}`);
-                    tracksRef.get(key).put(null);
-                }
-            });
-
-            // --- 2. Cleanup INSTANCES (Public Directory) ---
-            // Remove any site registration that claims to be us (signed by our pub key)
-            // but is NOT our current Site ID.
+            // Cleanup stale site registrations that belong to us but have a different ID
             gun.get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get("sites")
                 .map()
                 .once((siteData: any, siteId: string) => {
                     if (!siteData || siteId === "_") return;
-
-                    // Check if this site was registered by US
-                    if (siteData.pub === serverPair.pub) {
-                        // If it's not our CURRENT ID, it's stale/duplicate
-                        if (siteId !== currentSiteId) {
-                            console.log(`🧹 Removing stale site registration: ${siteId} (is: ${siteData.url}, expected: ${publicUrl})`);
-                            gun.get(REGISTRY_ROOT)
-                                .get(REGISTRY_NAMESPACE)
-                                .get("sites")
-                                .get(siteId)
-                                .put(null);
-                        }
+                    if (siteData.pub === serverPair.pub && siteId !== currentSiteId) {
+                        console.log(`🧹 Removing stale site registration: ${siteId}`);
+                        gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("sites").get(siteId).put(null);
                     }
                 });
 
@@ -1495,10 +823,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         }
     }
 
-    /**
-     * Global network cleanup: checks all registered sites for reachability
-     * and removes those that are offline.
-     */
     async function cleanupGlobalNetwork() {
         if (!initialized || !gun) return;
 
@@ -1536,24 +860,11 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                                 return;
                             }
 
-                            // 1. Basic reachability check
                             const isReachable = await checkSiteReachability(siteData.url);
-
                             if (!isReachable) {
                                 console.log(`🗑️ Site unreachable, removing: ${siteData.url} (${siteId})`);
                                 sitesRef.get(siteId).put(null);
                                 removed++;
-                            } else {
-                                // 2. Site is reachable, verify it's the SAME instance
-                                // We check if the remote siteId matches the one in GunDB
-                                const remoteSettings = await getRemoteSiteSettings(siteData.url);
-                                if (remoteSettings && remoteSettings.siteId) {
-                                    if (remoteSettings.siteId !== siteId) {
-                                        console.log(`🗑️ Site ID mismatch, removing stale entry: ${siteData.url} (Old: ${siteId}, New: ${remoteSettings.siteId})`);
-                                        sitesRef.get(siteId).put(null);
-                                        removed++;
-                                    }
-                                }
                             }
                         } catch (err) {
                             console.error(`Error checking site ${siteId}:`, err);
@@ -1569,7 +880,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 });
             });
 
-            // Safety timeout
             setTimeout(() => {
                 if (checked < total) {
                     console.log(`⚠️ Global cleanup partial timeout. Checked ${checked}/${total}.`);
@@ -1582,14 +892,13 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
     async function checkSiteReachability(url: string): Promise<boolean> {
         try {
-            // Validate SSRF
             if (!(await isSafeUrl(url))) {
                 console.warn(`⚠️ Blocked unsafe community URL: ${url}`);
                 return false;
             }
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout for HEAD
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
 
             const response = await fetch(url, {
                 method: 'HEAD',
@@ -1604,27 +913,62 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         }
     }
 
-    async function getRemoteSiteSettings(url: string): Promise<any> {
-        try {
-            const baseUrl = url.endsWith('/') ? url : `${url}/`;
-            const settingsUrl = `${baseUrl}api/catalog/settings`;
+    // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    async function getPersistentSiteId(siteInfo: SiteInfo): Promise<string> {
+        const storedId = database.getSetting("siteId");
+        if (storedId) return storedId;
 
-            const response = await fetch(settingsUrl, {
-                signal: controller.signal,
-                headers: {
-                    'Accept': 'application/json',
-                    'User-Agent': 'TuneCamp-HealthCheck/2.0'
-                }
-            });
-
-            clearTimeout(timeoutId);
-            if (!response.ok) return null;
-            return await response.json();
-        } catch (error) {
-            return null;
+        const identifier = `${(siteInfo.title || "untitled").toLowerCase().trim()}::${(siteInfo.artistName || "unknown").toLowerCase().trim()}::${Date.now()}`;
+        let hash = 0;
+        for (let i = 0; i < identifier.length; i++) {
+            const char = identifier.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
         }
+        const newId = Math.abs(hash).toString(36) + Math.random().toString(36).substr(2, 5);
+
+        database.setSetting("siteId", newId);
+        console.log(`🆔 Generated new persistent Site ID: ${newId}`);
+        return newId;
     }
+
+    return {
+        init,
+        registerSite,
+        getDownloadCount,
+        incrementDownloadCount,
+        getTrackDownloadCount,
+        incrementTrackDownloadCount,
+        getTrackPlayCount,
+        incrementTrackPlayCount,
+        getTrackLikeCount,
+        incrementTrackLikeCount,
+        decrementTrackLikeCount,
+        setTrackRating,
+        getCommunitySites,
+        // User profiles
+        registerUser,
+        getUser,
+        getUserByUsername,
+        // Comments
+        addComment,
+        getComments,
+        deleteComment,
+        // Key Management
+        getIdentityKeyPair,
+        setIdentityKeyPair,
+        syncNetwork: cleanupNetwork,
+        cleanupGlobalNetwork,
+        invalidateCache,
+        getPeerCount: () => {
+            if (!gun) return 0;
+            try {
+                const peers = gun._.opt.peers;
+                return Object.keys(peers || {}).filter(k => peers[k].wire && peers[k].wire.readyState === 1).length;
+            } catch (e) {
+                return 0;
+            }
+        }
+    };
 }

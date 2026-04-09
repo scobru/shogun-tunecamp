@@ -67,7 +67,7 @@ export const IdentityPanel = ({ isRootAdmin = false }: IdentityPanelProps) => {
       }
 
       const results = await Promise.all(promises);
-      const artists = results[0] || [];
+      const allArtists = results[0] || [];
       
       if (isRootAdmin) {
         setIdentity(results[1]);
@@ -83,9 +83,21 @@ export const IdentityPanel = ({ isRootAdmin = false }: IdentityPanelProps) => {
         });
       }
 
+      // Filter artists to only show the one associated with the current user
+      let artistsToShow = allArtists;
+      if (currentUser?.artistId) {
+        artistsToShow = allArtists.filter((a: Artist) => a.id.toString() === currentUser.artistId?.toString());
+      } else if (!isRootAdmin) {
+        artistsToShow = [];
+      } else {
+        // Root admin without an associated artist should see no artist identities here,
+        // they still see the Site Identity if it exists.
+        artistsToShow = [];
+      }
+
       // Load RSA keys for each artist
       const apIdentities = await Promise.all(
-        artists.map(async (artist: Artist) => {
+        artistsToShow.map(async (artist: Artist) => {
           try {
             const keys = await API.getArtistIdentity(artist.id.toString());
             return {

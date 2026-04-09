@@ -9,11 +9,10 @@ import type { NetworkSite, NetworkTrack, NetworkStatus } from "../types";
 const getHostname = (url: string) => {
   try {
     if (!url) return "Unknown";
-    if (url.startsWith("https://")) {
+    if (url.startsWith("https://") || url.startsWith("http://")) {
       const u = new URL(url);
       return u.hostname;
     }
-    // Handle AP Actor URIs or IDs
     if (url.includes("/users/")) {
       const u = new URL(url);
       return u.hostname;
@@ -26,9 +25,6 @@ const getHostname = (url: string) => {
 
 /**
  * Resolves a URL that might be relative to a remote site's base URL.
- * If the URL starts with "http", it is returned as-is.
- * If the URL starts with "/", it is prepended with the baseUrl.
- * Otherwise, it is returned as-is.
  */
 const resolveUrl = (url?: string, baseUrl?: string) => {
   if (!url) return undefined;
@@ -38,6 +34,16 @@ const resolveUrl = (url?: string, baseUrl?: string) => {
     return `${cleanBase}${url}`;
   }
   return url;
+};
+
+const getFederationBadge = (federation?: string) => {
+  switch (federation) {
+    case "local": return { label: "LOCAL", class: "badge-primary" };
+    case "activitypub": return { label: "AP", class: "badge-accent" };
+    case "http": return { label: "HTTP", class: "badge-info" };
+    case "gundb": return { label: "P2P", class: "badge-secondary" };
+    default: return { label: "NET", class: "badge-ghost" };
+  }
 };
 
 const SiteCard = memo(({ site }: { site: any }) => {
@@ -58,7 +64,6 @@ const SiteCard = memo(({ site }: { site: any }) => {
             className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
             alt={site.name}
           />
-
         ) : (
           <div className="w-full h-full flex items-center justify-center text-4xl opacity-20 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
             <span>{isLocal ? "🏠" : "🏢"}</span>
@@ -83,7 +88,9 @@ const SiteCard = memo(({ site }: { site: any }) => {
         </p>
 
         <div className="flex items-center justify-between text-xs font-mono opacity-50 border-t border-white/5 pt-4 mt-2">
-          <span>{site.version}</span>
+          <span className={`badge badge-xs ${getFederationBadge(site.federation).class}`}>
+            {getFederationBadge(site.federation).label}
+          </span>
           <span>
             {site.lastSeen ? StringUtils.formatTimeAgo(new Date(site.lastSeen).getTime()) : "Never"}
           </span>
@@ -132,8 +139,8 @@ const PostCard = memo(({
             </div>
           </div>
           <div className="flex items-center gap-1">
-             <span className={`badge badge-xs ${item.federation === 'local' ? 'badge-primary' : 'badge-ghost opacity-50'}`}>
-                {item.federation?.toUpperCase()}
+             <span className={`badge badge-xs ${getFederationBadge(item.federation).class}`}>
+                {getFederationBadge(item.federation).label}
              </span>
              {isAdmin && (
               <button
@@ -190,145 +197,27 @@ const TrackCard = memo(({
     isHidden: boolean;
     isAdmin: boolean;
 }) => {
-  const isAP = item.federation === "activitypub" || item.federation === "local";
-  
-  if (isAP) {
-    const uniqueId = item.slug || "";
-    const baseUrl = item.siteUrl ? item.siteUrl.replace(/\/$/, "") : "";
-    const coverUrl = resolveUrl(item.coverUrl, baseUrl);
-    const siteUrl = item.siteUrl;
-
-    return (
-      <div
-        className={`card border hover:bg-base-200 transition-all cursor-pointer group shadow-sm hover:shadow-md ${isHidden ? "bg-error/10 border-error/20 opacity-70" : "bg-base-200/50 border-white/5"}`}
-        onClick={() => onPlay(item)}
-      >
-        <div className="p-3 flex items-center gap-4">
-          <div className="relative w-12 h-12 rounded-lg bg-base-300 flex-shrink-0 overflow-hidden">
-            {coverUrl ? (
-              <img
-                src={coverUrl}
-                alt={item.title}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-xl opacity-30">
-                🎵
-              </div>
-            )}
-
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-              <Play size={20} className="text-white fill-current" />
-            </div>
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="font-bold text-sm truncate pr-2 flex items-center gap-2">
-              {item.title}
-              {isHidden && (
-                <span className="badge badge-error badge-xs">
-                  Hidden
-                </span>
-              )}
-              {item.federation === 'local' && (
-                <span className="badge badge-primary badge-xs">Local</span>
-              )}
-            </div>
-            <div className="text-xs opacity-60 truncate flex items-center gap-1">
-              <span>{item.artistName}</span>
-              <span className="opacity-40">•</span>
-              <a
-                href={siteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="hover:text-primary hover:underline"
-              >
-                {getHostname(siteUrl)}
-              </a>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-end gap-1">
-            <div className="text-xs font-mono opacity-40">
-              {item.duration
-                ? new Date(item.duration * 1000)
-                    .toISOString()
-                    .substr(14, 5)
-                : "--:--"}
-            </div>
-            {isAdmin && (
-              <button
-                className={`btn btn-xs btn-ghost btn-circle ${isHidden ? "text-primary" : "text-error opacity-0 group-hover:opacity-100"}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleVisibility(uniqueId);
-                }}
-                title={isHidden ? "Unhide Track" : "Hide Track"}
-              >
-                {isHidden ? (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
-                    <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
-                    <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
-                    <path d="m2 2 20 20" />
-                  </svg>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // GunDB Track
-  const track = item.track;
-  if (!track) return null;
-
-  const uniqueId = item.siteUrl + "::" + track.id;
-
+  const uniqueId = item.slug || (item.siteUrl + "::" + (item.track?.id || ""));
   const baseUrl = item.siteUrl ? item.siteUrl.replace(/\/$/, "") : "";
-  let coverUrl = resolveUrl(track.coverImage, baseUrl) ||
-    (track.albumId && baseUrl
-      ? `${baseUrl}/api/albums/${encodeURIComponent(track.albumId)}/cover`
-      : undefined);
-
-  if (
-    coverUrl &&
-    !coverUrl.startsWith("http") &&
-    !coverUrl.startsWith("/")
-  ) {
-
+  
+  // Resolve cover URL — works for AP, HTTP, and local tracks
+  let coverUrl = resolveUrl(item.coverUrl, baseUrl);
+  if (!coverUrl && item.track) {
+    coverUrl = resolveUrl(item.track.coverImage, baseUrl) ||
+      resolveUrl(item.track.coverUrl, baseUrl) ||
+      (item.track.albumId && baseUrl
+        ? `${baseUrl}/api/albums/${encodeURIComponent(item.track.albumId)}/cover`
+        : undefined);
+  }
+  if (coverUrl && !coverUrl.startsWith("http") && !coverUrl.startsWith("/")) {
     coverUrl = undefined;
   }
 
+  const title = item.title || item.track?.title || "Untitled";
+  const artist = item.artistName || item.track?.artistName || "Unknown Artist";
+  const duration = item.duration || item.track?.duration || 0;
   const siteUrl = item.siteUrl;
+  const badge = getFederationBadge(item.federation);
 
   return (
     <div
@@ -340,7 +229,7 @@ const TrackCard = memo(({
           {coverUrl ? (
             <img
               src={coverUrl}
-              alt={track.title}
+              alt={title}
               className="w-full h-full object-cover"
             />
           ) : (
@@ -355,15 +244,18 @@ const TrackCard = memo(({
 
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm truncate pr-2 flex items-center gap-2">
-            {track.title}
+            {title}
             {isHidden && (
               <span className="badge badge-error badge-xs">
                 Hidden
               </span>
             )}
+            <span className={`badge badge-xs ${badge.class}`}>
+              {badge.label}
+            </span>
           </div>
           <div className="text-xs opacity-60 truncate flex items-center gap-1">
-            <span>{track.artistName}</span>
+            <span>{artist}</span>
             <span className="opacity-40">•</span>
             <a
               href={siteUrl}
@@ -379,8 +271,8 @@ const TrackCard = memo(({
 
         <div className="flex flex-col items-end gap-1">
           <div className="text-xs font-mono opacity-40">
-            {track.duration
-              ? new Date(track.duration * 1000)
+            {duration
+              ? new Date(duration * 1000)
                   .toISOString()
                   .substr(14, 5)
               : "--:--"}
@@ -394,39 +286,7 @@ const TrackCard = memo(({
               }}
               title={isHidden ? "Unhide Track" : "Hide Track"}
             >
-              {isHidden ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
-                  <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
-                  <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
-                  <path d="m2 2 20 20" />
-                </svg>
-              )}
+              {isHidden ? "👁️" : "🗑️"}
             </button>
           )}
         </div>
@@ -455,7 +315,7 @@ export const Network = () => {
         ]);
         setStatus(statusData);
 
-        // Deduplicate Sites (GunDB)
+        // Deduplicate Sites
         const uniqueSites = new Map();
         sitesData.forEach((s: any) => {
           if (!s.url || !s.url.startsWith("http")) return;
@@ -466,22 +326,24 @@ export const Network = () => {
         });
         const sites = Array.from(uniqueSites.values()) as NetworkSite[];
 
-        // Process Tracks (GunDB + ActivityPub)
+        // Process Tracks — unified across all federation types
         const validTracks = tracksData.filter((t: any) => {
-          if (t.federation === "activitypub") return !!t.audioUrl;
-          if (!t.track) return false;
-          const url = t.siteUrl;
-          if (!url || url.trim() === "/" || url.trim() === "") return false;
-          return true;
+          // AP/local/HTTP tracks — must have either audioUrl or slug
+          if (t.federation === "activitypub" || t.federation === "local" || t.federation === "http") {
+            return !!t.audioUrl || !!t.slug;
+          }
+          // Legacy GunDB tracks (if any remain)
+          if (t.track) {
+            const url = t.siteUrl;
+            return url && url.trim() !== "/" && url.trim() !== "";
+          }
+          return false;
         }) as NetworkTrack[];
 
         const uniqueContent = new Map<string, NetworkTrack>();
         validTracks.forEach((t) => {
-          const isAP = t.federation === "activitypub";
-          const title = isAP ? t.title || "" : t.track.title;
-          const artist = isAP
-            ? t.artistName || ""
-            : t.track.artistName || "unknown";
+          const title = t.title || t.track?.title || "";
+          const artist = t.artistName || t.track?.artistName || "unknown";
           const key = `${title.toLowerCase().trim()}::${artist.toLowerCase().trim()}`;
           if (!uniqueContent.has(key)) {
             uniqueContent.set(key, t);
@@ -518,7 +380,8 @@ export const Network = () => {
   }, []);
 
   const handlePlayNetworkTrack = useCallback((networkTrack: NetworkTrack) => {
-    if (networkTrack.federation === "activitypub") {
+    // AP, local, or HTTP tracks — use the flat data structure
+    if (networkTrack.federation === "activitypub" || networkTrack.federation === "local" || networkTrack.federation === "http") {
       const track = {
         id: networkTrack.slug || "",
         title: networkTrack.title || "",
@@ -529,16 +392,15 @@ export const Network = () => {
         coverImage: networkTrack.coverUrl || "",
         duration: networkTrack.duration || 0,
         siteUrl: networkTrack.siteUrl || "",
-        service: "activitypub",
+        service: networkTrack.federation,
       };
-      // Prevent redundant play if same ID
       if (currentTrack?.id === track.id) return;
       playTrack(track as any, [track as any]);
       return;
     }
 
+    // Legacy GunDB tracks (if any remain from old data)
     if (!networkTrack.track || !networkTrack.siteUrl) return;
-
     if (currentTrack?.id === networkTrack.track.id) return;
 
     const baseUrl = networkTrack.siteUrl.replace(/\/$/, "");
@@ -572,17 +434,16 @@ export const Network = () => {
   const filteredItems = tracks.filter((item: NetworkTrack) => {
     if (!item) return false;
     const uniqueId = item.slug || (item.siteUrl + "::" + item.track?.id);
-
     if (showHidden) return true;
     return !hiddenTracks.includes(uniqueId);
   });
 
-  const gunDbTracks = filteredItems.filter(t => t.federation === "gundb" && (!t.type || t.type === 'release'));
-  const apTracks = filteredItems.filter(t => (t.federation === "activitypub" || t.federation === "local") && (!t.type || t.type === 'release'));
+  const allReleases = filteredItems.filter(t => !t.type || t.type === 'release');
   const allPosts = filteredItems.filter(t => t.type === 'post');
 
-  const gunDbSites = sites.filter(s => s.federation === "gundb");
-  const federatedSites = sites.filter(s => s.federation === "activitypub" || s.federation === "local");
+  // Separate local from remote for sections
+  const localReleases = allReleases.filter(t => t.federation === "local");
+  const remoteReleases = allReleases.filter(t => t.federation !== "local");
 
   return (
     <div className="space-y-12 animate-fade-in pb-12">
@@ -597,7 +458,7 @@ export const Network = () => {
                 Federated Network
               </h1>
               <p className="opacity-60 text-lg">
-                Discover music across the P2P network and ActivityPub.
+                Discover music across the decentralized TuneCamp network.
               </p>
             </div>
           </div>
@@ -645,163 +506,145 @@ export const Network = () => {
             )}
           </div>
         </div>
+
+        {/* Network Status */}
+        <div className="flex items-center gap-4 text-xs">
+          <div
+            className={`px-3 py-1 rounded-full border font-bold flex items-center gap-2 ${status?.gundb?.connected ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-red-500/10 border-red-500/30 text-red-400"}`}
+          >
+            <div
+              className={`w-1.5 h-1.5 rounded-full ${status?.gundb?.connected ? "bg-green-400 animate-pulse" : "bg-red-400"}`}
+            ></div>
+            GunDB: {status?.gundb?.connected
+              ? `${status.gundb.peers} PEERS`
+              : "DISCONNECTED"}
+          </div>
+          <div
+            className={`px-3 py-1 rounded-full border font-bold flex items-center gap-2 ${status?.activitypub?.enabled ? "bg-blue-500/10 border-blue-500/30 text-blue-400" : "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"}`}
+          >
+            <div
+              className={`w-1.5 h-1.5 rounded-full ${status?.activitypub?.enabled ? "bg-blue-400" : "bg-yellow-400"}`}
+            ></div>
+            ActivityPub: {status?.activitypub?.enabled ? "ACTIVE" : "SETUP REQUIRED"}
+          </div>
+          <div className="px-3 py-1 rounded-full border border-white/10 text-white/50 font-bold">
+            {(status?.sites || 0)} instances • {allReleases.length} tracks
+          </div>
+        </div>
       </header>
 
+      {/* Remote Network Content */}
       <section className="space-y-8">
-        <div className="flex items-center justify-between border-b border-white/5 pb-4">
-          <div className="flex items-center gap-3">
-            <Server size={24} className="text-info" />
-            <div>
-              <h2 className="text-2xl font-bold">P2P Network (GunDB)</h2>
-              <p className="text-sm opacity-50">Content shared directly between TuneCamp instances.</p>
-            </div>
-            <div
-              className={`px-3 py-1 rounded-full border text-[10px] font-bold flex items-center gap-2 ml-4 ${status?.gundb?.connected ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-red-500/10 border-red-500/30 text-red-400"}`}
-            >
-              <div
-                className={`w-1.5 h-1.5 rounded-full ${status?.gundb?.connected ? "bg-green-400 animate-pulse" : "bg-red-400"}`}
-              ></div>
-              {status?.gundb?.connected
-                ? `${status.gundb.peers} PEERS`
-                : "DISCONNECTED"}
-            </div>
+        <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+          <Globe size={24} className="text-accent" />
+          <div>
+            <h2 className="text-2xl font-bold">Network Releases</h2>
+            <p className="text-sm opacity-50">Tracks discovered from other TuneCamp instances via HTTP and ActivityPub.</p>
           </div>
         </div>
 
-        <div>
-          <h3 className="text-lg font-bold mb-4 opacity-80 flex items-center gap-2">
-            <Music size={18} /> Community Tracks 
-            <span className="badge badge-info badge-outline badge-sm">{gunDbTracks.length}</span>
-          </h3>
-          {gunDbTracks.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {gunDbTracks.map((item, i) => {
-                const uniqueId = item.siteUrl + "::" + item.track?.id;
-                return (
-                  <TrackCard 
-                    key={uniqueId || i} 
-                    item={item} 
-                    onPlay={handlePlayNetworkTrack}
-                    onToggleVisibility={toggleTrackVisibility}
-                    isHidden={hiddenTracks.includes(uniqueId)}
-                    isAdmin={isAdminAuthenticated}
-                  />
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8 opacity-40 border border-dashed border-white/5 rounded-xl text-sm">
-              No P2P tracks discovered yet.
-            </div>
-          )}
-        </div>
-
-        <div>
-          <h3 className="text-lg font-bold mb-4 opacity-80 flex items-center gap-2">
-            <Server size={18} /> Active Instances
-            <span className="badge badge-info badge-outline badge-sm">{gunDbSites.length}</span>
-          </h3>
-          {gunDbSites.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {gunDbSites.map((site, i) => (
-                <SiteCard key={site.url || i} site={site} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 opacity-40 border border-dashed border-white/5 rounded-xl text-sm">
-              No GunDB instances found.
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section className="space-y-8 bg-white/5 p-8 rounded-3xl border border-white/5">
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
-          <div className="flex items-center gap-3">
-            <Globe size={24} className="text-accent" />
-            <div>
-              <h2 className="text-2xl font-bold">ActivityPub & Local Feed</h2>
-              <p className="text-sm opacity-50">Content discovered across the wider Fediverse and this instance.</p>
-            </div>
-            <div
-              className={`px-3 py-1 rounded-full border text-[10px] font-bold flex items-center gap-2 ml-4 ${status?.activitypub?.enabled ? "bg-blue-500/10 border-blue-500/30 text-blue-400" : "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"}`}
-            >
-              <div
-                className={`w-1.5 h-1.5 rounded-full ${status?.activitypub?.enabled ? "bg-blue-400" : "bg-yellow-400"}`}
-              ></div>
-              {status?.activitypub?.enabled ? "ACTIVE" : "SETUP REQUIRED"}
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-lg font-bold mb-4 opacity-80 flex items-center gap-2">
-            <Music size={18} /> Federated Releases
-            <span className="badge badge-accent badge-outline badge-sm">{apTracks.length}</span>
-          </h3>
-          {apTracks.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {apTracks.map((item, i) => {
-                const uniqueId = item.slug || String(i);
-                return (
-                  <TrackCard 
-                    key={uniqueId} 
-                    item={item} 
-                    onPlay={handlePlayNetworkTrack}
-                    onToggleVisibility={toggleTrackVisibility}
-                    isHidden={hiddenTracks.includes(uniqueId)}
-                    isAdmin={isAdminAuthenticated}
-                  />
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8 opacity-40 border border-dashed border-white/10 rounded-xl text-sm">
-              No ActivityPub tracks discovered yet.
-            </div>
-          )}
-        </div>
-
-        <div>
-          <h3 className="text-lg font-bold mb-4 opacity-80 flex items-center gap-2">
-            <Globe size={18} /> Community Posts
-            <span className="badge badge-accent badge-outline badge-sm">{allPosts.length}</span>
-          </h3>
-          {allPosts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {allPosts.map((item, i) => (
-                <PostCard 
-                  key={item.slug || i} 
+        {remoteReleases.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {remoteReleases.map((item, i) => {
+              const uniqueId = item.slug || (item.siteUrl + "::" + item.track?.id);
+              return (
+                <TrackCard 
+                  key={uniqueId || i} 
                   item={item} 
+                  onPlay={handlePlayNetworkTrack}
                   onToggleVisibility={toggleTrackVisibility}
-                  isHidden={hiddenTracks.includes(item.slug || "")}
+                  isHidden={hiddenTracks.includes(uniqueId)}
                   isAdmin={isAdminAuthenticated}
                 />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 opacity-40 border border-dashed border-white/10 rounded-xl text-sm">
-              No community posts found.
-            </div>
-          )}
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8 opacity-40 border border-dashed border-white/5 rounded-xl text-sm">
+            No remote tracks discovered yet. Other instances will appear once they register via GunDB or ActivityPub.
+          </div>
+        )}
+      </section>
+
+      {/* Local Content */}
+      <section className="space-y-8 bg-white/5 p-8 rounded-3xl border border-white/5">
+        <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+          <Music size={24} className="text-primary" />
+          <div>
+            <h2 className="text-2xl font-bold">My Instance</h2>
+            <p className="text-sm opacity-50">Public releases from this server.</p>
+          </div>
         </div>
 
-        {federatedSites.length > 0 && (
-          <div>
-            <h3 className="text-lg font-bold mb-4 opacity-80 flex items-center gap-2">
-              <Globe size={18} /> Federated Instances
-              <span className="badge badge-accent badge-outline badge-sm">{federatedSites.length}</span>
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {federatedSites.map((site, i) => (
-                <SiteCard key={site.url || i} site={site} />
-              ))}
+        {localReleases.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {localReleases.map((item, i) => {
+              const uniqueId = item.slug || String(i);
+              return (
+                <TrackCard 
+                  key={uniqueId} 
+                  item={item} 
+                  onPlay={handlePlayNetworkTrack}
+                  onToggleVisibility={toggleTrackVisibility}
+                  isHidden={hiddenTracks.includes(uniqueId)}
+                  isAdmin={isAdminAuthenticated}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8 opacity-40 border border-dashed border-white/10 rounded-xl text-sm">
+            No public releases on this instance.
+          </div>
+        )}
+      </section>
+
+      {/* Community Posts */}
+      {allPosts.length > 0 && (
+        <section className="space-y-8">
+          <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+            <Globe size={24} className="text-info" />
+            <div>
+              <h2 className="text-2xl font-bold">Community Posts</h2>
+              <p className="text-sm opacity-50">Blog and social posts from the network.</p>
             </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {allPosts.map((item, i) => (
+              <PostCard 
+                key={item.slug || i} 
+                item={item} 
+                onToggleVisibility={toggleTrackVisibility}
+                isHidden={hiddenTracks.includes(item.slug || "")}
+                isAdmin={isAdminAuthenticated}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Instance Directory */}
+      <section className="space-y-8">
+        <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+          <Server size={24} className="text-info" />
+          <div>
+            <h2 className="text-2xl font-bold">Instance Directory</h2>
+            <p className="text-sm opacity-50">All discovered TuneCamp instances across the network.</p>
+          </div>
+        </div>
+
+        {sites.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {sites.map((site, i) => (
+              <SiteCard key={site.url || i} site={site} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 opacity-40 border border-dashed border-white/5 rounded-xl text-sm">
+            No instances discovered yet.
           </div>
         )}
       </section>
     </div>
   );
 };
-
-export default Network;

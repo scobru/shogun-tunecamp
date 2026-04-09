@@ -64,3 +64,13 @@ gundb-keypair.json
 pnpm-lock.yaml
 
 benchmark/
+
+# Compiled JS in source directories (build goes to dist/)
+src/**/*.js
+!src/**/*.config.js
+
+# Debug & scratch artifacts
+scratch/
+*.orig
+*.patch
+*_patch

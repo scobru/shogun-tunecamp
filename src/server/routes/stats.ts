@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { GunDBService } from "../gundb.js";
 import type { DatabaseService } from "../database.js";
 import type { ServerConfig } from "../config.js";
+import { isSafeUrl } from "../../utils/networkUtils.js";
 
 export function createStatsRoutes(gundbService: GunDBService, dbService: DatabaseService, config: ServerConfig): Router {
     const router = Router();
@@ -98,13 +99,13 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
 
     /**
      * GET /api/stats/network/sites
-     * Get all TuneCamp sites registered in the community (GunDB + AP Actors)
+     * Get all TuneCamp instances registered in the community (GunDB signaling + AP Actors + Local)
      */
     router.get("/network/sites", async (req, res) => {
         try {
             const publicUrl = dbService.getSetting("publicUrl") || config.publicUrl || `http://localhost:${config.port}`;
             
-            // 1. Get sites from GunDB
+            // 1. Get sites from GunDB (signaling — just URLs and basic metadata)
             const gunSites = await gundbService.getCommunitySites();
             const formattedGunSites = gunSites.map(s => ({
                 url: s.url,
@@ -128,7 +129,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
                 federation: "activitypub"
             }));
 
-            // 3. Include local site as a "site"
+            // 3. Include local site
             const localSite = {
                 url: publicUrl,
                 name: dbService.getSetting("siteName") || "Local Instance",
@@ -148,19 +149,27 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
 
     /**
      * GET /api/stats/network/tracks
-     * Get all content shared by the TuneCamp community (GunDB + ActivityPub + Local)
+     * Get all content from the TuneCamp network.
+     * 
+     * Architecture v2: GunDB provides instance URLs (signaling), then we fetch
+     * catalogs directly from each instance via HTTP. ActivityPub remote content
+     * and local content are also included.
      */
     router.get("/network/tracks", async (req, res) => {
         try {
             const publicUrl = dbService.getSetting("publicUrl") || config.publicUrl || `http://localhost:${config.port}`;
             const baseUrl = publicUrl.replace(/\/$/, "");
 
-            // 1. Get tracks from GunDB (P2P Federation)
-            const gundbTracksRaw = await gundbService.getCommunityTracks();
-            const gundbTracks = gundbTracksRaw.map(t => ({
-                ...t,
-                federation: "gundb"
-            }));
+            // 1. Get remote catalogs via HTTP from discovered GunDB instances
+            const gunSites = await gundbService.getCommunitySites();
+            const myUrl = baseUrl.replace(/\/$/, "");
+            const remoteSites = gunSites.filter((s: any) => {
+                if (!s.url || !s.url.startsWith("https://")) return false;
+                const siteUrl = s.url.replace(/\/$/, "");
+                return siteUrl !== myUrl && !siteUrl.includes("localhost") && !siteUrl.includes("127.0.0.1");
+            });
+
+            const httpTracks = await fetchCatalogsFromInstances(remoteSites);
 
             // 2. Get tracks from ActivityPub (Standard Federation - Remote)
             const remoteApTracks = dbService.getRemoteTracks();
@@ -194,7 +203,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
             }));
 
             // 4. Get local public releases
-            const localReleases = dbService.getReleases(true); // publicOnly = true
+            const localReleases = dbService.getReleases(true);
             const formattedLocalReleases = localReleases.map(r => {
                 const tracks = dbService.getTracksByReleaseId(r.id);
                 const firstTrack = tracks[0];
@@ -212,7 +221,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
                 };
             });
 
-            // 5. Get local public posts (optimized single query)
+            // 5. Get local public posts
             const publicPosts = dbService.getPublicPosts();
             const localPosts = publicPosts.map(p => ({
                 slug: p.slug,
@@ -228,7 +237,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
 
             // Merge results
             const allItems = [
-                ...gundbTracks.map(t => ({ ...t, type: "release" })), 
+                ...httpTracks,
                 ...apTracks, 
                 ...apPosts,
                 ...formattedLocalReleases,
@@ -249,18 +258,16 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
     router.get("/network/status", async (req, res) => {
         try {
             const gunSites = await gundbService.getCommunitySites();
-            const gunTracks = await gundbService.getCommunityTracks();
             const apActors = dbService.getFollowedActors();
             const apTracks = dbService.getRemoteTracks();
             const localReleases = dbService.getReleases(true);
 
-            // Check if ActivityPub is enabled (if publicUrl is set)
             const publicUrl = dbService.getSetting("publicUrl") || config.publicUrl;
             const apEnabled = !!publicUrl;
 
             res.json({
                 sites: gunSites.length + apActors.length + 1, // +1 for local
-                tracks: gunTracks.length + apTracks.length + localReleases.length,
+                tracks: apTracks.length + localReleases.length,
                 lastUpdate: new Date().toISOString(),
                 gundb: {
                     connected: gundbService.getPeerCount() > 0,
@@ -277,4 +284,100 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
     });
 
     return router;
+}
+
+/**
+ * Fetches public catalogs from a list of discovered Tunecamp instances via HTTP.
+ * Uses Promise.allSettled for resilience — offline instances are skipped gracefully.
+ */
+async function fetchCatalogsFromInstances(sites: any[]): Promise<any[]> {
+    const results: any[] = [];
+    const FETCH_TIMEOUT = 5000; // 5 seconds per instance
+
+    const fetchPromises = sites.map(async (site) => {
+        try {
+            const siteUrl = site.url.replace(/\/$/, "");
+            
+            // SSRF protection
+            if (!(await isSafeUrl(siteUrl))) {
+                return [];
+            }
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
+            const response = await fetch(`${siteUrl}/api/catalog`, {
+                signal: controller.signal,
+                headers: {
+                    'Accept': 'application/json',
+                    'User-Agent': 'TuneCamp-Federation/2.0'
+                }
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) return [];
+
+            const catalog: any = await response.json();
+            const tracks: any[] = [];
+
+            // Extract releases from the catalog
+            if (catalog.releases && Array.isArray(catalog.releases)) {
+                for (const release of catalog.releases) {
+                    if (!release.tracks || !Array.isArray(release.tracks)) continue;
+                    
+                    for (const track of release.tracks) {
+                        tracks.push({
+                            slug: `${siteUrl}::${track.id || track.title}`,
+                            title: track.title || "Untitled",
+                            artistName: track.artistName || track.artist || release.artist_name || site.name || "Unknown Artist",
+                            releaseTitle: release.title || "Unknown Release",
+                            coverUrl: track.coverUrl || (release.cover_path ? `${siteUrl}/api/albums/${release.slug || release.id}/cover` : null),
+                            audioUrl: track.streamUrl || (track.id ? `${siteUrl}/api/tracks/${track.id}/stream` : null),
+                            duration: track.duration || 0,
+                            siteUrl: siteUrl,
+                            federation: "http",
+                            type: "release"
+                        });
+                    }
+                }
+            }
+
+            // If no releases structure, try the flat tracks array
+            if (tracks.length === 0 && catalog.tracks && Array.isArray(catalog.tracks)) {
+                for (const track of catalog.tracks) {
+                    tracks.push({
+                        slug: `${siteUrl}::${track.id || track.title}`,
+                        title: track.title || "Untitled",
+                        artistName: track.artistName || track.artist || site.name || "Unknown Artist",
+                        releaseTitle: track.album || "Unknown Release",
+                        coverUrl: track.coverUrl || null,
+                        audioUrl: track.streamUrl || (track.id ? `${siteUrl}/api/tracks/${track.id}/stream` : null),
+                        duration: track.duration || 0,
+                        siteUrl: siteUrl,
+                        federation: "http",
+                        type: "release"
+                    });
+                }
+            }
+
+            return tracks;
+        } catch (error) {
+            // Instance is offline or unreachable — skip gracefully
+            return [];
+        }
+    });
+
+    const settled = await Promise.allSettled(fetchPromises);
+    for (const result of settled) {
+        if (result.status === 'fulfilled' && result.value.length > 0) {
+            results.push(...result.value);
+        }
+    }
+
+    if (results.length > 0) {
+        console.log(`🌐 HTTP Federation: Fetched ${results.length} tracks from ${sites.length} instances`);
+    }
+
+    return results;
 }

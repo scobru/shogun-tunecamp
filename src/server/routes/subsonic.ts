@@ -784,13 +784,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         const playlistId = db.createPlaylist(name, username, '');
         
-        if (context.gundbService) {
-            const url = db.getSetting("publicUrl");
-            if (url) {
-                const p = db.getPlaylist(playlistId);
-                if (p && p.isPublic) context.gundbService.registerPlaylist({ url, title: db.getSetting("siteName") || "TuneCamp" }, p, []).catch(console.error);
-            }
-        }
+
 
         const p = db.getPlaylist(playlistId);
         if (!p) return sendError(res, req, 70, 'Playlist creation failed');
@@ -810,9 +804,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         
         db.deletePlaylist(id);
         
-        if (context.gundbService) {
-            context.gundbService.unregisterPlaylist(id).catch(console.error);
-        }
+
         
         sendResponse(res, req, {});
     });
@@ -851,18 +843,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             }
         }
 
-        if (context.gundbService) {
-            const url = db.getSetting("publicUrl");
-            const fullPlaylist = db.getPlaylist(id);
-            if (url && fullPlaylist) {
-                if (fullPlaylist.isPublic) {
-                    const tracks = db.getPlaylistTracks(id);
-                    context.gundbService.registerPlaylist({ url, title: db.getSetting("siteName") || "TuneCamp" }, fullPlaylist, tracks).catch(console.error);
-                } else if (pub === 'false') {
-                    context.gundbService.unregisterPlaylist(id).catch(console.error);
-                }
-            }
-        }
+
 
         sendResponse(res, req, {});
     });

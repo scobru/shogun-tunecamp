@@ -12,9 +12,8 @@ export function createCatalogRoutes(database: DatabaseService): Router {
     router.get("/", async (req: AuthenticatedRequest, res) => {
         try {
             const stats = await database.getStats();
-            const recentReleases = database
-                .getReleases(req.isAdmin !== true)
-                .slice(0, 10);
+            const allPublicReleases = database.getReleases(true);
+            const recentReleases = allPublicReleases.slice(0, 10);
             
             const recentAlbums = database
                 .getAlbums(req.isAdmin !== true)
@@ -37,8 +36,29 @@ export function createCatalogRoutes(database: DatabaseService): Router {
                 };
             }
 
+            // Build full releases array with tracks for federation (HTTP catalog)
+            const releases = allPublicReleases.map(r => {
+                const tracks = database.getTracksByReleaseId(r.id);
+                return {
+                    id: r.id,
+                    slug: r.slug,
+                    title: r.title,
+                    artist_name: r.artist_name,
+                    date: r.date,
+                    cover_path: r.cover_path,
+                    tracks: tracks.map(t => ({
+                        id: t.id,
+                        title: t.title,
+                        artistName: t.artist_name,
+                        duration: t.duration || 0,
+                        trackNum: t.track_num,
+                    })),
+                };
+            });
+
             res.json({
                 stats: publicStats,
+                releases,
                 recentReleases: recentReleases.map(r => ({
                     ...r,
                     artistId: r.artist_id,
@@ -57,6 +77,7 @@ export function createCatalogRoutes(database: DatabaseService): Router {
             res.status(500).json({ error: "Failed to get catalog" });
         }
     });
+
 
     /**
      * GET /api/catalog/search

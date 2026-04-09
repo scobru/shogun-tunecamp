@@ -233,14 +233,14 @@ export interface NetworkSite {
     version: string;
     lastSeen: string;
     coverImage?: string;
-    federation?: 'gundb' | 'activitypub' | 'local';
+    federation?: 'gundb' | 'activitypub' | 'local' | 'http';
 }
 
 export interface NetworkTrack {
     track: Track;
     siteName: string;
     siteUrl: string;
-    federation?: 'gundb' | 'activitypub' | 'local';
+    federation?: 'gundb' | 'activitypub' | 'local' | 'http';
     // For ActivityPub/Local tracks/posts (flattened structure)
     type?: 'release' | 'post';
     audioUrl?: string;
