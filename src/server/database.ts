@@ -535,6 +535,10 @@ export interface DatabaseService {
     getSoulseekDownload(id: number): SoulseekDownload | undefined;
     deleteSoulseekDownload(id: number): void;
     clearFailedSoulseekDownloads(userId: number): void;
+
+    // ActivityPub Authorization
+    isArtistLinkedToUser(artistId: number): boolean;
+    isArtistLinkedToUserBySlug(slug: string): boolean;
 }
 
 export function createDatabase(dbPath: string): DatabaseService {
@@ -2136,6 +2140,20 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare("DELETE FROM followers WHERE artist_id = ?").run(id);
             // Delete artist
             db.prepare("DELETE FROM artists WHERE id = ?").run(id);
+        },
+
+        isArtistLinkedToUser(id: number): boolean {
+            const row = db.prepare("SELECT 1 FROM admin WHERE artist_id = ?").get(id);
+            return !!row;
+        },
+
+        isArtistLinkedToUserBySlug(slug: string): boolean {
+            const row = db.prepare(`
+                SELECT 1 FROM admin adm
+                JOIN artists art ON adm.artist_id = art.id
+                WHERE art.slug = ?
+            `).get(slug);
+            return !!row;
         },
 
         // Followers

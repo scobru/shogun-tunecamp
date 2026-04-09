@@ -61,6 +61,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig) {
             publicKey = dbService.getSetting("site_public_key") || null;
             type = 'Service';
         } else {
+            if (!dbService.isArtistLinkedToUserBySlug(handle)) return null;
             const artist = dbService.getArtistBySlug(handle);
             if (!artist) return null;
             name = artist.name;
@@ -121,6 +122,7 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig) {
                 publicKey = dbService.getSetting("site_public_key") || null;
                 privateKeyStr = dbService.getSetting("site_private_key") || null;
             } else {
+                if (!dbService.isArtistLinkedToUserBySlug(handle)) return [];
                 const artist = dbService.getArtistBySlug(handle);
                 if (!artist) return [];
                 publicKey = artist.public_key;

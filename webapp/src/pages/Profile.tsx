@@ -12,6 +12,8 @@ import {
   Camera,
   Check,
   Play,
+  RefreshCw,
+  Users,
   Clock,
   Globe,
 } from "lucide-react";
@@ -418,231 +420,333 @@ export const Profile = () => {
   );
 };
 
-const ArtistProfileEditor = ({ initialData, onSaved }: { initialData: any, onSaved: (data: any) => void }) => {
-    const [name, setName] = useState(initialData?.name || '');
-    const [bio, setBio] = useState(initialData?.bio || '');
-    const [donationUrl, setDonationUrl] = useState('');
-    const [socialLinks, setSocialLinks] = useState<{ platform: string, url: string }[]>([]);
-    const [walletAddress, setWalletAddress] = useState(initialData?.walletAddress || '');
-    const [mastodonInstance, setMastodonInstance] = useState('');
-    const [mastodonToken, setMastodonToken] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
-    const [message, setMessage] = useState('');
-    const [avatarFile, setAvatarFile] = useState<File | null>(null);
-    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+const ArtistProfileEditor = ({ initialData, onSaved }: { initialData: any; onSaved: (data: any) => void }) => {
+  const [name, setName] = useState(initialData?.name || "");
+  const [bio, setBio] = useState(initialData?.bio || "");
+  const [donationUrl, setDonationUrl] = useState("");
+  const [socialLinks, setSocialLinks] = useState<{ platform: string; url: string }[]>([]);
+  const [walletAddress, setWalletAddress] = useState(initialData?.walletAddress || "");
+  const [mastodonInstance, setMastodonInstance] = useState("");
+  const [mastodonToken, setMastodonToken] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [followersCount, setFollowersCount] = useState<number | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-    useEffect(() => {
-        if (initialData) {
-            setName(initialData.name || '');
-            setBio(initialData.bio || '');
-            setWalletAddress(initialData.walletAddress || '');
-            
-            // Parse links
-            if (initialData.links) {
-                const links = initialData.links;
-                const donation = links.find((l: any) => l.type === 'support' || l.platform?.toLowerCase() === 'donation');
-                setDonationUrl(donation ? donation.url : '');
-                setSocialLinks(links.filter((l: any) => l.type !== 'support' && l.platform?.toLowerCase() !== 'donation'));
+  useEffect(() => {
+    if (initialData) {
+      setName(initialData.name || "");
+      setBio(initialData.bio || "");
+      setWalletAddress(initialData.walletAddress || "");
+
+      // Parse links
+      if (initialData.links) {
+        const links = initialData.links;
+        const donation = links.find(
+          (l: any) => l.type === "support" || l.platform?.toLowerCase() === "donation"
+        );
+        setDonationUrl(donation ? donation.url : "");
+        setSocialLinks(
+          links.filter((l: any) => l.type !== "support" && l.platform?.toLowerCase() !== "donation")
+        );
+      }
+
+      // Parse Mastodon config
+      if (initialData.postParams) {
+        setMastodonInstance(initialData.postParams.instance || "");
+        setMastodonToken(initialData.postParams.token || "");
+      }
+
+      // Fetch followers count helper
+      API.getArtistFollowers(initialData.id)
+        .then((f) => setFollowersCount(f.length))
+        .catch(console.error);
+    }
+  }, [initialData]);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setAvatarPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSync = async () => {
+    if (!initialData?.id || isSyncing) return;
+    if (!confirm("Synchronize your releases and posts with the Fediverse?")) return;
+    setIsSyncing(true);
+    try {
+      await API.syncArtistActivityPub(initialData.id);
+      alert("Synchronization complete!");
+    } catch (err: any) {
+      alert("Sync failed: " + err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setMessage("");
+
+    try {
+      const allLinks: any[] = [...socialLinks];
+      if (donationUrl) {
+        allLinks.unshift({ platform: "Donation", url: donationUrl, type: "support" });
+      }
+
+      const postParams =
+        mastodonInstance || mastodonToken
+          ? {
+              instance: mastodonInstance,
+              token: mastodonToken,
             }
+          : null;
 
-            // Parse Mastodon config
-            if (initialData.postParams) {
-                setMastodonInstance(initialData.postParams.instance || '');
-                setMastodonToken(initialData.postParams.token || '');
-            }
-        }
-    }, [initialData]);
+      const updated = await API.updateArtist(initialData.id, {
+        bio,
+        links: allLinks,
+        walletAddress: walletAddress || undefined,
+        postParams,
+      });
 
-    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setAvatarFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => setAvatarPreview(reader.result as string);
-            reader.readAsDataURL(file);
-        }
-    };
+      if (avatarFile) {
+        await API.uploadArtistAvatar(initialData.id, avatarFile);
+      }
 
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSaving(true);
-        setMessage('');
+      setMessage("Artist profile updated successfully!");
+      onSaved({ ...initialData, ...updated });
+      setAvatarFile(null);
+      setAvatarPreview(null);
+    } catch (err: any) {
+      console.error("Failed to update artist profile:", err);
+      setMessage(`Update failed: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
-        try {
-            const allLinks: any[] = [...socialLinks];
-            if (donationUrl) {
-                allLinks.unshift({ platform: 'Donation', url: donationUrl, type: 'support' });
-            }
+  return (
+    <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* Left Column: Profile & Identity */}
+      <div className="lg:col-span-4 space-y-6">
+        <div className="card bg-base-100/50 border border-white/5 p-6 space-y-6">
+          <h3 className="text-xl font-bold flex items-center gap-2">
+            <User size={20} className="text-primary" /> Artist Identity
+          </h3>
 
-            const postParams = (mastodonInstance || mastodonToken) ? {
-                instance: mastodonInstance,
-                token: mastodonToken
-            } : null;
+          <div className="flex flex-col items-center gap-4 py-2">
+            <div className="w-32 h-32 rounded-2xl overflow-hidden bg-neutral border border-white/10 shadow-xl relative group">
+              {avatarPreview ? (
+                <img src={avatarPreview} className="w-full h-full object-cover" />
+              ) : initialData?.id ? (
+                <img
+                  src={API.getArtistCoverUrl(initialData.id, Date.now())}
+                  className="w-full h-full object-cover"
+                />
+              ) : null}
+              <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                <Camera size={24} className="text-white" />
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                />
+              </label>
+            </div>
+            <p className="text-xs opacity-40">Square images work best (PNG/JPG)</p>
+          </div>
 
-            const updated = await API.updateArtist(initialData.id, {
-                // name, // Usually name is fixed but biological part is bio
-                bio,
-                links: allLinks,
-                walletAddress: walletAddress || undefined,
-                postParams
-            });
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text opacity-60">Artist Name</span>
+            </label>
+            <input type="text" className="input input-bordered opacity-50 bg-base-300" value={name} readOnly title="Managed by library metadata" />
+          </div>
 
-            if (avatarFile) {
-                await API.uploadArtistAvatar(initialData.id, avatarFile);
-            }
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text opacity-60">Bio / Description</span>
+            </label>
+            <textarea
+              className="textarea textarea-bordered h-40"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Describe your sound..."
+            />
+          </div>
+        </div>
 
-            setMessage('Artist profile updated successfully!');
-            onSaved({ ...initialData, ...updated });
-            setAvatarFile(null);
-            setAvatarPreview(null);
-        } catch (err: any) {
-            console.error('Failed to update artist profile:', err);
-            setMessage(`Update failed: ${err.message}`);
-        } finally {
-            setIsSaving(false);
-        }
-    };
+        {/* Status Section */}
+        <div className="card bg-primary/5 border border-primary/10 p-6 space-y-4">
+          <h3 className="text-sm font-bold uppercase tracking-widest opacity-40">Digital Presence</h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/20 rounded-lg text-primary">
+                <Users size={18} />
+              </div>
+              <div>
+                <div className="text-xl font-black">{followersCount ?? 0}</div>
+                <div className="text-[10px] opacity-40 uppercase font-bold">Followers</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleSync}
+              className={clsx("btn btn-xs btn-outline gap-2", isSyncing && "loading")}
+            >
+              {!isSyncing && <RefreshCw size={12} />} Sync AP
+            </button>
+          </div>
+        </div>
+      </div>
 
-    return (
-        <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <div className="space-y-6">
-                <div className="card bg-base-100/50 border border-white/5 p-6 space-y-4">
-                    <h3 className="text-xl font-bold flex items-center gap-2">
-                        <User size={20} className="text-primary" /> Basic Information
-                    </h3>
+      {/* Right Column: Monetization & Federation */}
+      <div className="lg:col-span-8 space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Monetization Section */}
+          <div className="card bg-base-100/50 border border-white/5 p-6 space-y-4">
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              <span className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
+                <Check size={18} />
+              </span>{" "}
+              Monetization
+            </h3>
 
-                    <div className="form-control">
-                        <label className="label"><span className="label-text opacity-60">Artist Name</span></label>
-                        <input type="text" className="input input-bordered opacity-50" value={name} readOnly />
-                        <label className="label"><span className="label-text-alt opacity-40">Name changes must be requested to admins.</span></label>
-                    </div>
-
-                    <div className="form-control">
-                        <label className="label"><span className="label-text opacity-60">Bio / Description</span></label>
-                        <textarea 
-                            className="textarea textarea-bordered h-32" 
-                            value={bio} 
-                            onChange={e => setBio(e.target.value)}
-                            placeholder="Tell your story..."
-                        />
-                    </div>
-                    
-                    <div className="form-control">
-                        <label className="label"><span className="label-text font-bold text-accent">Payment Wallet Address</span></label>
-                        <input 
-                            type="text" 
-                            className="input input-bordered border-accent/20 font-mono text-sm" 
-                            value={walletAddress} 
-                            onChange={e => setWalletAddress(e.target.value)}
-                            placeholder="0x..."
-                        />
-                        <label className="label"><span className="label-text-alt opacity-50">Direct payments for your releases will go here.</span></label>
-                    </div>
-                </div>
-
-                <div className="card bg-base-100/50 border border-white/5 p-6 space-y-4">
-                    <h3 className="text-xl font-bold flex items-center gap-2">
-                        <Camera size={20} className="text-secondary" /> Artist Avatar
-                    </h3>
-                    <div className="flex items-center gap-6">
-                        <div className="w-24 h-24 rounded-2xl overflow-hidden bg-neutral border border-white/10 ring-4 ring-secondary/5">
-                            {avatarPreview ? (
-                                <img src={avatarPreview} className="w-full h-full object-cover" />
-                            ) : initialData?.id ? (
-                                <img src={API.getArtistCoverUrl(initialData.id, Date.now())} className="w-full h-full object-cover" />
-                            ) : null}
-                        </div>
-                        <label className="btn btn-outline btn-sm gap-2">
-                            <Camera size={16} /> Upload New
-                            <input type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
-                        </label>
-                    </div>
-                </div>
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-bold text-emerald-400">Wallet Address</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered border-emerald-500/20 font-mono text-xs"
+                value={walletAddress}
+                onChange={(e) => setWalletAddress(e.target.value)}
+                placeholder="0x..."
+              />
+              <label className="label">
+                <span className="label-text-alt opacity-40">Direct-to-Artist revenue goes here.</span>
+              </label>
             </div>
 
-            <div className="space-y-6">
-                <div className="card bg-base-100/50 border border-white/5 p-6 space-y-4">
-                    <h3 className="text-xl font-bold flex items-center gap-2">
-                        <Globe size={20} className="text-success" /> Links & Socials
-                    </h3>
-
-                    <div className="form-control">
-                        <label className="label"><span className="label-text font-bold text-success">Donation / Support URL</span></label>
-                        <input 
-                            type="url" 
-                            className="input input-bordered border-success/20" 
-                            value={donationUrl} 
-                            onChange={e => setDonationUrl(e.target.value)}
-                            placeholder="https://ko-fi.com/..."
-                        />
-                    </div>
-
-                    <div className="form-control">
-                        <label className="label"><span className="label-text">Social Links (comma separated)</span></label>
-                        <input 
-                            type="text" 
-                            className="input input-bordered" 
-                            value={socialLinks.map(l => l.url).join(', ')} 
-                            onChange={e => {
-                                const urls = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                                setSocialLinks(urls.map(url => {
-                                    let platform = 'Social';
-                                    if (url.includes('twitter')) platform = 'Twitter';
-                                    if (url.includes('x.com')) platform = 'X';
-                                    if (url.includes('instagram')) platform = 'Instagram';
-                                    if (url.includes('facebook')) platform = 'Facebook';
-                                    if (url.includes('youtube')) platform = 'YouTube';
-                                    return { platform, url };
-                                }));
-                            }}
-                            placeholder="twitter.com/..., instagram.com/..."
-                        />
-                    </div>
-                </div>
-
-                <div className="card bg-base-100/50 border border-white/5 p-6 space-y-4">
-                    <h3 className="text-xl font-bold flex items-center gap-2">
-                        <Settings size={20} className="text-info" /> Mastodon Auto-Post
-                    </h3>
-                    <p className="text-xs opacity-50">Cross-post your releases to an external Mastodon account.</p>
-                    
-                    <div className="form-control">
-                        <label className="label"><span className="label-text text-xs">Instance URL</span></label>
-                        <input 
-                            type="url" 
-                            className="input input-sm input-bordered" 
-                            value={mastodonInstance} 
-                            onChange={e => setMastodonInstance(e.target.value)}
-                            placeholder="https://mastodon.social"
-                        />
-                    </div>
-                    
-                    <div className="form-control">
-                        <label className="label"><span className="label-text text-xs">Access Token</span></label>
-                        <input 
-                            type="password" 
-                            className="input input-sm input-bordered" 
-                            value={mastodonToken} 
-                            onChange={e => setMastodonToken(e.target.value)}
-                            placeholder="Bearer Token"
-                        />
-                    </div>
-                </div>
-
-                <div className="pt-4 space-y-4">
-                    {message && (
-                        <div className={clsx("alert text-sm", message.includes('failed') ? "alert-error bg-error/10 border-error/20" : "alert-success bg-success/10 border-success/20")}>
-                            {message}
-                        </div>
-                    )}
-                    <button type="submit" className="btn btn-primary btn-block gap-2" disabled={isSaving}>
-                        {isSaving ? <span className="loading loading-spinner" /> : <Check size={20} />}
-                        Save Artist Profile
-                    </button>
-                </div>
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-bold text-emerald-400">Support / Donation URL</span>
+              </label>
+              <input
+                type="url"
+                className="input input-bordered border-emerald-500/20"
+                value={donationUrl}
+                onChange={(e) => setDonationUrl(e.target.value)}
+                placeholder="https://..."
+              />
             </div>
-        </form>
-    );
+          </div>
+
+          {/* Social Section */}
+          <div className="card bg-base-100/50 border border-white/5 p-6 space-y-4">
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              <Globe size={20} className="text-sky-400" /> Web Links
+            </h3>
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text opacity-60">Social Links (comma separated)</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered"
+                value={socialLinks.map((l) => l.url).join(", ")}
+                onChange={(e) => {
+                  const urls = e.target.value.split(",").map((s) => s.trim()).filter(Boolean);
+                  setSocialLinks(
+                    urls.map((url) => {
+                      let platform = "Social";
+                      if (url.includes("twitter")) platform = "Twitter";
+                      if (url.includes("x.com")) platform = "X";
+                      if (url.includes("instagram")) platform = "Instagram";
+                      if (url.includes("facebook")) platform = "Facebook";
+                      if (url.includes("youtube")) platform = "YouTube";
+                      return { platform, url };
+                    })
+                  );
+                }}
+                placeholder="twitter.com/..., instagram.com/..."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Federation Section */}
+        <div className="card bg-base-100/50 border border-white/5 overflow-hidden">
+          <div className="bg-gradient-to-r from-indigo-500/10 to-transparent p-6 border-b border-white/5">
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              <Play size={20} className="text-indigo-400" /> Federation & Automation
+            </h3>
+            <p className="text-xs opacity-50 mt-1">Cross-post activities and manage community outreach.</p>
+          </div>
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text text-xs uppercase font-bold opacity-40">Mastodon Instance</span>
+              </label>
+              <input
+                type="url"
+                className="input input-sm input-bordered"
+                value={mastodonInstance}
+                onChange={(e) => setMastodonInstance(e.target.value)}
+                placeholder="https://mastodon.social"
+              />
+            </div>
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text text-xs uppercase font-bold opacity-40">Master Token</span>
+              </label>
+              <input
+                type="password"
+                className="input input-sm input-bordered"
+                value={mastodonToken}
+                onChange={(e) => setMastodonToken(e.target.value)}
+                placeholder="Bearer Token"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Action Footer */}
+        <div className="flex flex-col sm:flex-row items-center gap-4 pt-4">
+          <div className="flex-1 w-full">
+            {message && (
+              <div
+                className={clsx(
+                  "alert text-sm py-3",
+                  message.includes("failed")
+                    ? "alert-error bg-error/10 border-error/20"
+                    : "alert-success bg-success/10 border-success/20"
+                )}
+              >
+                {message}
+              </div>
+            )}
+          </div>
+          <button
+            type="submit"
+            className="btn btn-primary btn-lg px-12 gap-3 w-full sm:w-auto shadow-xl shadow-primary/20"
+            disabled={isSaving}
+          >
+            {isSaving ? <span className="loading loading-spinner" /> : <Check size={24} />}
+            <span>Save Profile</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  );
 };
 
 const TrackList = ({
