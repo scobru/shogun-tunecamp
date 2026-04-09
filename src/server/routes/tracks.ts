@@ -737,6 +737,222 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
     });
 
     /**
+     * PUT /api/tracks/batch
+     * Update multiple tracks at once (admin or artist only)
+     */
+    router.put("/batch", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+
+        const { trackIds, data } = req.body;
+        if (!Array.isArray(trackIds) || trackIds.length === 0) {
+            return res.status(400).json({ error: "trackIds must be a non-empty array" });
+        }
+
+        try {
+            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
+            const results = { success: 0, failed: 0, errors: [] as string[] };
+            const affectedAlbums = new Set<number>();
+
+            for (const id of trackIds) {
+                try {
+                    const track = database.getTrack(Number(id));
+                    if (!track) {
+                        results.failed++;
+                        results.errors.push(`Track ${id} not found`);
+                        continue;
+                    }
+
+                    // Ownership Check
+                    const isOwner = track.owner_id === req.userId || (track.owner_id === null && track.artist_id === req.artistId);
+                    if (!isRoot && !isOwner) {
+                        results.failed++;
+                        results.errors.push(`Track ${id}: Access denied`);
+                        continue;
+                    }
+
+                    // Apply Updates
+                    const { artist, artistId, album, albumId, genre, price, priceUsdc, currency, lyrics, ownerId } = data;
+
+                    // Update Artist
+                    if (artistId) {
+                        database.updateTrackArtist(track.id, parseInt(artistId));
+                    } else if (artist !== undefined && artist.trim() !== "") {
+                        let artistRecord = database.getArtistByName(artist.trim());
+                        if (!artistRecord) {
+                            const newArtistId = database.createArtist(artist.trim());
+                            artistRecord = database.getArtist(newArtistId);
+                        }
+                        if (artistRecord) database.updateTrackArtist(track.id, artistRecord.id);
+                    } else if (artistId === null || artist === "") {
+                        database.updateTrackArtist(track.id, null);
+                    }
+
+                    // Update Album
+                    if (albumId) {
+                        database.updateTrackAlbum(track.id, parseInt(albumId));
+                        affectedAlbums.add(parseInt(albumId));
+                    } else if (album !== undefined && album.trim() !== "") {
+                        const trimmedAlbum = album.trim();
+                        let albumRecord = database.getAlbumByTitle(trimmedAlbum);
+                        if (!albumRecord) {
+                            const slug = "lib-" + trimmedAlbum.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                            albumRecord = database.getAlbumBySlug(slug);
+                            if (!albumRecord) {
+                                const newId = database.createAlbum({
+                                    title: trimmedAlbum,
+                                    slug: slug,
+                                    artist_id: artistId ? parseInt(artistId) : (track.artist_id || null),
+                                    owner_id: req.userId || track.owner_id || null,
+                                    date: null, cover_path: null, genre: genre || "Unknown",
+                                    description: `Auto-generated from batch edit`,
+                                    type: 'album', year: new Date().getFullYear(),
+                                    download: null, price: 0, price_usdc: 0, currency: 'ETH',
+                                    external_links: null, is_public: false, visibility: 'private',
+                                    is_release: false, published_at: null, published_to_gundb: false,
+                                    published_to_ap: false, license: 'copyright',
+                                });
+                                albumRecord = database.getAlbum(newId);
+                            }
+                        }
+                        if (albumRecord) {
+                            database.updateTrackAlbum(track.id, albumRecord.id);
+                            affectedAlbums.add(albumRecord.id);
+                        }
+                    } else if (albumId === null || album === "") {
+                        database.updateTrackAlbum(track.id, null);
+                    }
+
+                    // Update Price
+                    if (price !== undefined || priceUsdc !== undefined) {
+                        const tr = database.getTrack(track.id);
+                        const finalP = price !== undefined ? Number(price) : (tr?.price ?? 0);
+                        const finalPu = priceUsdc !== undefined ? Number(priceUsdc) : (tr?.price_usdc ?? 0);
+                        const finalC = (currency || tr?.currency || 'ETH') as 'ETH' | 'USD';
+                        database.updateTrackPrice(track.id, finalP, finalPu, finalC);
+                    }
+
+                    // Update Lyrics
+                    if (lyrics !== undefined) {
+                      database.updateTrackLyrics(track.id, lyrics || null);
+                    }
+
+                    // Update Owner
+                    if (ownerId !== undefined) {
+                        const finalOwnerId = ownerId ? parseInt(ownerId) : null;
+                        (database as any).db.prepare("UPDATE tracks SET owner_id = ? WHERE id = ?").run(finalOwnerId, track.id);
+                    }
+
+                    // Write tags to file
+                    const updated = database.getTrack(track.id);
+                    if (updated && updated.file_path) {
+                        const fullPath = path.join(musicDir, updated.file_path);
+                        if (await fs.pathExists(fullPath)) {
+                            const ext = path.extname(fullPath).toLowerCase();
+                            const tags = {
+                                title: updated.title,
+                                artist: updated.artist_name || undefined,
+                                album: updated.album_title || undefined,
+                                trackNumber: updated.track_num?.toString() || undefined
+                            };
+                            if (ext === '.mp3') {
+                                NodeID3.update(tags as any, fullPath);
+                            } else if (['.flac', '.ogg', '.m4a', '.wav'].includes(ext)) {
+                                await writeMetadata(fullPath, {
+                                    title: tags.title,
+                                    artist: tags.artist,
+                                    album: tags.album,
+                                    track: tags.trackNumber
+                                }).catch(e => console.error(`[BatchTags] Failed for ${fullPath}:`, e));
+                            }
+                        }
+                    }
+
+                    results.success++;
+                    if (track.album_id) affectedAlbums.add(track.album_id);
+                } catch (err: any) {
+                    results.failed++;
+                    results.errors.push(`Track ${id}: ${err.message}`);
+                }
+            }
+
+            // Sync affected albums
+            for (const albumId of affectedAlbums) {
+                publishingService.syncRelease(albumId).catch(e => console.error(`[BatchSync] Failed for album ${albumId}:`, e));
+            }
+
+            res.json({ message: "Batch update completed", ...results });
+        } catch (error) {
+            console.error("Error in batch update:", error);
+            res.status(500).json({ error: "Failed to perform batch update" });
+        }
+    });
+
+    /**
+     * DELETE /api/tracks/batch
+     * Delete multiple tracks (admin or artist only)
+     */
+    router.delete("/batch", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+
+        const { trackIds, deleteFiles } = req.body;
+        if (!Array.isArray(trackIds) || trackIds.length === 0) {
+            return res.status(400).json({ error: "trackIds must be a non-empty array" });
+        }
+
+        try {
+            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
+            const results = { success: 0, failed: 0, errors: [] as string[] };
+            const affectedAlbums = new Set<number>();
+
+            for (const id of trackIds) {
+                try {
+                    const track = database.getTrack(Number(id));
+                    if (!track) {
+                        results.failed++;
+                        results.errors.push(`Track ${id} not found`);
+                        continue;
+                    }
+
+                    const isOwner = track.owner_id === req.userId || (track.owner_id === null && track.artist_id === req.artistId);
+                    if (!isRoot && !isOwner) {
+                        results.failed++;
+                        results.errors.push(`Track ${id}: Access denied`);
+                        continue;
+                    }
+
+                    if (deleteFiles && track.file_path) {
+                        const trackPath = path.join(musicDir, track.file_path);
+                        if (await fs.pathExists(trackPath)) {
+                            await fs.remove(trackPath);
+                            const ext = path.extname(trackPath).toLowerCase();
+                            if (ext === '.mp3') {
+                                const wavPath = trackPath.replace(/\.mp3$/i, '.wav');
+                                if (await fs.pathExists(wavPath)) await fs.remove(wavPath);
+                            }
+                        }
+                    }
+
+                    database.deleteTrack(track.id);
+                    if (track.album_id) affectedAlbums.add(track.album_id);
+                    results.success++;
+                } catch (err: any) {
+                    results.failed++;
+                    results.errors.push(`Track ${id}: ${err.message}`);
+                }
+            }
+
+            for (const albumId of affectedAlbums) {
+                publishingService.syncRelease(albumId).catch(e => console.error(`[BatchSyncSync] Failed for album ${albumId}:`, e));
+            }
+
+            res.json({ message: "Batch deletion completed", ...results });
+        } catch (error) {
+            console.error("Error in batch delete:", error);
+            res.status(500).json({ error: "Failed to perform batch deletion" });
+        }
+    });
+
+    /**
      * PUT /api/tracks/:id
      * Update track metadata and ID3 tags (admin or owner only)
      */
@@ -1060,12 +1276,9 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             // Delete from database
-            // Note: If file was deleted, watcher might have already triggered this, 
-            // but it's safe to run again (idempotent if using specific ID delete)
             database.deleteTrack(id);
 
             // ActivityPub Broadcast: Track deleted
-            // We need to re-fetch the album to get the current state (ActivityPub note will be updated/replaced)
             if (track.album_id) {
                 publishingService.syncRelease(track.album_id).catch(e => console.error("Failed to sync release after track delete:", e));
             }
@@ -1076,223 +1289,6 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             res.status(500).json({ error: "Failed to delete track" });
         }
     });
-
-    /**
-     * PUT /api/tracks/batch
-     * Update multiple tracks at once (admin or artist only)
-     */
-    router.put("/batch", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
-
-        const { trackIds, data } = req.body;
-        if (!Array.isArray(trackIds) || trackIds.length === 0) {
-            return res.status(400).json({ error: "trackIds must be a non-empty array" });
-        }
-
-        try {
-            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
-            const results = { success: 0, failed: 0, errors: [] as string[] };
-            const affectedAlbums = new Set<number>();
-
-            for (const id of trackIds) {
-                try {
-                    const track = database.getTrack(Number(id));
-                    if (!track) {
-                        results.failed++;
-                        results.errors.push(`Track ${id} not found`);
-                        continue;
-                    }
-
-                    // Ownership Check
-                    const isOwner = track.owner_id === req.userId || (track.owner_id === null && track.artist_id === req.artistId);
-                    if (!isRoot && !isOwner) {
-                        results.failed++;
-                        results.errors.push(`Track ${id}: Access denied`);
-                        continue;
-                    }
-
-                    // Apply Updates (Simplified version of the single PUT, focusing on metadata)
-                    const { artist, artistId, album, albumId, genre, price, priceUsdc, currency, lyrics, ownerId } = data;
-
-                    // Update Artist
-                    if (artistId) {
-                        database.updateTrackArtist(track.id, parseInt(artistId));
-                    } else if (artist !== undefined && artist.trim() !== "") {
-                        let artistRecord = database.getArtistByName(artist.trim());
-                        if (!artistRecord) {
-                            const newArtistId = database.createArtist(artist.trim());
-                            artistRecord = database.getArtist(newArtistId);
-                        }
-                        if (artistRecord) database.updateTrackArtist(track.id, artistRecord.id);
-                    } else if (artistId === null || artist === "") {
-                        database.updateTrackArtist(track.id, null);
-                    }
-
-                    // Update Album
-                    if (albumId) {
-                        database.updateTrackAlbum(track.id, parseInt(albumId));
-                        affectedAlbums.add(parseInt(albumId));
-                    } else if (album !== undefined && album.trim() !== "") {
-                        const trimmedAlbum = album.trim();
-                        let albumRecord = database.getAlbumByTitle(trimmedAlbum);
-                        if (!albumRecord) {
-                            const slug = "lib-" + trimmedAlbum.toLowerCase().replace(/[^a-z0-9]/g, '-');
-                            albumRecord = database.getAlbumBySlug(slug);
-                            if (!albumRecord) {
-                                const newId = database.createAlbum({
-                                    title: trimmedAlbum,
-                                    slug: slug,
-                                    artist_id: artistId ? parseInt(artistId) : (track.artist_id || null),
-                                    owner_id: req.userId || track.owner_id || null,
-                                    date: null, cover_path: null, genre: genre || "Unknown",
-                                    description: `Auto-generated from batch edit`,
-                                    type: 'album', year: new Date().getFullYear(),
-                                    download: null, price: 0, price_usdc: 0, currency: 'ETH',
-                                    external_links: null, is_public: false, visibility: 'private',
-                                    is_release: false, published_at: null, published_to_gundb: false,
-                                    published_to_ap: false, license: 'copyright',
-                                });
-                                albumRecord = database.getAlbum(newId);
-                            }
-                        }
-                        if (albumRecord) {
-                            database.updateTrackAlbum(track.id, albumRecord.id);
-                            affectedAlbums.add(albumRecord.id);
-                        }
-                    } else if (albumId === null || album === "") {
-                        database.updateTrackAlbum(track.id, null);
-                    }
-
-                    // Update Price
-                    if (price !== undefined || priceUsdc !== undefined) {
-                        const tr = database.getTrack(track.id);
-                        const finalP = price !== undefined ? Number(price) : (tr?.price ?? 0);
-                        const finalPu = priceUsdc !== undefined ? Number(priceUsdc) : (tr?.price_usdc ?? 0);
-                        const finalC = (currency || tr?.currency || 'ETH') as 'ETH' | 'USD';
-                        database.updateTrackPrice(track.id, finalP, finalPu, finalC);
-                    }
-
-                    // Update Lyrics
-                    if (lyrics !== undefined) {
-                      database.updateTrackLyrics(track.id, lyrics || null);
-                    }
-
-                    // Update Owner
-                    if (ownerId !== undefined) {
-                        const finalOwnerId = ownerId ? parseInt(ownerId) : null;
-                        (database as any).db.prepare("UPDATE tracks SET owner_id = ? WHERE id = ?").run(finalOwnerId, track.id);
-                    }
-
-                    // Write tags to file
-                    const updated = database.getTrack(track.id);
-                    if (updated && updated.file_path) {
-                        const fullPath = path.join(musicDir, updated.file_path);
-                        if (await fs.pathExists(fullPath)) {
-                            const ext = path.extname(fullPath).toLowerCase();
-                            const tags = {
-                                title: updated.title,
-                                artist: updated.artist_name || undefined,
-                                album: updated.album_title || undefined,
-                                trackNumber: updated.track_num?.toString() || undefined
-                            };
-                            if (ext === '.mp3') {
-                                NodeID3.update(tags as any, fullPath);
-                            } else if (['.flac', '.ogg', '.m4a', '.wav'].includes(ext)) {
-                                await writeMetadata(fullPath, {
-                                    title: tags.title,
-                                    artist: tags.artist,
-                                    album: tags.album,
-                                    track: tags.trackNumber
-                                }).catch(e => console.error(`[BatchTags] Failed for ${fullPath}:`, e));
-                            }
-                        }
-                    }
-
-                    results.success++;
-                    if (track.album_id) affectedAlbums.add(track.album_id);
-                } catch (err: any) {
-                    results.failed++;
-                    results.errors.push(`Track ${id}: ${err.message}`);
-                }
-            }
-
-            // Sync affected albums
-            for (const albumId of affectedAlbums) {
-                publishingService.syncRelease(albumId).catch(e => console.error(`[BatchSync] Failed for album ${albumId}:`, e));
-            }
-
-            res.json({ message: "Batch update completed", ...results });
-        } catch (error) {
-            console.error("Error in batch update:", error);
-            res.status(500).json({ error: "Failed to perform batch update" });
-        }
-    });
-
-    /**
-     * DELETE /api/tracks/batch
-     * Delete multiple tracks (admin or artist only)
-     */
-    router.delete("/batch", async (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
-
-        const { trackIds, deleteFiles } = req.body;
-        if (!Array.isArray(trackIds) || trackIds.length === 0) {
-            return res.status(400).json({ error: "trackIds must be a non-empty array" });
-        }
-
-        try {
-            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
-            const results = { success: 0, failed: 0, errors: [] as string[] };
-            const affectedAlbums = new Set<number>();
-
-            for (const id of trackIds) {
-                try {
-                    const track = database.getTrack(Number(id));
-                    if (!track) {
-                        results.failed++;
-                        results.errors.push(`Track ${id} not found`);
-                        continue;
-                    }
-
-                    const isOwner = track.owner_id === req.userId || (track.owner_id === null && track.artist_id === req.artistId);
-                    if (!isRoot && !isOwner) {
-                        results.failed++;
-                        results.errors.push(`Track ${id}: Access denied`);
-                        continue;
-                    }
-
-                    if (deleteFiles && track.file_path) {
-                        const trackPath = path.join(musicDir, track.file_path);
-                        if (await fs.pathExists(trackPath)) {
-                            await fs.remove(trackPath);
-                            const ext = path.extname(trackPath).toLowerCase();
-                            if (ext === '.mp3') {
-                                const wavPath = trackPath.replace(/\.mp3$/i, '.wav');
-                                if (await fs.pathExists(wavPath)) await fs.remove(wavPath);
-                            }
-                        }
-                    }
-
-                    database.deleteTrack(track.id);
-                    if (track.album_id) affectedAlbums.add(track.album_id);
-                    results.success++;
-                } catch (err: any) {
-                    results.failed++;
-                    results.errors.push(`Track ${id}: ${err.message}`);
-                }
-            }
-
-            for (const albumId of affectedAlbums) {
-                publishingService.syncRelease(albumId).catch(e => console.error(`[BatchSyncSync] Failed for album ${albumId}:`, e));
-            }
-
-            res.json({ message: "Batch deletion completed", ...results });
-        } catch (error) {
-            console.error("Error in batch delete:", error);
-            res.status(500).json({ error: "Failed to perform batch deletion" });
-        }
-    });
-
 
     return router;
 }

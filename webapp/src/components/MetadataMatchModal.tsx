@@ -50,12 +50,19 @@ export const MetadataMatchModal: React.FC<MetadataMatchModalProps> = ({
     setMatching(match.id);
     setError(null);
     try {
-      const response = await API.matchTrackMetadata(track.id, {
-        title: match.title,
+      // Per Discogs, applichiamo solo Artista, Album e Cover come richiesto
+      // MusicBrainz continua ad applicare anche il Titolo della traccia
+      const payload: any = {
         artist: match.artist,
         albumTitle: match.albumTitle,
         coverUrl: match.coverUrl,
-      });
+      };
+
+      if (match.source !== "discogs") {
+        payload.title = match.title;
+      }
+
+      const response = await API.matchTrackMetadata(track.id, payload);
       onMatched(response.track);
       onClose();
     } catch (err: any) {
