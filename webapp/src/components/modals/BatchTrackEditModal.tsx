@@ -17,6 +17,7 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
   const [ownerName, setOwnerName] = useState("");
   const [price, setPrice] = useState("");
   const [priceUsdc, setPriceUsdc] = useState("");
+  const [externalArtwork, setExternalArtwork] = useState("");
   const currency = "ETH";
 
   // Control which fields are actually applied
@@ -24,7 +25,7 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
   const [applyAlbum, setApplyAlbum] = useState(false);
   const [applyOwner, setApplyOwner] = useState(false);
   const [applyPricing, setApplyPricing] = useState(false);
-
+  const [applyArtwork, setApplyArtwork] = useState(false);
 
   // Dropdown data
   const [artists, setArtists] = useState<any[]>([]);
@@ -101,6 +102,9 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
         payload.currency = currency;
       }
 
+      if (applyArtwork) {
+        payload.externalArtwork = externalArtwork.trim();
+      }
 
       const res = (await API.updateTracksBatch(selectedIds, payload)) as any;
       
@@ -266,6 +270,29 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
             </div>
           </div>
 
+          {/* Artwork Field */}
+          <div className="flex items-start gap-4 p-3 rounded-lg bg-base-200/50">
+            <input 
+              type="checkbox" 
+              className="checkbox checkbox-primary mt-3" 
+              checked={applyArtwork} 
+              onChange={e => setApplyArtwork(e.target.checked)} 
+            />
+            <div className="form-control flex-1">
+              <label className="label">
+                <span className="label-text">Cover Artwork URL</span>
+              </label>
+              <input
+                type="text"
+                className={`input input-bordered w-full ${!applyArtwork && 'opacity-50'}`}
+                placeholder="https://example.com/cover.jpg"
+                value={externalArtwork}
+                onChange={(e) => setExternalArtwork(e.target.value)}
+                disabled={!applyArtwork}
+              />
+            </div>
+          </div>
+
           {error && (
             <div className="alert alert-error text-sm flex items-start gap-2">
               <OctagonAlert size={16} className="shrink-0 mt-0.5" />
@@ -284,7 +311,7 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
             <button
               type="submit"
               className="btn btn-primary gap-2"
-              disabled={loading || (!applyArtist && !applyAlbum && !applyOwner && !applyPricing)}
+              disabled={loading || (!applyArtist && !applyAlbum && !applyOwner && !applyPricing && !applyArtwork)}
             >
               <Save size={18} /> {loading ? "Updating..." : `Update ${selectedIds.length} Tracks`}
             </button>

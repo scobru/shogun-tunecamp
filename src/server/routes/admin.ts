@@ -121,7 +121,10 @@ export function createAdminRoutes(
     router.get("/stats", async (req: AuthenticatedRequest, res: any) => {
         try {
             const showMine = req.query.mine === 'true';
-            const stats = await database.getStats((req.isRootAdmin && !showMine) ? undefined : (req.artistId || undefined));
+            const artistId = (req.isRootAdmin && !showMine) ? undefined : (req.artistId || undefined);
+            const ownerId = showMine ? req.userId : undefined;
+            
+            const stats = await database.getStats(artistId, ownerId);
             res.json(stats);
         } catch (error) {
             console.error("Error getting stats:", error);

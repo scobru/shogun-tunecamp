@@ -771,7 +771,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                     }
 
                     // Apply Updates
-                    const { artist, artistId, album, albumId, genre, price, priceUsdc, currency, lyrics, ownerId } = data;
+                    const { artist, artistId, album, albumId, genre, price, priceUsdc, currency, lyrics, ownerId, externalArtwork } = data;
 
                     // Update Artist
                     if (artistId) {
@@ -840,6 +840,11 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                     if (ownerId !== undefined) {
                         const finalOwnerId = ownerId ? parseInt(ownerId) : null;
                         (database as any).db.prepare("UPDATE tracks SET owner_id = ? WHERE id = ?").run(finalOwnerId, track.id);
+                    }
+
+                    // Update External Artwork
+                    if (externalArtwork !== undefined) {
+                        database.updateTrackExternalArtwork(track.id, externalArtwork || null);
                     }
 
                     // Write tags to file

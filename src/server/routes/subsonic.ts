@@ -420,10 +420,16 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 } catch (error) { console.error('Error proxying image:', error); }
             }
 
-            let fullPath = resolveSafePath(context.musicDir, imagePath);
+            // Path sanitization for artwork
+            const sanitizedImagePath = imagePath
+                .replace(/^@@[a-z0-9]+\\?/, "")
+                .replace(/\\/g, "/")
+                .replace(/\/+/g, "/");
+
+            let fullPath = resolveSafePath(context.musicDir, sanitizedImagePath);
             if (!fullPath || !await fs.pathExists(fullPath)) {
                 const projectRoot = path.dirname(context.musicDir);
-                const altPath = resolveSafePath(projectRoot, imagePath);
+                const altPath = resolveSafePath(projectRoot, sanitizedImagePath);
                 if (altPath && await fs.pathExists(altPath)) fullPath = altPath;
             }
 
@@ -454,8 +460,27 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const track = db.getTrack(parseInt(id.substring(3)));
         if (!track || !track.file_path) return sendError(res, req, 70, 'File not found');
 
-        const fullPath = resolveSafePath(context.musicDir, track.file_path);
-        if (!fullPath || !await fs.pathExists(fullPath)) return sendError(res, req, 70, 'File not found');
+        // Path sanitization: handles junk prefixes and normalized slashes
+        const sanitizedPath = track.file_path
+            .replace(/^@@[a-z0-9]+\\?/, "")
+            .replace(/\\/g, "/")
+            .replace(/\/+/g, "/");
+
+        let fullPath = resolveSafePath(context.musicDir, sanitizedPath);
+        
+        // Fallback to project root if not found in musicDir (allows for ../downloads/ sibling)
+        if (!fullPath || !await fs.pathExists(fullPath)) {
+            const projectRoot = path.dirname(context.musicDir);
+            const altPath = resolveSafePath(projectRoot, sanitizedPath);
+            if (altPath && await fs.pathExists(altPath)) {
+                fullPath = altPath;
+            }
+        }
+
+        if (!fullPath || !await fs.pathExists(fullPath)) {
+            console.error(`[Subsonic] Stream failed: File not found for track ${track.id} at ${sanitizedPath}`);
+            return sendError(res, req, 70, 'File not found');
+        }
 
         const targetFormat = format || 'mp3';
         const targetBitrate = maxBitRate ? parseInt(maxBitRate) : undefined;

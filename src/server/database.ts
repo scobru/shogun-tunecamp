@@ -2966,11 +2966,28 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         // Stats
-        async getStats(artistId?: number) {
+        async getStats(artistId?: number, ownerId?: number) {
             const artistFilter = artistId ? `WHERE id = ${artistId}` : "";
-            const albumFilter = artistId ? `WHERE artist_id = ${artistId}` : "";
-            const trackFilter = artistId ? `WHERE artist_id = ${artistId}` : "";
-            const publicAlbumFilter = artistId ? `WHERE artist_id = ${artistId} AND is_release = 1 AND visibility IN ('public', 'unlisted')` : "WHERE is_release = 1 AND visibility IN ('public', 'unlisted')";
+            
+            // If both artistId and ownerId are provided, we should probably OR them to catch all relevant assets,
+            // but for "My Music" usually we want tracks WHERE artist_id = X OR owner_id = Y.
+            let albumFilter = "";
+            let trackFilter = "";
+            let publicAlbumFilter = "WHERE is_release = 1 AND visibility IN ('public', 'unlisted')";
+
+            if (artistId && ownerId) {
+                albumFilter = `WHERE artist_id = ${artistId} OR owner_id = ${ownerId}`;
+                trackFilter = `WHERE artist_id = ${artistId} OR owner_id = ${ownerId}`;
+                publicAlbumFilter = `WHERE (artist_id = ${artistId} OR owner_id = ${ownerId}) AND is_release = 1 AND visibility IN ('public', 'unlisted')`;
+            } else if (artistId) {
+                albumFilter = `WHERE artist_id = ${artistId}`;
+                trackFilter = `WHERE artist_id = ${artistId}`;
+                publicAlbumFilter = `WHERE artist_id = ${artistId} AND is_release = 1 AND visibility IN ('public', 'unlisted')`;
+            } else if (ownerId) {
+                albumFilter = `WHERE owner_id = ${ownerId}`;
+                trackFilter = `WHERE owner_id = ${ownerId}`;
+                publicAlbumFilter = `WHERE owner_id = ${ownerId} AND is_release = 1 AND visibility IN ('public', 'unlisted')`;
+            }
 
             const artists = (db.prepare(`SELECT COUNT(*) as count FROM artists ${artistFilter}`).get() as { count: number }).count;
             const albums = (db.prepare(`SELECT COUNT(*) as count FROM albums ${albumFilter}`).get() as { count: number }).count;
@@ -2978,15 +2995,16 @@ export function createDatabase(dbPath: string): DatabaseService {
             const publicAlbums = (db.prepare(`SELECT COUNT(*) as count FROM albums ${publicAlbumFilter}`).get() as { count: number }).count;
             
             // Total users count is only relevant for global admin
-            const totalUsers = artistId ? 0 : (db.prepare("SELECT COUNT(*) as count FROM admin").get() as { count: number } | undefined)?.count || 0;
+            const totalUsers = (artistId || ownerId) ? 0 : (db.prepare("SELECT COUNT(*) as count FROM admin").get() as { count: number } | undefined)?.count || 0;
 
             const storageStats = db.prepare(`SELECT SUM(duration) as total_duration FROM tracks ${trackFilter}`).get() as { total_duration: number };
             const estimatedSize = (storageStats.total_duration || 0) * 40 * 1024; // Very rough estimate
 
             // Genre count
-            const genreQuery = artistId 
-                ? `SELECT genre FROM albums WHERE artist_id = ${artistId} AND genre IS NOT NULL AND genre != ''`
+            const genreQuery = (artistId || ownerId) 
+                ? `SELECT genre FROM albums ${albumFilter} AND genre IS NOT NULL AND genre != ''`
                 : `SELECT genre FROM albums WHERE genre IS NOT NULL AND genre != ''`;
+                
             const allGenres = db.prepare(genreQuery).all() as { genre: string }[];
             const genreSet = new Set<string>();
             allGenres.forEach(row => {
@@ -3005,7 +3023,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                 publicAlbums,
                 totalUsers,
                 storageUsed: estimatedSize,
-                networkSites: artistId ? 0 : (db.prepare("SELECT COUNT(*) as count FROM remote_actors WHERE type = 'Service'").get() as { count: number }).count,
+                networkSites: (artistId || ownerId) ? 0 : (db.prepare("SELECT COUNT(*) as count FROM remote_actors WHERE type = 'Service'").get() as { count: number }).count,
                 genresCount
             };
         },
