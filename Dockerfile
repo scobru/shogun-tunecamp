@@ -49,6 +49,10 @@ RUN apk add --no-cache python3 make g++ curl git libc6-compat gcompat
 COPY package*.json ./
 
 
+# Puppeteer configuration to skip Chrome download
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
 # Install all dependencies (including dev)
 RUN npm ci
 
@@ -101,6 +105,11 @@ RUN apk add --no-cache \
     ttf-freefont \
     udev
 
+# Puppeteer configuration for Alpine
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 # Copy package files and install production dependencies
 COPY package*.json ./
 RUN npm ci --omit=dev && \
@@ -135,9 +144,6 @@ ENV TUNECAMP_DOWNLOAD_DIR=$TUNECAMP_DOWNLOAD_DIR
 ENV COINBASE_CDP_API_KEY_NAME=""
 ENV COINBASE_CDP_API_KEY_SECRET=""
 
-# Puppeteer configuration for Alpine
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # Expose default port
 EXPOSE 1970

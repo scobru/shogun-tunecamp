@@ -65,7 +65,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
                 return;
             }
 
-            const wallet = await deriveTunecampWallet(sea.priv);
+            const wallet = await deriveTunecampWallet(sea);
 
             set({
                 wallet,

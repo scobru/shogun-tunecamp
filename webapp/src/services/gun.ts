@@ -4,6 +4,7 @@ import 'gun/sea';
 import 'gun/lib/radix';
 import 'gun/lib/radisk';
 import 'gun/lib/rindexed';
+import "gun/lib/wallet.js";
 import API from './api';
 import type { UserPlaylist, UserPlaylistTrack, Track } from '../types';
 
