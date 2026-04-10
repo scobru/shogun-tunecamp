@@ -451,6 +451,11 @@ export class Scanner implements ScannerService {
 
         this.hashingSemaphore++;
         let hash: string | null = null;
+        const LOSSLESS_EXTENSIONS = ['.wav', '.flac'];
+        const normalizedPath = this.normalizePath(currentFilePath, musicDir);
+        let existing: any = this.database.getTrackByPath(normalizedPath);
+        let albumId: number | null = overrideAlbumId || this.folderToAlbumMap.get(dir) || null;
+
         try {
             try {
                 hash = await getFileHash(currentFilePath);
@@ -488,13 +493,6 @@ export class Scanner implements ScannerService {
             } catch (e) {
                 console.warn(`    [Scanner] Failed to calculate hash for ${currentFilePath}:`, e);
             }
-
-            const LOSSLESS_EXTENSIONS = ['.wav', '.flac'];
-            const normalizedPath = this.normalizePath(currentFilePath, musicDir);
-            let existing = this.database.getTrackByPath(normalizedPath);
-
-            // Determine album ID from override or folder map
-            let albumId = overrideAlbumId || this.folderToAlbumMap.get(dir) || null;
 
             // If no album ID found and we're inside the music library, try to get or create an implicit library album
             if (albumId === null && dir.startsWith(musicDir)) {
@@ -551,10 +549,7 @@ export class Scanner implements ScannerService {
                     console.error(`    [Scanner] Error finding match for pairing lookup: ${e instanceof Error ? e.message : String(e)}`);
                 }
             }
-        } finally {
-            this.hashingSemaphore--;
-        }
-
+        
         // 2. Handle pairing if record exists
         if (existing) {
             // Update hash if missing
@@ -623,8 +618,8 @@ export class Scanner implements ScannerService {
             return { originalPath: filePath, success: true, message: "Track paired/updated.", trackId: existing.id };
         }
 
-        try {
-            console.log("  Processing track: " + path.basename(currentFilePath));
+
+        console.log("  Processing track: " + path.basename(currentFilePath));
             const metadata = await parseFileWithRetry(currentFilePath);
             const common = metadata.common;
             const format = metadata.format;
@@ -669,7 +664,8 @@ export class Scanner implements ScannerService {
                 external_artwork: null,
                 price: 0,
                 price_usdc: 0,
-                currency: 'ETH',                hash: hash // Store the hash
+                currency: 'ETH',
+                hash: hash // Store the hash
             });
 
             this.processQueue.add(() => WaveformService.generateWaveform(currentFilePath))
@@ -701,6 +697,8 @@ export class Scanner implements ScannerService {
         } catch (error) {
             console.error("  Error processing " + currentFilePath + ":", error);
             return { originalPath: filePath, success: false, message: `Error processing audio file: ${error instanceof Error ? error.message : String(error)}` };
+        } finally {
+            this.hashingSemaphore--;
         }
     }
 
