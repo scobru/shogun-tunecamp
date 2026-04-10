@@ -9,6 +9,7 @@ export class TorrentService {
     private client: Instance;
     private musicDir: string;
     private downloadDir: string;
+    private processingTorrents: Set<string> = new Set();
 
     constructor(
         private database: DatabaseService,
@@ -210,9 +211,16 @@ export class TorrentService {
     }
 
     public async handleTorrentDone(torrent: Torrent, ownerId?: number | null) {
-        console.log(`📂 Processing finished torrent files for: ${torrent.name}`);
-        
-        // 1. Identify all files and group by directory to handle multi-album torrents
+        if (this.processingTorrents.has(torrent.infoHash)) {
+            console.log(`[TorrentService] Torrent ${torrent.infoHash} is already being processed. Skipping duplicate indexing.`);
+            return;
+        }
+
+        try {
+            this.processingTorrents.add(torrent.infoHash);
+            console.log(`📂 Processing finished torrent files for: ${torrent.name}`);
+            
+            // 1. Identify all files and group by directory to handle multi-album torrents
         const dirFiles = new Map<string, string[]>();
         const allImages: { path: string, name: string, size: number }[] = [];
         
@@ -293,11 +301,19 @@ export class TorrentService {
                     console.error(`❌ Failed to index file ${path.basename(relativePath)}:`, err);
                 }
             }
+        } finally {
+            this.processingTorrents.delete(torrent.infoHash);
         }
     }
 
     public async syncTorrent(infoHash: string, overrideOwnerId?: number): Promise<void> {
         if (!this.client) throw new Error("Torrent client not initialized");
+        
+        if (this.processingTorrents.has(infoHash)) {
+            console.log(`[TorrentService] Manual sync rejected: Torrent ${infoHash} is already being processed.`);
+            return;
+        }
+
         // In WebTorrent v2, client.get might be async or return a Promise in some type defs
         const torrent = await (this.client as any).get(infoHash);
         if (!torrent) throw new Error("Torrent not found in active client");

@@ -138,6 +138,9 @@ export class Scanner implements ScannerService {
     // Keep track of the monitored music directory
     private musicDirectory: string | null = null;
 
+    private hashingSemaphore = 0;
+    private MAX_CONCURRENT_HASHING = 2;
+
     constructor(private database: DatabaseService) { }
 
     /**
@@ -441,105 +444,115 @@ export class Scanner implements ScannerService {
         }
 
         // 0. Calculate hash for deduplication
+        // Concurrency control to avoid OOM
+        while (this.hashingSemaphore >= this.MAX_CONCURRENT_HASHING) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        this.hashingSemaphore++;
         let hash: string | null = null;
         try {
-            hash = await getFileHash(currentFilePath);
-            const existingByHash = this.database.getTrackByHash(hash);
-
-            if (existingByHash && ownerId) {
-                console.log(`    [Scanner] Deduplication: file hash matched existing track '${existingByHash.title}' (ID ${existingByHash.id})`);
-                
-                // Add ownership link
-                this.database.addTrackOwner(existingByHash.id, ownerId);
-                
-                // Update track.owner_id column if it's null (for simpler views)
-                if (existingByHash.owner_id === null) {
-                    this.database.db.prepare("UPDATE tracks SET owner_id = ? WHERE id = ?").run(ownerId, existingByHash.id);
-                }
-                
-                // Also link the owner to the album if it exists
-                if (existingByHash.album_id) {
-                    this.database.addAlbumOwner(existingByHash.album_id, ownerId);
-                    
-                    // Update album.owner_id column if it's null
-                    const album = this.database.getAlbum(existingByHash.album_id);
-                    if (album && album.owner_id === null) {
-                        this.database.db.prepare("UPDATE albums SET owner_id = ? WHERE id = ?").run(ownerId, existingByHash.album_id);
-                    }
-                }
-
-                // If the uploaded file is a temp file (from upload), we can safely remove it now
-                if (currentFilePath.includes(path.sep + 'tmp' + path.sep) || currentFilePath.includes('/tmp/')) {
-                    await fs.remove(currentFilePath);
-                }
-
-                return { originalPath: filePath, success: true, message: "Duplicate content matched and linked to your library.", trackId: existingByHash.id };
-            }
-        } catch (e) {
-            console.warn(`    [Scanner] Failed to calculate hash for ${currentFilePath}:`, e);
-        }
-
-        const LOSSLESS_EXTENSIONS = ['.wav', '.flac'];
-        const normalizedPath = this.normalizePath(currentFilePath, musicDir);
-        let existing = this.database.getTrackByPath(normalizedPath);
-
-        // Determine album ID from override or folder map
-        let albumId = overrideAlbumId || this.folderToAlbumMap.get(dir) || null;
-
-        // If no album ID found and we're inside the music library, try to get or create an implicit library album
-        if (albumId === null && dir.startsWith(musicDir)) {
-            albumId = await this.getOrCreateLibraryAlbum(dir, musicDir, suggestedCoverPath);
-        }
-
-        // If track is in the "library" or "tracks" folder and map has no info, protect the existing link
-        // This prevents the scanner from unlinking tracks that were manually uploaded/linked via API
-        if (albumId === null && existing && existing.album_id &&
-            (normalizedPath.startsWith('library') || normalizedPath.startsWith('tracks'))) {
-            // console.log(`[Scanner] Protecting existing album link for ${normalizedPath}`);
-            albumId = existing.album_id;
-        }
-
-        // 1. Try to find existing record by path or metadata for pairing
-        if (!existing) {
             try {
-                // First try: Find by filename (basename) match in the same directory
-                // This handles cases where metadata is missing (e.g. fresh conversion) but filenames match (song.mp3 vs song.wav)
-                const baseName = path.basename(currentFilePath, ext);
-                const siblingExts = ['.wav', '.flac', '.mp3', '.m4a', '.ogg']; // Check common extensions
+                hash = await getFileHash(currentFilePath);
+                const existingByHash = this.database.getTrackByHash(hash);
 
-                for (const sExt of siblingExts) {
-                    if (sExt === ext) continue;
-                    // Check against DB paths (relative)
-                    const siblingPath = this.normalizePath(path.join(dir, baseName + sExt), musicDir);
-                    const sibling = this.database.getTrackByPath(siblingPath);
-                    if (sibling) {
-                        existing = sibling;
-                        console.log(`    [Scanner] Pairing: found existing record by filename match '${baseName}${sExt}' (Target: ${ext.toUpperCase()})`);
-                        break;
+                if (existingByHash && ownerId) {
+                    console.log(`    [Scanner] Deduplication: file hash matched existing track '${existingByHash.title}' (ID ${existingByHash.id})`);
+                    
+                    // Add ownership link
+                    this.database.addTrackOwner(existingByHash.id, ownerId);
+                    
+                    // Update track.owner_id column if it's null (for simpler views)
+                    if (existingByHash.owner_id === null) {
+                        this.database.db.prepare("UPDATE tracks SET owner_id = ? WHERE id = ?").run(ownerId, existingByHash.id);
                     }
-                }
-
-                // Second try: Find by metadata
-                if (!existing) {
-                    const metadata = await parseFileWithRetry(currentFilePath);
-                    const title = metadata.common.title || path.basename(currentFilePath, path.extname(currentFilePath));
-                    const artistName = metadata.common.artist;
-
-                    let artistId: number | null = overrideArtistId || null;
-                    if (!artistId && artistName) {
-                        const existingArtist = this.database.getArtistByName(artistName);
-                        artistId = existingArtist ? existingArtist.id : null;
+                    
+                    // Also link the owner to the album if it exists
+                    if (existingByHash.album_id) {
+                        this.database.addAlbumOwner(existingByHash.album_id, ownerId);
+                        
+                        // Update album.owner_id column if it's null
+                        const album = this.database.getAlbum(existingByHash.album_id);
+                        if (album && album.owner_id === null) {
+                            this.database.db.prepare("UPDATE albums SET owner_id = ? WHERE id = ?").run(ownerId, existingByHash.album_id);
+                        }
                     }
 
-                    // Look for existing track by metadata in the same album
-                    existing = this.database.getTrackByMetadata(title, artistId, albumId);
-                    if (existing) {
-                        console.log(`    [Scanner] Pairing: found existing record by metadata for '${title}' (Target: ${ext.toUpperCase()})`);
+                    // If the uploaded file is a temp file (from upload), we can safely remove it now
+                    if (currentFilePath.includes(path.sep + 'tmp' + path.sep) || currentFilePath.includes('/tmp/')) {
+                        await fs.remove(currentFilePath);
                     }
+
+                    return { originalPath: filePath, success: true, message: "Duplicate content matched and linked to your library.", trackId: existingByHash.id };
                 }
             } catch (e) {
-                console.error(`    [Scanner] Error finding match for pairing lookup: ${e instanceof Error ? e.message : String(e)}`);
+                console.warn(`    [Scanner] Failed to calculate hash for ${currentFilePath}:`, e);
             }
+
+            const LOSSLESS_EXTENSIONS = ['.wav', '.flac'];
+            const normalizedPath = this.normalizePath(currentFilePath, musicDir);
+            let existing = this.database.getTrackByPath(normalizedPath);
+
+            // Determine album ID from override or folder map
+            let albumId = overrideAlbumId || this.folderToAlbumMap.get(dir) || null;
+
+            // If no album ID found and we're inside the music library, try to get or create an implicit library album
+            if (albumId === null && dir.startsWith(musicDir)) {
+                albumId = await this.getOrCreateLibraryAlbum(dir, musicDir, suggestedCoverPath);
+            }
+
+            // If track is in the "library" or "tracks" folder and map has no info, protect the existing link
+            // This prevents the scanner from unlinking tracks that were manually uploaded/linked via API
+            if (albumId === null && existing && existing.album_id &&
+                (normalizedPath.startsWith('library') || normalizedPath.startsWith('tracks'))) {
+                // console.log(`[Scanner] Protecting existing album link for ${normalizedPath}`);
+                albumId = existing.album_id;
+            }
+
+            // 1. Try to find existing record by path or metadata for pairing
+            if (!existing) {
+                try {
+                    // First try: Find by filename (basename) match in the same directory
+                    // This handles cases where metadata is missing (e.g. fresh conversion) but filenames match (song.mp3 vs song.wav)
+                    const baseName = path.basename(currentFilePath, ext);
+                    const siblingExts = ['.wav', '.flac', '.mp3', '.m4a', '.ogg']; // Check common extensions
+
+                    for (const sExt of siblingExts) {
+                        if (sExt === ext) continue;
+                        // Check against DB paths (relative)
+                        const siblingPath = this.normalizePath(path.join(dir, baseName + sExt), musicDir);
+                        const sibling = this.database.getTrackByPath(siblingPath);
+                        if (sibling) {
+                            existing = sibling;
+                            console.log(`    [Scanner] Pairing: found existing record by filename match '${baseName}${sExt}' (Target: ${ext.toUpperCase()})`);
+                            break;
+                        }
+                    }
+
+                    // Second try: Find by metadata
+                    if (!existing) {
+                        const metadata = await parseFileWithRetry(currentFilePath);
+                        const title = metadata.common.title || path.basename(currentFilePath, path.extname(currentFilePath));
+                        const artistName = metadata.common.artist;
+
+                        let artistId: number | null = overrideArtistId || null;
+                        if (!artistId && artistName) {
+                            const existingArtist = this.database.getArtistByName(artistName);
+                            artistId = existingArtist ? existingArtist.id : null;
+                        }
+
+                        // Look for existing track by metadata in the same album
+                        existing = this.database.getTrackByMetadata(title, artistId, albumId);
+                        if (existing) {
+                            console.log(`    [Scanner] Pairing: found existing record by metadata for '${title}' (Target: ${ext.toUpperCase()})`);
+                        }
+                    }
+                } catch (e) {
+                    console.error(`    [Scanner] Error finding match for pairing lookup: ${e instanceof Error ? e.message : String(e)}`);
+                }
+            }
+        } finally {
+            this.hashingSemaphore--;
         }
 
         // 2. Handle pairing if record exists
