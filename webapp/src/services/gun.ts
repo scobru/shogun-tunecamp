@@ -4,7 +4,7 @@ import 'gun/sea';
 import 'gun/lib/radix';
 import 'gun/lib/radisk';
 import 'gun/lib/rindexed';
-import "gun/lib/wallet.js";
+import "gun/lib/wallet-eth.js";
 import API from './api';
 import type { UserPlaylist, UserPlaylistTrack, Track } from '../types';
 
@@ -30,7 +30,7 @@ if (envPeers && typeof envPeers === 'string' && envPeers.trim().length > 0) {
         .split(/[,\s]+/)
         .map(p => p.trim())
         .filter(p => p.length > 0 && (p.startsWith('ws://') || p.startsWith('wss://') || p.startsWith('http://') || p.startsWith('https://')));
-    
+
     console.log(`📡 GunDB initialized with ${PEERS.length} custom peers from config`);
 }
 
@@ -41,8 +41,10 @@ const gun = Gun({
     radisk: false
 });
 
-const user = gun.user().recall({ sessionStorage
-    : true });
+const user = gun.user().recall({
+    sessionStorage
+        : true
+});
 
 // Helper interface for Gun User Profile
 export interface GunProfile {
@@ -517,7 +519,7 @@ export const GunPlaylists = {
             const processData = (data: any) => {
                 if (resolved) return;
                 resolved = true;
-                
+
                 if (timeoutId) clearTimeout(timeoutId);
                 // Clean up listeners
                 listeners.forEach(ev => {
