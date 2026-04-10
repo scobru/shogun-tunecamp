@@ -97,7 +97,9 @@ export class TorrentService {
                 }
             };
 
-            try {
+                // Capture ownerId for use in both immediate and delayed save
+                const owner_id_capture = ownerId;
+
                 console.log(`📡 Calling client.add for ${magnetUri.substring(0, 40)}...`);
                 const torrent = this.client.add(magnetUri, { path: this.downloadDir }, (t: Torrent) => {
                     console.log(`✅ Torrent metadata retrieved: ${t.name} (${t.infoHash})`);
@@ -108,16 +110,17 @@ export class TorrentService {
                         deadTorrentTimeoutId = null;
                     }
 
+                    // Update database with the actual name retrieved from metadata
                     if (saveToDb) {
                         try {
                             this.database.createTorrent({
                                 info_hash: t.infoHash,
                                 name: t.name || 'Unknown Torrent',
                                 magnet_uri: magnetUri,
-                                owner_id: ownerId
+                                owner_id: owner_id_capture
                             });
                         } catch (dbErr) {
-                            console.error(`❌ Database error saving torrent ${t.infoHash}:`, dbErr);
+                            console.error(`❌ Database error updating torrent metadata ${t.infoHash}:`, dbErr);
                         }
                     }
 
@@ -156,6 +159,21 @@ export class TorrentService {
                 // Immediately resolve with infoHash if available (typical for magnet links)
                 if (torrent.infoHash) {
                     console.log(`🧲 WebTorrent identified infoHash: ${torrent.infoHash}`);
+                    
+                    // CRITICAL: Persist immediately so it's not forgotten on restart/crash
+                    if (saveToDb) {
+                        try {
+                            this.database.createTorrent({
+                                info_hash: torrent.infoHash,
+                                name: (torrent as any).name || 'Metadata pending...',
+                                magnet_uri: magnetUri,
+                                owner_id: ownerId
+                            });
+                        } catch (dbErr) {
+                            console.error(`❌ Database error in immediate torrent save ${torrent.infoHash}:`, dbErr);
+                        }
+                    }
+
                     isSettled = true;
                     resolve(torrent.infoHash);
                     // We don't cleanup() yet because we might want the infoHash event below for logging

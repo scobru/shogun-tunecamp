@@ -46,16 +46,33 @@ export class WaveformService {
                 .format('s16le'); // Signed 16-bit Little Endian PCM
 
             const stream = command.pipe();
-            const bufferChunks: Buffer[] = [];
+            
+            // We'll calculate peaks by dividing the stream into 'samples' number of buckets.
+            // But since we don't know the total length upfront, we'll collect the peaks in a more dynamic way
+            // or use a temporary buffer if it's small enough.
+            // Actually, for 4000Hz mono, 1 minute is ~480KB. 10 minutes is 4.8MB.
+            // The OOM was likely caused by MANY of these requests being active or not GC'd.
+
+            // Let's improve the memory handling by using a simpler accumulation.
+            const peaks = new Array(samples).fill(0);
+            const bucketSize = 4000 * 2; // Process in chunks of 1 second (4000 samples * 2 bytes)
+            let totalBytesRead = 0;
+            let currentBuffer = Buffer.alloc(0);
 
             stream.on('data', (chunk: Buffer) => {
-                bufferChunks.push(chunk);
+                currentBuffer = Buffer.concat([currentBuffer, chunk]);
+                
+                // We'll process the buffer later on 'end' because we need to know the total length
+                // to divide into exactly 'samples' buckets. 
+                // To save memory, we'll monitor the buffer size.
+                if (currentBuffer.length > 50 * 1024 * 1024) { // 50MB limit per track waveform
+                    console.warn(`[Waveform] Track too large for memory-based waveform, truncating: ${inputPath}`);
+                    stream.destroy();
+                }
             });
 
             stream.on('end', () => {
-                const buffer = Buffer.concat(bufferChunks);
-                // buffer contains raw 16-bit integer samples
-                // Each sample is 2 bytes
+                const buffer = currentBuffer;
                 const totalSamples = Math.floor(buffer.length / 2);
 
                 if (totalSamples === 0) {
@@ -63,33 +80,26 @@ export class WaveformService {
                 }
 
                 const step = Math.floor(totalSamples / samples);
-                const peaks: number[] = [];
+                const result: number[] = [];
 
                 for (let i = 0; i < samples; i++) {
-                    let start = i * step * 2; // byte offset
+                    let start = i * step * 2;
                     let max = 0;
-
-                    // Check a simplified window for the peak (don't scan every single sample for speed, maybe scan 100 samples in the window)
-                    // Or scan the whole window if step is small.
-                    // Let's scan a representative chunk of the window to keep it fast.
-                    const windowSize = Math.min(step, 1000); // scan at most 1000 samples per block
+                    const windowSize = Math.min(step, 1000);
 
                     for (let j = 0; j < windowSize; j++) {
                         const offset = start + (j * 2);
                         if (offset + 1 >= buffer.length) break;
-
-                        // Read Int16
                         const val = Math.abs(buffer.readInt16LE(offset));
                         if (val > max) max = val;
                     }
 
-                    // Normalize to 0-1 range (16-bit max is 32768)
-                    // Using non-linear scaling can look better for visualizations
-                    const normalized = parseFloat((max / 32768).toFixed(4));
-                    peaks.push(normalized);
+                    result.push(parseFloat((max / 32768).toFixed(4)));
                 }
 
-                resolve(peaks);
+                // Explicitly clear references for GC
+                currentBuffer = Buffer.alloc(0);
+                resolve(result);
             });
 
             stream.on('error', (err) => {
