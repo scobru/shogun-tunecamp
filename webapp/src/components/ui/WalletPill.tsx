@@ -16,10 +16,10 @@ export const WalletPill = () => {
 
   // Re-initialize wallet when the component mounts if not ready
   useEffect(() => {
-    if (!isWalletReady && !isWalletLoading) {
+    if (!isWalletReady && !isWalletLoading && !error) {
       initWallet();
     }
-  }, [isWalletReady, isWalletLoading, initWallet]);
+  }, [isWalletReady, isWalletLoading, initWallet, error]);
 
   // Periodically refresh balances
   useEffect(() => {

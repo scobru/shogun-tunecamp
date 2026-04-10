@@ -51,20 +51,29 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     useExternalWallet: false,
 
     initWallet: async () => {
+        if (get().isWalletLoading) return;
+        
         set({ isWalletLoading: true, error: null });
         try {
             // Need to get the authenticated user's SEA 'priv' key to derive the wallet.
             // GunAuth doesn't expose SEA directly in the profile, but we can access `GunAuth.user._.sea.priv`.
-
+            
             // @ts-ignore
-            const sea = GunAuth.user._.sea;
-
-            if (!sea || !sea.priv) {
-                console.log("No SEA credentials found. Wallet cannot be derived.");
+            const gunUser = GunAuth.user;
+            if (!gunUser || !gunUser._) {
+                console.log("GunDB user session not fully initialized. Skipping wallet derivation.");
                 set({ isWalletLoading: false, isWalletReady: false });
                 return;
             }
 
+            const sea = gunUser._.sea;
+            if (!sea || !sea.priv) {
+                console.log("No SEA credentials found in Gun session. Wallet cannot be derived yet.");
+                set({ isWalletLoading: false, isWalletReady: false });
+                return;
+            }
+
+            console.log("🔐 Deriving wallet from Gun SEA credentials...");
             const wallet = await deriveTunecampWallet(sea);
 
             set({
@@ -76,8 +85,9 @@ export const useWalletStore = create<WalletState>((set, get) => ({
             // Fetch balances after initializing
             await get().refreshBalances();
         } catch (e: any) {
-            console.error("Failed to initialize wallet:", e);
-            set({ error: e.message, isWalletReady: false });
+            const errorMsg = e instanceof Error ? e.message : String(e);
+            console.error("❌ Failed to initialize wallet:", e);
+            set({ error: errorMsg || "Unknown derivation error", isWalletReady: false });
         } finally {
             set({ isWalletLoading: false });
         }

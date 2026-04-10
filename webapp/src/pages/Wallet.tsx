@@ -47,10 +47,10 @@ export const Wallet = () => {
   const { ownedNFTs, loading: nftsLoading } = useOwnedNFTs(activeAddress);
 
   useEffect(() => {
-    if (!isWalletReady && !isWalletLoading) {
+    if (!isWalletReady && !isWalletLoading && !error) {
       initWallet();
     }
-  }, [isWalletReady, isWalletLoading, initWallet]);
+  }, [isWalletReady, isWalletLoading, initWallet, error]);
 
   useEffect(() => {
     refreshBalances();
