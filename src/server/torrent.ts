@@ -97,6 +97,7 @@ export class TorrentService {
                 }
             };
 
+            try {
                 // Capture ownerId for use in both immediate and delayed save
                 const owner_id_capture = ownerId;
 
