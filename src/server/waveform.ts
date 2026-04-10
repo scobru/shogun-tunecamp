@@ -57,6 +57,7 @@ export class WaveformService {
                 if (bytesRead > MAX_PCM_TOTAL) {
                     console.warn(`[Waveform] Track too large, truncating: ${inputPath}`);
                     stream.destroy();
+                    resolve(peaks); // Return what we have so far instead of hanging
                     return;
                 }
 

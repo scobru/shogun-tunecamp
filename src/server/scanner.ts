@@ -16,8 +16,14 @@ import { getFileHash } from "../utils/fileUtils.js";
 class ProcessingQueue {
     private queue: (() => Promise<any>)[] = [];
     private processing = false;
+    private MAX_QUEUE_SIZE = 500;
 
     async add<T>(task: () => Promise<T>): Promise<T> {
+        if (this.queue.length >= this.MAX_QUEUE_SIZE) {
+            console.warn(`[Queue] Maximum queue size (${this.MAX_QUEUE_SIZE}) reached. Dropping task to protect memory.`);
+            return Promise.reject(new Error("Queue capacity reached"));
+        }
+
         return new Promise((resolve, reject) => {
             this.queue.push(async () => {
                 try {
@@ -1088,12 +1094,16 @@ export class Scanner implements ScannerService {
 
     public async consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number }> {
         console.log("[Scanner] Starting file consolidation...");
-        const tracks = this.database.getTracks();
+        // Use iterative prepared statement to avoid loading all tracks into memory
+        const stmt = this.database.db.prepare("SELECT * FROM tracks WHERE file_path IS NOT NULL");
+        
         let success = 0;
         let failed = 0;
         let skipped = 0;
+        let processed = 0;
 
-        for (const track of tracks) {
+        for (const track of stmt.iterate() as Iterable<any>) {
+            processed++;
             // Only process local tracks with files
             if (!track.file_path) {
                 skipped++;
@@ -1192,6 +1202,11 @@ export class Scanner implements ScannerService {
                     console.log(`    To:   ${finalDBPath}`);
                 } else {
                     skipped++;
+                }
+
+                // Safety: yield to event loop periodically
+                if (processed % 100 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 0));
                 }
 
             } catch (err) {

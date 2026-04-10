@@ -361,23 +361,25 @@ export class TorrentService {
         await this.handleTorrentDone(torrent, finalOwnerId);
     }
 
-    public getTorrentsStatus(): TorrentStatus[] {
+    public getTorrentsStatus(includeFiles: boolean = false): TorrentStatus[] {
         if (!this.client || !this.client.torrents) return [];
         
         return this.client.torrents.map((t: Torrent) => {
             let filesStatus: any[] = [];
-            try {
-                if (t.files && Array.isArray(t.files)) {
-                    filesStatus = t.files.map((f: TorrentFile) => ({
-                        name: f.name,
-                        path: f.path,
-                        progress: f.progress,
-                        length: f.length,
-                        downloaded: f.downloaded
-                    }));
+            if (includeFiles) {
+                try {
+                    if (t.files && Array.isArray(t.files)) {
+                        filesStatus = t.files.map((f: TorrentFile) => ({
+                            name: f.name,
+                            path: f.path,
+                            progress: f.progress,
+                            length: f.length,
+                            downloaded: f.downloaded
+                        }));
+                    }
+                } catch (err) {
+                    console.error("Error mapping torrent files for status:", err);
                 }
-            } catch (err) {
-                console.error("Error mapping torrent files for status:", err);
             }
             
             return {
