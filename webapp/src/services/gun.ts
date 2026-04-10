@@ -4,7 +4,7 @@ import 'gun/sea';
 import 'gun/lib/radix';
 import 'gun/lib/radisk';
 import 'gun/lib/rindexed';
-import "gun/lib/wallet-eth.js";
+import "gun/lib/wallet-eth";
 import API from './api';
 import type { UserPlaylist, UserPlaylistTrack, Track } from '../types';
 
