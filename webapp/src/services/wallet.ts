@@ -11,7 +11,7 @@
  */
 import { ethers } from 'ethers';
 // @ts-ignore - gun/lib/wallet is registered by gun service but we can also use directly
-import { seaToEthWallet } from 'gun/lib/wallet.js';
+import { seaToEthWallet } from 'gun/lib/wallet-eth.js';
 
 // Base Mainnet RPC configuration
 const BASE_RPC_URL = (window as any).TUNECAMP_CONFIG?.rpcUrl || import.meta.env.VITE_TUNECAMP_RPC_URL || 'https://base.llamarpc.com';
@@ -30,7 +30,7 @@ export async function deriveTunecampWallet(pair: { priv: string, [key: string]: 
   if (!pair || !pair.priv) throw new Error("Missing SEA pair.priv");
 
   const { privateKey } = await seaToEthWallet(pair, { account });
-  
+
   // Connect wallet to provider
   const wallet = new ethers.Wallet(privateKey, provider);
 
