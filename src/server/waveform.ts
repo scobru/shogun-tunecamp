@@ -57,22 +57,23 @@ export class WaveformService {
             const peaks = new Array(samples).fill(0);
             const bucketSize = 4000 * 2; // Process in chunks of 1 second (4000 samples * 2 bytes)
             let totalBytesRead = 0;
-            let currentBuffer = Buffer.alloc(0);
+            const chunks: Buffer[] = [];
+            let bytesRead = 0;
 
             stream.on('data', (chunk: Buffer) => {
-                currentBuffer = Buffer.concat([currentBuffer, chunk]);
+                chunks.push(chunk);
+                bytesRead += chunk.length;
                 
-                // We'll process the buffer later on 'end' because we need to know the total length
-                // to divide into exactly 'samples' buckets. 
-                // To save memory, we'll monitor the buffer size.
-                if (currentBuffer.length > 50 * 1024 * 1024) { // 50MB limit per track waveform
+                // Safety limit: 100MB of raw PCM is ~3.5 hours of audio at 4000Hz mono.
+                // Enough for any reasonable track while protecting memory.
+                if (bytesRead > 100 * 1024 * 1024) {
                     console.warn(`[Waveform] Track too large for memory-based waveform, truncating: ${inputPath}`);
                     stream.destroy();
                 }
             });
 
             stream.on('end', () => {
-                const buffer = currentBuffer;
+                const buffer = Buffer.concat(chunks);
                 const totalSamples = Math.floor(buffer.length / 2);
 
                 if (totalSamples === 0) {
@@ -97,8 +98,6 @@ export class WaveformService {
                     result.push(parseFloat((max / 32768).toFixed(4)));
                 }
 
-                // Explicitly clear references for GC
-                currentBuffer = Buffer.alloc(0);
                 resolve(result);
             });
 

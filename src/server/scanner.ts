@@ -58,7 +58,7 @@ async function parseFileWithRetry(filePath: string, retries = 3, delay = 500): P
     let lastError: any;
     for (let i = 0; i < retries; i++) {
         try {
-            return await parseFile(filePath);
+            return await parseFile(filePath, { skipCovers: true });
         } catch (err) {
             lastError = err;
             // Only retry on potential race condition errors

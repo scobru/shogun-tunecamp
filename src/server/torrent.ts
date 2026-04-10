@@ -10,6 +10,8 @@ export class TorrentService {
     private musicDir: string;
     private downloadDir: string;
     private processingTorrents: Set<string> = new Set();
+    private indexingQueue: (() => Promise<void>)[] = [];
+    private isIndexing = false;
 
     constructor(
         private database: DatabaseService,
@@ -216,6 +218,37 @@ export class TorrentService {
             return;
         }
 
+        // Add to indexing queue to ensure memory stability
+        this.indexingQueue.push(async () => {
+            try {
+                await this.processTorrentIndexing(torrent, ownerId);
+            } catch (err) {
+                console.error(`❌ Torrent processing failed for ${torrent.infoHash}:`, err);
+            }
+        });
+
+        this.processNextInIndexingQueue();
+    }
+
+    private async processNextInIndexingQueue() {
+        if (this.isIndexing || this.indexingQueue.length === 0) return;
+        this.isIndexing = true;
+
+        while (this.indexingQueue.length > 0) {
+            const next = this.indexingQueue.shift();
+            if (next) {
+                try {
+                    await next();
+                } catch (e) {
+                    console.error("Critical error in indexing queue runner:", e);
+                }
+            }
+        }
+
+        this.isIndexing = false;
+    }
+
+    private async processTorrentIndexing(torrent: Torrent, ownerId?: number | null) {
         try {
             this.processingTorrents.add(torrent.infoHash);
             console.log(`📂 Processing finished torrent files for: ${torrent.name}`);
