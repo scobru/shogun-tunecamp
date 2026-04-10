@@ -327,7 +327,7 @@ export function createAuthService(
                 try {
                     const systemPairRow = db.prepare("SELECT value FROM settings WHERE key = 'gunPair'").get() as { value: string } | undefined;
                     if (systemPairRow) {
-                        const systemPair = JSON.parse(systemPairRow.row || systemPairRow.value); // Handle potential variations in object structure
+                        const systemPair = JSON.parse(systemPairRow.value); // Fetch identity from settings
                         if (systemPair && systemPair.pub && (!gunPair || gunPair.pub !== systemPair.pub)) {
                             console.log(`🔗 Syncing Root Admin ${username} with instance GunDB Identity...`);
                             gunPair = systemPair;
