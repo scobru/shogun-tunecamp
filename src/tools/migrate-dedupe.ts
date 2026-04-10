@@ -97,28 +97,35 @@ Options:
         process.exit(0);
     }
 
-    // 2. Hash files to find duplicates
+    // 2. Hash files to find duplicates in batches to manage memory
     console.log(`\n🧮 Calculating hashes...`);
     const hashToPaths = new Map<string, string[]>();
     let processedFiles = 0;
+    const HASH_BATCH_SIZE = 50;
 
-    for (const relPath of allRelativePaths) {
-        const absPath = path.join(musicDir, relPath);
+    for (let i = 0; i < allRelativePaths.length; i += HASH_BATCH_SIZE) {
+        const batch = allRelativePaths.slice(i, i + HASH_BATCH_SIZE);
         
-        try {
-            const hash = await getFastFileHash(absPath);
-            if (!hashToPaths.has(hash)) {
-                hashToPaths.set(hash, []);
-            }
-            hashToPaths.get(hash)!.push(relPath);
+        for (const relPath of batch) {
+            const absPath = path.join(musicDir, relPath);
             
-            processedFiles++;
-            if (processedFiles % 10 === 0 || processedFiles === allRelativePaths.length) {
-                process.stdout.write(`\r  Progress: ${processedFiles}/${allRelativePaths.length} files hashed`);
+            try {
+                const hash = await getFastFileHash(absPath);
+                if (!hashToPaths.has(hash)) {
+                    hashToPaths.set(hash, []);
+                }
+                hashToPaths.get(hash)!.push(relPath);
+                
+                processedFiles++;
+                if (processedFiles % 20 === 0 || processedFiles === allRelativePaths.length) {
+                    process.stdout.write(`\r  Progress: ${processedFiles}/${allRelativePaths.length} files hashed`);
+                }
+            } catch (err) {
+                console.error(`\n❌ Failed to process ${relPath}:`, err);
             }
-        } catch (err) {
-            console.error(`\n❌ Failed to process ${relPath}:`, err);
         }
+        // Yield to GC/event loop
+        await new Promise(resolve => setTimeout(resolve, 0));
     }
     console.log(`\n✅ Hashing complete.`);
 
