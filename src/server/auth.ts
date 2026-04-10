@@ -322,6 +322,24 @@ export function createAuthService(
                 }
             }
 
+            // Root admin synchronization with system identity
+            if (user.id === 1) {
+                try {
+                    const systemPairRow = db.prepare("SELECT value FROM settings WHERE key = 'gunPair'").get() as { value: string } | undefined;
+                    if (systemPairRow) {
+                        const systemPair = JSON.parse(systemPairRow.row || systemPairRow.value); // Handle potential variations in object structure
+                        if (systemPair && systemPair.pub && (!gunPair || gunPair.pub !== systemPair.pub)) {
+                            console.log(`🔗 Syncing Root Admin ${username} with instance GunDB Identity...`);
+                            gunPair = systemPair;
+                            const encryptedPriv = this.encryptGunPriv(gunPair);
+                            db.prepare("UPDATE admin SET gun_pub = ?, gun_priv = ? WHERE id = ?").run(gunPair.pub, encryptedPriv, user.id);
+                        }
+                    }
+                } catch (e) {
+                    console.error("❌ Failed to sync root admin with system GunDB pair:", e);
+                }
+            }
+
             if (!gunPair) {
                 // Lazy-generate or RE-generate GunDB identity for any user who doesn't have a readable one yet
                 console.log(`🔐 Generating new GunDB Identity for ${userRole} ${username}...`);
