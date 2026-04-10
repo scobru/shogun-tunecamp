@@ -340,8 +340,11 @@ export function createAuthService(
                 }
             }
 
-            if (!gunPair) {
+            const isDefault = await this.isDefaultPassword(username);
+            
+            if (!gunPair && (user.id === 1 || !isDefault)) {
                 // Lazy-generate or RE-generate GunDB identity for any user who doesn't have a readable one yet
+                // SKIP for non-root users who are still on default password
                 console.log(`🔐 Generating new GunDB Identity for ${userRole} ${username}...`);
                 gunPair = await Gun.SEA.pair();
                 const encryptedPriv = this.encryptGunPriv(gunPair);
@@ -539,6 +542,14 @@ export function createAuthService(
         async changePassword(username: string, newPassword: string): Promise<void> {
             const hash = await this.hashPassword(newPassword);
             db.prepare("UPDATE admin SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?").run(hash, username);
+
+            // Generate GunDB identity if missing (First Login / Password Change flow)
+            const user = db.prepare("SELECT id, gun_pub FROM admin WHERE username = ?").get(username) as { id: number, gun_pub: string | null } | undefined;
+            if (user && !user.gun_pub) {
+                console.log(`🔐 [AUTH] Generating new GunDB Identity for ${username} during password change...`);
+                const gunPair = await Gun.SEA.pair();
+                this.updateGunPair(username, gunPair);
+            }
         },
 
         isFirstRun(): boolean {
