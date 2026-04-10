@@ -392,7 +392,18 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         } else if (id.startsWith('al_')) {
             const albumId = parseInt(id.substring(3));
             const album = db.getAlbum(albumId);
-            if (album?.cover_path) imagePath = album.cover_path;
+            if (album?.cover_path) {
+                imagePath = album.cover_path;
+            } else {
+                // Fallback: check tracks for artwork
+                const tracks = db.getTracksByAlbum(albumId);
+                for (const track of tracks) {
+                    if (track.external_artwork) {
+                        imagePath = track.external_artwork;
+                        break;
+                    }
+                }
+            }
         } else if (id.startsWith('tr_')) {
             const track = db.getTrack(parseInt(id.substring(3)));
             if (track) {

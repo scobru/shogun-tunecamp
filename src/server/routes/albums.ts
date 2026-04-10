@@ -209,6 +209,21 @@ export function createAlbumsRoutes(database: DatabaseService, musicDir: string):
                 }
             }
 
+            // Fallback: Try to find a track in this album that has external artwork
+            const tracks = database.getTracksByAlbum(album.id);
+            const trackWithCover = tracks.find(t => t.external_artwork);
+
+            if (trackWithCover && trackWithCover.external_artwork) {
+                if (trackWithCover.external_artwork.startsWith("http")) {
+                    return res.redirect(trackWithCover.external_artwork);
+                }
+
+                const trackArtworkPath = path.join(musicDir, trackWithCover.external_artwork);
+                if (await fs.pathExists(trackArtworkPath)) {
+                    return res.sendFile(path.resolve(trackArtworkPath), { maxAge: 86400000 });
+                }
+            }
+
             // Fallback: Return SVG placeholder based on title
             const svg = getPlaceholderSVG(album.title || "Album");
             res.setHeader("Content-Type", "image/svg+xml");
