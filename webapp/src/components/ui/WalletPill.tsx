@@ -12,6 +12,7 @@ export const WalletPill = () => {
     isWalletLoading,
     initWallet,
     refreshBalances,
+    error,
   } = useWalletStore();
 
   // Re-initialize wallet when the component mounts if not ready
