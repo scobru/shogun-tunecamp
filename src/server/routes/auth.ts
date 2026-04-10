@@ -150,6 +150,7 @@ export function createAuthRoutes(authService: AuthService, authMiddleware: any):
                 message: "Password changed successfully",
                 token,
                 expiresIn: "7d",
+                pair: authService.getUserPair(username) // Return the newly generated or existing pair
             });
         } catch (error) {
             console.error("Password change error:", error);
