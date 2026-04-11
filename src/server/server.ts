@@ -72,6 +72,7 @@ import { securityHeaders } from "./middleware/security.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { SoulseekService } from "./soulseek.js";
 import { createSearchRoutes } from "./routes/search.js";
+import { runStartupMaintenance } from "./maintenance.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -89,6 +90,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // Initialize database
     console.log(`📦 Initializing database: ${config.dbPath}`);
     const database = createDatabase(config.dbPath);
+
+    // Run Startup Maintenance (Repair paths + Restore Orphans)
+    await runStartupMaintenance(database, config);
 
     // Initialize auth
     const authService = createAuthService(database.db, config.jwtSecret, config.adminUser, config.adminPass);

@@ -34,15 +34,24 @@ async function main() {
 
     const args = process.argv.slice(2);
     const dbArgIdx = args.indexOf('--db');
+    const musicArgIdx = args.indexOf('--music');
+    
     const dbOverride = dbArgIdx !== -1 ? args[dbArgIdx + 1] : null;
+    const musicOverride = musicArgIdx !== -1 ? args[musicArgIdx + 1] : null;
 
     const config = loadConfig();
     const dbPath = dbOverride || config.dbPath;
-    const musicDir = path.resolve(config.musicDir).replace(/\\/g, '/');
+    const musicDir = path.resolve(musicOverride || config.musicDir).replace(/\\/g, '/');
 
     if (!fs.existsSync(dbPath)) {
         console.error(`❌ Database not found at: ${dbPath}`);
-        console.log(`Usage: npx tsx src/tools/relink-tracks.ts --db /path/to/tunecamp.db`);
+        console.log(`Usage: npx tsx src/tools/relink-tracks.ts --db /data/tunecamp.db --music /music`);
+        process.exit(1);
+    }
+
+    if (!fs.existsSync(musicDir)) {
+        console.error(`❌ Music directory not found at: ${musicDir}`);
+        console.log(`Usage: npx tsx src/tools/relink-tracks.ts --db /data/tunecamp.db --music /music`);
         process.exit(1);
     }
 
