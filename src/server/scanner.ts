@@ -1148,15 +1148,15 @@ export class Scanner implements ScannerService {
 
     public async consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number }> {
         console.log("[Scanner] Starting file consolidation...");
-        // Use iterative prepared statement to avoid loading all tracks into memory
-        const stmt = this.database.db.prepare("SELECT * FROM tracks WHERE file_path IS NOT NULL");
+        // Fetch all tracks at once to free up the database connection for nested queries
+        const tracks = this.database.db.prepare("SELECT * FROM tracks WHERE file_path IS NOT NULL").all() as any[];
         
         let success = 0;
         let failed = 0;
         let skipped = 0;
         let processed = 0;
 
-        for (const track of stmt.iterate() as Iterable<any>) {
+        for (const track of tracks) {
             processed++;
             // Only process local tracks with files
             if (!track.file_path) {
