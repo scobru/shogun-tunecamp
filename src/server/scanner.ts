@@ -178,6 +178,9 @@ export class Scanner implements ScannerService {
     private readonly MAX_CONCURRENT_HASHING = 2; // Keep it low to avoid OOM
     private isConsolidating = false;
 
+    private scannerStartTime = Date.now();
+    private readonly WATCHER_STARTUP_DELAY = 60000; // Ignore unlinks for 60s
+
     constructor(private database: DatabaseService) { }
 
     /**
@@ -270,7 +273,23 @@ export class Scanner implements ScannerService {
      * Normalize path to be relative to musicDir and use forward slashes (POSIX style)
      */
     private normalizePath(filePath: string, musicDir: string): string {
-        return path.relative(musicDir, filePath).replace(/\\/g, "/");
+        try {
+            const absoluteMusicDir = path.resolve(musicDir);
+            const absoluteFilePath = path.isAbsolute(filePath) ? filePath : path.resolve(musicDir, filePath);
+            
+            let relative = path.relative(absoluteMusicDir, absoluteFilePath).replace(/\\/g, "/");
+            
+            // Security: ensure we never return a path starting with ../ (stay inside music root)
+            while (relative.startsWith("../")) {
+                relative = relative.substring(3);
+            }
+            if (relative === "..") return ".";
+            
+            return relative;
+        } catch (e) {
+            console.error(`[Scanner] Error normalizing path: ${filePath}`, e);
+            return filePath.replace(/\\/g, "/");
+        }
     }
 
     private async processGlobalConfigs(rootDir: string, musicDir: string): Promise<void> {
@@ -567,20 +586,28 @@ export class Scanner implements ScannerService {
 
                     // Second try: Find by metadata
                     if (!existing) {
-                        const metadata = await parseFileWithRetry(currentFilePath);
-                        const title = metadata.common.title || path.basename(currentFilePath, path.extname(currentFilePath));
-                        const artistName = metadata.common.artist;
-
-                        let artistId: number | null = overrideArtistId || null;
-                        if (!artistId && artistName) {
-                            const existingArtist = this.database.getArtistByName(artistName);
-                            artistId = existingArtist ? existingArtist.id : null;
+                        try {
+                            metadata = await parseFileWithRetry(currentFilePath);
+                        } catch (e) {
+                            console.warn(`    [Scanner] Failed to parse metadata (Try 2) for ${currentFilePath}:`, e);
                         }
 
-                        // Look for existing track by metadata in the same album
-                        existing = this.database.getTrackByMetadata(title, artistId, albumId);
-                        if (existing) {
-                            console.log(`    [Scanner] Pairing: found existing record by metadata for '${title}' (Target: ${ext.toUpperCase()})`);
+                        if (metadata) {
+                            const title = metadata.common.title || path.basename(currentFilePath, path.extname(currentFilePath));
+                            const artistName = metadata.common.artist;
+
+                            let artistId: number | null = overrideArtistId || null;
+                            if (!artistId && artistName) {
+                                const existingArtist = this.database.getArtistByName(artistName);
+                                artistId = existingArtist ? existingArtist.id : null;
+                            }
+
+                            // Look for existing track by metadata in the same album
+                            existing = this.database.getTrackByMetadata(title, artistId, albumId);
+                            
+                            if (existing) {
+                                console.log(`    [Scanner] Pairing: found existing record by metadata match '${title}' (ID ${existing.id})`);
+                            }
                         }
                     }
                 } catch (e) {
@@ -670,7 +697,9 @@ export class Scanner implements ScannerService {
             }
 
             console.log("  Processing track: " + path.basename(currentFilePath));
-            metadata = await parseFileWithRetry(currentFilePath);
+            if (!metadata) {
+                metadata = await parseFileWithRetry(currentFilePath);
+            }
             const common = metadata.common;
             const format = metadata.format;
 
@@ -1065,8 +1094,8 @@ export class Scanner implements ScannerService {
                 const losslessExists = losslessKey ? knownFiles.has(losslessKey) : false;
 
                 if (!primaryExists && !losslessExists) {
-                    console.log(`  [Cleanup] Removing stale track: ${track.title} (Both MP3 and Lossless missing)`);
-                    this.database.deleteTrack(track.id);
+                    console.log(`  [Cleanup] Track potentially stale: ${track.title} (Both MP3 and Lossless missing). DELETION DISABLED.`);
+                    // this.database.deleteTrack(track.id);
                     removed++;
                 } else if (!primaryExists && losslessExists) {
                     console.warn(`  [Cleanup] Track ${track.title} missing MP3 (${track.file_path}) but has Lossless. Keeping record.`);
@@ -1133,8 +1162,14 @@ export class Scanner implements ScannerService {
                     return;
                 }
 
-                console.log(`[Watcher] Primary file ${relativePath} deleted. Removing track.`);
-                this.database.deleteTrack(track.id);
+                const timeSinceStart = Date.now() - this.scannerStartTime;
+                if (timeSinceStart < this.WATCHER_STARTUP_DELAY) {
+                    console.log(`[Watcher] Ignoring unlink during startup period: ${relativePath}`);
+                    return;
+                }
+
+                console.log(`[Watcher] Primary file ${relativePath} deleted. DELETION DISABLED.`);
+                // this.database.deleteTrack(track.id);
             } else {
                 // It might be the lossless file.
                 // Since we don't have an easy lookup, we'll let the next scan/cleanup handle updating the DB.
