@@ -4,7 +4,7 @@ import { Search, Download, Settings, Activity, Database, RefreshCw, Trash2, Exte
 
 export const ContentSearch: React.FC = () => {
     const [query, setQuery] = useState('');
-    const [activeTab, setActiveTab] = useState<'torrents' | 'soulseek' | 'downloads'>('torrents');
+    const [activeTab, setActiveTab] = useState<'soulseek' | 'downloads'>('soulseek');
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [downloads, setDownloads] = useState<any[]>([]);
@@ -14,9 +14,7 @@ export const ContentSearch: React.FC = () => {
     const [searchError, setSearchError] = useState<string | null>(null);
 
     const quickLinks = [
-        { name: 'RuTracker', icon: <ExternalLink size={14} />, url: (q: string) => `https://rutracker.org/forum/tracker.php?nm=${encodeURIComponent(q)}` },
-        { name: '1337x', icon: <ExternalLink size={14} />, url: (q: string) => `https://1337x.to/category-search/${encodeURIComponent(q)}/Music/1/` },
-        { name: 'The Pirate Bay', icon: <ExternalLink size={14} />, url: (q: string) => `https://thepiratebay.org/search/${encodeURIComponent(q)}/1/99/100` },
+        { name: 'Soulseek Support', icon: <ExternalLink size={14} />, url: (q: string) => `https://www.slsknet.org/` },
     ];
 
     const fetchDownloads = async () => {
@@ -45,38 +43,13 @@ export const ContentSearch: React.FC = () => {
         setSearchError(null);
         try {
             let data: any[];
-            if (activeTab === 'torrents') {
-                data = await API.searchTorrents(query);
-                if (data.length === 0) {
-                    setSearchError("No direct results found. Try the external shortcuts below!");
-                }
-            } else {
-                data = await API.searchSoulseek(query);
-            }
+            data = await API.searchSoulseek(query);
             setResults(data);
         } catch (err: any) {
             console.error(`Search failed: ${err.message}`);
             setSearchError("Search service is currently limited. Use manual links below.");
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleAddTorrent = async (magnet: string) => {
-        if (!magnet.startsWith('magnet:?')) {
-            alert('Please enter a valid magnet link starting with magnet:?');
-            return;
-        }
-        try {
-            await API.addTorrent(magnet);
-            setManualMagnet('');
-            alert('Torrent added to download queue!');
-            if (activeTab === 'torrents') {
-                // Optionally switch to transfers tab or show success
-            }
-        } catch (err: any) {
-            console.error(`Failed to add torrent: ${err.message}`);
-            alert(`Error: ${err.message}`);
         }
     };
 
@@ -183,12 +156,7 @@ export const ContentSearch: React.FC = () => {
             )}
 
             <div className="tabs tabs-boxed mb-6 p-1 bg-base-300">
-                <button 
-                    className={`tab flex-1 transition-all ${activeTab === 'torrents' ? 'tab-active bg-primary text-primary-content shadow-lg' : ''}`}
-                    onClick={() => setActiveTab('torrents')}
-                >
-                    <Database className="mr-2" size={16} /> Torrents
-                </button>
+
                 <button 
                     className={`tab flex-1 transition-all ${activeTab === 'soulseek' ? 'tab-active bg-primary text-primary-content shadow-lg' : ''}`}
                     onClick={() => setActiveTab('soulseek')}
@@ -212,7 +180,7 @@ export const ContentSearch: React.FC = () => {
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" size={18} />
                                 <input 
                                     type="text" 
-                                    placeholder={`Quick search ${activeTab === 'torrents' ? 'automated sites' : 'Soulseek users'}...`}
+                                    placeholder={`Quick search Soulseek users...`}
                                     className="input input-bordered w-full pl-10"
                                     value={query}
                                     onChange={e => setQuery(e.target.value)}
@@ -249,24 +217,13 @@ export const ContentSearch: React.FC = () => {
                                                 {res.title || res.name || res.file}
                                             </h3>
                                             <div className="text-xs opacity-50 flex flex-wrap gap-x-4 gap-y-1 mt-1 font-medium">
-                                                {activeTab === 'torrents' ? (
-                                                    <>
-                                                        <span className="flex items-center gap-1">Size: {res.size}</span>
-                                                        <span className="flex items-center gap-1 text-success">Seeds: {res.seeders}</span>
-                                                        <span className="flex items-center gap-1">Leechers: {res.leechers}</span>
-                                                        {res.provider && <span className="badge badge-ghost badge-xs bg-base-300 px-2 py-1 h-auto uppercase opacity-70">{res.provider}</span>}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <span className="flex items-center gap-1">User: {res.user}</span>
-                                                        <span className="flex items-center gap-1">{(res.size / 1024 / 1024).toFixed(2)} MB</span>
-                                                        <span className="flex items-center gap-1">{(res.speed / 1024).toFixed(0)} KB/s</span>
-                                                    </>
-                                                )}
+                                                <span className="flex items-center gap-1">User: {res.user}</span>
+                                                <span className="flex items-center gap-1">{(res.size / 1024 / 1024).toFixed(2)} MB</span>
+                                                <span className="flex items-center gap-1">{(res.speed / 1024).toFixed(0)} KB/s</span>
                                             </div>
                                         </div>
                                         <button 
-                                            onClick={() => activeTab === 'torrents' ? handleAddTorrent(res.magnet) : handleSoulseekDownload(res)}
+                                            onClick={() => handleSoulseekDownload(res)}
                                             className="btn btn-circle btn-sm btn-ghost hover:bg-primary hover:text-primary-content transition-all"
                                             title="Download"
                                         >
@@ -280,68 +237,6 @@ export const ContentSearch: React.FC = () => {
 
                     {/* Side Actions Column */}
                     <div className="space-y-6">
-                        {/* Manual Magnet Input */}
-                        {activeTab === 'torrents' && (
-                            <div className="card bg-base-200 border border-base-300 shadow-sm overflow-hidden">
-                                <div className="card-body p-5">
-                                    <h2 className="card-title text-sm font-bold uppercase tracking-wider opacity-60 flex items-center gap-2 mb-2">
-                                        <LinkIcon size={16} /> Manual Magnet
-                                    </h2>
-                                    <p className="text-xs opacity-50 mb-4 leading-relaxed">
-                                        Found a magnet link on an external site? Paste it here to start the download.
-                                    </p>
-                                    <div className="flex flex-col gap-2">
-                                        <textarea 
-                                            placeholder="magnet:?xt=urn:btih:..."
-                                            className="textarea textarea-bordered h-24 text-xs font-mono bg-base-300/50 resize-none focus:border-primary/50"
-                                            value={manualMagnet}
-                                            onChange={e => setManualMagnet(e.target.value)}
-                                        />
-                                        <button 
-                                            onClick={() => handleAddTorrent(manualMagnet)}
-                                            className="btn btn-primary btn-sm w-full font-bold shadow-md"
-                                            disabled={!manualMagnet.trim()}
-                                        >
-                                            Add to Queue
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Search Shortcuts */}
-                        {activeTab === 'torrents' && (
-                            <div className="card bg-base-200 border border-base-300 shadow-sm overflow-hidden">
-                                <div className="card-body p-5">
-                                    <h2 className="card-title text-sm font-bold uppercase tracking-wider opacity-60 flex items-center gap-2 mb-2">
-                                        <ExternalLink size={16} /> Site Shortcuts
-                                    </h2>
-                                    <p className="text-xs opacity-50 mb-4 leading-relaxed">
-                                        Scraping is fragile. Use these specialized indexers for the best results.
-                                    </p>
-                                    <div className="grid gap-2">
-                                        {quickLinks.map((link, idx) => (
-                                            <a 
-                                                key={idx}
-                                                href={link.url(query || '')}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="btn btn-sm btn-outline border-base-300 hover:bg-base-300 hover:border-base-300 justify-between font-medium group"
-                                            >
-                                                {link.name}
-                                                <span className="opacity-0 group-hover:opacity-100 transition-opacity translate-x-1">{link.icon}</span>
-                                            </a>
-                                        ))}
-                                    </div>
-                                    {query && (
-                                        <p className="text-[10px] text-center mt-3 opacity-30 italic">
-                                            Links are pre-filled with your current query.
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
                         {/* Note about Soulseek */}
                         {activeTab === 'soulseek' && (
                             <div className="card bg-primary/5 border border-primary/20 p-5">

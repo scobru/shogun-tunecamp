@@ -22,7 +22,6 @@ import {
   MyMusic,
   About,
   SharePage,
-  Torrents,
   ContentSearch,
 } from "./pages";
 import Admin from "./pages/Admin";
@@ -128,7 +127,7 @@ function App() {
             element={<EditorGuard><AdminReleaseEditor /></EditorGuard>}
           />
           <Route path="/browser" element={<AdminGuard><Files /></AdminGuard>} />
-          <Route path="/torrents" element={<AdminGuard><Torrents /></AdminGuard>} />
+
           <Route path="/search/content" element={<AdminGuard><ContentSearch /></AdminGuard>} />
 
           {/* Other */}

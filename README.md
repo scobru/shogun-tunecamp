@@ -65,8 +65,7 @@ docker-compose up -d --build
 - 📊 **Statistics**: Play counts, listening time, top tracks/artists, and library stats.
 
 ### Content Acquisition
-- 🧲 **WebTorrent**: Download music via magnet links directly into the library.
-- 🔎 **Content Search**: Search torrents and Soulseek from the admin panel with one-click import.
+- 🔎 **Content Search**: Search Soulseek from the admin panel with one-click import.
 - 🏷️ **Discogs Metadata**: Match tracks against the Discogs database for accurate tagging.
 
 ### Deployment
@@ -155,8 +154,7 @@ Configuration is managed via environment variables (or an `.env` file).
 | `TUNECAMP_RPC_URL` | Base Network RPC endpoint (Web3) | `https://mainnet.base.org` |
 | `TUNECAMP_OWNER_ADDRESS` | Ethereum wallet address for payment collection | — |
 | `TUNECAMP_CURRENCY_CONTRACT` | ERC-20 token contract (USDC on Base) | `0x833589...02913` |
-| `TUNECAMP_TORRENT_PORT` | WebTorrent listen port | `6881` |
-| `TUNECAMP_DOWNLOAD_DIR` | Directory for torrent/soulseek downloads | `/data/downloads` |
+| `TUNECAMP_DOWNLOAD_DIR` | Directory for soulseek downloads | `/data/downloads` |
 | `DISCOGS_TOKEN` | Discogs API token for metadata matching | — |
 
 ## API & Integrations

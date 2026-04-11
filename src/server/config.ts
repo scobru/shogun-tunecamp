@@ -15,7 +15,6 @@ export interface ServerConfig {
     gunPeers?: string[];
     adminUser?: string;
     adminPass?: string;
-    torrentPort?: number;
     downloadDir?: string;
     coinbaseCdpApiKeyName?: string;
     coinbaseCdpApiKeySecret?: string;
@@ -74,7 +73,6 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
         gunPeers: process.env.TUNECAMP_GUN_PEERS?.split(/[,\s]+/).map(p => p.trim()).filter(p => p.length > 0) || overrides?.gunPeers,
         adminUser: process.env.TUNECAMP_ADMIN_USER || overrides?.adminUser || "admin",
         adminPass: process.env.TUNECAMP_ADMIN_PASS || overrides?.adminPass || "admin",
-        torrentPort: parseInt(process.env.TUNECAMP_TORRENT_PORT || "6881", 10),
         downloadDir: process.env.TUNECAMP_DOWNLOAD_DIR || defaultDownloadDir,
         coinbaseCdpApiKeyName: process.env.COINBASE_CDP_API_KEY_NAME || overrides?.coinbaseCdpApiKeyName,
         coinbaseCdpApiKeySecret: process.env.COINBASE_CDP_API_KEY_SECRET?.replace(/\\n/g, '\n') || overrides?.coinbaseCdpApiKeySecret,

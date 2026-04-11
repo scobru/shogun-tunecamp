@@ -9,10 +9,6 @@ import { fileURLToPath } from "url";
 // Global crash protection for Torrent engine and other async modules
 process.on('uncaughtException', (err) => {
     console.error('🌊 SEVERE: Uncaught Exception:', err);
-    // In many cases, we might want to shut down, but for torrent errors we might stay alive
-    if (err.message && err.message.includes('torrent')) {
-        console.warn('⚠️ Torrent engine error caught, staying alive...');
-    }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -53,10 +49,7 @@ import { createProxyRoutes } from "./routes/proxy.js";
 import { WaveformService } from "./modules/waveform/waveform.service.js";
 import { securityHeaders } from "./middleware/security.js";
 import { rateLimit } from "./middleware/rateLimit.js";
-import { TorrentService } from "./torrent.js";
-import { createTorrentRoutes } from "./routes/torrents.js";
 import { SoulseekService } from "./soulseek.js";
-import { TorrentSearchService } from "./torrent-search.js";
 import { createSearchRoutes } from "./routes/search.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -101,11 +94,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // Initialize Publishing Service
     const publishingService = createPublishingService(database, gundbService, apService, config);
 
-    // Initialize Torrent Service
-    const torrentService = new TorrentService(database, scanner, config.musicDir, config.downloadDir, config.torrentPort);
-
     // Initialize Content Search Services
-    const torrentSearchService = new TorrentSearchService();
     const soulseekService = new SoulseekService(config.musicDir, config.downloadDir || path.join(config.musicDir, "downloads"));
     // Try to connect with system credentials if available
     soulseekService.connect().catch(err => console.error("Soulseek initial connection failed:", err));
@@ -207,7 +196,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database, config.musicDir));
     app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database, publishingService, config.musicDir, authService));
     app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database, gundbService));
-    app.use("/api/torrents", authMiddleware.requireAdmin, createTorrentRoutes(torrentService));
 
     app.use("/api/import", authMiddleware.requireUser, createImportRoutes());
 
@@ -224,7 +212,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/payments", createPaymentsRoutes(database, config.musicDir, config));
     app.use("/api/ap", createActivityPubRoutes(apService, database, authMiddleware));
     app.use("/api/proxy", createProxyRoutes());
-    app.use("/api/search/content", authMiddleware.requireAdmin, createSearchRoutes(database, torrentSearchService, soulseekService, torrentService, scanner));
+    app.use("/api/search/content", authMiddleware.requireAdmin, createSearchRoutes(database, soulseekService, scanner));
     // app.use("/.well-known", createWebFingerRoute(apService)); // Legacy, handled by Fedify
 
     // Funkwhale-compatible federation libraries endpoint

@@ -410,15 +410,7 @@ export const API = {
     getArtistIdentity: (artistId: string) =>
         handleResponse(api.get<{ publicKey: string, privateKey: string }>(`/admin/artists/${artistId}/identity`)),
 
-    // --- Torrents ---
-    getTorrents: () => handleResponse(api.get<any[]>('/torrents')),
-    addTorrent: (magnetUri: string) => handleResponse(api.post<{ success: boolean, infoHash: string }>('/torrents/add', { magnetUri })),
-    syncTorrent: (infoHash: string) => handleResponse(api.post<{ success: boolean, message: string }>(`/torrents/${infoHash}/sync`)),
-    removeTorrent: (infoHash: string, deleteFiles: boolean = false) => 
-        handleResponse(api.delete(`/torrents/${infoHash}${deleteFiles ? '?deleteFiles=true' : ''}`)),
-
     // --- Content Search ---
-    searchTorrents: (query: string) => handleResponse(api.get<any[]>(`/search/content/torrents?q=${encodeURIComponent(query)}`)),
     searchSoulseek: (query: string) => handleResponse(api.get<any[]>(`/search/content/soulseek?q=${encodeURIComponent(query)}`)),
     downloadSoulseek: (result: any) => handleResponse(api.post<{ success: boolean, downloadId: number }>('/search/content/soulseek/download', { result })),
     getSoulseekStatus: () => handleResponse(api.get<any[]>('/search/content/soulseek/status')),

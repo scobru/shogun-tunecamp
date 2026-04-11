@@ -1,36 +1,16 @@
 import { Router } from "express";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
-import type { TorrentSearchService } from "../torrent-search.js";
 import type { SoulseekService } from "../soulseek.js";
-import type { TorrentService } from "../torrent.js";
 import type { ScannerService } from "../scanner.js";
 import path from "path";
 
 export function createSearchRoutes(
     database: DatabaseService,
-    torrentSearch: TorrentSearchService,
     soulseek: SoulseekService,
-    torrentService: TorrentService,
     scanner: ScannerService
 ): Router {
     const router = Router();
-
-    /**
-     * GET /api/search/torrents
-     * Search TPB for music torrents
-     */
-    router.get("/torrents", async (req: AuthenticatedRequest, res) => {
-        const query = req.query.q as string;
-        if (!query) return res.status(400).json({ error: "Query required" });
-
-        try {
-            const results = await torrentSearch.searchMusic(query);
-            res.json(results);
-        } catch (error) {
-            res.status(500).json({ error: "Torrent search failed" });
-        }
-    });
 
     /**
      * GET /api/search/soulseek
