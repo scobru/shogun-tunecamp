@@ -1200,132 +1200,132 @@ export class Scanner implements ScannerService {
 
         console.log("[Scanner] Starting file consolidation...");
         this.isConsolidating = true;
-        try {
-        // Fetch all tracks at once to free up the database connection for nested queries
-        const tracks = this.database.db.prepare("SELECT * FROM tracks WHERE file_path IS NOT NULL").all() as any[];
         
-        let success = 0;
-        let failed = 0;
-        let skipped = 0;
-        let processed = 0;
+        try {
+            // Fetch all tracks but process them in chunks to avoid OOM
+            const tracks = this.database.db.prepare("SELECT * FROM tracks WHERE file_path IS NOT NULL").all() as any[];
+            
+            let success = 0;
+            let failed = 0;
+            let skipped = 0;
+            let processedCount = 0;
 
-        for (const track of tracks) {
-            processed++;
-            // Only process local tracks with files
-            if (!track.file_path) {
-                skipped++;
-                continue;
-            }
+            const artistCache = new Map<number, any>();
+            const BATCH_SIZE = 50;
 
-            try {
-                const artist = track.artist_id ? this.database.getArtist(track.artist_id) : null;
-                const artistName = artist?.name || "Unknown Artist";
-                const cleanTitle = track.title.trim() || "Untitled";
-                const cleanArtist = artistName.trim() || "Unknown Artist";
-                
-                // Construct new filename base: "Artist - Title"
-                // Using a safe sanitization for filenames
-                const safeName = (name: string) => name.replace(/[^a-zA-Z0-9\s._-]/g, "_").trim();
-                const newBaseName = `${safeName(cleanArtist)} - ${safeName(cleanTitle)}`;
-                
-                // Process primary file (usually .mp3)
-                const oldPath = track.file_path;
-                const ext = path.extname(oldPath).toLowerCase();
-                const newPath = path.join(path.dirname(oldPath), `${newBaseName}${ext}`).replace(/\\/g, "/");
+            for (let i = 0; i < tracks.length; i += BATCH_SIZE) {
+                const batch = tracks.slice(i, i + BATCH_SIZE);
+                console.log(`[Consolidate] Processing tracks ${i + 1} to ${Math.min(i + BATCH_SIZE, tracks.length)} of ${tracks.length}...`);
 
-                // Process lossless if exists
-                const oldLossless = track.lossless_path;
-                let newLossless = null;
-                if (oldLossless) {
-                    const lExt = path.extname(oldLossless).toLowerCase();
-                    newLossless = path.join(path.dirname(oldLossless), `${newBaseName}${lExt}`).replace(/\\/g, "/");
-                }
+                for (const track of batch) {
+                    try {
+                        let artist = null;
+                        if (track.artist_id) {
+                            if (artistCache.has(track.artist_id)) {
+                                artist = artistCache.get(track.artist_id);
+                            } else {
+                                artist = this.database.getArtist(track.artist_id);
+                                artistCache.set(track.artist_id, artist);
+                                // Don't let cache grow too large
+                                if (artistCache.size > 200) artistCache.clear();
+                            }
+                        }
 
-                // Check if already correctly named
-                if (oldPath === newPath && (!oldLossless || oldLossless === newLossless)) {
-                    skipped++;
-                    continue;
-                }
-
-                // Perform move operations
-                let movedAny = false;
-                let finalDBPath = newPath;
-
-                // Move primary
-                const fullOldPath = path.join(musicDir, oldPath);
-                const fullNewPath = path.join(musicDir, newPath);
-
-                if (fullOldPath !== fullNewPath && await fs.pathExists(fullOldPath)) {
-                    // Handle collision if file already exists at target
-                    let finalNewPath = fullNewPath;
-                    
-                    // Check if it's actually the same file (case-insensitive filesystem check)
-                    const isSameFile = fullOldPath.toLowerCase() === fullNewPath.toLowerCase();
-
-                    if (await fs.pathExists(fullNewPath) && !isSameFile) {
-                        // Use track ID for a stable unique filename instead of timestamp
-                        const uniqueSuffix = `_${track.id}`;
-                        finalNewPath = path.join(path.dirname(fullNewPath), `${newBaseName}${uniqueSuffix}${ext}`);
-                        finalDBPath = path.join(path.dirname(newPath), `${newBaseName}${uniqueSuffix}${ext}`).replace(/\\/g, "/");
-                    }
-
-                    // Only move if the path actually changed or we need to fix case
-                    if (oldPath !== finalDBPath) {
-                        await fs.move(fullOldPath, finalNewPath, { overwrite: true });
-                        this.database.updateTrackPath(track.id, finalDBPath, track.album_id);
-                        movedAny = true;
-                    }
-                }
-
-                // Move lossless
-                if (oldLossless && newLossless && oldLossless !== newLossless) {
-                    const fullOldLossless = path.join(musicDir, oldLossless);
-                    const fullNewLossless = path.join(musicDir, newLossless);
-                    if (await fs.pathExists(fullOldLossless)) {
-                        let finalNewLossless = fullNewLossless;
-                        let finalDBLossless = newLossless;
-                        const lExt = path.extname(oldLossless).toLowerCase();
+                        const artistName = artist?.name || "Unknown Artist";
+                        const cleanTitle = track.title.trim() || "Untitled";
+                        const cleanArtist = artistName.trim() || "Unknown Artist";
                         
-                        const isSameLossless = fullOldLossless.toLowerCase() === fullNewLossless.toLowerCase();
+                        const safeName = (name: string) => name.replace(/[^a-zA-Z0-9\s._-]/g, "_").trim();
+                        const newBaseName = `${safeName(cleanArtist)} - ${safeName(cleanTitle)}`;
+                        
+                        const oldPath = track.file_path;
+                        const ext = path.extname(oldPath).toLowerCase();
+                        const newPath = path.join(path.dirname(oldPath), `${newBaseName}${ext}`).replace(/\\/g, "/");
 
-                        if (await fs.pathExists(fullNewLossless) && !isSameLossless) {
-                            const uniqueSuffix = `_${track.id}`;
-                            finalNewLossless = path.join(path.dirname(fullNewLossless), `${newBaseName}${uniqueSuffix}${lExt}`);
-                            finalDBLossless = path.join(path.dirname(newLossless), `${newBaseName}${uniqueSuffix}${lExt}`).replace(/\\/g, "/");
+                        const oldLossless = track.lossless_path;
+                        let newLossless = null;
+                        if (oldLossless) {
+                            const lExt = path.extname(oldLossless).toLowerCase();
+                            newLossless = path.join(path.dirname(oldLossless), `${newBaseName}${lExt}`).replace(/\\/g, "/");
                         }
 
-                        if (oldLossless !== finalDBLossless) {
-                            await fs.move(fullOldLossless, finalNewLossless, { overwrite: true });
-                            this.database.updateTrackLosslessPath(track.id, finalDBLossless);
-                            movedAny = true;
+                        if (oldPath === newPath && (!oldLossless || oldLossless === newLossless)) {
+                            skipped++;
+                            continue;
                         }
+
+                        let movedAny = false;
+                        let finalDBPath = newPath;
+
+                        // Move primary
+                        const fullOldPath = path.join(musicDir, oldPath);
+                        const fullNewPath = path.join(musicDir, newPath);
+
+                        if (fullOldPath !== fullNewPath && await fs.pathExists(fullOldPath)) {
+                            let finalNewPath = fullNewPath;
+                            const isSameFile = fullOldPath.toLowerCase() === fullNewPath.toLowerCase();
+
+                            if (await fs.pathExists(fullNewPath) && !isSameFile) {
+                                const uniqueSuffix = `_${track.id}`;
+                                finalNewPath = path.join(path.dirname(fullNewPath), `${newBaseName}${uniqueSuffix}${ext}`);
+                                finalDBPath = path.join(path.dirname(newPath), `${newBaseName}${uniqueSuffix}${ext}`).replace(/\\/g, "/");
+                            }
+
+                            if (oldPath !== finalDBPath) {
+                                await fs.move(fullOldPath, finalNewPath, { overwrite: true });
+                                this.database.updateTrackPath(track.id, finalDBPath, track.album_id);
+                                movedAny = true;
+                            }
+                        }
+
+                        // Move lossless
+                        if (oldLossless && newLossless && oldLossless !== newLossless) {
+                            const fullOldLossless = path.join(musicDir, oldLossless);
+                            const fullNewLossless = path.join(musicDir, newLossless);
+                            if (await fs.pathExists(fullOldLossless)) {
+                                let finalNewLossless = fullNewLossless;
+                                let finalDBLossless = newLossless;
+                                const lExt = path.extname(oldLossless).toLowerCase();
+                                const isSameLossless = fullOldLossless.toLowerCase() === fullNewLossless.toLowerCase();
+
+                                if (await fs.pathExists(fullNewLossless) && !isSameLossless) {
+                                    const uniqueSuffix = `_${track.id}`;
+                                    finalNewLossless = path.join(path.dirname(fullNewLossless), `${newBaseName}${uniqueSuffix}${lExt}`);
+                                    finalDBLossless = path.join(path.dirname(newLossless), `${newBaseName}${uniqueSuffix}${lExt}`).replace(/\\/g, "/");
+                                }
+
+                                if (oldLossless !== finalDBLossless) {
+                                    await fs.move(fullOldLossless, finalNewLossless, { overwrite: true });
+                                    this.database.updateTrackLosslessPath(track.id, finalDBLossless);
+                                    movedAny = true;
+                                }
+                            }
+                        }
+
+                        if (movedAny) {
+                            success++;
+                        } else {
+                            skipped++;
+                        }
+
+                    } catch (err) {
+                        console.error(`  [Consolidate] Failed to consolidate track ${track.id}:`, err);
+                        failed++;
                     }
                 }
 
-                if (movedAny) {
-                    success++;
-                    console.log(`  [Consolidate] Renamed ID ${track.id}:`);
-                    console.log(`    From: ${oldPath}`);
-                    console.log(`    To:   ${finalDBPath}`);
-                } else {
-                    skipped++;
+                // IMPORTANT: Yield to garbage collector and event loop between batches
+                if ((global as any).gc) {
+                    (global as any).gc();
                 }
-
-                // Safety: yield to event loop periodically
-                if (processed % 100 === 0) {
-                    await new Promise(resolve => setTimeout(resolve, 0));
-                }
-
-            } catch (err) {
-                console.error(`  [Consolidate] Failed to consolidate track ${track.id}:`, err);
-                failed++;
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
-        }
 
-        console.log(`[Consolidate] Done. Success: ${success}, Failed: ${failed}, Skipped: ${skipped}`);
-        return { success, failed, skipped };
+            console.log(`[Consolidate] Done. Success: ${success}, Failed: ${failed}, Skipped: ${skipped}`);
+            return { success, failed, skipped };
+
         } finally {
-            // Wait a tiny bit for FS events to settle before re-enabling
+            // Wait slightly for any FS events to clear
             setTimeout(() => {
                 this.isConsolidating = false;
             }, 1000);
