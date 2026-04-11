@@ -384,18 +384,26 @@ export class TorrentService {
             if (includeFiles) {
                 try {
                     if (t.files && Array.isArray(t.files)) {
-                        // Truncation strategy: Show all audio files if count is low, 
-                        // or just show files with progress, but cap at 100 items total.
+                        // LAZY LOADING: If torrent has many files and isn't indexed yet, 
+                        // don't send individual file status to save memory.
                         const MAX_DISPLAY_FILES = 100;
-                        const sortedFiles = [...t.files].sort((a, b) => (b.progress || 0) - (a.progress || 0));
+                        const TOO_MANY_FILES_THRESHOLD = 500;
                         
-                        filesStatus = sortedFiles.slice(0, MAX_DISPLAY_FILES).map((f: TorrentFile) => ({
-                            name: f.name,
-                            path: f.path,
-                            progress: f.progress,
-                            length: f.length,
-                            downloaded: f.downloaded
-                        }));
+                        // Only send files if count is reasonable OR if it's already finished 
+                        // (but still capped at MAX_DISPLAY_FILES)
+                        if (totalFiles <= TOO_MANY_FILES_THRESHOLD || t.done) {
+                            // REMOVED .SORT() to save memory/CPU on large arrays
+                            filesStatus = t.files.slice(0, MAX_DISPLAY_FILES).map((f: TorrentFile) => ({
+                                name: f.name,
+                                path: f.path,
+                                progress: f.progress,
+                                length: f.length,
+                                downloaded: f.downloaded
+                            }));
+                        } else {
+                            // Just send a placeholder for now
+                            filesStatus = [{ name: `[List hidden: ${totalFiles} files in verification/download]`, progress: 0 }];
+                        }
                     }
                 } catch (err) {
                     console.error("Error mapping torrent files for status:", err);

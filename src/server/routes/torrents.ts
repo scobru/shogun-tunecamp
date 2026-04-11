@@ -5,9 +5,9 @@ import type { AuthenticatedRequest } from "../middleware/auth.js";
 export function createTorrentRoutes(torrentService: TorrentService): Router {
     const router = Router();
 
-    let statusCache: any = null;
+    let stringifiedCache: string | null = null;
     let lastCacheTime = 0;
-    const CACHE_TTL = 500; // 500ms cache to prevent spikes from rapid polling
+    const CACHE_TTL = 2000; // 2s cache to protect against OOM during heavy polling
 
     /**
      * GET /api/torrents
@@ -18,21 +18,21 @@ export function createTorrentRoutes(torrentService: TorrentService): Router {
             const now = Date.now();
             const includeFiles = req.query.files === "true";
 
-            // If we have a fresh cache and parameters are the same, return it
-            // Note: We only cache 'includeFiles=true' separately if needed, 
-            // but for simplicity we'll just check if it's been 500ms.
-            if (statusCache && (now - lastCacheTime < CACHE_TTL)) {
-                return res.json(statusCache);
+            // If we have a fresh cache, return the string directly
+            if (stringifiedCache && (now - lastCacheTime < CACHE_TTL)) {
+                res.setHeader('Content-Type', 'application/json');
+                return res.send(stringifiedCache);
             }
 
             console.log(`[Torrents API] GET / requested by ${req.username}`);
             const status = torrentService.getTorrentsStatus(includeFiles);
             
-            // Update cache
-            statusCache = status;
+            // Stringify and store in cache immediately
+            stringifiedCache = JSON.stringify(status);
             lastCacheTime = now;
             
-            res.json(status);
+            res.setHeader('Content-Type', 'application/json');
+            res.send(stringifiedCache);
         } catch (error) {
             console.error("Error getting torrents status:", error);
             res.status(500).json({ error: "Failed to get torrents status" });
