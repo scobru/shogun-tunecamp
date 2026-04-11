@@ -550,6 +550,7 @@ export function createDatabase(dbPath: string): DatabaseService {
 
     // Enable WAL mode for better concurrency
     db.pragma("journal_mode = WAL");
+    db.pragma("busy_timeout = 5000");
 
     // Register custom Levenshtein function
     db.function("levenshtein", (a: string, b: string) => {

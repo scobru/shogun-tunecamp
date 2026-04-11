@@ -7,8 +7,29 @@ import fs from "fs-extra";
 import { fileURLToPath } from "url";
 
 // Global crash protection for Torrent engine and other async modules
+// Global crash protection for async modules
 process.on('uncaughtException', (err) => {
     console.error('🌊 SEVERE: Uncaught Exception:', err);
+    // Certain errors like those from GunDB or network timeouts are not fatal
+    if (err.message && (
+        err.message.includes('GunDB') || 
+        err.message.includes('ECONNREFUSED') || 
+        err.message.includes('ETIMEDOUT') ||
+        err.message.includes('socket hang up')
+    )) {
+        console.warn('⚠️ Non-fatal exception caught, staying alive...');
+        return;
+    }
+    
+    // For genuine DB busy errors, we take a bit more caution
+    if (err.message && err.message.includes('database is busy')) {
+        console.warn('⚠️ SQLite busy error caught. Check your concurrency settings.');
+        return;
+    }
+
+    // Otherwise, we might be in an undefined state, but let's try to stay alive anyway
+    // since this is a self-hosted app where availability is higher priority than strict state
+    console.warn('⚠️ Attempting to continue despite uncaught exception...');
 });
 
 process.on('unhandledRejection', (reason, promise) => {

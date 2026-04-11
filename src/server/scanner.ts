@@ -175,7 +175,8 @@ export class Scanner implements ScannerService {
     private musicDirectory: string | null = null;
 
     private hashingSemaphore = 0;
-    private MAX_CONCURRENT_HASHING = 2;
+    private readonly MAX_CONCURRENT_HASHING = 2; // Keep it low to avoid OOM
+    private isConsolidating = false;
 
     constructor(private database: DatabaseService) { }
 
@@ -1110,6 +1111,7 @@ export class Scanner implements ScannerService {
         });
 
         this.watcher.on("add", async (filePath: string) => {
+            if (this.isConsolidating) return;
             const ext = path.extname(filePath).toLowerCase();
             if (AUDIO_EXTENSIONS.includes(ext)) {
                 await this.processAudioFile(filePath, dir);
@@ -1117,6 +1119,7 @@ export class Scanner implements ScannerService {
         });
 
         this.watcher.on("unlink", async (filePath: string) => {
+            if (this.isConsolidating) return;
             // Note: normalizing path here because DB stores relative
             const relativePath = this.normalizePath(filePath, dir);
             const track = this.database.getTrackByPath(relativePath);
@@ -1147,7 +1150,14 @@ export class Scanner implements ScannerService {
     }
 
     public async consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number }> {
+        if (this.isConsolidating) {
+            console.log("[Scanner] Consolidation already in progress, skipping.");
+            return { success: 0, failed: 0, skipped: 0 };
+        }
+
         console.log("[Scanner] Starting file consolidation...");
+        this.isConsolidating = true;
+        try {
         // Fetch all tracks at once to free up the database connection for nested queries
         const tracks = this.database.db.prepare("SELECT * FROM tracks WHERE file_path IS NOT NULL").all() as any[];
         
@@ -1271,5 +1281,11 @@ export class Scanner implements ScannerService {
 
         console.log(`[Consolidate] Done. Success: ${success}, Failed: ${failed}, Skipped: ${skipped}`);
         return { success, failed, skipped };
+        } finally {
+            // Wait a tiny bit for FS events to settle before re-enabling
+            setTimeout(() => {
+                this.isConsolidating = false;
+            }, 1000);
+        }
     }
 }
