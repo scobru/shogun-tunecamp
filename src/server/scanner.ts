@@ -507,6 +507,7 @@ export class Scanner implements ScannerService {
 
         this.hashingSemaphore++;
         let hash: string | null = null;
+        let metadata: any = null;
         const LOSSLESS_EXTENSIONS = ['.wav', '.flac'];
         const normalizedPath = this.normalizePath(currentFilePath, musicDir);
         let existing: any = this.database.getTrackByPath(normalizedPath);
@@ -688,7 +689,6 @@ export class Scanner implements ScannerService {
             return { originalPath: filePath, success: true, message: "Track paired/updated.", trackId: finalExistingId };
         }
 
-        let metadata: any = null;
         try {
             // Log memory usage occasionally to monitor health during heavy processing
             if (Math.random() < 0.1) {
