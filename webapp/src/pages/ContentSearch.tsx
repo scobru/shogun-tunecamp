@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API } from '../services/api';
-import { Search, Download, Settings, Activity, Database, RefreshCw, Trash2, ExternalLink, Link as LinkIcon, AlertCircle } from 'lucide-react';
+import { Search, Download, Settings, Activity, RefreshCw, Trash2, AlertCircle } from 'lucide-react';
 
 export const ContentSearch: React.FC = () => {
     const [query, setQuery] = useState('');
@@ -10,12 +10,9 @@ export const ContentSearch: React.FC = () => {
     const [downloads, setDownloads] = useState<any[]>([]);
     const [showCreds, setShowCreds] = useState(false);
     const [creds, setCreds] = useState({ username: '', password: '' });
-    const [manualMagnet, setManualMagnet] = useState('');
     const [searchError, setSearchError] = useState<string | null>(null);
 
-    const quickLinks = [
-        { name: 'Soulseek Support', icon: <ExternalLink size={14} />, url: (q: string) => `https://www.slsknet.org/` },
-    ];
+
 
     const fetchDownloads = async () => {
         try {

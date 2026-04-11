@@ -18,7 +18,6 @@ import {
   LogOut,
   Heart,
   Upload,
-  Download,
 } from "lucide-react";
 import clsx from "clsx";
 import { WalletPill } from "../ui/WalletPill";
