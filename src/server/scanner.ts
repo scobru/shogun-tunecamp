@@ -1102,8 +1102,8 @@ export class Scanner implements ScannerService {
                 const losslessExists = losslessKey ? knownFiles.has(losslessKey) : false;
 
                 if (!primaryExists && !losslessExists) {
-                    console.log(`  [Cleanup] Track potentially stale: ${track.title} (Both MP3 and Lossless missing). DELETION DISABLED.`);
-                    // this.database.deleteTrack(track.id);
+                    console.warn(`  [Cleanup] Track removed (file missing): ${track.title}`);
+                    this.database.deleteTrack(track.id);
                     removed++;
                 } else if (!primaryExists && losslessExists) {
                     console.warn(`  [Cleanup] Track ${track.title} missing MP3 (${track.file_path}) but has Lossless. Keeping record.`);
@@ -1305,6 +1305,11 @@ export class Scanner implements ScannerService {
                         if (movedAny) {
                             success++;
                         } else {
+                            // If it wasn't moved and it didn't skip earlier, check why
+                            const oldExists = await fs.pathExists(path.join(musicDir, track.file_path));
+                            if (!oldExists) {
+                                console.warn(`  [Consolidate] File missing for track: ${track.title} (${track.file_path})`);
+                            }
                             skipped++;
                         }
 
