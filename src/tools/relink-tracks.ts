@@ -91,9 +91,12 @@ async function main() {
     const createTrackStmt = db.prepare(`
         INSERT INTO tracks (
             title, album_id, artist_id, owner_id, track_num, duration, 
-            file_path, format, bitrate, sample_rate, hash
+            file_path, format, bitrate, sample_rate, 
+            price, price_usdc, currency, lossless_path, 
+            waveform, url, service, external_artwork, hash
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+            ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
     `);
 
@@ -129,6 +132,14 @@ async function main() {
                 format.codec || path.extname(file).substring(1),
                 format.bitrate ? Math.round(format.bitrate / 1000) : null,
                 format.sampleRate || null,
+                0, // price
+                0, // price_usdc
+                'ETH', // currency
+                null, // lossless_path
+                null, // waveform
+                null, // url
+                null, // service
+                null, // external_artwork
                 hash
             );
 

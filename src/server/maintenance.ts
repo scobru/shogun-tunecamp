@@ -115,6 +115,14 @@ export async function runStartupMaintenance(database: DatabaseService, config: S
                         format: format.codec || path.extname(file).substring(1),
                         bitrate: format.bitrate ? Math.round(format.bitrate / 1000) : null,
                         sample_rate: format.sampleRate || null,
+                        price: 0,
+                        price_usdc: 0,
+                        currency: 'ETH',
+                        lossless_path: null,
+                        waveform: null,
+                        url: null,
+                        service: null,
+                        external_artwork: null,
                         hash: hash
                     });
                     restored++;
