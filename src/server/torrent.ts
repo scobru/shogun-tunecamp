@@ -337,6 +337,7 @@ export class TorrentService {
             }
     } finally {
         this.processingTorrents.delete(torrent.infoHash);
+        this.scanner.clearCaches(); // Manage memory after potentially large torrent indexing
     }
 }
 

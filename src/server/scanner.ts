@@ -125,6 +125,7 @@ export interface ScannerService {
     processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number, suggestedCoverPath?: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
     getOrCreateLibraryAlbum(dir: string, musicDir: string, forcedCoverPath?: string): Promise<number | null>;
     consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number }>;
+    clearCaches(): void;
 }
 
 export class Scanner implements ScannerService {
@@ -137,9 +138,26 @@ export class Scanner implements ScannerService {
     private folderToAlbumMap = new Map<string, number>();
     // Map directory paths to artist IDs
     private folderToArtistMap = new Map<string, number>();
-
     // Map directory paths to EXISTING album IDs (from DB scan)
     private folderToExistingAlbumMap = new Map<string, number>();
+    private lastGcTime = Date.now();
+
+    /**
+     * Clears all session-based caches to free up memory
+     */
+    public clearCaches(): void {
+        this.folderToAlbumMap.clear();
+        this.folderToArtistMap.clear();
+        this.folderToExistingAlbumMap.clear();
+        
+        // Suggest a GC if we haven't done one in a while (and if exposed)
+        if (typeof global.gc === 'function' && Date.now() - this.lastGcTime > 60000) {
+            try {
+                global.gc();
+                this.lastGcTime = Date.now();
+            } catch (e) {}
+        }
+    }
 
     // Keep track of the monitored music directory
     private musicDirectory: string | null = null;
@@ -615,20 +633,24 @@ export class Scanner implements ScannerService {
 
             // Process waveform if missing
             if (!existing.waveform) {
-                // SUGGESTION: We already have metadata.duration from when the track was first created,
-                // but if we're here, it's an existing track. existing.duration might be there.
-                this.processQueue.add(() => WaveformService.generateWaveform(currentFilePath, 100, existing.duration || undefined))
+                const duration = existing.duration || undefined;
+                const trackId = existing.id;
+                this.processQueue.add(() => WaveformService.generateWaveform(currentFilePath, 100, duration))
                     .then((peaks: number[]) => {
-                        this.database.updateTrackWaveform(existing!.id, JSON.stringify(peaks));
+                        this.database.updateTrackWaveform(trackId, JSON.stringify(peaks));
                     }).catch(() => { });
             }
 
-            return { originalPath: filePath, success: true, message: "Track paired/updated.", trackId: existing.id };
+            // Cleanup local references before returning
+            const finalExistingId = existing.id;
+            existing = null;
+            return { originalPath: filePath, success: true, message: "Track paired/updated.", trackId: finalExistingId };
         }
 
-
-        console.log("  Processing track: " + path.basename(currentFilePath));
-            const metadata = await parseFileWithRetry(currentFilePath);
+        let metadata: any = null;
+        try {
+            console.log("  Processing track: " + path.basename(currentFilePath));
+            metadata = await parseFileWithRetry(currentFilePath);
             const common = metadata.common;
             const format = metadata.format;
 
@@ -706,9 +728,15 @@ export class Scanner implements ScannerService {
             console.error("  Error processing " + currentFilePath + ":", error);
             return { originalPath: filePath, success: false, message: `Error processing audio file: ${error instanceof Error ? error.message : String(error)}` };
         } finally {
-            this.hashingSemaphore--;
+            metadata = null; // Explicit nulling to help GC
         }
+    } catch (error) {
+        console.error("  Unexpected error in Scanner.processAudioFile:", error);
+        return { originalPath: filePath, success: false, message: `Unexpected error: ${error instanceof Error ? error.message : String(error)}` };
+    } finally {
+        this.hashingSemaphore--;
     }
+}
 
     public async scanDirectory(dir: string): Promise<ScanResult> {
         if (this.isScanning) {
@@ -883,6 +911,7 @@ export class Scanner implements ScannerService {
         // Fix orphan albums
         await this.fixOrphanAlbums();
 
+        this.clearCaches(); // Final cleanup after full scan
         return { successful, failed };
     }
 

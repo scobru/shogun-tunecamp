@@ -47,7 +47,7 @@ export class WaveformService {
             
             let totalProcessedSamples = 0;
             let bytesRead = 0;
-            const MAX_PCM_TOTAL = 200 * 1024 * 1024; // 200MB safety limit (~7 hours of 4kHz mono)
+            const MAX_PCM_TOTAL = 100 * 1024 * 1024; // 100MB safety limit (~3.5 hours of 4kHz mono)
 
             // Buffer for partial samples (int16 is 2 bytes)
             let remaining: Buffer | null = null;
@@ -57,7 +57,7 @@ export class WaveformService {
                 if (bytesRead > MAX_PCM_TOTAL) {
                     console.warn(`[Waveform] Track too large, truncating: ${inputPath}`);
                     stream.destroy();
-                    resolve(peaks); // Return what we have so far instead of hanging
+                    // Return what we have so far instead of hanging. We'll normalize it at the end.
                     return;
                 }
 
@@ -75,49 +75,41 @@ export class WaveformService {
 
                 // Check for trailing byte
                 if (data.length % 2 !== 0) {
-                    remaining = data.subarray(data.length - 1);
+                    remaining = Buffer.from(data.subarray(data.length - 1));
                     data = data.subarray(0, data.length - 1);
                 }
 
-                // If we didn't have duration upfront, we'll collect samples and "spread" them at the end
-                // But better to at least have a temporary accumulation.
-                // For simplicity, we'll always use the current totalProcessedSamples to index buckets.
-                // If bucketSize is 0 (no duration), we'll do a second pass logic or just estimate 5 mins.
                 if (bucketSize === 0) {
                     const estimatedDuration = 300; // 5 mins fallback
                     bucketSize = Math.max(1, Math.floor((estimatedDuration * sampleRate) / samples));
                 }
 
+                // Optimization: Keep track of current bucket and how many samples processed in it
+                let bucketIndex = Math.floor(totalProcessedSamples / bucketSize);
+                
                 for (let i = 0; i < data.length; i += 2) {
                     const val = Math.abs(data.readInt16LE(i));
-                    const peak = parseFloat((val / 32768).toFixed(4));
                     
-                    const bucketIndex = Math.floor(totalProcessedSamples / bucketSize);
-                    if (bucketIndex < samples) {
-                        if (peak > peaks[bucketIndex]) {
-                            peaks[bucketIndex] = peak;
+                    // We store raw 16-bit values and normalize at the very end
+                    const currentBucket = Math.floor(totalProcessedSamples / bucketSize);
+                    if (currentBucket < samples) {
+                        if (val > peaks[currentBucket]) {
+                            peaks[currentBucket] = val;
                         }
                     } else if (duration) {
-                        // If we have duration and exceed buckets, it might be due to ffmpeg giving slightly more
-                        // or duration being rounded. We just cap it at the last bucket.
-                        if (peak > peaks[samples - 1]) {
-                            peaks[samples - 1] = peak;
+                        // Cap at last bucket
+                        if (val > peaks[samples - 1]) {
+                            peaks[samples - 1] = val;
                         }
-                    } else {
-                        // Without duration, if we exceed our estimate, we need a way to rescale.
-                        // For simplicity in a high-performance scenario, we'll just stop at 'samples' buckets
-                        // or we could implement a dynamic resizing.
-                        // But since Scanner usually HAS duration, this branch is rare.
                     }
                     totalProcessedSamples++;
                 }
             });
 
             stream.on('end', () => {
-                // If we didn't have duration and the file was much shorter/longer than 5 mins,
-                // the 'peaks' array might be half empty or truncated.
-                // However, since we're refactoring the Scanner to pass duration, this is optimized.
-                resolve(peaks);
+                // Final Pass: Normalize 16-bit values to 0.0 - 1.0 range with 4 decimal precision
+                const normalizedPeaks = peaks.map(val => parseFloat((val / 32768).toFixed(4)));
+                resolve(normalizedPeaks);
             });
 
             stream.on('error', (err) => {
