@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import chokidar, { type FSWatcher } from "chokidar";
 import { parseFile } from "music-metadata";
 import { parse } from "yaml";
+import os from "os";
 
 import type { DatabaseService, Artist, Album, Track } from "./database.js";
 import { WaveformService } from "./waveform.js";

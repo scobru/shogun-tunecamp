@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import path from "path";
 import http from "http";
 import fs from "fs-extra";
@@ -83,6 +84,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const server = http.createServer(app);
 
     // Middleware
+    app.use(compression());
     app.use(securityHeaders);
     app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 })); // General rate limit: 1000 requests per 15 minutes
     app.use(cors({ origin: config.corsOrigins }));
