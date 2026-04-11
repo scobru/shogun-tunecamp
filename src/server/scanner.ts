@@ -930,6 +930,13 @@ export class Scanner implements ScannerService {
         const BATCH_SIZE = 50;
         for (let i = 0; i < audioFiles.length; i += BATCH_SIZE) {
             const batch = audioFiles.slice(i, i + BATCH_SIZE);
+            
+            // Periodically request GC during large scans
+            if (i > 0 && i % 100 === 0 && (global as any).gc) {
+                console.log("[Scanner] Requesting manual Garbage Collection...");
+                (global as any).gc();
+            }
+
             console.log(`[Scanner] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(audioFiles.length / BATCH_SIZE)} (${batch.length} files)`);
             
             for (const file of batch) {

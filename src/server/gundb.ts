@@ -92,6 +92,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         itemsTTL: 10 * 60 * 1000 // 10 minutes
     };
 
+    let isRefreshingSites = false;
+    let firstStart = true;
+
     function invalidateCache() {
         cache.sites = { data: [], timestamp: 0 };
         console.log("🧹 GunDB Community Cache invalidated.");
@@ -371,10 +374,24 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         }
 
         // 2. If no cache or first run, do the normal scan
+        if (firstStart) {
+            // Delay first discovery by 30s to allow server to stabilize
+            console.log("⏱️  GunDB Community Discovery scheduled for 30s delay...");
+            return new Promise(resolve => {
+                setTimeout(async () => {
+                    firstStart = false;
+                    resolve(await refreshCommunitySitesInBackground());
+                }, 30000);
+            });
+        }
+
         return refreshCommunitySitesInBackground();
     }
 
     async function refreshCommunitySitesInBackground(): Promise<any[]> {
+        if (isRefreshingSites) return cache.sites.data;
+        isRefreshingSites = true;
+
         const CACHE_KEY = "community_sites";
         const TTL = 60 * 60; // 1 hour
 
@@ -455,13 +472,14 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             // Wait for data to collect
             setTimeout(() => {
+                isRefreshingSites = false;
                 if (sites.length > 0) {
                     console.log(`⏱️ Discovery: Found ${sites.length} potential community sites. Updating SQLite cache.`);
                     database.setGunCache(CACHE_KEY, JSON.stringify(sites), "sites", TTL);
                     cache.sites = { data: sites, timestamp: Date.now() };
                 }
                 resolve(sites);
-            }, 3000); 
+            }, 10000); // Wait longer for a more complete picture in one go
         });
     }
 
