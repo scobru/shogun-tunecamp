@@ -394,6 +394,20 @@ export async function startServer(config: ServerConfig): Promise<void> {
             ? path.join(webappDistPath, "index.html")
             : path.join(webappPath, "index.html");
 
+    // Memory cache for index.html to avoid disk I/O bottlenecks
+    let cachedIndexHtml: string | null = null;
+    const getCachedHtml = () => {
+        if (cachedIndexHtml && process.env.NODE_ENV === 'production') return cachedIndexHtml;
+        try {
+            const html = fs.readFileSync(indexHtmlPath, 'utf8');
+            if (process.env.NODE_ENV === 'production') cachedIndexHtml = html;
+            return html;
+        } catch (e) {
+            console.error("Failed to read index.html:", e);
+            return "Error loading app";
+        }
+    };
+
     // Public sharing route with OG tags support
     app.get("/share/:id", async (req, res) => {
         const { id } = req.params;
@@ -424,7 +438,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
         }
 
         try {
-            let html = fs.readFileSync(indexHtmlPath, 'utf8');
+            let html = getCachedHtml();
             const dbPublicUrl = database.getSetting("publicUrl");
             const publicUrl = dbPublicUrl || config.publicUrl || `${req.protocol}://${req.get('host')}`;
             
@@ -470,7 +484,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
             return res.status(404).json({ error: "Not found" });
         }
         try {
-            let html = fs.readFileSync(indexHtmlPath, 'utf8');
+            let html = getCachedHtml();
             const dbGunPeers = database.getSetting("gunPeers");
             const rpcUrl = process.env.TUNECAMP_RPC_URL || process.env.VITE_TUNECAMP_RPC_URL || '';
             const gunPeersStr = dbGunPeers || process.env.TUNECAMP_GUN_PEERS || process.env.VITE_GUN_PEERS || '';

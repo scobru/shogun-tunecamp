@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import ffprobePath from "ffprobe-static";
+import os from "os";
 
 // Set ffmpeg path
 if (ffmpegPath) {
@@ -12,8 +13,10 @@ if (ffprobePath && ffprobePath.path) {
     ffmpeg.setFfprobePath(ffprobePath.path);
 }
 
-// FFmpeg Concurrency Control
-const MAX_CONCURRENT_TASKS = 2;
+// FFmpeg Concurrency Control - Dynamic based on CPU cores
+const cpuCount = os.cpus().length;
+const MAX_CONCURRENT_TASKS = Math.min(Math.max(cpuCount - 1, 2), 4);
+console.log(`🚀 [FFmpeg] Concurrency limit set to ${MAX_CONCURRENT_TASKS} (Cores: ${cpuCount})`);
 let activeTasks = 0;
 const taskQueue: (() => void)[] = [];
 

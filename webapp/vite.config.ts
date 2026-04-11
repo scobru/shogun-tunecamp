@@ -16,6 +16,13 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-utils': ['axios', 'buffer'],
+          'vendor-web3': ['ethers'],
+        }
+      },
       external: [],
     },
   },
