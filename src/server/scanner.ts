@@ -662,6 +662,12 @@ export class Scanner implements ScannerService {
 
         let metadata: any = null;
         try {
+            // Log memory usage occasionally to monitor health during heavy processing
+            if (Math.random() < 0.1) {
+                const mem = process.memoryUsage();
+                console.log(`[Scanner] Memory state: Heap used: ${Math.round(mem.heapUsed / 1024 / 1024)}MB / Total: ${Math.round(mem.heapTotal / 1024 / 1024)}MB / RSS: ${Math.round(mem.rss / 1024 / 1024)}MB`);
+            }
+
             console.log("  Processing track: " + path.basename(currentFilePath));
             metadata = await parseFileWithRetry(currentFilePath);
             const common = metadata.common;

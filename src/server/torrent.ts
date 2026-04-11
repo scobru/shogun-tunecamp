@@ -22,6 +22,7 @@ export class TorrentService {
     ) {
         this.client = new WebTorrent({
             maxConns: 30, // Reduced from 50 to save resources in Docker
+            maxWebConns: 10, // Limit WebRTC/WebSocket connections to save memory
             utp: false,   // Disable utp to avoid native UDP issues in some environments
             torrentPort: torrentPort
             // Removed dht: { port: torrentPort } to prevent unhandled UDP bind exceptions
@@ -378,10 +379,17 @@ export class TorrentService {
         
         return this.client.torrents.map((t: Torrent) => {
             let filesStatus: any[] = [];
+            const totalFiles = t.files?.length || 0;
+            
             if (includeFiles) {
                 try {
                     if (t.files && Array.isArray(t.files)) {
-                        filesStatus = t.files.map((f: TorrentFile) => ({
+                        // Truncation strategy: Show all audio files if count is low, 
+                        // or just show files with progress, but cap at 100 items total.
+                        const MAX_DISPLAY_FILES = 100;
+                        const sortedFiles = [...t.files].sort((a, b) => (b.progress || 0) - (a.progress || 0));
+                        
+                        filesStatus = sortedFiles.slice(0, MAX_DISPLAY_FILES).map((f: TorrentFile) => ({
                             name: f.name,
                             path: f.path,
                             progress: f.progress,
@@ -407,7 +415,9 @@ export class TorrentService {
                 path: t.path,
                 timeRemaining: t.timeRemaining,
                 done: t.done,
-                files: filesStatus
+                files: filesStatus,
+                totalFiles: totalFiles,
+                filesTruncated: totalFiles > filesStatus.length
             };
         });
     }
