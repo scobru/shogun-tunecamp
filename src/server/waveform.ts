@@ -114,6 +114,9 @@ export class WaveformService {
 
             stream.on('error', (err) => {
                 console.error("FFmpeg error during waveform streaming:", err);
+                try {
+                    command.kill('SIGKILL');
+                } catch (e) {}
                 // Return empty peaks rather than crashing
                 resolve(new Array(samples).fill(0));
             });

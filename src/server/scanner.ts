@@ -8,7 +8,7 @@ import type { DatabaseService, Artist, Album, Track } from "./database.js";
 import { WaveformService } from "./waveform.js";
 import { slugify, getStandardCoverFilename } from "../utils/audioUtils.js";
 import { convertWavToMp3, getDurationFromFfmpeg } from "./ffmpeg.js";
-import { getFileHash } from "../utils/fileUtils.js";
+import { getFileHash, getFastFileHash } from "../utils/fileUtils.js";
 
 /**
  * Simple sequential processing queue to avoid over-parallelizing heavy tasks (ffmpeg, conversion)
@@ -20,8 +20,10 @@ class ProcessingQueue {
 
     async add<T>(task: () => Promise<T>): Promise<T> {
         if (this.queue.length >= this.MAX_QUEUE_SIZE) {
-            console.warn(`[Queue] Maximum queue size (${this.MAX_QUEUE_SIZE}) reached. Dropping task to protect memory.`);
-            return Promise.reject(new Error("Queue capacity reached"));
+            console.warn(`[Queue] Maximum queue size (${this.MAX_QUEUE_SIZE}) reached. Throttling...`);
+            // Instead of dropping, we'll wait for space if called with await, 
+            // but since most add() calls are fire-and-forget in scanner, we'll just wait a bit
+            await new Promise(r => setTimeout(r, 1000));
         }
 
         return new Promise((resolve, reject) => {
@@ -53,6 +55,10 @@ class ProcessingQueue {
         }
 
         this.processing = false;
+    }
+
+    public get size(): number {
+        return this.queue.length;
     }
 }
 
@@ -150,9 +156,15 @@ export class Scanner implements ScannerService {
         this.folderToArtistMap.clear();
         this.folderToExistingAlbumMap.clear();
         
+        // Check memory usage to be more aggressive if needed
+        const mem = process.memoryUsage();
+        const heapUsedMB = Math.round(mem.heapUsed / 1024 / 1024);
+        const shouldForceGc = heapUsedMB > 1500; // Force GC if heap usage is above 1.5GB
+        
         // Suggest a GC if we haven't done one in a while (and if exposed)
-        if (typeof global.gc === 'function' && Date.now() - this.lastGcTime > 60000) {
+        if (typeof global.gc === 'function' && (shouldForceGc || Date.now() - this.lastGcTime > 60000)) {
             try {
+                if (shouldForceGc) console.log(`[Memory] High heap usage (${heapUsedMB}MB), explicitly requesting GC...`);
                 global.gc();
                 this.lastGcTime = Date.now();
             } catch (e) {}
@@ -482,7 +494,8 @@ export class Scanner implements ScannerService {
 
         try {
             try {
-                hash = await getFileHash(currentFilePath);
+                // Use fast hash first to check for duplicates quickly
+                hash = await getFastFileHash(currentFilePath);
                 const existingByHash = this.database.getTrackByHash(hash);
 
                 if (existingByHash && ownerId) {
@@ -698,14 +711,20 @@ export class Scanner implements ScannerService {
                 hash: hash // Store the hash
             });
 
+            // Throttle queue if it's getting too big
+            if (this.processQueue.size > 200) {
+                console.log(`[Queue] Throttling track indexing while queue clears (${this.processQueue.size} tasks pending)...`);
+                await new Promise(r => setTimeout(r, 2000));
+            }
+
             this.processQueue.add(() => WaveformService.generateWaveform(currentFilePath, 100, duration || undefined))
                 .then((peaks: number[]) => {
                     const json = JSON.stringify(peaks);
                     this.database.updateTrackWaveform(trackId, json);
                     console.log(`    Generated waveform for: ${path.basename(currentFilePath)}`);
                 })
-                .catch((err: Error) => {
-                    console.error(`    Failed to generate waveform for ${path.basename(currentFilePath)}:`, err.message);
+                .catch(err => {
+                    console.error(`    Waveform generation failed for ${path.basename(currentFilePath)}:`, err.message);
                 });
 
             // Queue background conversion for WAVs

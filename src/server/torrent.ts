@@ -317,7 +317,8 @@ export class TorrentService {
                     bestCover = candidates[0].path;
                 }
 
-                console.log(`🎵 Indexing ${audioInDir.length} tracks in ${dir || 'root'}. Cover: ${bestCover ? path.basename(bestCover) : 'none'}`);
+                const BATCH_SIZE = 10;
+                let trackCount = 0;
 
                 for (const relativePath of audioInDir) {
                     const absolutePath = path.join(this.downloadDir, relativePath);
@@ -330,6 +331,16 @@ export class TorrentService {
                             undefined,
                             bestCover
                         );
+                        
+                        trackCount++;
+                        
+                        // Periodically clear caches and suggest GC to keep memory low
+                        if (trackCount % BATCH_SIZE === 0) {
+                            console.log(`[TorrentService] Processed ${trackCount} tracks, clearing caches and yielding...`);
+                            this.scanner.clearCaches();
+                            // Yield to event loop to allow GC and I/O to breathe
+                            await new Promise(r => setTimeout(r, 200));
+                        }
                     } catch (err: any) {
                         console.error(`❌ Failed to index file ${path.basename(relativePath)}:`, err);
                     }
@@ -337,7 +348,7 @@ export class TorrentService {
             }
     } finally {
         this.processingTorrents.delete(torrent.infoHash);
-        this.scanner.clearCaches(); // Manage memory after potentially large torrent indexing
+        this.scanner.clearCaches(); // Final cleanup
     }
 }
 
