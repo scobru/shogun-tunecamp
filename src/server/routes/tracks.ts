@@ -906,49 +906,78 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             const isRoot = req.username && authService && authService.isRootAdmin(req.username);
             const results = { success: 0, failed: 0, errors: [] as string[] };
             const affectedAlbums = new Set<number>();
+            const tracksToDelete = [];
 
+            // 1. First pass: Validate permissions and gather tracks
             for (const id of trackIds) {
-                try {
-                    const track = database.getTrack(Number(id));
-                    if (!track) {
-                        results.failed++;
-                        results.errors.push(`Track ${id} not found`);
-                        continue;
-                    }
+                const track = database.getTrack(Number(id));
+                if (!track) {
+                    results.failed++;
+                    results.errors.push(`Track ${id} not found`);
+                    continue;
+                }
 
-                    const isOwner = track.owner_id === req.userId || (track.owner_id === null && track.artist_id === req.artistId);
-                    if (!isRoot && !isOwner) {
-                        results.failed++;
-                        results.errors.push(`Track ${id}: Access denied`);
-                        continue;
-                    }
+                const isOwner = track.owner_id === req.userId || (track.owner_id === null && track.artist_id === req.artistId);
+                if (!isRoot && !isOwner) {
+                    results.failed++;
+                    results.errors.push(`Track ${id}: Access denied`);
+                    continue;
+                }
+                
+                tracksToDelete.push(track);
+                if (track.album_id) affectedAlbums.add(track.album_id);
+            }
 
-                    if (deleteFiles && track.file_path) {
+            // 2. Second pass: Delete files (in parallel to speed up and reduce loop blocking)
+            if (deleteFiles) {
+                await Promise.all(tracksToDelete.map(async (track) => {
+                    if (track.file_path) {
                         const trackPath = path.join(musicDir, track.file_path);
-                        if (await fs.pathExists(trackPath)) {
-                            await fs.remove(trackPath);
-                            const ext = path.extname(trackPath).toLowerCase();
-                            if (ext === '.mp3') {
-                                const wavPath = trackPath.replace(/\.mp3$/i, '.wav');
-                                if (await fs.pathExists(wavPath)) await fs.remove(wavPath);
+                        try {
+                            if (await fs.pathExists(trackPath)) {
+                                await fs.remove(trackPath);
+                                const ext = path.extname(trackPath).toLowerCase();
+                                if (ext === '.mp3') {
+                                    const wavPath = trackPath.replace(/\.mp3$/i, '.wav');
+                                    if (await fs.pathExists(wavPath)) await fs.remove(wavPath);
+                                }
                             }
+                        } catch (err: any) {
+                            console.error(`Failed to delete file for track ${track.id}:`, err.message);
                         }
                     }
+                }));
+            }
 
+            // 3. Third pass: Delete from database
+            for (const track of tracksToDelete) {
+                try {
                     database.deleteTrack(track.id);
-                    if (track.album_id) affectedAlbums.add(track.album_id);
                     results.success++;
                 } catch (err: any) {
                     results.failed++;
-                    results.errors.push(`Track ${id}: ${err.message}`);
+                    results.errors.push(`Track ${track.id}: ${err.message}`);
                 }
             }
 
-            for (const albumId of affectedAlbums) {
-                publishingService.syncRelease(albumId).catch(e => console.error(`[BatchSyncSync] Failed for album ${albumId}:`, e));
+            // 4. Final step: Sync affected albums (ONCE per album, outside the main loop)
+            // We do this in the background to respond to the user immediately
+            if (affectedAlbums.size > 0) {
+                (async () => {
+                    for (const albumId of affectedAlbums) {
+                        try {
+                            await publishingService.syncRelease(albumId);
+                        } catch (e) {
+                            console.error(`[BatchDeleteSync] Failed for album ${albumId}:`, e);
+                        }
+                    }
+                })().catch(e => console.error("[BatchDeleteSync] Global failure:", e));
             }
 
-            res.json({ message: "Batch deletion completed", ...results });
+            res.json({ 
+                message: `Batch deletion completed. ${results.success} deleted, ${results.failed} failed.`, 
+                ...results 
+            });
         } catch (error) {
             console.error("Error in batch delete:", error);
             res.status(500).json({ error: "Failed to perform batch deletion" });
