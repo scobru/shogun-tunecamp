@@ -1222,34 +1222,6 @@ export class Scanner implements ScannerService {
                             artist = this.database.getArtist(track.artist_id);
                             artistCache.set(track.artist_id, artist);
                             if (artistCache.size > 100) artistCache.clear();
-                        }
-                    }
-
-                    const artistName = artist?.name || "Unknown Artist";
-                    const cleanTitle = (track.title || "Untitled").trim();
-                    const cleanArtist = artistName.trim();
-                    
-                    const safeName = (name: string) => name.replace(/[^a-zA-Z0-9\s._-]/g, "_").trim();
-                    const newBaseName = `${safeName(cleanArtist)} - ${safeName(cleanTitle)}`;
-                    
-                    const oldPath = track.file_path;
-                    const ext = path.extname(oldPath).toLowerCase();
-                    const newPath = path.join(path.dirname(oldPath), `${newBaseName}${ext}`).replace(/\\/g, "/");
-
-                    const oldLossless = track.lossless_path;
-                    let newLossless = null;
-                    if (oldLossless) {
-                        const lExt = path.extname(oldLossless).toLowerCase();
-                        newLossless = path.join(path.dirname(oldLossless), `${newBaseName}${lExt}`).replace(/\\/g, "/");
-                    }
-
-                    if (oldPath === newPath && (!oldLossless || oldLossless === newLossless)) {
-                        skipped++;
-                        processedCount++;
-                        continue;
-                    }
-
-                    let movedAny = false;
                     let finalDBPath = newPath;
 
                     // Move primary
