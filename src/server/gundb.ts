@@ -477,6 +477,14 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     console.log(`⏱️ Discovery: Found ${sites.length} potential community sites. Updating SQLite cache.`);
                     database.setGunCache(CACHE_KEY, JSON.stringify(sites), "sites", TTL);
                     cache.sites = { data: sites, timestamp: Date.now() };
+
+                    // Pre-emptive GC if exposed
+                    if (global.gc) {
+                        const before = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+                        global.gc();
+                        const after = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+                        console.log(`[GunDB] Cleanup: Discovery complete. Memory: ${before}MB -> ${after}MB`);
+                    }
                 }
                 resolve(sites);
             }, 10000); // Wait longer for a more complete picture in one go

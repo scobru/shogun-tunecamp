@@ -129,7 +129,7 @@ ARG TUNECAMP_ADMIN_USER
 ARG TUNECAMP_ADMIN_PASS
 ARG DISCOGS_TOKEN
 ARG TUNECAMP_DOWNLOAD_DIR
-# ARG NODE_OPTIONS="--max-old-space-size=4096 --expose-gc"
+ARG NODE_OPTIONS="--max-old-space-size=4096 --expose-gc"
 
 # Environment variables
 ENV NODE_ENV=production
