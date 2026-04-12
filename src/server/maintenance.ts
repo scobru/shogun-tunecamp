@@ -48,13 +48,15 @@ export async function runStartupMaintenance(database: DatabaseService, config: S
     try {
         // 1. Repair Corrupted Paths in Database
         console.log(`📦 [Maintenance] Repairing corrupted paths in database...`);
-        const tracks = database.db.prepare("SELECT id, file_path, lossless_path FROM tracks").all() as any[];
         let repairCount = 0;
 
         const updateStmt = database.db.prepare("UPDATE tracks SET file_path = ?, lossless_path = ? WHERE id = ?");
         
+        // Use iterator instead of .all()
+        const trackIterator = database.iterateTracks();
+        
         database.db.transaction(() => {
-            for (const track of tracks) {
+            for (const track of trackIterator) {
                 const newPath = cleanPath(track.file_path);
                 const newLossless = cleanPath(track.lossless_path);
                 if (newPath !== track.file_path || newLossless !== track.lossless_path) {
@@ -72,11 +74,12 @@ export async function runStartupMaintenance(database: DatabaseService, config: S
         console.log(`📦 [Maintenance] Scanning for orphaned music files in ${musicDir}...`);
         const files = await glob("**/*.{mp3,flac,wav,m4a,ogg}", { cwd: musicDir, posix: true });
         
-        const dbPaths = new Set(
-            (database.db.prepare("SELECT file_path FROM tracks").all() as any[])
-                .map(t => t.file_path?.toLowerCase())
-                .filter(Boolean)
-        );
+        const dbPaths = new Set<string>();
+        // Use a selective query for paths only, and iterate
+        const pathIterator = database.db.prepare("SELECT file_path FROM tracks WHERE file_path IS NOT NULL").iterate() as IterableIterator<{file_path: string}>;
+        for (const t of pathIterator) {
+            dbPaths.add(t.file_path.toLowerCase());
+        }
 
         const orphans = files.filter(f => !dbPaths.has(f.toLowerCase()));
 

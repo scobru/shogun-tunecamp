@@ -150,7 +150,12 @@ export class ActivityPubService {
             console.log(`📤 Sent Follow request to: ${inboxUri}`);
 
             // Immediately fetch remote outbox to populate the feed with existing content
-            this.fetchRemoteOutbox(finalActorUri).catch(e => console.error(`⚠️ Failed to pre-fetch outbox for ${finalActorUri}:`, e));
+            // We await it now to prevent parallel memory spikes during mass discovery
+            try {
+                await this.fetchRemoteOutbox(finalActorUri);
+            } catch (e) {
+                console.error(`⚠️ Failed to pre-fetch outbox for ${finalActorUri}:`, e);
+            }
 
             // Record in DB as followed
             try {
@@ -284,7 +289,7 @@ export class ActivityPubService {
                 try {
                     let currentUrl: string | null = outboxUrl;
                     let pageCount = 0;
-                    const maxPages = 50;
+                    const maxPages = 10; // Reduced from 50 to prevent OOM
                     const visitedUrls = new Set<string>();
 
                     while (currentUrl && pageCount < maxPages && !visitedUrls.has(currentUrl)) {
@@ -306,6 +311,15 @@ export class ActivityPubService {
 
                         const items = outbox.orderedItems || outbox.items || [];
                         console.log(`📑 Found ${items.length} items in page ${pageCount + 1}`);
+
+                        // Periodically clear memory if processing many pages
+                        if (pageCount > 0 && pageCount % 3 === 0) {
+                            if ((global as any).gc) {
+                                (global as any).gc();
+                            }
+                            const memory = process.memoryUsage();
+                            console.log(`[AP] Outbox Progress: ${pageCount} pages. Heap: ${Math.round(memory.heapUsed / 1024 / 1024)}MB`);
+                        }
 
                     for (const activity of items) {
                         try {

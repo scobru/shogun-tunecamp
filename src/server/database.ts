@@ -408,7 +408,9 @@ export interface DatabaseService {
     updateTrackExternalArtwork(id: number, artworkPath: string | null): void;
     updateTrackLyrics(id: number, lyrics: string | null): void;
     updateTrackPathsPrefix(oldPrefix: string, newPrefix: string): void;
-    deleteTrack(id: number, ownerId?: number): void;
+    deleteTrack(id: number, owner_id?: number): void;
+    iterateTracks(whereClause?: string, params?: any[]): IterableIterator<Track>;
+    getTracksSummaryByReleaseId(releaseId: number): Track[];
 
     // Ownership & Deduplication
     addTrackOwner(trackId: number, ownerId: number): void;
@@ -1858,6 +1860,21 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Release Tracks
         getReleaseTracks(releaseId: number): ReleaseTrack[] {
             return db.prepare("SELECT * FROM release_tracks WHERE release_id = ? ORDER BY track_num").all(releaseId) as any[];
+        },
+
+        getTracksSummaryByReleaseId(releaseId: number): Track[] {
+            return db.prepare(`
+                SELECT id, title, album_id, artist_id, artist_name, track_num, duration, file_path, format, bitrate, sample_rate, price, price_usdc, currency, lossless_path, url, service, external_artwork, created_at
+                FROM tracks
+                JOIN release_tracks ON tracks.id = release_tracks.track_id
+                WHERE release_tracks.release_id = ?
+                ORDER BY release_tracks.track_num ASC
+            `).all(releaseId) as Track[];
+        },
+
+        iterateTracks(whereClause: string = "1=1", params: any[] = []): IterableIterator<Track> {
+            const stmt = db.prepare(`SELECT * FROM tracks WHERE ${whereClause}`);
+            return stmt.iterate(...params) as IterableIterator<Track>;
         },
 
         getReleaseTrack(id: number): ReleaseTrack | undefined {

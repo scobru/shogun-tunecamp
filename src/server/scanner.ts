@@ -1198,142 +1198,133 @@ export class Scanner implements ScannerService {
             return { success: 0, failed: 0, skipped: 0 };
         }
 
-        console.log("[Scanner] Starting file consolidation...");
+        console.log("[Scanner] Starting file consolidation (Memory-Efficient Mode)...");
         this.isConsolidating = true;
         
         try {
-            // Fetch all tracks but process them in chunks to avoid OOM
-            const tracks = this.database.db.prepare("SELECT * FROM tracks WHERE file_path IS NOT NULL").all() as any[];
-            
             let success = 0;
             let failed = 0;
             let skipped = 0;
             let processedCount = 0;
 
             const artistCache = new Map<number, any>();
-            const BATCH_SIZE = 50;
+            const BATCH_SIZE = 20;
 
-            for (let i = 0; i < tracks.length; i += BATCH_SIZE) {
-                const batch = tracks.slice(i, i + BATCH_SIZE);
-                console.log(`[Consolidate] Processing tracks ${i + 1} to ${Math.min(i + BATCH_SIZE, tracks.length)} of ${tracks.length}...`);
+            const trackIterator = this.database.iterateTracks("file_path IS NOT NULL");
+            
+            for (const track of trackIterator) {
+                try {
+                    let artist = null;
+                    if (track.artist_id) {
+                        if (artistCache.has(track.artist_id)) {
+                            artist = artistCache.get(track.artist_id);
+                        } else {
+                            artist = this.database.getArtist(track.artist_id);
+                            artistCache.set(track.artist_id, artist);
+                            if (artistCache.size > 100) artistCache.clear();
+                        }
+                    }
 
-                for (const track of batch) {
-                    try {
-                        let artist = null;
-                        if (track.artist_id) {
-                            if (artistCache.has(track.artist_id)) {
-                                artist = artistCache.get(track.artist_id);
-                            } else {
-                                artist = this.database.getArtist(track.artist_id);
-                                artistCache.set(track.artist_id, artist);
-                                // Don't let cache grow too large
-                                if (artistCache.size > 200) artistCache.clear();
-                            }
+                    const artistName = artist?.name || "Unknown Artist";
+                    const cleanTitle = (track.title || "Untitled").trim();
+                    const cleanArtist = artistName.trim();
+                    
+                    const safeName = (name: string) => name.replace(/[^a-zA-Z0-9\s._-]/g, "_").trim();
+                    const newBaseName = `${safeName(cleanArtist)} - ${safeName(cleanTitle)}`;
+                    
+                    const oldPath = track.file_path;
+                    const ext = path.extname(oldPath).toLowerCase();
+                    const newPath = path.join(path.dirname(oldPath), `${newBaseName}${ext}`).replace(/\\/g, "/");
+
+                    const oldLossless = track.lossless_path;
+                    let newLossless = null;
+                    if (oldLossless) {
+                        const lExt = path.extname(oldLossless).toLowerCase();
+                        newLossless = path.join(path.dirname(oldLossless), `${newBaseName}${lExt}`).replace(/\\/g, "/");
+                    }
+
+                    if (oldPath === newPath && (!oldLossless || oldLossless === newLossless)) {
+                        skipped++;
+                        processedCount++;
+                        continue;
+                    }
+
+                    let movedAny = false;
+                    let finalDBPath = newPath;
+
+                    // Move primary
+                    const fullOldPath = path.join(musicDir, oldPath);
+                    const fullNewPath = path.join(musicDir, newPath);
+
+                    if (fullOldPath !== fullNewPath && await fs.pathExists(fullOldPath)) {
+                        let finalNewPath = fullNewPath;
+                        const isSameFile = fullOldPath.toLowerCase() === fullNewPath.toLowerCase();
+
+                        if (await fs.pathExists(fullNewPath) && !isSameFile) {
+                            const uniqueSuffix = `_${track.id}`;
+                            finalNewPath = path.join(path.dirname(fullNewPath), `${newBaseName}${uniqueSuffix}${ext}`);
+                            finalDBPath = path.join(path.dirname(newPath), `${newBaseName}${uniqueSuffix}${ext}`).replace(/\\/g, "/");
                         }
 
-                        const artistName = artist?.name || "Unknown Artist";
-                        const cleanTitle = track.title.trim() || "Untitled";
-                        const cleanArtist = artistName.trim() || "Unknown Artist";
-                        
-                        const safeName = (name: string) => name.replace(/[^a-zA-Z0-9\s._-]/g, "_").trim();
-                        const newBaseName = `${safeName(cleanArtist)} - ${safeName(cleanTitle)}`;
-                        
-                        const oldPath = track.file_path;
-                        const ext = path.extname(oldPath).toLowerCase();
-                        const newPath = path.join(path.dirname(oldPath), `${newBaseName}${ext}`).replace(/\\/g, "/");
+                        if (oldPath !== finalDBPath) {
+                            await fs.move(fullOldPath, finalNewPath, { overwrite: true });
+                            this.database.updateTrackPath(track.id, finalDBPath, track.album_id);
+                            movedAny = true;
+                        }
+                    }
 
-                        const oldLossless = track.lossless_path;
-                        let newLossless = null;
-                        if (oldLossless) {
+                    // Move lossless
+                    if (oldLossless && newLossless && oldLossless !== newLossless) {
+                        const fullOldLossless = path.join(musicDir, oldLossless);
+                        const fullNewLossless = path.join(musicDir, newLossless);
+                        if (await fs.pathExists(fullOldLossless)) {
+                            let finalNewLossless = fullNewLossless;
+                            let finalDBLossless = newLossless;
                             const lExt = path.extname(oldLossless).toLowerCase();
-                            newLossless = path.join(path.dirname(oldLossless), `${newBaseName}${lExt}`).replace(/\\/g, "/");
-                        }
+                            const isSameLossless = fullOldLossless.toLowerCase() === fullNewLossless.toLowerCase();
 
-                        if (oldPath === newPath && (!oldLossless || oldLossless === newLossless)) {
-                            skipped++;
-                            continue;
-                        }
-
-                        let movedAny = false;
-                        let finalDBPath = newPath;
-
-                        // Move primary
-                        const fullOldPath = path.join(musicDir, oldPath);
-                        const fullNewPath = path.join(musicDir, newPath);
-
-                        if (fullOldPath !== fullNewPath && await fs.pathExists(fullOldPath)) {
-                            let finalNewPath = fullNewPath;
-                            const isSameFile = fullOldPath.toLowerCase() === fullNewPath.toLowerCase();
-
-                            if (await fs.pathExists(fullNewPath) && !isSameFile) {
+                            if (await fs.pathExists(fullNewLossless) && !isSameLossless) {
                                 const uniqueSuffix = `_${track.id}`;
-                                finalNewPath = path.join(path.dirname(fullNewPath), `${newBaseName}${uniqueSuffix}${ext}`);
-                                finalDBPath = path.join(path.dirname(newPath), `${newBaseName}${uniqueSuffix}${ext}`).replace(/\\/g, "/");
+                                finalNewLossless = path.join(path.dirname(fullNewLossless), `${newBaseName}${uniqueSuffix}${lExt}`);
+                                finalDBLossless = path.join(path.dirname(newLossless), `${newBaseName}${uniqueSuffix}${lExt}`).replace(/\\/g, "/");
                             }
 
-                            if (oldPath !== finalDBPath) {
-                                await fs.move(fullOldPath, finalNewPath, { overwrite: true });
-                                this.database.updateTrackPath(track.id, finalDBPath, track.album_id);
+                            if (oldLossless !== finalDBLossless) {
+                                await fs.move(fullOldLossless, finalNewLossless, { overwrite: true });
+                                this.database.updateTrackLosslessPath(track.id, finalDBLossless);
                                 movedAny = true;
                             }
                         }
+                    }
 
-                        // Move lossless
-                        if (oldLossless && newLossless && oldLossless !== newLossless) {
-                            const fullOldLossless = path.join(musicDir, oldLossless);
-                            const fullNewLossless = path.join(musicDir, newLossless);
-                            if (await fs.pathExists(fullOldLossless)) {
-                                let finalNewLossless = fullNewLossless;
-                                let finalDBLossless = newLossless;
-                                const lExt = path.extname(oldLossless).toLowerCase();
-                                const isSameLossless = fullOldLossless.toLowerCase() === fullNewLossless.toLowerCase();
+                    if (movedAny) success++;
+                    else skipped++;
 
-                                if (await fs.pathExists(fullNewLossless) && !isSameLossless) {
-                                    const uniqueSuffix = `_${track.id}`;
-                                    finalNewLossless = path.join(path.dirname(fullNewLossless), `${newBaseName}${uniqueSuffix}${lExt}`);
-                                    finalDBLossless = path.join(path.dirname(newLossless), `${newBaseName}${uniqueSuffix}${lExt}`).replace(/\\/g, "/");
-                                }
+                } catch (e) {
+                    console.error(`[Consolidate] Error processing track ID ${track.id}:`, e);
+                    failed++;
+                }
 
-                                if (oldLossless !== finalDBLossless) {
-                                    await fs.move(fullOldLossless, finalNewLossless, { overwrite: true });
-                                    this.database.updateTrackLosslessPath(track.id, finalDBLossless);
-                                    movedAny = true;
-                                }
-                            }
+                processedCount++;
+                if (processedCount % BATCH_SIZE === 0) {
+                    const memory = process.memoryUsage();
+                    console.log(`[Consolidate] Progress: ${processedCount} tracks. Heap: ${Math.round(memory.heapUsed / 1024 / 1024)}MB`);
+                    
+                    if (processedCount % (BATCH_SIZE * 5) === 0) {
+                        artistCache.clear();
+                        if ((global as any).gc) {
+                            (global as any).gc();
                         }
-
-                        if (movedAny) {
-                            success++;
-                        } else {
-                            // If it wasn't moved and it didn't skip earlier, check why
-                            const oldExists = await fs.pathExists(path.join(musicDir, track.file_path));
-                            if (!oldExists) {
-                                console.warn(`  [Consolidate] File missing for track: ${track.title} (${track.file_path})`);
-                            }
-                            skipped++;
-                        }
-
-                    } catch (err) {
-                        console.error(`  [Consolidate] Failed to consolidate track ${track.id}:`, err);
-                        failed++;
+                        await new Promise(resolve => setTimeout(resolve, 100));
                     }
                 }
-
-                // IMPORTANT: Yield to garbage collector and event loop between batches
-                if ((global as any).gc) {
-                    (global as any).gc();
-                }
-                await new Promise(resolve => setTimeout(resolve, 500));
             }
 
-            console.log(`[Consolidate] Done. Success: ${success}, Failed: ${failed}, Skipped: ${skipped}`);
+            console.log(`[Scanner] Consolidation complete. Success: ${success}, Failed: ${failed}, Skipped: ${skipped}`);
             return { success, failed, skipped };
-
         } finally {
-            // Wait slightly for any FS events to clear
-            setTimeout(() => {
-                this.isConsolidating = false;
-            }, 1000);
+            this.isConsolidating = false;
+            if ((global as any).gc) (global as any).gc();
         }
     }
 }
