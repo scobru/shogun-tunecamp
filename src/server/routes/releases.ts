@@ -44,11 +44,8 @@ export function createReleaseRouter(
 
     router.get("/", async (req: any, res) => {
         try {
-            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
-            const artistId = req.artistId;
-
             let releases: any[];
-            if (isRoot) {
+            if (req.isAdmin) {
                 releases = database.getReleases();
             } else if (req.userId !== undefined) {
                 // Show public releases OR those owned by the user

@@ -52,17 +52,9 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             const username = req.username;
 
             // If admin, return everything (unless filtering for 'mine')
-            if (req.isAdmin && !showMine) {
+            if (req.isAdmin) {
                 return res.json(database.getTracks().map(t => mapTrack(t, username)));
             }
-
-            // If a non-admin artist, or admin filtering for 'mine', return their own tracks (+ all public tracks if not filtering)
-            if (req.userId !== undefined) {
-                const myTracks = database.getTracksByOwner(req.userId).map(t => mapTrack(t, username));
-                
-                if (showMine) {
-                    return res.json(myTracks);
-                }
 
                 const publicTracksRaw = database.getTracks(undefined, true);
                 

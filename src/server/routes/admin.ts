@@ -30,16 +30,14 @@ export function createAdminRoutes(
     router.get("/releases", (req: AuthenticatedRequest, res: any) => {
         try {
             const showMine = req.query.mine === 'true';
+            const isAdmin = req.isAdmin;
+            const isRoot = req.isRootAdmin;
             let releases: any[] = [];
             
-            if (req.isRootAdmin && !showMine) {
+            if (isAdmin && !showMine) {
                 releases = database.getReleases(false).map(r => ({ ...r, is_formal_release: true }));
             } else if (req.userId) {
                 releases = database.getReleasesByOwner(req.userId, false).map(r => ({ ...r, is_formal_release: true }));
-            } else if (req.isAdmin) {
-                // If standard admin but no artistId, show nothing global
-                res.json([]);
-                return;
             } else {
                 res.json([]);
                 return;
@@ -121,7 +119,9 @@ export function createAdminRoutes(
     router.get("/stats", async (req: AuthenticatedRequest, res: any) => {
         try {
             const showMine = req.query.mine === 'true';
-            const artistId = (req.isRootAdmin && !showMine) ? undefined : (req.artistId || undefined);
+            const isAdmin = req.isAdmin;
+            const isRoot = req.isRootAdmin;
+            const artistId = (isAdmin && !showMine) ? undefined : (req.artistId || undefined);
             const ownerId = showMine ? req.userId : undefined;
             
             const stats = await database.getStats(artistId, ownerId);
@@ -314,6 +314,31 @@ export function createAdminRoutes(
             }
         } catch (error) {
             console.error("Error setting identity:", error);
+        }
+    });
+
+    /**
+     * POST /api/admin/system/rescan
+     * Manually trigger library maintenance (Any Admin)
+     */
+    router.post("/system/rescan", async (req: AuthenticatedRequest, res: any) => {
+        try {
+            if (!req.isAdmin) {
+                return res.status(403).json({ error: "Only admin can trigger rescan" });
+            }
+            
+            console.log(`🔍 [Admin] Manual library rescan triggered by ${req.username}`);
+            const { runStartupMaintenance } = await import("../maintenance.js");
+            
+            // Run it in the background to avoid timeout
+            runStartupMaintenance(database, config)
+                .then(() => console.log("✅ Manual library rescan completed"))
+                .catch(err => console.error("❌ Manual library rescan failed:", err));
+
+            res.json({ message: "Library rescan triggered in background" });
+        } catch (error) {
+            console.error("Error triggering rescan:", error);
+            res.status(500).json({ error: "Failed to trigger rescan" });
         }
     });
 
