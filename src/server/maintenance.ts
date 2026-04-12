@@ -46,6 +46,21 @@ export async function runStartupMaintenance(database: DatabaseService, config: S
     const musicDir = path.resolve(config.musicDir).replace(/\\/g, '/');
 
     try {
+        // 0. Repair Ownership Gaps (Claim orphans for primary admin)
+        console.log(`📦 [Maintenance] Repairing ownership gaps...`);
+        const primaryAdmin = database.db.prepare("SELECT id FROM admin WHERE role = 'admin' ORDER BY id ASC LIMIT 1").get() as { id: number } | undefined;
+        
+        if (primaryAdmin) {
+            const adminId = primaryAdmin.id;
+            const trackFix = database.db.prepare("UPDATE tracks SET owner_id = ? WHERE owner_id IS NULL").run(adminId);
+            const albumFix = database.db.prepare("UPDATE albums SET owner_id = ? WHERE owner_id IS NULL").run(adminId);
+            const releaseFix = database.db.prepare("UPDATE releases SET owner_id = ? WHERE owner_id IS NULL").run(adminId);
+            
+            if (trackFix.changes > 0 || albumFix.changes > 0 || releaseFix.changes > 0) {
+                console.log(`✅ [Maintenance] Claimed ${trackFix.changes} tracks and ${albumFix.changes + releaseFix.changes} albums for admin id ${adminId}.`);
+            }
+        }
+
         // 1. Repair Corrupted Paths in Database
         console.log(`📦 [Maintenance] Repairing corrupted paths in database...`);
         let repairCount = 0;
@@ -116,7 +131,7 @@ export async function runStartupMaintenance(database: DatabaseService, config: S
                         title: common.title || path.basename(file, path.extname(file)),
                         album_id: null, // Scanned later by main scanner
                         artist_id: artistId,
-                        owner_id: null,
+                        owner_id: primaryAdmin ? primaryAdmin.id : null,
                         track_num: common.track.no || null,
                         duration: format.duration || null,
                         file_path: file,

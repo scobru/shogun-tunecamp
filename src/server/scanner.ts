@@ -145,8 +145,22 @@ export class Scanner implements ScannerService {
     private isConsolidating = false;
     private scannerStartTime = Date.now();
     private readonly WATCHER_STARTUP_DELAY = 60000;
+    private primaryAdminId: number | null = null;
 
-    constructor(private database: DatabaseService) { }
+    constructor(private database: DatabaseService) { 
+        this.lookupPrimaryAdmin();
+    }
+
+    private lookupPrimaryAdmin() {
+        try {
+            const admin = this.database.db.prepare("SELECT id FROM admin WHERE role = 'admin' ORDER BY id ASC LIMIT 1").get() as { id: number } | undefined;
+            if (admin) {
+                this.primaryAdminId = admin.id;
+            }
+        } catch (e) {
+            console.error("[Scanner] Failed to lookup primary admin:", e);
+        }
+    }
 
     public clearCaches(): void {
         this.folderToAlbumMap.clear();
@@ -211,7 +225,7 @@ export class Scanner implements ScannerService {
             title: folderName,
             slug: slug,
             artist_id: null,
-            owner_id: null,
+            owner_id: this.primaryAdminId,
             date: null,
             cover_path: coverPath,
             genre: "Library",
@@ -365,7 +379,7 @@ export class Scanner implements ScannerService {
                     title: config.title,
                     slug: slug,
                     artist_id: artistId,
-                    owner_id: null,
+                    owner_id: this.primaryAdminId,
                     date: config.date || null,
                     cover_path: coverPath,
                     genre: config.genres?.join(", ") || null,
@@ -520,7 +534,7 @@ export class Scanner implements ScannerService {
                 title: common.title || path.basename(currentFilePath, ext),
                 album_id: albumId,
                 artist_id: artistId,
-                owner_id: ownerId || null,
+                owner_id: ownerId || this.primaryAdminId,
                 track_num: common.track?.no || null,
                 duration: duration,
                 file_path: isLossless ? this.normalizePath(currentFilePath.replace(new RegExp(`\\${ext}$`, 'i'), '.mp3'), musicDir) : normalizedPath,
