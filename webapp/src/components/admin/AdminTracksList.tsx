@@ -1,12 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import API from "../../services/api";
-import { Link as LinkIcon, Edit, Trash2 } from "lucide-react";
+import { Link as LinkIcon, Edit, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { BatchTrackEditModal } from "../modals/BatchTrackEditModal";
+
+type SortKey = "title" | "artist_name" | "album_title" | "duration";
+interface SortConfig {
+  key: SortKey;
+  direction: "asc" | "desc";
+}
 
 export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
   const [tracks, setTracks] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
   const [showBatchEdit, setShowBatchEdit] = useState(false);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "title", direction: "asc" });
 
   const loadTracks = () => API.getTracks({ mine }).then(setTracks).catch(console.error);
 
@@ -15,6 +22,38 @@ export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
     window.addEventListener("refresh-admin-tracks", loadTracks);
     return () => window.removeEventListener("refresh-admin-tracks", loadTracks);
   }, [mine]);
+
+  const sortedTracks = useMemo(() => {
+    const sortableTracks = [...tracks];
+    if (sortConfig !== null) {
+      sortableTracks.sort((a, b) => {
+        const aValue = a[sortConfig.key] || "";
+        const bValue = b[sortConfig.key] || "";
+
+        if (aValue < bValue) {
+          return sortConfig.direction === "asc" ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === "asc" ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableTracks;
+  }, [tracks, sortConfig]);
+
+  const requestSort = (key: SortKey) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key: SortKey) => {
+    if (sortConfig.key !== key) return null;
+    return sortConfig.direction === "asc" ? <ChevronUp size={14} /> : <ChevronDown size={14} />;
+  };
 
   const handleDelete = async (id: string, name: string) => {
     if (
@@ -100,16 +139,24 @@ export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
                 onChange={toggleSelectAll}
               />
             </th>
-            <th>Title</th>
-            <th>Artist</th>
-            <th>Album</th>
+            <th className="cursor-pointer hover:text-primary transition-colors" onClick={() => requestSort("title")}>
+              <div className="flex items-center gap-1">Title {getSortIcon("title")}</div>
+            </th>
+            <th className="cursor-pointer hover:text-primary transition-colors" onClick={() => requestSort("artist_name")}>
+              <div className="flex items-center gap-1">Artist {getSortIcon("artist_name")}</div>
+            </th>
+            <th className="cursor-pointer hover:text-primary transition-colors" onClick={() => requestSort("album_title")}>
+              <div className="flex items-center gap-1">Album {getSortIcon("album_title")}</div>
+            </th>
             <th>User</th>
-            <th>Duration</th>
+            <th className="cursor-pointer hover:text-primary transition-colors" onClick={() => requestSort("duration")}>
+              <div className="flex items-center gap-1">Duration {getSortIcon("duration")}</div>
+            </th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {tracks.map((t) => (
+          {sortedTracks.map((t) => (
             <tr key={t.id} className={selectedIds.has(t.id) ? "bg-primary/5" : ""}>
               <td>
                 <input 
