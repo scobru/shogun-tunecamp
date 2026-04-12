@@ -55,6 +55,13 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             if (req.isAdmin) {
                 return res.json(database.getTracks().map(t => mapTrack(t, username)));
             }
+            // If a non-admin artist, or admin filtering for 'mine', return their own tracks (+ all public tracks if not filtering)
+            if (req.userId !== undefined) {
+                const myTracks = database.getTracksByOwner(req.userId).map(t => mapTrack(t, username));
+                
+                if (showMine) {
+                    return res.json(myTracks);
+                }
 
                 const publicTracksRaw = database.getTracks(undefined, true);
                 
@@ -70,7 +77,6 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             }
 
             // Otherwise, filter for public/unlisted tracks
-            // Optimized: Use database filtering instead of in-memory N+1
             res.json(database.getTracks(undefined, true).map(t => mapTrack(t, username)));
         } catch (error) {
             console.error("Error getting tracks:", error);
