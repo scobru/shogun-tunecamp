@@ -289,10 +289,12 @@ export class ActivityPubService {
                 try {
                     let currentUrl: string | null = outboxUrl;
                     let pageCount = 0;
-                    const maxPages = 10; // Reduced from 50 to prevent OOM
+                    const maxPages = 2; // Reduced further to prevent OOM
+                    const maxItemsToResolve = 50; // Cap total items to resolve per outbox to limit memory usage
+                    let resolvedItemsCount = 0;
                     const visitedUrls = new Set<string>();
 
-                    while (currentUrl && pageCount < maxPages && !visitedUrls.has(currentUrl)) {
+                    while (currentUrl && pageCount < maxPages && !visitedUrls.has(currentUrl) && resolvedItemsCount < maxItemsToResolve) {
                         visitedUrls.add(currentUrl);
                         const pageRes = await this.fetchWithSignature(currentUrl);
                         if (!pageRes.ok) {
@@ -322,6 +324,10 @@ export class ActivityPubService {
                         }
 
                     for (const activity of items) {
+                        if (resolvedItemsCount >= maxItemsToResolve) {
+                            console.log(`🛑 Reached max items limit (${maxItemsToResolve}) for outbox ${outboxUrl}`);
+                            break;
+                        }
                         try {
                             if (!activity || typeof activity !== 'object') continue;
 
@@ -384,6 +390,7 @@ export class ActivityPubService {
 
                                     if (remoteContent.ap_id) {
                                         this.db.upsertRemoteContent(remoteContent as any);
+                                        resolvedItemsCount++;
                                         console.log(`  ✅ Stored remote ${type}: ${remoteContent.title}`);
                                     }
                             }
