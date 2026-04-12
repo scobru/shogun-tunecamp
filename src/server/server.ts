@@ -215,6 +215,12 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 
     app.use("/rest", createSubsonicRouter({ db: database, auth: authService, musicDir: config.musicDir, gundbService }));
+    
+    // Lightweight healthcheck endpoint for Docker/CapRover
+    app.get("/health", (req, res) => {
+        res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+    });
+
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService, authMiddleware));
     app.use("/api/admin", authMiddleware.requireUser, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService, publishingService, apService));
     // Backup routes moved earlier
@@ -563,7 +569,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
                 } catch (e) {
                     console.error("❌ Failed to auto-sync community follows on startup:", e);
                 }
-            }, 10000); // 10 seconds delay to allow GunDB to discover peers
+            }, 20000); // Increased to 20 seconds to avoid overlap with early healthchecks
 
             // ActivityPub Relay Support
             const relayUrl = database.getSetting("relayUrl") || config.relayUrl;

@@ -487,7 +487,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     }
                 }
                 resolve(sites);
-            }, 10000); // Wait longer for a more complete picture in one go
+            }, 7000); // Reduced to 7 seconds to minimize memory pressure window
         });
     }
 

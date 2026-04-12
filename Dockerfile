@@ -150,9 +150,9 @@ EXPOSE 1970
 # Install runtime dependencies
 RUN apk add --no-cache curl libc6-compat gcompat
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:1970/api/catalog || exit 1
+# Add a more lenient healthcheck to avoid restart loops during heavy maintenance/discovery
+HEALTHCHECK --interval=60s --timeout=15s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:1970/health || exit 1
 
 # Default command: run migrations then start server
 CMD node dist/tools/migrate-dedupe.js --music-dir /music --db /data/tunecamp.db && node dist/tools/migrate-visibility.js --db /data/tunecamp.db && node dist/cli.js server /music --port 1970 --db /data/tunecamp.db
