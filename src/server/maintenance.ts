@@ -138,10 +138,101 @@ export async function runStartupMaintenance(database: DatabaseService, config: S
             console.log(`✨ [Maintenance] Library is clean. No orphans found.`);
         }
 
+        // 3. Cleanup Fragmented Torrent Remnants
+        await cleanupTorrentFragments(database, config);
+
     } catch (error) {
         console.error(`❌ [Maintenance] Error during startup maintenance:`, error);
     }
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`📦 [Maintenance] Phase complete (${duration}s).\n`);
+}
+
+/**
+ * 🧹 Torrent Fragment Cleanup
+ * Identifies and removes partial downloads left over from old torrent implementations.
+ * (e.g., "Song_864.mp3" -> merged into "Song.mp3")
+ */
+async function cleanupTorrentFragments(database: DatabaseService, config: ServerConfig) {
+    console.log(`📦 [Maintenance] Analyzing library for fragmented torrent remains...`);
+    const fragmentPattern = /_(\d*)\.(mp3|flac|wav|m4a|ogg)$/i;
+    const musicDir = path.resolve(config.musicDir).replace(/\\/g, '/');
+
+    let fragmentCount = 0;
+    let savingsBytes = 0;
+    
+    // Grouping structure: Map<"artistId|normalizedTitle", Track[]>
+    const groups = new Map<string, any[]>();
+
+    try {
+        const trackIterator = database.iterateTracks();
+        for (const track of trackIterator) {
+            if (!track.file_path) continue;
+            
+            const fileName = path.basename(track.file_path);
+            const isFragment = fragmentPattern.test(fileName);
+            
+            // Normalize title for grouping (lowercase, trim)
+            const baseTitle = track.title.toLowerCase().trim();
+            
+            const groupKey = `${track.artist_id}|${baseTitle}`;
+            if (!groups.has(groupKey)) groups.set(groupKey, []);
+            groups.get(groupKey)!.push({ ...track, isFragment });
+        }
+
+        for (const [key, tracks] of groups.entries()) {
+            if (tracks.length <= 1) continue;
+
+            // 1. Find the "Canonical" track (largest file size or clean name)
+            let canonical = tracks[0];
+            let maxBytes = -1;
+            const trackStats = [];
+
+            for (const t of tracks) {
+                const fullPath = path.join(musicDir, t.file_path);
+                try {
+                    const stats = await fs.stat(fullPath);
+                    trackStats.push({ track: t, bytes: stats.size, path: fullPath });
+                    if (stats.size > maxBytes) {
+                        maxBytes = stats.size;
+                        canonical = t;
+                    }
+                } catch (e) {
+                    trackStats.push({ track: t, bytes: 0, path: fullPath });
+                }
+            }
+
+            // 2. Consolidate fragments into canonical
+            for (const item of trackStats) {
+                if (item.track.id === canonical.id) continue;
+
+                try {
+                    // Merge DB references (ownership, release placement)
+                    database.mergeTracks(item.track.id, canonical.id);
+
+                    // Delete file from disk
+                    if (fs.existsSync(item.path)) {
+                        await fs.remove(item.path);
+                        savingsBytes += item.bytes;
+                        fragmentCount++;
+                    }
+
+                    // Delete track from database
+                    database.deleteTrack(item.track.id);
+                } catch (err) {
+                    console.error(`❌ [Maintenance] Failed to cleanup fragment ${item.path}:`, err);
+                }
+            }
+        }
+
+        if (fragmentCount > 0) {
+            const savingsMB = (savingsBytes / (1024 * 1024)).toFixed(2);
+            console.log(`✅ [Maintenance] Cleaned up ${fragmentCount} fragments, saved ${savingsMB} MB of storage.`);
+        } else {
+            console.log(`✨ [Maintenance] No torrent fragments found.`);
+        }
+    } catch (err) {
+        console.error(`❌ [Maintenance] Torrent cleanup failed:`, err);
+    }
 }

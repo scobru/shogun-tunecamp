@@ -409,6 +409,7 @@ export interface DatabaseService {
     updateTrackLyrics(id: number, lyrics: string | null): void;
     updateTrackPathsPrefix(oldPrefix: string, newPrefix: string): void;
     deleteTrack(id: number, owner_id?: number): void;
+    mergeTracks(fromId: number, toId: number): void;
     iterateTracks(whereClause?: string, params?: any[]): IterableIterator<Track>;
     getTracksSummaryByReleaseId(releaseId: number): Track[];
 
@@ -2804,6 +2805,30 @@ export function createDatabase(dbPath: string): DatabaseService {
                 SET lossless_path = ? || SUBSTR(lossless_path, LENGTH(?) + 1)
                 WHERE lossless_path = ? OR lossless_path LIKE ? || '/%'
             `).run(newPrefix, oldPrefix, oldPrefix, oldPrefix);
+        },
+
+        mergeTracks(fromId: number, toId: number): void {
+            const targetTrack = this.getTrack(toId);
+            if (!targetTrack) return;
+
+            db.transaction(() => {
+                // 1. Move ownership links
+                db.prepare(`
+                    INSERT OR IGNORE INTO track_ownership (track_id, owner_id)
+                    SELECT ?, owner_id FROM track_ownership WHERE track_id = ?
+                `).run(toId, fromId);
+
+                // 2. Move release tracks
+                // We update existing links if they exist, or insert new ones
+                db.prepare(`
+                    UPDATE release_tracks 
+                    SET track_id = ?, file_path = ?
+                    WHERE track_id = ?
+                `).run(toId, targetTrack.file_path, fromId);
+
+                // 3. Clean up the source links from these tables (handled by DELETE in cleanup logic, but safe here too)
+                db.prepare("DELETE FROM track_ownership WHERE track_id = ?").run(fromId);
+            })();
         },
 
         deleteTrack(id: number, ownerId?: number): void {
