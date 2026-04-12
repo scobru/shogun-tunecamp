@@ -410,6 +410,16 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     if (processedIds.has(siteId)) return;
                     processedIds.add(siteId);
 
+                    // --- STALE SITES FILTER ---
+                    // Skip sites that haven't been seen in the last 7 days to reduce memory pressure
+                    // and prevent the server from trying to resolve thousands of dead nodes.
+                    if (directoryData.lastSeen && typeof directoryData.lastSeen === 'number') {
+                        const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+                        if (directoryData.lastSeen < sevenDaysAgo) {
+                            return; 
+                        }
+                    }
+
                     if (directoryData.pub) {
                         const registerPub = directoryData.pub;
                         
@@ -473,19 +483,21 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             // Wait for data to collect
             setTimeout(() => {
                 isRefreshingSites = false;
+                
                 if (sites.length > 0) {
                     console.log(`⏱️ Discovery: Found ${sites.length} potential community sites. Updating SQLite cache.`);
                     database.setGunCache(CACHE_KEY, JSON.stringify(sites), "sites", TTL);
                     cache.sites = { data: sites, timestamp: Date.now() };
-
-                    // Pre-emptive GC if exposed
-                    if (global.gc) {
-                        const before = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
-                        global.gc();
-                        const after = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
-                        console.log(`[GunDB] Cleanup: Discovery complete. Memory: ${before}MB -> ${after}MB`);
-                    }
                 }
+
+                // Pre-emptive GC if exposed - ALWAYS call to release GunDB graph nodes
+                if (global.gc) {
+                    const before = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+                    global.gc();
+                    const after = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+                    console.log(`[GunDB] Cleanup: Discovery complete. Memory: ${before}MB -> ${after}MB`);
+                }
+
                 resolve(sites);
             }, 7000); // Reduced to 7 seconds to minimize memory pressure window
         });
