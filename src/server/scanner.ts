@@ -1187,6 +1187,201 @@ export class Scanner implements ScannerService {
 
     public stopWatching(): void {
         if (this.watcher) {
+                    const artistId = artistIds[0];
+                    console.log(`  [Scanner] Fixing orphan library album "${orphan.title}" (ID ${orphan.id}) -> Artist ID ${artistId}`);
+                    this.database.updateAlbumArtist(orphan.id, artistId!);
+                }
+            }
+
+            // 2. Fix releases
+            const orphanReleases = this.database.db.prepare("SELECT * FROM releases WHERE artist_id IS NULL").all() as any[];
+            for (const orphan of orphanReleases) {
+                const tracks = this.database.getTracksByReleaseId(orphan.id);
+                if (tracks.length === 0) continue;
+                const artistIds = [...new Set(tracks.map(t => t.artist_id).filter(id => id !== null))];
+                if (artistIds.length === 1) {
+                    const artistId = artistIds[0];
+                    console.log(`  [Scanner] Fixing orphan release "${orphan.title}" (ID ${orphan.id}) -> Artist ID ${artistId}`);
+                    this.database.updateRelease(orphan.id, { artist_id: artistId! });
+                }
+            }
+        } catch (e) {
+            console.error("  [Scanner] Error fixing orphan albums:", e);
+        }
+    }
+
+    private groupTracksForDeduplication(tracks: Track[]): Map<string, Track[]> {
+        const groups = new Map<string, Track[]>();
+        for (const track of tracks) {
+            const key = `${track.album_id || 0}|${track.artist_id || 0}|${track.title.toLowerCase().trim()}`;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(track);
+        }
+        return groups;
+    }
+
+    private migrateLosslessPath(primary: Track, other: Track): void {
+        if (other.lossless_path && !primary.lossless_path) {
+            this.database.updateTrackLosslessPath(primary.id, other.lossless_path);
+            primary.lossless_path = other.lossless_path;
+        } else if (!primary.lossless_path) {
+            const otherExt = path.extname(other.file_path || '').toLowerCase();
+            if (['.wav', '.flac'].includes(otherExt)) {
+                this.database.updateTrackLosslessPath(primary.id, other.file_path!);
+                primary.lossless_path = other.file_path;
+            }
+        }
+    }
+
+    private mergeDuplicateGroup(groupTracks: Track[], tracksToRemove: Set<number>): number {
+        let mergedInGroup = 0;
+        // Find primary (MP3) and lossless among duplicates
+        const primary = groupTracks.find(t => path.extname(t.file_path || '').toLowerCase() === '.mp3') || groupTracks[0];
+        const others = groupTracks.filter(t => t.id !== primary.id);
+
+        for (const other of others) {
+            console.log(`  [Dedupe] Merging duplicate track: ${other.title} (ID ${other.id}) into ID ${primary.id}`);
+
+            this.migrateLosslessPath(primary, other);
+
+            // Delete the duplicate
+            this.database.deleteTrack(other.id);
+            tracksToRemove.add(other.id);
+            mergedInGroup++;
+        }
+        return mergedInGroup;
+    }
+
+    private async deduplicateTracks(tracks: Track[]): Promise<Track[]> {
+        console.log("[Scanner] Checking for duplicate tracks to merge...");
+
+        const groups = this.groupTracksForDeduplication(tracks);
+        const tracksToRemove = new Set<number>();
+        let merged = 0;
+
+        for (const groupTracks of groups.values()) {
+            if (groupTracks.length > 1) {
+                merged += this.mergeDuplicateGroup(groupTracks, tracksToRemove);
+            }
+        }
+
+        if (merged > 0) {
+            console.log(`[Scanner] Merged ${merged} duplicate track(s).`);
+            // Explicitly clear groups Map to free memory early
+            groups.clear();
+        }
+
+        return tracks.filter(t => !tracksToRemove.has(t.id));
+    }
+
+
+    private async cleanupStaleTracks(musicDir: string, knownFiles: Set<string>, allTracks: Track[]) {
+        console.log("[Scanner] Cleaning up stale database records...");
+        const isCaseInsensitive = process.platform === 'win32' || process.platform === 'darwin';
+
+        let removed = 0;
+        // Process in smaller batches of track objects
+        const TRACK_BATCH = 100;
+        for (let i = 0; i < allTracks.length; i += TRACK_BATCH) {
+            const batch = allTracks.slice(i, i + TRACK_BATCH);
+            
+            for (const track of batch) {
+                if (!track.file_path) continue; // Skip external tracks for file existence check
+
+                // Check if primary file exists using knownFiles Set (O(1))
+                const primaryKey = isCaseInsensitive ? track.file_path.toLowerCase() : track.file_path;
+                const primaryExists = knownFiles.has(primaryKey);
+
+                // Check if lossless file exists
+                const losslessKey = track.lossless_path ? (isCaseInsensitive ? track.lossless_path.toLowerCase() : track.lossless_path) : null;
+                const losslessExists = losslessKey ? knownFiles.has(losslessKey) : false;
+
+                if (!primaryExists && !losslessExists) {
+                    console.warn(`  [Cleanup] Track removed (file missing): ${track.title}`);
+                    this.database.deleteTrack(track.id);
+                    removed++;
+                } else if (!primaryExists && losslessExists) {
+                    console.warn(`  [Cleanup] Track ${track.title} missing MP3 (${track.file_path}) but has Lossless. Keeping record.`);
+
+                    // Re-queue regeneration if needed
+                    if (track.lossless_path) {
+                        const resolvedLossless = path.join(musicDir, track.lossless_path);
+                        this.processQueue.add(() => convertWavToMp3(resolvedLossless).catch(console.error));
+                    }
+                } else if (primaryExists && track.lossless_path && !losslessExists) {
+                    console.log(`  [Cleanup] Track ${track.title} missing lossless file (${track.lossless_path}). Updating record.`);
+                    this.database.updateTrackLosslessPath(track.id, null);
+                }
+            }
+            
+            // Safety: yield to GC
+            if (i % 500 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        if (removed > 0) {
+            console.log(`[Scanner] Removed ${removed} stale track(s).`);
+        }
+    }
+
+    public startWatching(dir: string): void {
+        this.musicDirectory = dir; // Ensure set
+
+        if (this.watcher) {
+            this.watcher.close();
+        }
+
+        console.log("Watching for changes in: " + dir);
+
+        this.watcher = chokidar.watch(dir, {
+            ignored: /(^|[\/\\])\../,
+            persistent: true,
+            ignoreInitial: true,
+            awaitWriteFinish: {
+                stabilityThreshold: 500,
+                pollInterval: 100
+            }
+        });
+
+        this.watcher.on("add", async (filePath: string) => {
+            if (this.isConsolidating) return;
+            const ext = path.extname(filePath).toLowerCase();
+            if (AUDIO_EXTENSIONS.includes(ext)) {
+                await this.processAudioFile(filePath, dir);
+            }
+        });
+
+        this.watcher.on("unlink", async (filePath: string) => {
+            if (this.isConsolidating) return;
+            // Note: normalizing path here because DB stores relative
+            const relativePath = this.normalizePath(filePath, dir);
+            const track = this.database.getTrackByPath(relativePath);
+
+            if (track) {
+                // If checking the primary file
+                const losslessPath = track.lossless_path ? path.join(dir, track.lossless_path) : null;
+                if (losslessPath && await fs.pathExists(losslessPath)) {
+                    console.log(`[Watcher] Primary file ${relativePath} deleted, but lossless backup exists. Queuing regeneration.`);
+                    this.processQueue.add(() => convertWavToMp3(losslessPath!).catch(console.error));
+                    return;
+                }
+
+                const timeSinceStart = Date.now() - this.scannerStartTime;
+                if (timeSinceStart < this.WATCHER_STARTUP_DELAY) {
+                    console.log(`[Watcher] Ignoring unlink during startup period: ${relativePath}`);
+                    return;
+                }
+
+                console.log(`[Watcher] Primary file ${relativePath} deleted. DELETION DISABLED.`);
+                // this.database.deleteTrack(track.id);
+            } else {
+                // It might be the lossless file.
+                // Since we don't have an easy lookup, we'll let the next scan/cleanup handle updating the DB.
+            }
+        });
+    }
+
+    public stopWatching(): void {
+        if (this.watcher) {
             this.watcher.close();
             this.watcher = null;
         }
@@ -1194,7 +1389,7 @@ export class Scanner implements ScannerService {
 
     public async consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number }> {
         if (this.isConsolidating) {
-            console.log("[Scanner] Consolidation already in progress, skipping.");
+            console.log("[Scanner] Consolidation already in progress, skipping...");
             return { success: 0, failed: 0, skipped: 0 };
         }
 
@@ -1214,7 +1409,8 @@ export class Scanner implements ScannerService {
             
             for (const track of trackIterator) {
                 try {
-                    let artist = null;
+                    // Resolve artist
+                    let artist: any = null;
                     if (track.artist_id) {
                         if (artistCache.has(track.artist_id)) {
                             artist = artistCache.get(track.artist_id);
@@ -1222,6 +1418,39 @@ export class Scanner implements ScannerService {
                             artist = this.database.getArtist(track.artist_id);
                             artistCache.set(track.artist_id, artist);
                             if (artistCache.size > 100) artistCache.clear();
+                        }
+                    }
+
+                    const artistName = artist?.name || "Unknown Artist";
+                    const cleanTitle = (track.title || "Untitled").trim();
+                    const cleanArtist = artistName.trim();
+                    const safeName = (name: string) => name.replace(/[^a-zA-Z0-9\s._-]/g, "_").trim();
+                    const newBaseName = `${safeName(cleanArtist)} - ${safeName(cleanTitle)}`;
+                    
+                    // TS fix: track.file_path is string | null, but we checked in iterator filter and here as extra safety
+                    if (!track.file_path) {
+                        processedCount++;
+                        continue;
+                    }
+
+                    const oldPath = track.file_path;
+                    const ext = path.extname(oldPath).toLowerCase();
+                    const newPath = path.join(path.dirname(oldPath), `${newBaseName}${ext}`).replace(/\\/g, "/");
+
+                    const oldLossless = track.lossless_path;
+                    let newLossless: string | null = null;
+                    if (oldLossless) {
+                        const lExt = path.extname(oldLossless).toLowerCase();
+                        newLossless = path.join(path.dirname(oldLossless), `${newBaseName}${lExt}`).replace(/\\/g, "/");
+                    }
+
+                    if (oldPath === newPath && (!oldLossless || oldLossless === newLossless)) {
+                        skipped++;
+                        processedCount++;
+                        continue;
+                    }
+
+                    let movedAny = false;
                     let finalDBPath = newPath;
 
                     // Move primary
