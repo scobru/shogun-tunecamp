@@ -50,21 +50,26 @@ export async function runStartupMaintenance(database: DatabaseService, config: S
         console.log(`📦 [Maintenance] Repairing corrupted paths in database...`);
         let repairCount = 0;
 
-        const updateStmt = database.db.prepare("UPDATE tracks SET file_path = ?, lossless_path = ? WHERE id = ?");
-        
-        // Use iterator instead of .all()
-        const trackIterator = database.iterateTracks();
-        
-        database.db.transaction(() => {
-            for (const track of trackIterator) {
-                const newPath = cleanPath(track.file_path);
-                const newLossless = cleanPath(track.lossless_path);
-                if (newPath !== track.file_path || newLossless !== track.lossless_path) {
-                    updateStmt.run(newPath, newLossless, track.id);
+        const tracks = database.getAllTracks();
+        const repairs: {id: number, path: string, lossless: string}[] = [];
+
+        for (const track of tracks) {
+            const newPath = cleanPath(track.file_path);
+            const newLossless = cleanPath(track.lossless_path);
+            if (newPath !== track.file_path || newLossless !== track.lossless_path) {
+                repairs.push({ id: track.id, path: newPath!, lossless: newLossless! });
+            }
+        }
+
+        if (repairs.length > 0) {
+            database.db.transaction(() => {
+                const updateStmt = database.db.prepare("UPDATE tracks SET file_path = ?, lossless_path = ? WHERE id = ?");
+                for (const r of repairs) {
+                    updateStmt.run(r.path, r.lossless, r.id);
                     repairCount++;
                 }
-            }
-        })();
+            })();
+        }
 
         if (repairCount > 0) {
             console.log(`✅ [Maintenance] Repaired ${repairCount} track paths.`);
@@ -166,8 +171,8 @@ async function cleanupTorrentFragments(database: DatabaseService, config: Server
     const groups = new Map<string, any[]>();
 
     try {
-        const trackIterator = database.iterateTracks();
-        for (const track of trackIterator) {
+        const tracks = database.getAllTracks();
+        for (const track of tracks) {
             if (!track.file_path) continue;
             
             const fileName = path.basename(track.file_path);

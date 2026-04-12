@@ -411,6 +411,7 @@ export interface DatabaseService {
     deleteTrack(id: number, owner_id?: number): void;
     mergeTracks(fromId: number, toId: number): void;
     iterateTracks(whereClause?: string, params?: any[]): IterableIterator<Track>;
+    getAllTracks(whereClause?: string, params?: any[]): Track[];
     getTracksSummaryByReleaseId(releaseId: number): Track[];
 
     // Ownership & Deduplication
@@ -2819,16 +2820,32 @@ export function createDatabase(dbPath: string): DatabaseService {
                 `).run(toId, fromId);
 
                 // 2. Move release tracks
-                // We update existing links if they exist, or insert new ones
                 db.prepare(`
                     UPDATE release_tracks 
                     SET track_id = ?, file_path = ?
                     WHERE track_id = ?
                 `).run(toId, targetTrack.file_path, fromId);
 
-                // 3. Clean up the source links from these tables (handled by DELETE in cleanup logic, but safe here too)
+                // 3. Move Play History
+                db.prepare("UPDATE play_history SET track_id = ? WHERE track_id = ?").run(toId, fromId);
+
+                // 4. Move Bookmarks
+                db.prepare("UPDATE bookmarks SET track_id = ? WHERE track_id = ?").run(toId, String(fromId));
+
+                // 5. Move Starred Items
+                db.prepare("UPDATE starred_items SET item_id = ? WHERE item_id = ? AND item_type = 'track'").run(String(toId), String(fromId));
+
+                // 6. Move Ratings
+                db.prepare("UPDATE item_ratings SET item_id = ? WHERE item_id = ? AND item_type = 'track'").run(String(toId), String(fromId));
+
+                // 7. Clean up original ownership
                 db.prepare("DELETE FROM track_ownership WHERE track_id = ?").run(fromId);
             })();
+        },
+
+        getAllTracks(whereClause?: string, params: any[] = []): Track[] {
+            const sql = whereClause ? `SELECT * FROM tracks WHERE ${whereClause}` : "SELECT * FROM tracks";
+            return db.prepare(sql).all(...params) as Track[];
         },
 
         deleteTrack(id: number, ownerId?: number): void {
