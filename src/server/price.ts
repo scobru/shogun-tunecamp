@@ -25,13 +25,17 @@ export async function getEthUsdRate(): Promise<number> {
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
 
         if (!response.ok) {
+            await drainResponse(response);
             throw new Error(`Price API returned focus status: ${response.status}`);
         }
 
         const data = await response.json() as any;
         const rate = data?.ethereum?.usd;
 
-        if (!rate) throw new Error('Invalid response from price API');
+        if (!rate) {
+            // response.json() already consumed the body, but it's good to be safe if json() had failed
+            throw new Error('Invalid response from price API');
+        }
 
         // Update cache
         cache = {

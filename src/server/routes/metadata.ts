@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import path from "path";
 import fetch from "node-fetch";
 import { isSafeUrl } from "../../utils/networkUtils.js";
+import { drainResponse } from "../utils.js";
 import { metadataService } from "../metadata.js";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
@@ -83,6 +84,8 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
                         const dbPath = path.relative(musicDir, dest).replace(/\\/g, "/");
                         database.updateAlbumCover(albumId, dbPath);
                         coverUpdated = true;
+                    } else {
+                        await drainResponse(response);
                     }
                 }
             }
