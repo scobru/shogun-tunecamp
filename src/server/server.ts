@@ -585,20 +585,34 @@ export async function startServer(config: ServerConfig): Promise<void> {
         console.log("");
 
         // --- MEMORY MONITORING ---
-        const MEM_LIMIT = process.env.MEMORY_LIMIT_MB ? parseInt(process.env.MEMORY_LIMIT_MB) : 3500;
+        const MEM_LIMIT = process.env.MEMORY_LIMIT_MB ? parseInt(process.env.MEMORY_LIMIT_MB) : 6000;
+        console.log(`[Monitor] Memory monitor active. Limit: ${MEM_LIMIT}MB (NODE_OPTIONS: ${process.env.NODE_OPTIONS || 'default'})`);
+        
         setInterval(() => {
             const mem = process.memoryUsage();
             const heapUsedMB = Math.round(mem.heapUsed / 1024 / 1024);
+            const heapTotalMB = Math.round(mem.heapTotal / 1024 / 1024);
             const rssMB = Math.round(mem.rss / 1024 / 1024);
 
-            if (heapUsedMB > MEM_LIMIT * 0.7) {
-                console.warn(`[Monitor] ⚠️ High Memory Usage: Heap ${heapUsedMB}MB / RSS ${rssMB}MB. Limit: ${MEM_LIMIT}MB`);
+            // Warning at 80% of limit
+            if (heapUsedMB > MEM_LIMIT * 0.8) {
+                console.warn(`[Monitor] ⚠️ CRITICAL Memory Usage: Heap ${heapUsedMB}MB / ${heapTotalMB}MB | RSS ${rssMB}MB. Limit: ${MEM_LIMIT}MB`);
                 if ((global as any).gc) {
                     console.log("[Monitor] Triggering emergency GC...");
-                    (global as any).gc();
+                    try {
+                        (global as any).gc();
+                        const memAfter = process.memoryUsage();
+                        const heapAfterMB = Math.round(memAfter.heapUsed / 1024 / 1024);
+                        console.log(`[Monitor] Emergency GC completed. Heap: ${heapUsedMB}MB -> ${heapAfterMB}MB`);
+                    } catch (e) {
+                        console.error("[Monitor] Emergency GC failed:", e);
+                    }
+                } else {
+                    console.warn("[Monitor] Emergency GC skipped: --expose-gc not enabled in NODE_OPTIONS.");
                 }
-            } else if (heapUsedMB > 1000) {
-                console.log(`[Monitor] Memory: Heap ${heapUsedMB}MB / RSS ${rssMB}MB`);
+            } else if (heapUsedMB > 1500) {
+                // Regular status log for moderate usage
+                console.log(`[Monitor] Memory Status: Heap ${heapUsedMB}MB / RSS ${rssMB}MB`);
             }
         }, 60000);
     });
