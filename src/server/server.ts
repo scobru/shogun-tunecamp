@@ -13,15 +13,15 @@ process.on('uncaughtException', (err) => {
     console.error('🌊 SEVERE: Uncaught Exception:', err);
     // Certain errors like those from GunDB or network timeouts are not fatal
     if (err.message && (
-        err.message.includes('GunDB') || 
-        err.message.includes('ECONNREFUSED') || 
+        err.message.includes('GunDB') ||
+        err.message.includes('ECONNREFUSED') ||
         err.message.includes('ETIMEDOUT') ||
         err.message.includes('socket hang up')
     )) {
         console.warn('⚠️ Non-fatal exception caught, staying alive...');
         return;
     }
-    
+
     // For genuine DB busy errors, we take a bit more caution
     if (err.message && err.message.includes('database is busy')) {
         console.warn('⚠️ SQLite busy error caught. Check your concurrency settings.');
@@ -191,7 +191,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
         try {
             const idParam = req.params.id;
             const trackId = parseInt(idParam);
-            
+
             if (!isNaN(trackId) && trackId.toString() === idParam) {
                 const track = database.getTrack(trackId);
                 if (track && track.file_path) {
@@ -215,7 +215,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 
     app.use("/rest", createSubsonicRouter({ db: database, auth: authService, musicDir: config.musicDir, gundbService }));
-    
+
     // Lightweight healthcheck endpoint for Docker/CapRover
     app.get("/health", (req, res) => {
         res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
@@ -449,7 +449,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
             let html = getCachedHtml();
             const dbPublicUrl = database.getSetting("publicUrl");
             const publicUrl = dbPublicUrl || config.publicUrl || `${req.protocol}://${req.get('host')}`;
-            
+
             const ogTags = `
     <meta property="og:title" content="${title.replace(/"/g, '&quot;')}" />
     <meta property="og:description" content="${description.replace(/"/g, '&quot;')}" />
@@ -461,7 +461,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     <meta name="twitter:image" content="${publicUrl}${image}" />
 `;
             html = html.replace('<head>', '<head>' + ogTags);
-            
+
             // Inject the same config as the main index route
             const dbGunPeers = database.getSetting("gunPeers");
             const rpcUrl = process.env.TUNECAMP_RPC_URL || process.env.VITE_TUNECAMP_RPC_URL || '';
@@ -469,7 +469,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
             const web3CheckoutAddr = database.getSetting("web3_checkout_address") || "";
             const web3NftAddr = database.getSetting("web3_nft_address") || "";
             const ownerAddress = process.env.TUNECAMP_OWNER_ADDRESS || "";
-            
+
             const configInject = `<script>window.TUNECAMP_CONFIG = { 
                 apiUrl: "/api", 
                 rpcUrl: ${JSON.stringify(rpcUrl)},
@@ -479,7 +479,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
                 ownerAddress: ${JSON.stringify(ownerAddress)}
             };</script>`;
             html = html.replace('<head>', '<head>' + configInject);
-            
+
             res.send(html);
         } catch (e) {
             console.error("Error serving share page:", e);
@@ -499,7 +499,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
             const web3CheckoutAddr = database.getSetting("web3_checkout_address") || "";
             const web3NftAddr = database.getSetting("web3_nft_address") || "";
             const ownerAddress = process.env.TUNECAMP_OWNER_ADDRESS || "";
-            
+
             const configInject = `<script>window.TUNECAMP_CONFIG = { 
                 apiUrl: "/api", 
                 rpcUrl: ${JSON.stringify(rpcUrl)},
@@ -583,25 +583,25 @@ export async function startServer(config: ServerConfig): Promise<void> {
         }
 
         console.log("");
-+
-+        // --- MEMORY MONITORING ---
-+        const MEM_LIMIT = process.env.MEMORY_LIMIT_MB ? parseInt(process.env.MEMORY_LIMIT_MB) : 3500;
-+        setInterval(() => {
-+            const mem = process.memoryUsage();
-+            const heapUsedMB = Math.round(mem.heapUsed / 1024 / 1024);
-+            const rssMB = Math.round(mem.rss / 1024 / 1024);
-+            
-+            if (heapUsedMB > MEM_LIMIT * 0.7) {
-+                console.warn(`[Monitor] ⚠️ High Memory Usage: Heap ${heapUsedMB}MB / RSS ${rssMB}MB. Limit: ${MEM_LIMIT}MB`);
-+                if ((global as any).gc) {
-+                    console.log("[Monitor] Triggering emergency GC...");
-+                    (global as any).gc();
-+                }
-+            } else if (heapUsedMB > 1000) {
-+                 console.log(`[Monitor] Memory: Heap ${heapUsedMB}MB / RSS ${rssMB}MB`);
-+            }
-+        }, 60000);
-     });
+
+        // --- MEMORY MONITORING ---
+        const MEM_LIMIT = process.env.MEMORY_LIMIT_MB ? parseInt(process.env.MEMORY_LIMIT_MB) : 3500;
+        setInterval(() => {
+            const mem = process.memoryUsage();
+            const heapUsedMB = Math.round(mem.heapUsed / 1024 / 1024);
+            const rssMB = Math.round(mem.rss / 1024 / 1024);
+
+            if (heapUsedMB > MEM_LIMIT * 0.7) {
+                console.warn(`[Monitor] ⚠️ High Memory Usage: Heap ${heapUsedMB}MB / RSS ${rssMB}MB. Limit: ${MEM_LIMIT}MB`);
+                if ((global as any).gc) {
+                    console.log("[Monitor] Triggering emergency GC...");
+                    (global as any).gc();
+                }
+            } else if (heapUsedMB > 1000) {
+                console.log(`[Monitor] Memory: Heap ${heapUsedMB}MB / RSS ${rssMB}MB`);
+            }
+        }, 60000);
+    });
 
     // Graceful shutdown
     process.on("SIGINT", () => {
