@@ -582,7 +582,25 @@ export async function startServer(config: ServerConfig): Promise<void> {
         }
 
         console.log("");
-    });
++
++        // --- MEMORY MONITORING ---
++        const MEM_LIMIT = process.env.MEMORY_LIMIT_MB ? parseInt(process.env.MEMORY_LIMIT_MB) : 3500;
++        setInterval(() => {
++            const mem = process.memoryUsage();
++            const heapUsedMB = Math.round(mem.heapUsed / 1024 / 1024);
++            const rssMB = Math.round(mem.rss / 1024 / 1024);
++            
++            if (heapUsedMB > MEM_LIMIT * 0.7) {
++                console.warn(`[Monitor] ⚠️ High Memory Usage: Heap ${heapUsedMB}MB / RSS ${rssMB}MB. Limit: ${MEM_LIMIT}MB`);
++                if ((global as any).gc) {
++                    console.log("[Monitor] Triggering emergency GC...");
++                    (global as any).gc();
++                }
++            } else if (heapUsedMB > 1000) {
++                 console.log(`[Monitor] Memory: Heap ${heapUsedMB}MB / RSS ${rssMB}MB`);
++            }
++        }, 60000);
+     });
 
     // Graceful shutdown
     process.on("SIGINT", () => {

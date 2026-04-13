@@ -1,4 +1,6 @@
 import Gun from "gun";
+import fetch from "node-fetch";
+import { drainResponse } from "./utils.js";
 import "gun/lib/yson.js";
 import "gun/sea.js";
 
@@ -405,10 +407,15 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 .get(REGISTRY_NAMESPACE)
                 .get("sites")
                 .map()
-                .once((directoryData: any, siteId: string) => {
+                .once(async (directoryData: any, siteId: string) => {
                     if (!directoryData || siteId === "_") return;
                     if (processedIds.has(siteId)) return;
                     processedIds.add(siteId);
+
+                    const MAX_SITES_PER_RUN = 50;
+                    if (sites.length >= MAX_SITES_PER_RUN) {
+                        return; // Stop processing more in this run
+                    }
 
                     // --- STALE SITES FILTER ---
                     // Skip sites that haven't been seen in the last 7 days to reduce memory pressure
@@ -423,6 +430,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     if (directoryData.pub) {
                         const registerPub = directoryData.pub;
                         
+                        // Small jittered delay to prevent resource storm
+                        await new Promise(r => setTimeout(r, 100 + Math.random() * 400));
+
                         // Try NEW mechanism: Directed-Path Public Verified Node
                         gun.get(REGISTRY_ROOT)
                            .get(REGISTRY_NAMESPACE)
@@ -485,7 +495,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 isRefreshingSites = false;
                 
                 if (sites.length > 0) {
-                    console.log(`⏱️ Discovery: Found ${sites.length} potential community sites. Updating SQLite cache.`);
+                    console.log(`⏱️ Discovery: Found ${sites.length} potential community sites (Limit: 50). Updating SQLite cache.`);
                     database.setGunCache(CACHE_KEY, JSON.stringify(sites), "sites", TTL);
                     cache.sites = { data: sites, timestamp: Date.now() };
                 }
@@ -945,7 +955,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             });
 
             clearTimeout(timeoutId);
-            return response.ok;
+            const ok = response.ok;
+            await drainResponse(response);
+            return ok;
         } catch (error) {
             return false;
         }

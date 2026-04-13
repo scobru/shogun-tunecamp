@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { promisify } from "util";
 import fetch from "node-fetch";
+import { drainResponse, fetchJsonSafe } from "./utils.js";
 import type { Federation } from "@fedify/fedify";
 import { Follow, Announce } from "@fedify/fedify";
 import type { DatabaseService, Artist, Album, Track, Post } from "./database.js";
@@ -315,12 +316,12 @@ export class ActivityPubService {
                         console.log(`📑 Found ${items.length} items in page ${pageCount + 1}`);
 
                         // Periodically clear memory if processing many pages
-                        if (pageCount > 0 && pageCount % 3 === 0) {
+                        if (pageCount > 0 || resolvedItemsCount % 10 === 0) {
                             if ((global as any).gc) {
                                 (global as any).gc();
                             }
                             const memory = process.memoryUsage();
-                            console.log(`[AP] Outbox Progress: ${pageCount} pages. Heap: ${Math.round(memory.heapUsed / 1024 / 1024)}MB`);
+                            console.log(`[AP] Outbox Progress: ${pageCount} pages, ${resolvedItemsCount} items. Heap: ${Math.round(memory.heapUsed / 1024 / 1024)}MB / ${Math.round(memory.heapTotal / 1024 / 1024)}MB`);
                         }
 
                     for (const activity of items) {
@@ -958,8 +959,13 @@ export class ActivityPubService {
 
         try {
             const res = await this.fetchWithSignature(inboxUri, "post", activityJson, actor as Artist);
-            if (!res.ok) console.error(`❌ Failed to send activity to ${inboxUri}: ${res.status} ${await res.text()}`);
-            else console.log(`✅ Sent activity to ${inboxUri}`);
+            if (!res.ok) {
+                const errText = await res.text().catch(() => "Unknown error");
+                console.error(`❌ Failed to send activity to ${inboxUri}: ${res.status} ${errText}`);
+            } else {
+                await drainResponse(res);
+                console.log(`✅ Sent activity to ${inboxUri}`);
+            }
         } catch (e) {
             console.error(`❌ Error sending activity to ${inboxUri}:`, e);
         }
@@ -1041,7 +1047,10 @@ export class ActivityPubService {
             const resource = `acct:${username}@${domain}`;
             const wfUrl = `https://${domain}/.well-known/webfinger?resource=${encodeURIComponent(resource)}`;
             const res = await fetch(wfUrl, { headers: { "Accept": "application/jrd+json, application/json" } });
-            if (!res.ok) return null;
+            if (!res.ok) {
+                await drainResponse(res);
+                return null;
+            }
             const jrd = await res.json() as any;
             const selfLink = jrd.links?.find((l: any) => l.rel === "self" && (l.type === "application/activity+json" || l.type?.includes("json")));
             return selfLink?.href || null;
@@ -1051,12 +1060,18 @@ export class ActivityPubService {
     private async getActorIdFromNodeInfo(origin: string): Promise<string | null> {
         try {
             const wellKnownRes = await fetch(`${origin}/.well-known/nodeinfo`);
-            if (!wellKnownRes.ok) return null;
+            if (!wellKnownRes.ok) {
+                await drainResponse(wellKnownRes);
+                return null;
+            }
             const wellKnown = await wellKnownRes.json() as any;
             const nodeInfoLink = wellKnown.links?.find((l: any) => l.rel?.includes("nodeinfo"));
             if (!nodeInfoLink?.href) return null;
             const niRes = await fetch(nodeInfoLink.href);
-            if (!niRes.ok) return null;
+            if (!niRes.ok) {
+                await drainResponse(niRes);
+                return null;
+            }
             const ni = await niRes.json() as any;
             return ni.metadata?.actorId || null;
         } catch { return null; }
@@ -1066,7 +1081,10 @@ export class ActivityPubService {
         if (!this.isSafeUrl(actorUri)) return null;
         try {
             const res = await this.fetchWithSignature(actorUri);
-            if (!res.ok) return null;
+            if (!res.ok) {
+                await drainResponse(res);
+                return null;
+            }
             const actor = await res.json() as any;
             return actor.inbox || null;
         } catch { return null; }

@@ -1,4 +1,5 @@
 import fetch from "node-fetch";
+import { drainResponse } from "./utils.js";
 // @ts-ignore
 import pkg from "disconnect";
 const { Client: DiscogsClient } = pkg;
@@ -35,6 +36,7 @@ class MusicBrainzProvider implements MetadataProvider {
 
             if (!response.ok) {
                 console.error(`MusicBrainz API error: ${response.status}`);
+                await drainResponse(response);
                 return [];
             }
 
@@ -65,6 +67,7 @@ class MusicBrainzProvider implements MetadataProvider {
 
             if (!response.ok) {
                 console.error(`MusicBrainz API error: ${response.status}`);
+                await drainResponse(response);
                 return [];
             }
 
