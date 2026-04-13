@@ -527,7 +527,8 @@ export async function startServer(config: ServerConfig): Promise<void> {
         if (authService.isFirstRun()) {
             console.log("⚠️  First run detected! Visit the server to set up admin password.");
         }
-        console.log(`📊 Stats: ${(await database.getStats()).tracks} tracks in library`);
+        const currentStats = await database.getStats();
+        console.log(`📊 Stats: ${currentStats.tracks} tracks in library`);
 
         // Increasing timeouts for slow uploads/connections (e.g. large files or slow clients)
         // Set to 5 minutes (300000ms) to allow for large WAV uploads + conversion
@@ -551,7 +552,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
             const siteInfo = {
                 url: publicUrl,
                 title: dbSiteName || config.siteName || "TuneCamp Server",
-                description: dbSiteDescription || `Music server with ${(await database.getStats()).tracks} tracks`,
+                description: dbSiteDescription || `Music server with ${currentStats.tracks} tracks`,
                 artistName,
                 coverImage: dbCoverImage || ""
             };
@@ -604,3 +605,4 @@ export const globalErrorHandler = (err: Error, req: express.Request, res: expres
 
     res.status(500).json({ error: message });
 };
+
