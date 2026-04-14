@@ -26,7 +26,6 @@ export interface ServerConfig {
 export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
     const defaultDbPath = path.join(process.cwd(), "tunecamp.db");
     const defaultMusicDir = path.join(process.cwd(), "music");
-    const defaultDownloadDir = path.join(process.env.TUNECAMP_MUSIC_DIR || defaultMusicDir, "downloads");
 
     // Generate a random JWT secret if not provided
     let jwtSecret = process.env.TUNECAMP_JWT_SECRET || overrides?.jwtSecret;
@@ -62,9 +61,12 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
         }
     }
 
+    const finalMusicDir = overrides?.musicDir || process.env.TUNECAMP_MUSIC_DIR || defaultMusicDir;
+    const defaultDownloadDir = path.join(finalMusicDir, "downloads");
+
     return {
         port: parseInt(process.env.TUNECAMP_PORT || "1970", 10),
-        musicDir: process.env.TUNECAMP_MUSIC_DIR || defaultMusicDir,
+        musicDir: finalMusicDir,
         dbPath: process.env.TUNECAMP_DB_PATH || defaultDbPath,
         jwtSecret,
         corsOrigins: process.env.TUNECAMP_CORS_ORIGINS?.split(",") || [],
@@ -73,9 +75,8 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
         gunPeers: process.env.TUNECAMP_GUN_PEERS?.split(/[,\s]+/).map(p => p.trim()).filter(p => p.length > 0) || overrides?.gunPeers,
         adminUser: process.env.TUNECAMP_ADMIN_USER || overrides?.adminUser || "admin",
         adminPass: process.env.TUNECAMP_ADMIN_PASS || overrides?.adminPass || "admin",
-        downloadDir: process.env.TUNECAMP_DOWNLOAD_DIR || defaultDownloadDir,
+        downloadDir: process.env.TUNECAMP_DOWNLOAD_DIR || overrides?.downloadDir || defaultDownloadDir,
         coinbaseCdpApiKeyName: process.env.COINBASE_CDP_API_KEY_NAME || overrides?.coinbaseCdpApiKeyName,
         coinbaseCdpApiKeySecret: process.env.COINBASE_CDP_API_KEY_SECRET?.replace(/\\n/g, '\n') || overrides?.coinbaseCdpApiKeySecret,
-        ...overrides,
     };
 }

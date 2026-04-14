@@ -142,6 +142,8 @@ ENV TUNECAMP_ADMIN_USER=$TUNECAMP_ADMIN_USER
 ENV TUNECAMP_ADMIN_PASS=$TUNECAMP_ADMIN_PASS
 ENV DISCOGS_TOKEN=$DISCOGS_TOKEN
 ENV TUNECAMP_DOWNLOAD_DIR=$TUNECAMP_DOWNLOAD_DIR
+ENV TUNECAMP_MUSIC_DIR=/music
+ENV SKIP_STARTUP_MAINTENANCE=true
 ENV NODE_OPTIONS=$NODE_OPTIONS
 ENV MEMORY_LIMIT_MB=$MEMORY_LIMIT_MB
 ENV COINBASE_CDP_API_KEY_NAME=""
@@ -158,5 +160,5 @@ RUN apk add --no-cache curl libc6-compat gcompat
 HEALTHCHECK --interval=60s --timeout=15s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:1970/health || exit 1
 
-# Default command: run migrations then start server
-CMD node dist/tools/migrate-dedupe.js --music-dir /music --db /data/tunecamp.db && node dist/tools/migrate-visibility.js --db /data/tunecamp.db && node dist/cli.js server /music --port 1970 --db /data/tunecamp.db
+# Default command: start server directly (migrations are moved to manual triggers)
+CMD ["node", "--max-old-space-size=4096", "--expose-gc", "dist/cli.js", "server", "/music"]
