@@ -161,4 +161,4 @@ HEALTHCHECK --interval=60s --timeout=15s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:1970/health || exit 1
 
 # Default command: start server directly (migrations are moved to manual triggers)
-CMD ["node", "--max-old-space-size=4096", "--expose-gc", "dist/cli.js", "server", "/music"]
+CMD ["node", "--max-old-space-size=6144", "--expose-gc", "dist/cli.js", "server", "/music"]
