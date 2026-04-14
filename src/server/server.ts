@@ -94,7 +94,11 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const database = createDatabase(config.dbPath);
 
     // Run Startup Maintenance (Repair paths + Restore Orphans)
-    await runStartupMaintenance(database, config);
+    if (process.env.SKIP_STARTUP_MAINTENANCE === 'true') {
+        console.log(`📦 [Maintenance] Skipping startup maintenance as requested (SKIP_STARTUP_MAINTENANCE=true)`);
+    } else {
+        await runStartupMaintenance(database, config);
+    }
 
     // Initialize auth
     const authService = createAuthService(database.db, config.jwtSecret, config.adminUser, config.adminPass);

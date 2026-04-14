@@ -26,7 +26,7 @@ export interface ServerConfig {
 export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
     const defaultDbPath = path.join(process.cwd(), "tunecamp.db");
     const defaultMusicDir = path.join(process.cwd(), "music");
-    const defaultDownloadDir = path.join(path.dirname(process.env.TUNECAMP_DB_PATH || defaultDbPath), "downloads");
+    const defaultDownloadDir = path.join(process.env.TUNECAMP_MUSIC_DIR || defaultMusicDir, "downloads");
 
     // Generate a random JWT secret if not provided
     let jwtSecret = process.env.TUNECAMP_JWT_SECRET || overrides?.jwtSecret;
