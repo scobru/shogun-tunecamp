@@ -12,10 +12,7 @@ import path from "path";
 
 // Public GunDB peers for the community registry
 const REGISTRY_PEERS = [
-    "https://shogun-relay.scobrudot.dev/gun",
-    "https://gun.defucc.me/gun",
-    "https://gun.o8.is/gun",
-    "https://relay.peer.ooo/gun"
+    "https://shogun-relay.scobrudot.dev/gun"
 ];
 
 const REGISTRY_ROOT = "shogun";

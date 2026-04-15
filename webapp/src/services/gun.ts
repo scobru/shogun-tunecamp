@@ -11,10 +11,7 @@ import type { UserPlaylist, UserPlaylistTrack, Track } from '../types';
 
 const defaultPeers = [
     "wss://localhost:1970/gun",
-    "wss://shogun-relay.scobrudot.dev/gun",
-    "wss://gun.defucc.me/gun",
-    "wss://gun.o8.is/gun",
-    "wss://relay.peer.ooo/gun"
+    "wss://shogun-relay.scobrudot.dev/gun"
 ];
 
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
