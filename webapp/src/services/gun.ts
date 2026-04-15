@@ -38,7 +38,9 @@ if (envPeers && typeof envPeers === 'string' && envPeers.trim().length > 0) {
 const gun = Gun({
     peers: PEERS,
     localStorage: false,
-    radisk: false
+    radisk: false,
+    axe: false
+
 });
 
 const user = gun.user().recall({

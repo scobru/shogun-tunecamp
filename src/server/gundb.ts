@@ -125,7 +125,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 localStorage: false,
                 radisk: true,
                 file: "./radata",
-                web: server
+                web: server,
+                axe: false
             });
 
             // Initialize User Auth (SEA)
@@ -148,7 +149,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             // Authenticate
             const user = gun.user();
-            
+
             // DIAGNOSTIC: Validate serverPair before auth to prevent "0 length key!"
             if (serverPair) {
                 const missing = ['pub', 'priv', 'epub', 'epriv'].filter(k => !serverPair[k] || serverPair[k].length === 0);
@@ -156,9 +157,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     console.error(`🚨 [GunDB] Server Identity is CORRUPTED! Empty keys: ${missing.join(', ')}. This will cause "0 length key!" errors.`);
                     // Generate a new one if it's completely broken
                     if (missing.includes('priv') || missing.includes('pub')) {
-                         console.warn("⚠️  Server identity is unusable. Generating a new one for recovery...");
-                         serverPair = await Gun.SEA.pair();
-                         database.setSetting("gunPair", JSON.stringify(serverPair));
+                        console.warn("⚠️  Server identity is unusable. Generating a new one for recovery...");
+                        serverPair = await Gun.SEA.pair();
+                        database.setSetting("gunPair", JSON.stringify(serverPair));
                     }
                 }
             } else {
@@ -196,7 +197,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             setInterval(() => {
                 if (global.gc) global.gc();
                 const used = process.memoryUsage();
-                console.log(`[Diag] Heap: ${Math.round(used.heapUsed/1e6)} MB | GunDB graph nodes:`, gun?._?.graph ? Object.keys(gun._.graph).length : 0);
+                console.log(`[Diag] Heap: ${Math.round(used.heapUsed / 1e6)} MB | GunDB graph nodes:`, gun?._?.graph ? Object.keys(gun._.graph).length : 0);
             }, 30_000);
 
             return true;
@@ -295,7 +296,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 contentRef.put(signedSite, async (ack: any) => {
                     if (ack.err) {
                         console.warn("Failed to write to public content node:", ack.err);
-                        
+
                         const isJsonError = (typeof ack.err === 'string' && ack.err.includes("JSON error")) ||
                             (ack.err && ack.err.err === "JSON error!");
 
@@ -409,7 +410,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             const processedIds = new Set();
 
             let handlerActive = true;
-            
+
             // Usiamo .on() in modo da poter chiudere esplicitamente la chain, 
             // evitando che map().once() accumuli nuovi listeners senza mai rimuoverli.
             const handler = gun
@@ -419,10 +420,10 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 .map()
                 .on(async (directoryData: any, siteId: string, _msg: any, ev: any) => {
                     if (!handlerActive) return; // Prevent late execution
-                    
+
                     // In some GunDB versions, ev.off() works to kill this specific item's listener
                     if (ev && typeof ev.off === 'function') {
-                        setTimeout(() => { try { ev.off(); } catch (e) {} }, 5000);
+                        setTimeout(() => { try { ev.off(); } catch (e) { } }, 5000);
                     }
 
                     if (!directoryData || siteId === "_") return;
@@ -440,62 +441,62 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     if (directoryData.lastSeen && typeof directoryData.lastSeen === 'number') {
                         const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
                         if (directoryData.lastSeen < sevenDaysAgo) {
-                            return; 
+                            return;
                         }
                     }
 
                     if (directoryData.pub) {
                         const registerPub = directoryData.pub;
-                        
+
                         // Small jittered delay to prevent resource storm
                         await new Promise(r => setTimeout(r, 100 + Math.random() * 400));
 
                         // Try NEW mechanism: Directed-Path Public Verified Node
                         gun.get(REGISTRY_ROOT)
-                           .get(REGISTRY_NAMESPACE)
-                           .get("content")
-                           .get(registerPub)
-                           .get("profile")
-                           .once(async (signedData: any) => {
-                               if (signedData) {
-                                   const profileData = await Gun.SEA.verify(signedData, registerPub);
-                                   if (profileData && profileData.type === "tunecamp-site") {
-                                       sites.push({
-                                           ...profileData,
-                                           id: siteId,
-                                           name: profileData.title || profileData.name || directoryData.title || "Untitled",
-                                           lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
-                                           _secure: true,
-                                           _verified: true
-                                       });
-                                       return;
-                                   }
-                               }
+                            .get(REGISTRY_NAMESPACE)
+                            .get("content")
+                            .get(registerPub)
+                            .get("profile")
+                            .once(async (signedData: any) => {
+                                if (signedData) {
+                                    const profileData = await Gun.SEA.verify(signedData, registerPub);
+                                    if (profileData && profileData.type === "tunecamp-site") {
+                                        sites.push({
+                                            ...profileData,
+                                            id: siteId,
+                                            name: profileData.title || profileData.name || directoryData.title || "Untitled",
+                                            lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
+                                            _secure: true,
+                                            _verified: true
+                                        });
+                                        return;
+                                    }
+                                }
 
-                               // FALLBACK: Old mechanism (User Graph)
-                               gun.user(registerPub)
-                                   .get('tunecamp')
-                                   .get('profile')
-                                   .once((profileData: any) => {
-                                       if (profileData) {
-                                           sites.push({
-                                               ...profileData,
-                                               id: siteId,
-                                               name: profileData.title || profileData.name || directoryData.title || "Untitled",
-                                               lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
-                                               _secure: true
-                                           });
-                                       } else {
-                                           sites.push({
-                                               id: siteId,
-                                               ...directoryData,
-                                               name: directoryData.title || directoryData.name || "Untitled",
-                                               lastSeen: directoryData.lastSeen || Date.now(),
-                                               _secure: false
-                                           });
-                                       }
-                                   });
-                           });
+                                // FALLBACK: Old mechanism (User Graph)
+                                gun.user(registerPub)
+                                    .get('tunecamp')
+                                    .get('profile')
+                                    .once((profileData: any) => {
+                                        if (profileData) {
+                                            sites.push({
+                                                ...profileData,
+                                                id: siteId,
+                                                name: profileData.title || profileData.name || directoryData.title || "Untitled",
+                                                lastSeen: profileData.lastSeen || directoryData.lastSeen || Date.now(),
+                                                _secure: true
+                                            });
+                                        } else {
+                                            sites.push({
+                                                id: siteId,
+                                                ...directoryData,
+                                                name: directoryData.title || directoryData.name || "Untitled",
+                                                lastSeen: directoryData.lastSeen || Date.now(),
+                                                _secure: false
+                                            });
+                                        }
+                                    });
+                            });
                     } else {
                         // Legacy mode
                         sites.push({
@@ -510,7 +511,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             // Wait for data to collect
             setTimeout(() => {
                 handlerActive = false;
-                
+
                 try {
                     if (handler && typeof (handler as any).off === 'function') {
                         (handler as any).off();
@@ -518,10 +519,10 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                         // Fallback: Disconnetti manualmente l'ascoltatore per l'intera root 
                         gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("sites").off();
                     }
-                } catch(e) {}
+                } catch (e) { }
 
                 isRefreshingSites = false;
-                
+
                 if (sites.length > 0) {
                     console.log(`⏱️ Discovery: Found ${sites.length} potential community sites (Limit: 50). Updating SQLite cache.`);
                     database.setGunCache(CACHE_KEY, JSON.stringify(sites), "sites", TTL);
