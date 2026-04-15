@@ -89,6 +89,38 @@ export async function runStartupMaintenance(database: DatabaseService, config: S
         if (repairCount > 0) {
             console.log(`✅ [Maintenance] Repaired ${repairCount} track paths.`);
         }
+        
+        // 1.5 Repair URL-Encoded Paths (Soulseek Fix)
+        console.log(`📦 [Maintenance] Checking for URL-encoded paths that need repair...`);
+        let encodedRepairCount = 0;
+        const encodedRepairs: {id: number, path: string, lossless: string | null}[] = [];
+        
+        for (const track of tracks) {
+            if (track.file_path && track.file_path.includes('%')) {
+                try {
+                    const decoded = decodeURIComponent(track.file_path);
+                    if (decoded !== track.file_path && await fs.pathExists(path.join(musicDir, decoded))) {
+                        let decodedLossless = track.lossless_path;
+                        if (track.lossless_path && track.lossless_path.includes('%')) {
+                            const dl = decodeURIComponent(track.lossless_path);
+                            if (await fs.pathExists(path.join(musicDir, dl))) decodedLossless = dl;
+                        }
+                        encodedRepairs.push({ id: track.id, path: decoded, lossless: decodedLossless });
+                    }
+                } catch (e) {}
+            }
+        }
+        
+        if (encodedRepairs.length > 0) {
+            database.db.transaction(() => {
+                const updateStmt = database.db.prepare("UPDATE tracks SET file_path = ?, lossless_path = ? WHERE id = ?");
+                for (const r of encodedRepairs) {
+                    updateStmt.run(r.path, r.lossless, r.id);
+                    encodedRepairCount++;
+                }
+            })();
+            console.log(`✅ [Maintenance] Repaired ${encodedRepairCount} URL-encoded track paths.`);
+        }
 
         // 2. Relink Orphaned Files (Restore Lost Tracks)
         console.log(`📦 [Maintenance] Scanning for orphaned music files in ${musicDir}...`);

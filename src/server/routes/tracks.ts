@@ -626,8 +626,20 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             let usingLosslessFallback = false;
 
             if (!await fs.pathExists(trackPath)) {
-                if (track.lossless_path) {
-                    const losslessPath = path.join(musicDir, track.lossless_path);
+                // FALLBACK: Try decoding URL-encoded characters (Soulseek fix)
+                const decodedPath = decodeURIComponent(trackPath);
+                if (decodedPath !== trackPath && await fs.pathExists(decodedPath)) {
+                    console.log(`ℹ️ [Stream] Resolved encoded path: ${track.file_path} -> ${path.relative(musicDir, decodedPath)}`);
+                    trackPath = decodedPath;
+                } else if (track.lossless_path) {
+                    let losslessPath = path.join(musicDir, track.lossless_path);
+                    if (!await fs.pathExists(losslessPath)) {
+                        const decodedLossless = decodeURIComponent(losslessPath);
+                        if (decodedLossless !== losslessPath && await fs.pathExists(decodedLossless)) {
+                            losslessPath = decodedLossless;
+                        }
+                    }
+
                     if (await fs.pathExists(losslessPath)) {
                         console.log(`ℹ️ [Stream] MP3 missing, using lossless file for transcoding: ${track.lossless_path}`);
                         trackPath = losslessPath;
