@@ -192,6 +192,13 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             initialized = true;
             console.log("🌐 GunDB initialized (signaling + identity + stats)");
 
+            // Manteniamo traccia della memoria e del grafo GunDB ogni 30s per i leak
+            setInterval(() => {
+                if (global.gc) global.gc();
+                const used = process.memoryUsage();
+                console.log(`[Diag] Heap: ${Math.round(used.heapUsed/1e6)} MB | GunDB graph nodes:`, gun?._?.graph ? Object.keys(gun._.graph).length : 0);
+            }, 30_000);
+
             return true;
         } catch (error) {
             console.error("Failed to initialize GunDB:", error);
@@ -401,13 +408,23 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             const sites: any[] = [];
             const processedIds = new Set();
 
-            // Read from Public Directory
-            gun
+            let handlerActive = true;
+            
+            // Usiamo .on() in modo da poter chiudere esplicitamente la chain, 
+            // evitando che map().once() accumuli nuovi listeners senza mai rimuoverli.
+            const handler = gun
                 .get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get("sites")
                 .map()
-                .once(async (directoryData: any, siteId: string) => {
+                .on(async (directoryData: any, siteId: string, _msg: any, ev: any) => {
+                    if (!handlerActive) return; // Prevent late execution
+                    
+                    // In some GunDB versions, ev.off() works to kill this specific item's listener
+                    if (ev && typeof ev.off === 'function') {
+                        setTimeout(() => { try { ev.off(); } catch (e) {} }, 5000);
+                    }
+
                     if (!directoryData || siteId === "_") return;
                     if (processedIds.has(siteId)) return;
                     processedIds.add(siteId);
@@ -492,6 +509,17 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             // Wait for data to collect
             setTimeout(() => {
+                handlerActive = false;
+                
+                try {
+                    if (handler && typeof (handler as any).off === 'function') {
+                        (handler as any).off();
+                    } else {
+                        // Fallback: Disconnetti manualmente l'ascoltatore per l'intera root 
+                        gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("sites").off();
+                    }
+                } catch(e) {}
+
                 isRefreshingSites = false;
                 
                 if (sites.length > 0) {
