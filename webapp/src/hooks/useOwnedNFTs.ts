@@ -81,9 +81,10 @@ export function useOwnedNFTs(address: string | null) {
                 const lookup: { trackId: number, role: TokenRole }[] = [];
 
                 for (const trackId of allTrackIds) {
-                    // Collect potential token IDs
-                    const idLicense = await tuneCampNFT.encodeTokenId(trackId, TokenRole.LICENSE);
-                    const idOwnership = await tuneCampNFT.encodeTokenId(trackId, TokenRole.OWNERSHIP);
+                    // Local computation instead of contract call (O(1) vs O(N) network calls)
+                    // Formula: trackId * 10 + role (from TuneCampNFT.sol)
+                    const idLicense = BigInt(trackId) * 10n + BigInt(TokenRole.LICENSE);
+                    const idOwnership = BigInt(trackId) * 10n + BigInt(TokenRole.OWNERSHIP);
                     
                     accounts.push(address, address);
                     tokenIds.push(idLicense, idOwnership);
