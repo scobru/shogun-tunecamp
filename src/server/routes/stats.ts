@@ -316,7 +316,17 @@ async function fetchCatalogsFromInstances(sites: any[]): Promise<any[]> {
 
             clearTimeout(timeoutId);
 
-            if (!response.ok) return [];
+            if (!response.ok) {
+                // Svuota in modo sicuro il body della risposta per evitare perdite di memoria in Node fetch
+                try {
+                    if (response.body && typeof (response.body as any).cancel === 'function') {
+                        await (response.body as any).cancel();
+                    } else {
+                        await response.text(); 
+                    }
+                } catch(e) {}
+                return [];
+            }
 
             const catalog: any = await response.json();
             const tracks: any[] = [];
