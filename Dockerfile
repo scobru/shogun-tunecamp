@@ -46,9 +46,9 @@ RUN echo "CapRover commit: ${CAPROVER_GIT_COMMIT_SHA:-none}" && \
 RUN apk add --no-cache python3 make g++ curl git libc6-compat gcompat
 
 
-# Copy package files
+# Copy package files and local dependencies
 COPY package*.json ./
-
+COPY deps ./deps
 
 # Puppeteer configuration to skip Chrome download
 ENV PUPPETEER_SKIP_DOWNLOAD=true
@@ -111,8 +111,9 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
-# Copy package files and install production dependencies
+# Copy package files, local dependencies and install production dependencies
 COPY package*.json ./
+COPY deps ./deps
 RUN npm ci --omit=dev && \
     apk del python3 make g++ && \
     rm -rf /root/.npm
