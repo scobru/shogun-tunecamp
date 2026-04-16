@@ -477,7 +477,7 @@ export interface DatabaseService {
     getGunUser(pub: string): { pub: string; epub: string; alias: string } | undefined;
 
     // Remote Federation (ActivityPub)
-    upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen" | "is_followed"> & { is_followed?: boolean, public_key?: string | null }): void;
+    upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen" | "is_followed" | "public_key"> & { is_followed?: boolean, public_key?: string | null }): void;
     saveRemoteActor(actor: any): void; // More flexible version
     getRemoteActor(uri: string): RemoteActor | undefined;
     getRemoteActors(): RemoteActor[];
@@ -3390,7 +3390,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         // ActivityPub Remote Items
-        upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen" | "is_followed"> & { is_followed?: boolean, public_key?: string | null }): void {
+        upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen" | "is_followed" | "public_key"> & { is_followed?: boolean, public_key?: string | null }): void {
             const b = (val: any) => {
                 if (val === null || val === undefined) return null;
                 if (typeof val === 'string' || typeof val === 'number' || typeof val === 'bigint' || Buffer.isBuffer(val)) return val;
