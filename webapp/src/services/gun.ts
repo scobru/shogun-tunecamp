@@ -1,6 +1,4 @@
-// @ts-ignore
 import Gun from 'zen';
-import ZEN from 'zen';
 
 
 
