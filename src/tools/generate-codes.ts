@@ -12,25 +12,20 @@
  *   npx ts-node src/tools/generate-codes.ts my-album --count 50 --downloads 3
  */
 
-import Gun from 'gun';
+// @ts-ignore
+import Gun from 'zen';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { StringUtils } from '../utils/stringUtils.js';
+import { DEFAULT_GUN_PEERS } from '../common/gun-config.js';
 
-// Default public GunDB peers
-const DEFAULT_PEERS = [
-    'https://gun.defucc.me/gun',
-    'https://a.talkflow.team/gun',
-    'https://peer.wallie.io/gun',
-    'https://shogun-relay.scobrudot.dev/gun',
-];
-
-interface SEAKeyPair {
+interface ZENKeyPair {
     pub: string;
     priv: string;
     epub: string;
     epriv: string;
+    curve?: string;
 }
 
 interface CodeOptions {
@@ -40,7 +35,7 @@ interface CodeOptions {
     expiresInDays?: number;
     namespace: string;
     peers: string[];
-    keypair?: SEAKeyPair;
+    keypair?: ZENKeyPair;
 }
 
 /**
@@ -61,9 +56,9 @@ function hashCode(code: string): string {
 }
 
 /**
- * Load SEA key pair from file
+ * Load ZEN key pair from file
  */
-function loadKeyPair(keypairPath: string): SEAKeyPair {
+function loadKeyPair(keypairPath: string): ZENKeyPair {
     try {
         const fileContent = fs.readFileSync(keypairPath, 'utf-8');
         const parsed = JSON.parse(fileContent);
@@ -85,9 +80,9 @@ function loadKeyPair(keypairPath: string): SEAKeyPair {
 }
 
 /**
- * Authenticate with GunDB using SEA pair
+ * Authenticate with GunDB using ZEN pair
  */
-async function authenticateGunDB(gun: any, pair: SEAKeyPair): Promise<void> {
+async function authenticateGunDB(gun: any, pair: ZENKeyPair): Promise<void> {
     return new Promise((resolve, reject) => {
         const user = gun.user();
         
@@ -121,14 +116,14 @@ async function generateCodes(options: CodeOptions): Promise<string[]> {
     console.log(`\nConnecting to GunDB peers...`);
 
     // Initialize Gun
-    const gun = Gun({ peers });
+    const gun = Gun({ peers: DEFAULT_GUN_PEERS });
 
     // Wait for connection
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Authenticate if keypair is provided
     if (keypair) {
-        console.log(`\nAuthenticating with SEA pair...`);
+        console.log(`\nAuthenticating with ZEN pair...`);
         try {
             await authenticateGunDB(gun, keypair);
             console.log(`✅ Authenticated successfully`);
@@ -197,7 +192,7 @@ Options:
   --downloads <n>   Max downloads per code (default: 1)
   --expires <days>  Days until codes expire (optional)
   --namespace <ns>  GunDB namespace (default: tunecamp)
-  --keypair <file>  Path to SEA keypair JSON file (for private storage)
+  --keypair <file>  Path to ZEN keypair JSON file (for private storage)
   --output <file>   Save codes to file (optional)
   --help            Show this help
 
@@ -224,7 +219,7 @@ Examples:
         : null;
 
     // Load keypair if provided
-    let keypair: SEAKeyPair | undefined;
+    let keypair: ZENKeyPair | undefined;
     if (keypairPath) {
         try {
             keypair = loadKeyPair(keypairPath);
@@ -232,7 +227,7 @@ Examples:
             const errorMessage = error instanceof Error ? error.message : String(error);
             console.error(`\n❌ Error loading keypair: ${errorMessage}`);
             console.error(`\n💡 Generate a new keypair with:`);
-            console.error(`   npx ts-node src/tools/generate-sea-pair.ts`);
+            console.error(`   npx ts-node src/tools/generate-zen-pair.ts`);
             process.exit(1);
         }
     }
@@ -244,7 +239,7 @@ Examples:
             maxDownloads,
             expiresInDays,
             namespace,
-            peers: DEFAULT_PEERS,
+            peers: DEFAULT_GUN_PEERS,
             keypair,
         });
 

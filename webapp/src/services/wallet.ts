@@ -1,17 +1,4 @@
-/**
- * Tunecamp Wallet Service
- *
- * Derives a deterministic Ethereum wallet from the user's GunDB SEA pair
- * using the canonical `gun/lib/wallet` derivation scheme (v1):
- *
- *   SEA.priv (P-256 scalar, base62) -> HKDF-SHA256 -> secp256k1 -> ETH address
- *
- * The private key NEVER leaves the browser. Derivation is pure client-side.
- * The scheme is versioned (v1) and reproducible across any GunDB instance.
- */
 import { ethers } from 'ethers';
-// @ts-ignore - gun/lib/wallet is registered by gun service but we can also use directly
-import { seaToEthWallet } from 'gun/lib/wallet-eth.js';
 
 // Base Mainnet RPC configuration
 const BASE_RPC_URL = (window as any).TUNECAMP_CONFIG?.rpcUrl || import.meta.env.VITE_TUNECAMP_RPC_URL || 'https://base.llamarpc.com';
@@ -19,17 +6,34 @@ const BASE_RPC_URL = (window as any).TUNECAMP_CONFIG?.rpcUrl || import.meta.env.
 const provider = new ethers.JsonRpcProvider(BASE_RPC_URL);
 
 /**
- * Derives an Ethereum wallet from the user's GunDB SEA pair.
- * Uses HKDF-SHA256 domain-separated derivation (SEA Wallet v1).
+ * Derives a deterministic 32-byte private key from a ZEN identity.
+ * Replaces the obsolete SEA-based wallet derivation.
+ */
+async function deriveZenWallet(priv: string, account = 0): Promise<string> {
+  const text = String(priv) + (account ? String(account) : '');
+  
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
+    const msgBuffer = new TextEncoder().encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return "0x" + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } else {
+    // Fallback if needed (though unlikely in a browser app)
+    throw new Error("WebCrypto (crypto.subtle) is required for wallet derivation.");
+  }
+}
+
+/**
+ * Derives an Ethereum wallet from the user's GunDB ZEN pair.
  *
- * @param pair The full SEA pair (must have `priv` field).
- * @param account Optional account index for HD-style multiple wallets (default: 0).
+ * @param pair The full ZEN pair (must have `priv` field).
+ * @param account Optional account index for multiple wallets (default: 0).
  * @returns The instantiated ethers Wallet connected to Base Mainnet.
  */
 export async function deriveTunecampWallet(pair: { priv: string, [key: string]: any }, account = 0): Promise<ethers.Wallet> {
-  if (!pair || !pair.priv) throw new Error("Missing SEA pair.priv");
+  if (!pair || !pair.priv) throw new Error("Missing ZEN pair.priv");
 
-  const { privateKey } = await seaToEthWallet(pair, { account });
+  const privateKey = await deriveZenWallet(pair.priv, account);
 
   // Connect wallet to provider
   const wallet = new ethers.Wallet(privateKey, provider);

@@ -9,7 +9,7 @@ export interface ServerConfig {
     jwtSecret: string;
     corsOrigins: string[];
     publicUrl?: string;  // Public URL for GunDB registration (e.g., https://mysite.com)
-    siteName?: string;   // Site name for community registry
+    siteName?: string;   // Site name for community registry    
     siteDescription?: string;
     relayUrl?: string;
     gunPeers?: string[];

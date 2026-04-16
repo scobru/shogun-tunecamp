@@ -1,8 +1,7 @@
-import Gun from "gun";
+import { getGun, Gun } from "./gun.js";
 import fetch from "node-fetch";
 import { drainResponse } from "./utils.js";
-import "gun/lib/yson.js";
-import "gun/sea.js";
+// ZEN handles its own crypto, no need for gun/sea.js or gun/lib/yson.js separately if bundled
 
 import type { DatabaseService } from "./database.js";
 import { normalizeUrl } from "../utils/audioUtils.js";
@@ -117,13 +116,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 }
             }
 
-            gun = Gun({
+            gun = getGun({
                 peers: initializationPeers,
-                localStorage: false,
-                radisk: true,
-                file: "./radata",
-                web: server,
-                axe: false
+                web: server
             });
 
             // Initialize User Auth (SEA)
@@ -139,8 +134,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             if (!serverPair) {
                 // Generate new pair
-                console.log("🔐 Generating new GunDB Identity for this server...");
-                serverPair = await Gun.SEA.pair();
+                console.log("🔐 Generating new ZEN Identity for this server...");
+                serverPair = await (Gun as any).pair();
                 database.setSetting("gunPair", JSON.stringify(serverPair));
             }
 
@@ -149,15 +144,17 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             // DIAGNOSTIC: Validate serverPair before auth to prevent "0 length key!"
             if (serverPair) {
+                // ZEN/secp256k1 uses pub, priv, epub, epriv but avoids SEA prefixes
                 const missing = ['pub', 'priv', 'epub', 'epriv'].filter(k => !serverPair[k] || serverPair[k].length === 0);
-                if (missing.length > 0) {
-                    console.error(`🚨 [GunDB] Server Identity is CORRUPTED! Empty keys: ${missing.join(', ')}. This will cause "0 length key!" errors.`);
-                    // Generate a new one if it's completely broken
-                    if (missing.includes('priv') || missing.includes('pub')) {
-                        console.warn("⚠️  Server identity is unusable. Generating a new one for recovery...");
-                        serverPair = await Gun.SEA.pair();
-                        database.setSetting("gunPair", JSON.stringify(serverPair));
-                    }
+                
+                // Check if it's an old SEA pair (SEA pairs often have shorter base64 strings or different properties)
+                // ZEN pairs have 88-char pub and 44-char priv in base62
+                const isLegacy = serverPair.pub && serverPair.pub.length < 80; 
+
+                if (missing.length > 0 || isLegacy || serverPair.curve !== 'secp256k1') {
+                    console.warn(`🚨 [GunDB] Server Identity is LEGACY or CORRUPTED! Error: ${missing.length > 0 ? 'Missing fields' : 'Legacy curve'}. Generating new ZEN pair...`);
+                    serverPair = await (Gun as any).pair();
+                    database.setSetting("gunPair", JSON.stringify(serverPair));
                 }
             } else {
                 console.error("🚨 [GunDB] NO Server Identity (serverPair) found before authentication!");
@@ -280,7 +277,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         const attemptRegistration = async (retryCount = 0): Promise<boolean> => {
             return new Promise(async (resolve) => {
                 // 1. Sign data manually to avoid "Unverified data" errors in public graph
-                const signedSite = await Gun.SEA.sign(siteRecord, serverPair);
+                const signedSite = await (Gun as any).sign(siteRecord, serverPair);
 
                 // 2. Write to Public Content Node (Identified by PubKey)
                 const contentRef = gun
@@ -456,7 +453,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                             .get("profile")
                             .once(async (signedData: any) => {
                                 if (signedData) {
-                                    const profileData = await Gun.SEA.verify(signedData, registerPub);
+                                    const profileData = await (Gun as any).verify(signedData, registerPub);
                                     if (profileData && profileData.type === "tunecamp-site") {
                                         sites.push({
                                             ...profileData,
@@ -824,7 +821,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         // Verify ownership proof if signature provided
         if (signature) {
             try {
-                const isValid = await (Gun.SEA as any).verify(signature, pubKey);
+                const isValid = await (Gun as any).verify(signature, pubKey);
                 if (isValid !== commentId) {
                     console.warn(`❌ Invalid signature for comment deletion: ${commentId}`);
                     return false;

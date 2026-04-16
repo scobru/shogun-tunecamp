@@ -1124,16 +1124,126 @@ export class ActivityPubService {
 
     public async verifySignature(req: any): Promise<boolean> {
         const signatureHeader = req.headers["signature"];
-        if (!signatureHeader) return false;
+        if (!signatureHeader) {
+            console.warn("⚠️ ActivityPub Request missing Signature header");
+            return false;
+        }
+
         try {
-            const parts = signatureHeader.split(',').reduce((acc: any, part: string) => {
-                const [key, val] = part.split('=');
-                if (key && val) acc[key.trim()] = val.replace(/"/g, '').trim();
-                return acc;
-            }, {});
-            if (!parts.keyId || !parts.signature) return false;
-            return true;
-        } catch { return false; }
+            // Correctly parse signature header parts (handles keyId="...", etc.)
+            const parts: any = {};
+            const regex = /([a-zA-Z]+)="([^"]+)"/g;
+            let match;
+            while ((match = regex.exec(signatureHeader)) !== null) {
+                parts[match[1]] = match[2];
+            }
+
+            if (!parts.keyId || !parts.signature) {
+                console.warn("⚠️ ActivityPub Signature missing keyId or signature data");
+                return false;
+            }
+
+            // 1. Get Public Key (with caching)
+            const publicKey = await this.getRemotePublicKey(parts.keyId);
+            if (!publicKey) {
+                console.warn(`⚠️ Could not retrieve public key for ${parts.keyId}`);
+                return false;
+            }
+
+            // 2. Reconstruct String to Sign
+            const headersList = parts.headers ? parts.headers.split(' ') : ['date'];
+            const signingLines: string[] = [];
+            
+            for (const headerName of headersList) {
+                if (headerName === '(request-target)') {
+                    // Use req.originalUrl for Express to get the full path
+                    signingLines.push(`(request-target): ${req.method.toLowerCase()} ${req.originalUrl || req.url}`);
+                } else {
+                    const val = req.headers[headerName.toLowerCase()];
+                    if (!val) {
+                        console.warn(`⚠️ Header ${headerName} missing from request but required by signature`);
+                        return false;
+                    }
+                    if (headerName.toLowerCase() === 'host') {
+                        // Some servers might include the port in the host header
+                        signingLines.push(`host: ${val}`);
+                    } else {
+                        signingLines.push(`${headerName.toLowerCase()}: ${val}`);
+                    }
+                }
+            }
+            const signingString = signingLines.join('\n');
+
+            // 3. Verify
+            // Identify hashing algorithm (usually rsa-sha256 or sha256)
+            let algorithm = "sha256";
+            if (parts.algorithm?.toLowerCase().includes("sha512")) algorithm = "sha512";
+            
+            const verifier = crypto.createVerify(algorithm);
+            verifier.update(signingString);
+            const isValid = verifier.verify(publicKey, parts.signature, 'base64');
+            
+            if (isValid) {
+                console.log(`✅ ActivityPub Signature verified for ${parts.keyId}`);
+            } else {
+                console.warn(`❌ ActivityPub Signature verification FAILED for ${parts.keyId}`);
+                // Debug signing string
+                // console.log("DEBUG: Signing String used:\n" + signingString);
+            }
+            
+            return isValid;
+        } catch (err) {
+            console.error("❌ Error during ActivityPub signature verification:", err);
+            return false;
+        }
+    }
+
+    private async getRemotePublicKey(keyId: string): Promise<string | null> {
+        // keyId is usually http://actor-uri#main-key or just the actor-uri
+        const actorUri = keyId.split('#')[0];
+        
+        // Check DB Cache
+        const cachedActor = this.db.getRemoteActor(actorUri);
+        if (cachedActor?.public_key) {
+            return cachedActor.public_key;
+        }
+
+        // Fetch Actor JSON
+        try {
+            console.log(`📡 Fetching remote actor to retrieve public key: ${actorUri}`);
+            const res = await this.fetchWithSignature(actorUri);
+            
+            if (!res.ok) {
+                console.warn(`⚠️ Failed to fetch remote actor ${actorUri}: ${res.status}`);
+                await drainResponse(res);
+                return null;
+            }
+            
+            const actor = await res.json();
+            const publicKeyPem = actor.publicKey?.publicKeyPem;
+            
+            if (publicKeyPem) {
+                // Cache it so we don't fetch every time
+                console.log(`💾 Caching public key for ${actorUri}`);
+                this.db.upsertRemoteActor({
+                    uri: actorUri,
+                    type: actor.type || 'Person',
+                    username: actor.preferredUsername || null,
+                    name: actor.name || null,
+                    summary: actor.summary || null,
+                    icon_url: actor.icon?.url || (typeof actor.icon === 'string' ? actor.icon : null),
+                    inbox_url: actor.inbox || null,
+                    outbox_url: actor.outbox || null,
+                    public_key: publicKeyPem
+                });
+                return publicKeyPem;
+            } else {
+                console.warn(`⚠️ Actor JSON for ${actorUri} does not contain a public key`);
+            }
+        } catch (e) {
+            console.error(`❌ Error fetching remote public key for ${actorUri}:`, e);
+        }
+        return null;
     }
 }
 

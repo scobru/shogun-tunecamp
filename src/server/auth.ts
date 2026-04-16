@@ -3,8 +3,8 @@ import jwt from "jsonwebtoken";
 import type { Database } from "better-sqlite3";
 import fetch from "node-fetch";
 import crypto from "crypto";
-import Gun from "gun";
-import "gun/sea.js";
+import { Gun } from "./gun.js";
+// ZEN handles its own crypto natively
 import { isSafeUrl } from "../utils/networkUtils.js";
 
 // Polyfill WebCrypto for Gun.SEA in Node.js ESM
@@ -74,6 +74,9 @@ export interface AuthService {
     // GunDB Key Management
     encryptGunPriv(priv: any): string;
     decryptGunPriv(encrypted: string): any;
+
+    /** Derives an Ethereum-compatible private key from a ZEN pair. */
+    deriveZenWallet(pair: any, id?: string): Promise<string>;
 
     // Default password check
     isDefaultPassword(username: string): Promise<boolean>;
@@ -305,6 +308,20 @@ export function createAuthService(
                     return false;
                 }
                 console.log(`✅ [AUTH] Password verified for ${username}`);
+
+                // Check if the linked GunDB identity is LEGACY (P-256)
+                if (user.gun_pub && user.gun_priv) {
+                    try {
+                        const existingPair = this.decryptGunPriv(user.gun_priv);
+                        if (existingPair.curve !== 'secp256k1' || existingPair.pub.length < 80) {
+                            console.warn(`🚨 [AUTH] User ${username} has a LEGACY (SEA/P-256) identity. Flagging for regeneration.`);
+                            user.gun_priv = null; // Force regeneration
+                            user.gun_pub = null;
+                        }
+                    } catch (e) {
+                        user.gun_priv = null; 
+                    }
+                }
             } else {
                 console.log(`✅ [AUTH] GunDB verification succeeded for ${username}, skipping password check`);
             }
@@ -343,10 +360,9 @@ export function createAuthService(
             const isDefault = await this.isDefaultPassword(username);
             
             if (!gunPair && (user.id === 1 || !isDefault)) {
-                // Lazy-generate or RE-generate GunDB identity for any user who doesn't have a readable one yet
-                // SKIP for non-root users who are still on default password
-                console.log(`🔐 Generating new GunDB Identity for ${userRole} ${username}...`);
-                gunPair = await Gun.SEA.pair();
+                // Lazy-generate or RE-generate ZEN identity (secp256k1)
+                console.log(`🔐 Generating new ZEN Identity for ${userRole} ${username}...`);
+                gunPair = await (Gun as any).pair();
                 const encryptedPriv = this.encryptGunPriv(gunPair);
                 db.prepare("UPDATE admin SET gun_pub = ?, gun_priv = ? WHERE id = ?").run(gunPair.pub, encryptedPriv, user.id);
             }
@@ -425,43 +441,14 @@ export function createAuthService(
                 console.log(`[DEBUG] verifyGunSignature - Expected Message: "${message}"`);
                 console.log(`[DEBUG] verifyGunSignature - PubKey: "${pubKey}"`);
                 
-                // Gun.SEA.verify can be tricky in different Node environments. 
-                // We wrap it in a Promise to handle both sync/callback/promise behaviors.
-                const verified = await new Promise((resolve) => {
-                    try {
-                        const result = (Gun.SEA as any).verify(parsedProof, pubKey, (val: any) => {
-                            resolve(val);
-                        });
-                        // If it returned a promise, handle it
-                        if (result && typeof result.then === 'function') {
-                            result.then(resolve).catch((err: any) => {
-                                console.error("[DEBUG] SEA.verify Promise Error:", err);
-                                resolve(undefined);
-                            });
-                        } else if (result !== undefined) {
-                            // If it returned synchronously
-                            resolve(result);
-                        }
-                    } catch (err) {
-                        console.error("[DEBUG] SEA.verify Execution Error:", err);
-                        resolve(undefined);
-                    }
-                    // Timeout safety
-                    setTimeout(() => resolve(undefined), 3000);
-                });
-                
-                // Case-insensitive/Trimmed comparison if it's a string
-                const normalizedVerified = typeof verified === 'string' ? verified.trim() : verified;
-                const normalizedMessage = typeof message === 'string' ? message.trim() : message;
-                
-                const isValid = normalizedVerified === normalizedMessage;
+                // Use ZEN verify (secp256k1)
+                const verified = await (Gun as any).verify(parsedProof, pubKey);
+                const isValid = !!verified;
                 
                 if (!isValid) {
-                    console.warn(`❌ GunDB signature verification failed for ${message}.`);
-                    console.warn(`   Verified Result: ${JSON.stringify(verified)} (${typeof verified})`);
-                    console.warn(`   Expected Message: ${JSON.stringify(normalizedMessage)} (${typeof normalizedMessage})`);
+                    console.warn(`❌ ZEN signature verification failed for ${message}.`);
                 } else {
-                    console.log(`✅ GunDB signature verified for ${message}`);
+                    console.log(`✅ ZEN signature verified for ${message}`);
                 }
                 
                 return isValid;
@@ -547,7 +534,7 @@ export function createAuthService(
             const user = db.prepare("SELECT id, gun_pub FROM admin WHERE username = ?").get(username) as { id: number, gun_pub: string | null } | undefined;
             if (user && !user.gun_pub) {
                 console.log(`🔐 [AUTH] Generating new GunDB Identity for ${username} during password change...`);
-                const gunPair = await Gun.SEA.pair();
+                const gunPair = await (Gun as any).pair();
                 this.updateGunPair(username, gunPair);
             }
         },
@@ -712,9 +699,9 @@ export function createAuthService(
                 return { pair, alias: user.display_name || user.acct };
             }
 
-            // 4. Create new identity
-            console.log(`🆕 Mastodon Login: Creating NEW GunDB identity for ${subject}`);
-            const pair = await Gun.SEA.pair();
+            // 4. Create new library identity (ZEN / secp256k1)
+            console.log(`🆕 Mastodon Login: Creating NEW ZEN identity for ${subject}`);
+            const pair = await (Gun as any).pair();
             const encryptedPriv = this.encryptGunPriv(pair);
 
             db.prepare("INSERT INTO oauth_links (provider, subject, gun_pub, gun_priv) VALUES (?, ?, ?, ?)").run(provider, subject, pair.pub, encryptedPriv);
@@ -732,6 +719,16 @@ export function createAuthService(
 
         decryptGunPriv(encrypted: string): any {
             return decryptGunPrivHelper(encrypted, jwtSecret);
+        },
+
+        async deriveZenWallet(pair: any, id?: string): Promise<string> {
+            if (!pair || !pair.priv) {
+                throw new Error("Valid ZEN pair with 'priv' key is required.");
+            }
+            // Logic ported from gun/lib/wallet.js but adapted for ZEN
+            const text = String(pair.priv) + (id || '');
+            const hashHex = crypto.createHash('sha256').update(text).digest('hex');
+            return "0x" + hashHex;
         }
     };
 }

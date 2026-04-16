@@ -1,25 +1,22 @@
-import Gun from 'gun';
-import "gun/lib/yson.js";
-import 'gun/sea';
-import 'gun/lib/radix';
-import 'gun/lib/radisk';
-import 'gun/lib/rindexed';
-import "gun/lib/wallet-eth";
+// @ts-ignore
+import Gun from 'zen';
+import ZEN from 'zen';
+
+
+
+// Remove redundant imports as ZEN includes everything needed
+import { DEFAULT_GUN_PEERS } from '../../../src/common/gun-config';
 import API from './api';
 import type { UserPlaylist, UserPlaylistTrack, Track } from '../types';
 
-
-const defaultPeers = [
-    "wss://localhost:1970/gun",
-    "wss://shogun-relay.scobrudot.dev/gun"
-];
-
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    defaultPeers.push("ws://localhost:1970/gun");
+    if (!DEFAULT_GUN_PEERS.includes("ws://localhost:1970/gun")) {
+        DEFAULT_GUN_PEERS.push("ws://localhost:1970/gun");
+    }
 }
 
 const envPeers = (window as any).TUNECAMP_CONFIG?.gunPeers;
-let PEERS = defaultPeers;
+let PEERS = [...DEFAULT_GUN_PEERS];
 
 if (envPeers && typeof envPeers === 'string' && envPeers.trim().length > 0) {
     // Robustly split and normalize peers (handle commas and/or whitespace)
@@ -37,12 +34,10 @@ const gun = Gun({
     localStorage: false,
     radisk: false,
     axe: false
-
 });
 
 const user = gun.user().recall({
-    sessionStorage
-        : true
+    sessionStorage: true
 });
 
 // Helper interface for Gun User Profile

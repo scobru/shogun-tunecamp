@@ -229,6 +229,7 @@ export interface RemoteActor {
     icon_url: string | null;
     inbox_url: string | null;
     outbox_url: string | null;
+    public_key: string | null;
     is_followed: boolean;
     last_seen: string;
 }
@@ -476,7 +477,7 @@ export interface DatabaseService {
     getGunUser(pub: string): { pub: string; epub: string; alias: string } | undefined;
 
     // Remote Federation (ActivityPub)
-    upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen" | "is_followed"> & { is_followed?: boolean }): void;
+    upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen" | "is_followed"> & { is_followed?: boolean, public_key?: string | null }): void;
     saveRemoteActor(actor: any): void; // More flexible version
     getRemoteActor(uri: string): RemoteActor | undefined;
     getRemoteActors(): RemoteActor[];
@@ -831,6 +832,7 @@ export function createDatabase(dbPath: string): DatabaseService {
       icon_url TEXT,
       inbox_url TEXT,
       outbox_url TEXT,
+      public_key TEXT,
       is_followed INTEGER DEFAULT 0,
       last_seen TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -3388,7 +3390,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         // ActivityPub Remote Items
-        upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen" | "is_followed"> & { is_followed?: boolean }): void {
+        upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen" | "is_followed"> & { is_followed?: boolean, public_key?: string | null }): void {
             const b = (val: any) => {
                 if (val === null || val === undefined) return null;
                 if (typeof val === 'string' || typeof val === 'number' || typeof val === 'bigint' || Buffer.isBuffer(val)) return val;
@@ -3397,10 +3399,11 @@ export function createDatabase(dbPath: string): DatabaseService {
 
             const existing = this.getRemoteActor(actor.uri);
             const isFollowed = actor.is_followed !== undefined ? (actor.is_followed ? 1 : 0) : (existing?.is_followed ? 1 : 0);
+            const publicKey = actor.public_key !== undefined ? actor.public_key : existing?.public_key;
 
             db.prepare(`
-                INSERT INTO remote_actors (uri, type, username, name, summary, icon_url, inbox_url, outbox_url, is_followed, last_seen)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                INSERT INTO remote_actors (uri, type, username, name, summary, icon_url, inbox_url, outbox_url, public_key, is_followed, last_seen)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(uri) DO UPDATE SET
                     username=excluded.username,
                     name=excluded.name,
@@ -3408,11 +3411,13 @@ export function createDatabase(dbPath: string): DatabaseService {
                     icon_url=excluded.icon_url,
                     inbox_url=excluded.inbox_url,
                     outbox_url=excluded.outbox_url,
+                    public_key=excluded.public_key,
                     is_followed=excluded.is_followed,
                     last_seen=CURRENT_TIMESTAMP
             `).run(
                 b(actor.uri), b(actor.type), b(actor.username), b(actor.name), 
                 b(actor.summary), b(actor.icon_url), b(actor.inbox_url), b(actor.outbox_url), 
+                publicKey ? b(publicKey) : null,
                 isFollowed
             );
         },

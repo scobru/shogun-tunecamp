@@ -44,6 +44,13 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
         const activity = req.body;
         console.log(`📨 Received ActivityPub message for ${slug}:`, activity.type);
 
+        // Signature Verification
+        const isValid = await apService.verifySignature(req);
+        if (!isValid) {
+            console.warn(`🔒 Rejected invalid Signature for inbox @${slug}`);
+            return res.status(401).send("Unauthorized: Invalid ActivityPub signature");
+        }
+
         // Helper: ActivityPub types can be a string OR an array of strings
         const hasType = (typeField: any, ...targets: string[]): boolean => {
             if (!typeField) return false;
@@ -235,9 +242,16 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
     });
 
     // Shared Inbox - processes activities sent to the instance level
-    router.post("/inbox", (req, res) => {
+    router.post("/inbox", async (req, res) => {
         const activity = req.body;
         console.log(`📨 Shared inbox received: ${activity?.type}`);
+
+        // Signature Verification
+        const isValid = await apService.verifySignature(req);
+        if (!isValid) {
+            console.warn(`🔒 Rejected invalid Signature for shared inbox`);
+            return res.status(401).send("Unauthorized: Invalid ActivityPub signature");
+        }
 
         // Helper for array-safe type check
         const hasType = (typeField: any, ...targets: string[]): boolean => {

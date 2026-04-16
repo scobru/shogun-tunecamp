@@ -364,20 +364,14 @@
         </footer>
     </div>
 
-    <!-- GunDB -->
-    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
+    <!-- GunDB Consolidato -->
+    <script src="zen.js"></script>
+    <script src="gun-init.js"></script>
     <script>
-        const REGISTRY_PEERS = [
-            'https://gun.defucc.me/gun',
-            'https://gun.o8.is/gun',
-            'https://shogun-relay.scobrudot.dev/gun',
-            'https://relay.peer.ooo/gun',
-        ];
         const REGISTRY_ROOT = 'shogun';
         const REGISTRY_NAMESPACE = 'tunecamp-community';
 
-        const gun = Gun({ peers: REGISTRY_PEERS, localStorage: true });
+        const gun = getGun();
 
         // Data Stores
         const sitesMap = new Map();
