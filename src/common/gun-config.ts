@@ -5,9 +5,6 @@
 
 export const DEFAULT_GUN_PEERS = [
     "https://shogun-relay.scobrudot.dev/gun",
-    "https://gun.defucc.me/gun",
-    "https://a.talkflow.team/gun",
-    "https://peer.wallie.io/gun",
 ];
 
 export const GUN_NAMESPACE = "tunecamp";

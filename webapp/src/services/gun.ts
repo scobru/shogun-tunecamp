@@ -507,6 +507,12 @@ export const GunSocial = {
 // GunDB Playlists Service — User playlists stored in GunDB
 // ============================================================
 
+const PLAYLISTS_NODE = 'tunecamp-playlists';
+
+function generateId(): string {
+    return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
 // Local cache for recently created/updated playlists to avoid GunDB latency
 const playlistCache: Record<string, UserPlaylist> = {};
 
