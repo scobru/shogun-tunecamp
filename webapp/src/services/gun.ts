@@ -307,12 +307,17 @@ export const GunAuth = {
                 reject(new Error("GunDB Login Timeout: Could not reach peers"));
             }, 20000);
 
-            const connectedPeers = Object.keys((gun as any)?._?.opt?.peers || {}).filter(k => {
+            const peerKeys = Object.keys((gun as any)?._?.opt?.peers || {});
+            const connectedPeers = peerKeys.filter(k => {
                 const p = (gun as any)._?.opt?.peers[k];
                 const conn = p?.wire || p?.socket || p?.conn;
                 return conn && (conn.readyState === 1 || conn.readyState === 'open');
             }).length;
-            console.log(`📡 ZEN Login attempt. Connected peers: ${connectedPeers}`);
+            
+            console.log(`📡 ZEN Login attempt. Connected peers: ${connectedPeers} total, ${peerKeys.length} known.`);
+            if (connectedPeers === 0 && peerKeys.length > 0) {
+                console.warn("⚠️  ZEN Relay: No peers are connected despite being configured. Peer list:", peerKeys);
+            }
 
             user.auth(username, pass, (ack: any) => {
                 clearTimeout(timeout);
@@ -345,8 +350,14 @@ export const GunAuth = {
                 reject(new Error("GunDB Re-authentication Timeout: Could not reach peers"));
             }, 20000);
 
-            const connectedPeers = Object.keys((gun as any)?._?.opt?.peers || {}).length;
-            console.log(`📡 GunDB Pair-Auth attempt. Connected peers: ${connectedPeers}`);
+            const peerKeys = Object.keys((gun as any)?._?.opt?.peers || {});
+            const connectedPeers = peerKeys.filter(k => {
+                const p = (gun as any)._?.opt?.peers[k];
+                const conn = p?.wire || p?.socket || p?.conn;
+                return conn && (conn.readyState === 1 || conn.readyState === 'open');
+            }).length;
+            
+            console.log(`📡 GunDB Pair-Auth attempt. Connected peers: ${connectedPeers} total, ${peerKeys.length} known.`);
 
             // Pass explicit alias if available to avoid losing it in ZenUser.auth
             (user.auth as any)(pair, null, (ack: any) => {

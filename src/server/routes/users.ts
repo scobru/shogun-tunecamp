@@ -151,11 +151,12 @@ export function createUsersRoutes(
         try {
             const { pub, epub, alias, avatar } = req.body;
 
-            if (!pub || !epub || !alias) {
-                return res.status(400).json({ error: "pub, epub, and alias are required" });
+            if (!pub || !epub) {
+                return res.status(400).json({ error: "pub and epub are required" });
             }
 
-            database.syncGunUser(pub, epub, alias, avatar);
+            const finalAlias = alias || "Anonymous";
+            database.syncGunUser(pub, epub, finalAlias, avatar);
             res.json({ success: true });
         } catch (error) {
             console.error("User sync error:", error);
