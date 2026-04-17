@@ -51,7 +51,7 @@ class ZenUser {
     /**
      * Recall a previously saved session from localStorage.
      */
-    async recall(opt: any, cb?: (ack: any) => void) {
+    async recall(_opt: any, cb?: (ack: any) => void) {
         try {
             const saved = localStorage.getItem('tunecamp_auth_pair');
             if (saved) {
@@ -95,8 +95,13 @@ class ZenUser {
     /**
      * Authenticate an existing user.
      */
-    async auth(alias: any, pass?: string, cb?: (ack: any) => void, opt?: any) {
+    async auth(alias: any, pass?: string | ((ack: any) => void), cb?: (ack: any) => void, _opt?: any) {
         // Handle login-with-pair vs login-with-credentials
+        if (typeof pass === 'function') {
+            cb = pass;
+            pass = undefined;
+        }
+
         let pair = alias;
         let actualAlias = typeof alias === 'string' ? alias : '';
 

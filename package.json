@@ -55,7 +55,7 @@
     "fluent-ffmpeg": "^2.1.3",
     "fs-extra": "^11.2.0",
     "glob": "^10.3.10",
-    "zen": "file:./deps/zen",
+    "zen": "https://github.com/scobru/zen",
     "inquirer": "^13.2.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
