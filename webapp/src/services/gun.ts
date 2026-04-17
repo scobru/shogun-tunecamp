@@ -1,7 +1,6 @@
 import ZEN from 'zen';
 
 
-
 // Remove redundant imports as ZEN includes everything needed
 import { DEFAULT_GUN_PEERS } from '../../../src/common/gun-config';
 import API from './api';
@@ -29,8 +28,8 @@ if (envPeers && typeof envPeers === 'string' && envPeers.trim().length > 0) {
 // Initialize Gun
 const gun = new ZEN({
     peers: PEERS,
-    localStorage: false,
-    radisk: false,
+    localStorage: true,
+    radisk: true,
     axe: false
 });
 
@@ -77,10 +76,10 @@ class ZenUser {
             // even if two users choose the same password.
             const seed = alias + pass;
             const pair = await (ZEN as any).pair(null, { seed });
-            
+
             // Register alias -> pub mapping
             await this._gun.get('~@' + alias).put({ '#': '~' + pair.pub }).then();
-            
+
             // Set initial profile data
             await this._gun.get('~' + pair.pub).get('alias').put(alias, { authenticator: pair }).then();
 
@@ -115,7 +114,7 @@ class ZenUser {
             }
 
             this._setSession(pair, actualAlias);
-            
+
             // Persist for recall
             localStorage.setItem('tunecamp_auth_pair', JSON.stringify(pair));
             localStorage.setItem('tunecamp_auth_alias', actualAlias);
@@ -508,11 +507,8 @@ export const GunSocial = {
 // GunDB Playlists Service — User playlists stored in GunDB
 // ============================================================
 
-const PLAYLISTS_NODE = 'tunecamp-playlists';
-
-function generateId(): string {
-    return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
+// Local cache for recently created/updated playlists to avoid GunDB latency
+const playlistCache: Record<string, UserPlaylist> = {};
 
 export const GunPlaylists = {
 
@@ -540,6 +536,11 @@ export const GunPlaylists = {
 
             let resolved = false;
             const playlistNode = user.get(PLAYLISTS_NODE).get(id);
+            const fullPlaylist = { ...playlist, tracks: [], trackCount: 0 };
+            
+            // Cache immediately for instant navigation
+            playlistCache[id] = fullPlaylist;
+
             playlistNode.put(playlist, (ack: any) => {
                 if (resolved) return;
                 if (ack.err) {
@@ -549,7 +550,7 @@ export const GunPlaylists = {
                     if (isPublic) {
                         gun.get('tunecamp-public-playlists').get(id).put(playlistNode);
                     }
-                    resolve({ ...playlist, tracks: [], trackCount: 0 });
+                    resolve(fullPlaylist);
                 }
             });
             setTimeout(() => {
@@ -558,7 +559,7 @@ export const GunPlaylists = {
                     if (isPublic) {
                         gun.get('tunecamp-public-playlists').get(id).put(playlistNode);
                     }
-                    resolve({ ...playlist, tracks: [], trackCount: 0 });
+                    resolve(fullPlaylist);
                 }
             }, 3000);
         });
@@ -653,6 +654,12 @@ export const GunPlaylists = {
      * Get a single playlist by ID
      */
     getPlaylist: (id: string): Promise<UserPlaylist | null> => {
+        // Return from cache if we just created/updated it
+        if (playlistCache[id]) {
+            console.log(`[Playlist] Returning ${id} from local cache`);
+            return Promise.resolve(playlistCache[id]);
+        }
+
         return new Promise((resolve) => {
             let timeoutId: any;
             let bestData: any = null;
@@ -666,7 +673,8 @@ export const GunPlaylists = {
                 if (timeoutId) clearTimeout(timeoutId);
                 // Clean up listeners
                 listeners.forEach(ev => {
-                    if (ev && ev.off) ev.off();
+                    if (typeof ev === 'function') ev(); // Some ZEN events are functions
+                    else if (ev && ev.off) ev.off();
                 });
 
                 let tracks: UserPlaylistTrack[] = [];
@@ -676,35 +684,47 @@ export const GunPlaylists = {
                     }
                 } catch { /* ignore */ }
 
-                resolve({
-                    id: data.id,
+                const result: UserPlaylist = {
+                    id: data.id || id,
                     name: data.name || 'Untitled',
                     description: data.description || '',
                     coverUrl: data.coverUrl || '',
                     ownerPub: data.ownerPub || '',
                     ownerAlias: data.ownerAlias || '',
                     isPublic: data.isPublic || false,
-                    createdAt: data.createdAt || 0,
-                    updatedAt: data.updatedAt || 0,
+                    createdAt: data.createdAt || Date.now(),
+                    updatedAt: data.updatedAt || Date.now(),
                     tracks,
                     trackCount: tracks.length
-                });
+                };
+
+                // Store in cache for next time
+                playlistCache[id] = result;
+                resolve(result);
             };
 
             const handleData = (data: any, ev: any) => {
-                if (!data || !data.id || resolved) return;
+                if (!data || resolved) return;
                 if (ev && !listeners.includes(ev)) listeners.push(ev);
 
                 // Merge data fields since Gun might emit them separately
                 bestData = { ...bestData, ...data };
 
-                // Only resolve early if it feels complete enough (has name and tracksJson)
-                if (bestData.name !== undefined && bestData.tracksJson !== undefined) {
+                // Only resolve early if it feels complete enough (has name)
+                // We've relaxed this check: id or name is enough to identify a playlist node
+                if (bestData.id && bestData.name) {
                     processData(bestData);
                 }
             };
 
-            // 1) Try fetching from the global public edge index first
+            // 0) Try a ONE-SHOT local lookup first
+            if (user.is) {
+                user.get(PLAYLISTS_NODE).get(id).once((d: any) => {
+                    if (d && d.id && d.name) handleData(d, null);
+                });
+            }
+
+            // 1) Try fetching from the global public edge index
             gun.get('tunecamp-public-playlists').get(id).on((data: any, _key: any, _msg: any, ev: any) => {
                 handleData(data, ev);
             });
@@ -716,16 +736,18 @@ export const GunPlaylists = {
                 });
             }
 
-            // Extended fallback timeout to prevent hanging UI (5 seconds to allow remote peer sync)
+            // Timeout fallback
             timeoutId = setTimeout(() => {
                 if (!resolved) {
-                    if (bestData && bestData.id) {
+                    if (bestData && (bestData.id || bestData.name)) {
+                        console.log(`[Playlist] Timer expired for ${id}, resolving with partial data`);
                         processData(bestData);
                     } else {
+                        console.warn(`[Playlist] Resolution timeout for ${id}`);
                         resolved = true;
-                        // Clean up listeners
                         listeners.forEach(ev => {
-                            if (ev && ev.off) ev.off();
+                            if (typeof ev === 'function') ev();
+                            else if (ev && ev.off) ev.off();
                         });
                         resolve(null);
                     }
