@@ -94,7 +94,7 @@ class ZenUser {
     /**
      * Authenticate an existing user.
      */
-    async auth(alias: any, pass?: string | ((ack: any) => void), cb?: (ack: any) => void, _opt?: any) {
+    async auth(alias: any, pass?: string | ((ack: any) => void), cb?: (ack: any) => void, explicitAlias?: string) {
         // Handle login-with-pair vs login-with-credentials
         if (typeof pass === 'function') {
             cb = pass;
@@ -102,7 +102,7 @@ class ZenUser {
         }
 
         let pair = alias;
-        let actualAlias = typeof alias === 'string' ? alias : '';
+        let actualAlias = explicitAlias || (typeof alias === 'string' ? alias : '');
 
         try {
             if (pass !== undefined) {
@@ -315,14 +315,21 @@ export const GunAuth = {
                         epub: (user.is as any).epub as string
                     };
                     // Sync with backend
-                    API.syncGunUser(profile.pub, profile.epub, profile.alias).catch(console.error);
+                    console.log(`📡 Syncing user with backend: ${profile.alias} (${profile.pub})`);
+                    if (!profile.pub || !profile.epub || !profile.alias) {
+                        console.error("❌ Sync aborted: some profile fields are missing!", profile);
+                    }
+
+                    API.syncGunUser(profile.pub, profile.epub, profile.alias).catch(e => {
+                        console.error("❌ Backend sync failed:", e);
+                    });
                     resolve(profile);
                 }
             });
         });
     },
 
-    loginWithPair: (pair: any): Promise<GunProfile> => {
+    loginWithPair: (pair: any, alias?: string): Promise<GunProfile> => {
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 reject(new Error("GunDB Re-authentication Timeout: Could not reach peers"));
@@ -331,7 +338,8 @@ export const GunAuth = {
             const connectedPeers = Object.keys((gun as any)?._?.opt?.peers || {}).length;
             console.log(`📡 GunDB Pair-Auth attempt. Connected peers: ${connectedPeers}`);
 
-            user.auth(pair, (ack: any) => {
+            // Pass explicit alias if available to avoid losing it in ZenUser.auth
+            (user.auth as any)(pair, null, (ack: any) => {
                 clearTimeout(timeout);
                 if (ack.err) {
                     reject(new Error(ack.err));
@@ -342,10 +350,17 @@ export const GunAuth = {
                         epub: (user.is as any).epub as string
                     };
                     // Sync with backend
-                    API.syncGunUser(profile.pub, profile.epub, profile.alias).catch(console.error);
+                    console.log(`📡 Syncing (pair) user with backend: ${profile.alias} (${profile.pub})`);
+                    if (!profile.pub || !profile.epub || !profile.alias) {
+                        console.error("❌ Sync aborted: some profile fields are missing!", profile);
+                    }
+
+                    API.syncGunUser(profile.pub, profile.epub, profile.alias).catch(e => {
+                        console.error("❌ Backend (pair) sync failed:", e);
+                    });
                     resolve(profile);
                 }
-            });
+            }, alias);
         });
     },
 

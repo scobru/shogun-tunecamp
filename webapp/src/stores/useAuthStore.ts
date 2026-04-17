@@ -203,7 +203,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             let gunProfile: GunProfile | null = null;
             if (result.pair) {
                 try {
-                    gunProfile = await GunAuth.loginWithPair(result.pair);
+                    gunProfile = await GunAuth.loginWithPair(result.pair, username);
                 } catch (gunErr) {
                     console.error("Failed to auto-login to GunDB with pair:", gunErr);
                 }
