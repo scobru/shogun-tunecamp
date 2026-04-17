@@ -515,7 +515,7 @@ export const Network = () => {
             <div
               className={`w-1.5 h-1.5 rounded-full ${status?.gundb?.connected ? "bg-green-400 animate-pulse" : "bg-red-400"}`}
             ></div>
-            GunDB: {status?.gundb?.connected
+            ZEN: {status?.gundb?.connected
               ? `${status.gundb.peers} PEERS`
               : "DISCONNECTED"}
           </div>

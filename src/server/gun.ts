@@ -27,13 +27,13 @@ export function getGun(options?: GunOptions): any {
             axe: false
         };
 
-        console.log(`📡 [GunDB] Initializing shared singleton with ${initializationOptions.peers.length} peers...`);
+        console.log(`📡 [ZEN] Initializing shared singleton with ${initializationOptions.peers.length} peers...`);
         gunInstance = new ZEN(initializationOptions);
         gunInstance._graph; // Force relay initialization as per examples
     } else if (options?.peers || options?.web) {
         // Update existing instance if new options provided (peers/server)
         if (options.peers) {
-            console.log(`📡 [GunDB] Shared singleton adding ${options.peers.length} peers...`);
+            console.log(`📡 [ZEN] Shared singleton adding ${options.peers.length} peers...`);
             gunInstance.opt({ peers: options.peers });
         }
         if (options.web) {

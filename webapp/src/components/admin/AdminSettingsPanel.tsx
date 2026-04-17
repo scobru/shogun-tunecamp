@@ -258,13 +258,13 @@ export const AdminSettingsPanel = () => {
               placeholder="https://sudorecords.dev"
             />
             <label className="label">
-              <span className="label-text-alt opacity-40">Required for ActivityPub and remote GunDB peers.</span>
+              <span className="label-text-alt opacity-40">Required for ActivityPub and remote ZEN peers.</span>
             </label>
           </div>
 
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium text-sm">GunDB Peers</span>
+              <span className="label-text font-medium text-sm">ZEN Peers</span>
             </label>
             <textarea
               className="textarea textarea-bordered bg-base-300/50 h-28 font-mono text-xs"

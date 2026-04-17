@@ -107,12 +107,12 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 if (storedPeers) {
                     try {
                         initializationPeers = storedPeers.split(",").map(p => p.trim()).filter(p => p.length > 0);
-                        console.log(`🌐 Using ${initializationPeers.length} GunDB peers from database settings`);
+                        console.log(`🌐 [ZEN] Using ${initializationPeers.length} peers from database settings:`, initializationPeers);
                     } catch (e) {
-                        console.warn("⚠️ Invalid GunDB peers in settings, falling back to defaults");
+                        console.warn("⚠️ [ZEN] Invalid peers in settings, falling back to defaults");
                     }
                 } else {
-                    console.log(`🌐 Using ${initializationPeers.length} default GunDB peers`);
+                    console.log(`🌐 [ZEN] Using ${initializationPeers.length} default peers:`, initializationPeers);
                 }
             }
 
@@ -185,14 +185,19 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             }
 
             initialized = true;
-            console.log("🌐 GunDB initialized (signaling + identity + stats)");
+            console.log("🌐 ZEN Relay initialized (signaling + identity + stats)");
 
             // Manteniamo traccia della memoria e del grafo GunDB ogni 30s per i leak
             setInterval(() => {
                 if (global.gc) global.gc();
                 const used = process.memoryUsage();
-                console.log(`[Diag] Heap: ${Math.round(used.heapUsed / 1e6)} MB | GunDB graph nodes:`, gun?._?.graph ? Object.keys(gun._.graph).length : 0);
-            }, 30_000);
+                const peerCount = getPeerCount();
+                console.log(`[Diag] Heap: ${Math.round(used.heapUsed / 1e6)} MB | ZEN Peers: ${peerCount} | nodes:`, gun?._?.graph ? Object.keys(gun._.graph).length : 0);
+                
+                if (peerCount === 0 && initializationPeers.length > 0) {
+                    console.warn(`[Diag] ⚠️  ZEN is reporting 0 connected peers. Target peers:`, initializationPeers);
+                }
+            }, 60_000);
 
             return true;
         } catch (error) {
@@ -1035,13 +1040,27 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         cleanupGlobalNetwork,
         invalidateCache,
         getPeerCount: () => {
-            if (!gun) return 0;
-            try {
-                const peers = gun._.opt.peers;
-                return Object.keys(peers || {}).filter(k => peers[k].wire && peers[k].wire.readyState === 1).length;
-            } catch (e) {
-                return 0;
-            }
+            return getPeerCount();
         }
     };
+
+    function getPeerCount(): number {
+        if (!gun) return 0;
+        try {
+            const peers = gun._.opt.peers;
+            if (!peers) return 0;
+            
+            return Object.keys(peers).filter(k => {
+                const peer = peers[k];
+                // Check for wire (standard Gun) or socket (some ZEN/Gun variants)
+                const conn = peer.wire || peer.socket || peer.conn;
+                if (!conn) return false;
+                
+                // readyState 1 is OPEN
+                return conn.readyState === 1 || conn.readyState === 'open';
+            }).length;
+        } catch (e) {
+            return 0;
+        }
+    }
 }

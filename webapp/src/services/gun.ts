@@ -22,7 +22,9 @@ if (envPeers && typeof envPeers === 'string' && envPeers.trim().length > 0) {
         .map(p => p.trim())
         .filter(p => p.length > 0 && (p.startsWith('ws://') || p.startsWith('wss://') || p.startsWith('http://') || p.startsWith('https://')));
 
-    console.log(`📡 GunDB initialized with ${PEERS.length} custom peers from config`);
+    console.log(`📡 ZEN Relay initialized with ${PEERS.length} custom peers from config:`, PEERS);
+} else {
+    console.log(`📡 ZEN Relay initialized with default peers:`, PEERS);
 }
 
 // Initialize Gun
@@ -224,7 +226,7 @@ export const GunAuth = {
             if (settings.gunPeers) {
                 const settingPeers = settings.gunPeers.split(/[,\s]+/).map(p => p.trim()).filter(p => p.length > 0);
                 if (settingPeers.length > 0) {
-                    console.log(`🌐 Adding ${settingPeers.length} GunDB peers from site settings`);
+                    console.log(`🌐 Adding ${settingPeers.length} ZEN peers from site settings:`, settingPeers);
                     if (typeof (gun as any).opt === 'function') {
                         (gun as any).opt({ peers: settingPeers });
                     }
@@ -272,8 +274,12 @@ export const GunAuth = {
                 reject(new Error("GunDB Registration Timeout: Could not reach peers"));
             }, 20000);
 
-            const connectedPeers = Object.keys((gun as any)?._?.opt?.peers || {}).length;
-            console.log(`📡 GunDB Register attempt. Connected peers: ${connectedPeers}`);
+            const connectedPeers = Object.keys((gun as any)?._?.opt?.peers || {}).filter(k => {
+                const p = (gun as any)._?.opt?.peers[k];
+                const conn = p?.wire || p?.socket || p?.conn;
+                return conn && (conn.readyState === 1 || conn.readyState === 'open');
+            }).length;
+            console.log(`📡 ZEN Register attempt. Connected peers: ${connectedPeers}`);
 
             user.create(username, pass, (ack: any) => {
                 clearTimeout(timeout);
@@ -301,8 +307,12 @@ export const GunAuth = {
                 reject(new Error("GunDB Login Timeout: Could not reach peers"));
             }, 20000);
 
-            const connectedPeers = Object.keys((gun as any)?._?.opt?.peers || {}).length;
-            console.log(`📡 GunDB Login attempt. Connected peers: ${connectedPeers}`);
+            const connectedPeers = Object.keys((gun as any)?._?.opt?.peers || {}).filter(k => {
+                const p = (gun as any)._?.opt?.peers[k];
+                const conn = p?.wire || p?.socket || p?.conn;
+                return conn && (conn.readyState === 1 || conn.readyState === 'open');
+            }).length;
+            console.log(`📡 ZEN Login attempt. Connected peers: ${connectedPeers}`);
 
             user.auth(username, pass, (ack: any) => {
                 clearTimeout(timeout);

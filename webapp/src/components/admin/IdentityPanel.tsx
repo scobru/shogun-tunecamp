@@ -183,7 +183,7 @@ export const IdentityPanel = ({ isRootAdmin = false }: IdentityPanelProps) => {
           <div className="card bg-base-200 border border-white/5 shadow-xl">
             <div className="card-body">
               <h3 className="card-title text-sm uppercase tracking-wider opacity-70 mb-4">
-                {isRootAdmin ? "Current P2P Node Identity (GunDB)" : "My Personal P2P Identity (GunDB)"}
+                {isRootAdmin ? "Current P2P Node Identity (ZEN)" : "My Personal P2P Identity (ZEN)"}
               </h3>
 
               {identity ? (
@@ -312,7 +312,7 @@ export const IdentityPanel = ({ isRootAdmin = false }: IdentityPanelProps) => {
                 <div>
                   <AlertTriangle size={16} />
                   <span>
-                    Paste a valid GunDB key pair (JSON) to restore a previous
+                    Paste a valid ZEN key pair (JSON) to restore a previous
                     identity. This is a destructive action.
                   </span>
                 </div>
