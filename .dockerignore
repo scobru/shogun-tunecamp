@@ -3,6 +3,7 @@ node_modules
 
 # Build output (we'll build in Docker)
 dist
+webapp/dist
 
 # Development files
 .git
@@ -16,14 +17,15 @@ dist
 .vscode
 .idea
 
-# Database files (will be generated)
+# Data and Persistence (SHOULD NOT BE IN IMAGE)
+music/
+uploads/
+cache/
+scratch/
+radata/
 *.db
 *.db-wal
 *.db-shm
-radata
-
-# Examples (optional - uncomment if you want to include them)
-# examples
 
 # Logs
 *.log
