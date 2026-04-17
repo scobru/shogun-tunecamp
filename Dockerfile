@@ -57,7 +57,7 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 # Install all dependencies (including dev) for the entire workspace
 RUN npm ci && \
-    npm install lightningcss-linux-x64-musl && \
+    npm install lightningcss-linux-x64-musl @tailwindcss/oxide-linux-x64-musl && \
     npm cache clean --force
 
 # Copy source code
