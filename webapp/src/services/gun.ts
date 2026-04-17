@@ -1,4 +1,4 @@
-import Gun from 'zen';
+import ZEN from 'zen';
 
 
 
@@ -27,7 +27,7 @@ if (envPeers && typeof envPeers === 'string' && envPeers.trim().length > 0) {
 }
 
 // Initialize Gun
-const gun = Gun({
+const gun = new ZEN({
     peers: PEERS,
     localStorage: false,
     radisk: false,
@@ -203,11 +203,11 @@ export const GunAuth = {
     sign: async (data: any) => {
         if (!user.is) throw new Error("Not logged in");
         // @ts-ignore
-        return await Gun.SEA.sign(data, user._.sea);
+        return await ZEN.SEA.sign(data, user._.sea);
     },
 
     verify: async (data: any, pub: string) => {
-        return await Gun.SEA.verify(data, pub);
+        return await ZEN.SEA.verify(data, pub);
     },
 
     /**
