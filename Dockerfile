@@ -54,15 +54,13 @@ COPY deps ./deps
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-# Install all dependencies (including dev)
+# Install all dependencies (including dev) for the entire workspace
 RUN npm ci
 
 # Copy source code
 COPY . .
 
-
-
-# Build TypeScript
+# Build TypeScript (Server)
 RUN npm run build
 
 # Pass ARGs to VITE_ ENVs for frontend build
@@ -71,8 +69,8 @@ ENV VITE_TUNECAMP_RPC_URL=$TUNECAMP_RPC_URL
 ENV VITE_TUNECAMP_CURRENCY_CONTRACT=$TUNECAMP_CURRENCY_CONTRACT
 ENV VITE_GUN_PEERS=$VITE_GUN_PEERS
 
-# Build Frontend
-RUN cd webapp && npm install && npm run build
+# Build Frontend (using workspace command)
+RUN npm run build -w webapp
 # Ensure all public assets (manifest, sw, icons) are in dist
 RUN cp -v webapp/public/manifest.json webapp/dist/ 2>/dev/null || true
 RUN cp -v webapp/public/sw.js webapp/dist/ 2>/dev/null || true
