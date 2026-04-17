@@ -20,7 +20,7 @@ export function getGun(options?: GunOptions): any {
         const initializationOptions = {
             peers: options?.peers || DEFAULT_GUN_PEERS,
             web: options?.web,
-            path: "/zen",
+            ws: { path: "/zen" }, // Nest path for zen wire
             radisk: options?.radisk !== undefined ? options.radisk : GUN_CONFIG_DEFAULTS.radisk,
             localStorage: options?.localStorage !== undefined ? options.localStorage : GUN_CONFIG_DEFAULTS.localStorage,
             file: options?.file || GUN_CONFIG_DEFAULTS.file,
@@ -29,6 +29,7 @@ export function getGun(options?: GunOptions): any {
 
         console.log(`📡 [GunDB] Initializing shared singleton with ${initializationOptions.peers.length} peers...`);
         gunInstance = new ZEN(initializationOptions);
+        gunInstance._graph; // Force relay initialization as per examples
     } else if (options?.peers || options?.web) {
         // Update existing instance if new options provided (peers/server)
         if (options.peers) {
