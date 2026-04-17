@@ -8,8 +8,8 @@ import API from './api';
 import type { UserPlaylist, UserPlaylistTrack, Track } from '../types';
 
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    if (!DEFAULT_GUN_PEERS.includes("ws://localhost:1970/gun")) {
-        DEFAULT_GUN_PEERS.push("ws://localhost:1970/gun");
+    if (!DEFAULT_GUN_PEERS.includes("ws://localhost:1970/zen")) {
+        DEFAULT_GUN_PEERS.push("ws://localhost:1970/zen");
     }
 }
 
