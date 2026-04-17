@@ -49,6 +49,7 @@ RUN apk add --no-cache python3 make g++ curl git libc6-compat gcompat
 # Copy package files and local dependencies
 COPY package*.json ./
 COPY deps ./deps
+COPY webapp/package.json ./webapp/
 
 # Puppeteer configuration to skip Chrome download
 ENV PUPPETEER_SKIP_DOWNLOAD=true
@@ -112,6 +113,7 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 # Copy package files, local dependencies and install production dependencies
 COPY package*.json ./
 COPY deps ./deps
+COPY webapp/package.json ./webapp/
 RUN npm ci --omit=dev && \
     npm cache clean --force && \
     apk del python3 make g++ && \
