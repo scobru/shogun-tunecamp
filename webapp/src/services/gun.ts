@@ -167,9 +167,13 @@ class ZenUser {
      * Overrides .put() on a chain to automatically include the authenticator.
      */
     private _wrapChain(chain: any) {
+        if (!chain || chain._isZenWrapped) return chain;
+
         const originalPut = chain.put.bind(chain);
         const originalGet = chain.get.bind(chain);
         const self = this;
+
+        chain._isZenWrapped = true;
 
         chain.put = (data: any, opt: any, cb: any) => {
             if (typeof opt === 'function') {
