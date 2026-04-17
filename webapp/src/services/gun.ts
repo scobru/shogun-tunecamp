@@ -34,9 +34,161 @@ const gun = new ZEN({
     axe: false
 });
 
-const user = gun.user().recall({
-    sessionStorage: true
-});
+/**
+ * ZenUser: A compatibility shim for the legacy Gun.user() API.
+ * Uses ZEN's stateless External Authenticator pattern under the hood.
+ */
+class ZenUser {
+    private _gun: any;
+    private _pair: any = null;
+    public is: { pub?: string; alias?: string; epub?: string } | null = null;
+    public _: any = { sea: null }; // Legacy internal state accessor
+
+    constructor(gun: any) {
+        this._gun = gun;
+    }
+
+    /**
+     * Recall a previously saved session from localStorage.
+     */
+    async recall(opt: any, cb?: (ack: any) => void) {
+        try {
+            const saved = localStorage.getItem('tunecamp_auth_pair');
+            if (saved) {
+                const pair = JSON.parse(saved);
+                const alias = localStorage.getItem('tunecamp_auth_alias');
+                this._setSession(pair, alias || '');
+                if (cb) cb({ ok: 1 });
+                return this;
+            }
+        } catch (e) {
+            console.error("ZenUser recall failed:", e);
+        }
+        if (cb) cb({ err: 'No session' });
+        return this;
+    }
+
+    /**
+     * Create a new user identity.
+     */
+    async create(alias: string, pass: string, cb?: (ack: any) => void) {
+        try {
+            // HIGH SECURITY: Combine alias + pass as seed to ensure unique identity
+            // even if two users choose the same password.
+            const seed = alias + pass;
+            const pair = await (ZEN as any).pair(null, { seed });
+            
+            // Register alias -> pub mapping
+            await this._gun.get('~@' + alias).put({ '#': '~' + pair.pub }).then();
+            
+            // Set initial profile data
+            await this._gun.get('~' + pair.pub).get('alias').put(alias, { authenticator: pair }).then();
+
+            if (cb) cb({ ok: 1, pub: pair.pub });
+            return pair;
+        } catch (e: any) {
+            if (cb) cb({ err: e.message || e });
+            throw e;
+        }
+    }
+
+    /**
+     * Authenticate an existing user.
+     */
+    async auth(alias: any, pass?: string, cb?: (ack: any) => void, opt?: any) {
+        // Handle login-with-pair vs login-with-credentials
+        let pair = alias;
+        let actualAlias = typeof alias === 'string' ? alias : '';
+
+        try {
+            if (pass !== undefined) {
+                // Generate pair from combined username + password seed
+                const seed = actualAlias + pass;
+                pair = await (ZEN as any).pair(null, { seed });
+            } else if (typeof alias === 'object' && alias.pub) {
+                pair = alias;
+            }
+
+            this._setSession(pair, actualAlias);
+            
+            // Persist for recall
+            localStorage.setItem('tunecamp_auth_pair', JSON.stringify(pair));
+            localStorage.setItem('tunecamp_auth_alias', actualAlias);
+
+            if (cb) cb({ ok: 1 });
+            return this;
+        } catch (e: any) {
+            if (cb) cb({ err: e.message || e });
+            throw e;
+        }
+    }
+
+    /**
+     * Logout and clear session.
+     */
+    leave() {
+        this._pair = null;
+        this.is = null;
+        this._.sea = null;
+        localStorage.removeItem('tunecamp_auth_pair');
+        localStorage.removeItem('tunecamp_auth_alias');
+    }
+
+    /**
+     * Get a chain starting from the user's namespace (~pub).
+     * Automatically wraps the chain to inject the authenticator into .put() calls.
+     */
+    get(path: string) {
+        if (!this.is || !this._pair) {
+            // If not logged in, return a regular graph chain (read-only for user-space)
+            return this._gun.get(path);
+        }
+
+        const userRoot = this._gun.get('~' + this.is.pub);
+        const chain = userRoot.get(path);
+        return this._wrapChain(chain);
+    }
+
+    private _setSession(pair: any, alias: string) {
+        this._pair = pair;
+        this._.sea = pair;
+        this.is = {
+            pub: pair.pub,
+            epub: pair.epub,
+            alias: alias
+        };
+    }
+
+    /**
+     * Overrides .put() on a chain to automatically include the authenticator.
+     */
+    private _wrapChain(chain: any) {
+        const originalPut = chain.put.bind(chain);
+        const originalGet = chain.get.bind(chain);
+        const self = this;
+
+        chain.put = (data: any, opt: any, cb: any) => {
+            if (typeof opt === 'function') {
+                cb = opt;
+                opt = {};
+            }
+            opt = opt || {};
+            // Inject authenticator
+            opt.authenticator = self._pair;
+            return originalPut(data, opt, cb);
+        };
+
+        // Recursively wrap children
+        chain.get = (path: string) => {
+            return self._wrapChain(originalGet(path));
+        };
+
+        return chain;
+    }
+}
+
+// Initialize the shim
+const user = new ZenUser(gun);
 
 // Helper interface for Gun User Profile
 export interface GunProfile {
@@ -55,6 +207,9 @@ export const GunAuth = {
 
     // Initialize/Recall session
     init: async (): Promise<GunProfile | null> => {
+        // Wait for ZEN WASM and crypto primitives to be ready
+        await (ZEN as any).ready;
+
         // Fetch and add additional peers from settings
         try {
             const settings = await API.getSiteSettings();
@@ -79,23 +234,12 @@ export const GunAuth = {
                         epub: (user.is as any).epub as string
                     };
                     // Sync with backend (fire and forget/non-blocking)
-                    API.syncGunUser(profile.pub, profile.epub, profile.alias, (profile as any).profile?.avatar).catch(console.error);
+                    API.syncGunUser(profile.pub, profile.epub, profile.alias).catch(console.error);
                     resolve(profile);
                 } else {
                     resolve(null);
                 }
             });
-
-            // Fallback immediate check
-            if (user.is) {
-                const profile = {
-                    pub: user.is.pub as string,
-                    alias: user.is.alias as string,
-                    epub: (user.is as any).epub as string
-                };
-                API.syncGunUser(profile.pub, profile.epub, profile.alias).catch(console.error);
-                resolve(profile);
-            }
         });
     },
 
@@ -202,12 +346,12 @@ export const GunAuth = {
     // Example crypto helpers (signing)
     sign: async (data: any) => {
         if (!user.is) throw new Error("Not logged in");
-        // @ts-ignore
-        return await ZEN.SEA.sign(data, user._.sea);
+        // Use static ZEN methods directly
+        return await (ZEN as any).sign(data, (user as any)._pair);
     },
 
     verify: async (data: any, pub: string) => {
-        return await ZEN.SEA.verify(data, pub);
+        return await (ZEN as any).verify(data, pub);
     },
 
     /**
