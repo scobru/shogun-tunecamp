@@ -524,6 +524,12 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use(globalErrorHandler);
 
     // Start server
+    server.on('upgrade', (req, socket, head) => {
+        if (req.url?.startsWith('/zen')) {
+            console.log(`📡 [ZEN] Incoming WebSocket upgrade request on ${req.url}`);
+        }
+    });
+
     server.listen(config.port, async () => {
         console.log("");
         console.log(`🎶 TuneCamp Server running at http://localhost:${config.port}`);
