@@ -222,7 +222,9 @@ export const GunAuth = {
                 const settingPeers = settings.gunPeers.split(/[,\s]+/).map(p => p.trim()).filter(p => p.length > 0);
                 if (settingPeers.length > 0) {
                     console.log(`🌐 Adding ${settingPeers.length} GunDB peers from site settings`);
-                    gun.opt({ peers: settingPeers });
+                    if (typeof (gun as any).opt === 'function') {
+                        (gun as any).opt({ peers: settingPeers });
+                    }
                 }
             }
         } catch (e) {
@@ -267,7 +269,7 @@ export const GunAuth = {
                 reject(new Error("GunDB Registration Timeout: Could not reach peers"));
             }, 20000);
 
-            const connectedPeers = Object.keys((gun as any)._.opt.peers || {}).length;
+            const connectedPeers = Object.keys((gun as any)?._?.opt?.peers || {}).length;
             console.log(`📡 GunDB Register attempt. Connected peers: ${connectedPeers}`);
 
             user.create(username, pass, (ack: any) => {
@@ -296,7 +298,7 @@ export const GunAuth = {
                 reject(new Error("GunDB Login Timeout: Could not reach peers"));
             }, 20000);
 
-            const connectedPeers = Object.keys((gun as any)._.opt.peers || {}).length;
+            const connectedPeers = Object.keys((gun as any)?._?.opt?.peers || {}).length;
             console.log(`📡 GunDB Login attempt. Connected peers: ${connectedPeers}`);
 
             user.auth(username, pass, (ack: any) => {
@@ -323,7 +325,7 @@ export const GunAuth = {
                 reject(new Error("GunDB Re-authentication Timeout: Could not reach peers"));
             }, 20000);
 
-            const connectedPeers = Object.keys((gun as any)._.opt.peers || {}).length;
+            const connectedPeers = Object.keys((gun as any)?._?.opt?.peers || {}).length;
             console.log(`📡 GunDB Pair-Auth attempt. Connected peers: ${connectedPeers}`);
 
             user.auth(pair, (ack: any) => {
