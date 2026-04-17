@@ -63,7 +63,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             const status = await API.getAuthStatus();
             const isAdmin = status.authenticated && status.role === 'admin';
-            
+
             let gunProfile: GunProfile | null = null;
             if (status.pair) {
                 try {
@@ -76,7 +76,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 try {
                     await GunAuth.init();
                     gunProfile = GunAuth.getProfile();
-                } catch (e) {}
+                } catch (e) { }
             }
 
             if (gunProfile) {
@@ -101,11 +101,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 }
             }
 
-            const transformedUser = status.user || (status.username ? { 
-                username: status.username, 
-                isAdmin: status.role === 'admin', 
+            const transformedUser = status.user || (status.username ? {
+                username: status.username,
+                isAdmin: status.role === 'admin',
                 isRootAdmin: !!status.isRootAdmin,
-                id: String(status.artistId ?? '0'), 
+                id: String(status.artistId ?? '0'),
                 artistId: status.artistId != null ? String(status.artistId) : undefined,
                 isActive: status.isActive
             } as User : null);
@@ -124,31 +124,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             });
         } catch (e: any) {
             console.error("Auth check failed:", e);
-            
+
             // If it's a network error (status 0), don't clear the authenticated state 
             // if we already have a token in localStorage. This avoids "logging out" 
             // the user just because they are momentarily offline on mobile startup.
             const isNetworkError = e.status === 0 || e.message?.includes('Network Error');
             const hasToken = !!localStorage.getItem('tunecamp_token');
-            
+
             if (isNetworkError && hasToken) {
                 console.warn("Network error during auth check, preserving existing (potential) session");
-                set({ 
+                set({
                     isLoading: false,
                     isAdminLoading: false,
                     isInitializing: false
                 });
             } else {
-                set({ 
-                    isAuthenticated: false, 
-                    isAdminAuthenticated: false, 
-                    user: null, 
-                    adminUser: null, 
-                    isLoading: false, 
+                set({
+                    isAuthenticated: false,
+                    isAdminAuthenticated: false,
+                    user: null,
+                    adminUser: null,
+                    isLoading: false,
                     isAdminLoading: false,
                     isInitializing: false,
-                    isFirstRun: false, 
-                    role: null 
+                    isFirstRun: false,
+                    role: null
                 });
             }
         }
@@ -166,7 +166,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     console.log(`🔐 GunDB-First Login: Verifying identity for ${username}...`);
                     const gunProfile = await GunAuth.login(username, password);
                     pubKey = gunProfile.pub;
-                    
+
                     // Generate proof-of-possession for the backend
                     // We sign the username to prove we own the pubKey
                     console.log("Generating proof of identity...");
@@ -185,19 +185,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             } catch (apiErr: any) {
                 const status = apiErr.status || 0;
                 console.error(`❌ Backend login failed (Status: ${status}):`, apiErr.message);
-                
+
                 if (status === 401) {
                     throw new Error("Invalid username or password.");
                 } else if (status === 0) {
                     throw new Error("Cannot connect to server. Check your internet connection.");
                 }
-                
+
                 if (!proof && !password) {
                     throw new Error("Login failed: GunDB identity not found and no password provided.");
                 }
                 throw apiErr;
             }
-            
+
             API.setToken(result.token);
 
             let gunProfile: GunProfile | null = null;
@@ -231,9 +231,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 }
             }
 
-            const transformedUser = result.user || { 
-                username, 
-                isAdmin: result.role === 'admin', 
+            const transformedUser = result.user || {
+                username,
+                isAdmin: result.role === 'admin',
                 isRootAdmin: !!result.isRootAdmin,
                 id: String(result.artistId ?? '0'),
                 artistId: result.artistId != null ? String(result.artistId) : undefined,
@@ -271,7 +271,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             console.log("🔐 GunDB-First Login: Verifying identity on peer network using Gun Pair...");
             const gunProfile = await GunAuth.loginWithPair(pair);
-            
+
             let proof: string | undefined;
             try {
                 // Generate proof-of-possession for the backend
@@ -279,7 +279,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 const username = gunProfile.alias;
                 proof = await GunAuth.sign(username);
                 console.log("✨ Proof of identity generated from Pair.");
-                
+
                 // Now authenticate with backend API using the proof
                 // The backend API login expects a username + password OR a valid pubKey + proof.
                 // Depending on the backend implementation, sending the alias + pubKey + proof might be enough
@@ -288,16 +288,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 API.setToken(result.token);
 
                 // Update the user structure with the result from the backend
-                const transformedUser = result.user || { 
-                    username, 
-                    isAdmin: result.role === 'admin', 
+                const transformedUser = result.user || {
+                    username,
+                    isAdmin: result.role === 'admin',
                     id: String(result.artistId ?? '0'),
                     artistId: result.artistId != null ? String(result.artistId) : undefined,
                     isActive: result.isActive
                 } as User;
-                
+
                 const userRole = (result as any).role || 'user';
-                
+
                 // Subscribe to profile changes
                 try {
                     GunAuth.subscribeProfile((profileData) => {
@@ -333,7 +333,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             } catch (backendError) {
                 console.warn("Backend authentication failed after Pair login. Proceeding with local GunDB session only.", backendError);
                 // Fallback to local session if backend integration fails
-                set((state) => ({ 
+                set((state) => ({
                     user: state.user ? { ...state.user, gunProfile } : { gunProfile } as any,
                     isAuthenticated: true,
                     isLoading: false,
@@ -367,7 +367,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             console.log("🆕 GunDB-First Registration: Creating identity on peer network...");
             await GunAuth.register(username, password);
             const gunProfile = GunAuth.getProfile();
-            
+
             if (!gunProfile) throw new Error("Failed to create GunDB identity");
 
             // 2. Generate proof for backend
@@ -411,14 +411,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         GunAuth.logout();
         useWalletStore.getState().clearWallet();
         API.setToken(null);
-        set({ 
-            user: null, 
-            isAuthenticated: false, 
-            adminUser: null, 
-            isAdminAuthenticated: false, 
+        set({
+            user: null,
+            isAuthenticated: false,
+            adminUser: null,
+            isAdminAuthenticated: false,
             isAdminLoading: false,
             isInitializing: false,
-            role: null 
+            role: null
         });
     }
 }));

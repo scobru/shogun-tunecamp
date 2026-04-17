@@ -4,7 +4,7 @@
  */
 
 export const DEFAULT_GUN_PEERS = [
-    "https://shogun-relay.scobrudot.dev/gun",
+    "https://shogun-relay.scobrudot.dev/zen",
 ];
 
 export const GUN_NAMESPACE = "tunecamp";

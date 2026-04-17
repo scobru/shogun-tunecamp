@@ -20,6 +20,7 @@ export function getGun(options?: GunOptions): any {
         const initializationOptions = {
             peers: options?.peers || DEFAULT_GUN_PEERS,
             web: options?.web,
+            path: "/zen",
             radisk: options?.radisk !== undefined ? options.radisk : GUN_CONFIG_DEFAULTS.radisk,
             localStorage: options?.localStorage !== undefined ? options.localStorage : GUN_CONFIG_DEFAULTS.localStorage,
             file: options?.file || GUN_CONFIG_DEFAULTS.file,
