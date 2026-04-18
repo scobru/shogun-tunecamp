@@ -38,7 +38,7 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             }
 
             // Map to frontend expected format and EXCLUDE private_key for EVERYONE
-            const mappedArtists = allArtists.map(a => {
+            const mappedArtists = filteredArtists.map(a => {
                 const { private_key, ...safeArtist } = a;
                 // Check if artist has ANY formal releases (across ANY of their albums)
                 const releases = database.getReleasesByArtist(a.id, false);
