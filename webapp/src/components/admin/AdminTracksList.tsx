@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import API from "../../services/api";
-import { Link as LinkIcon, Edit, Trash2, ChevronUp, ChevronDown, Search, X } from "lucide-react";
+import { Link as LinkIcon, Edit, Trash2, ChevronUp, ChevronDown, Search, X, Music } from "lucide-react";
 import { BatchTrackEditModal } from "../modals/BatchTrackEditModal";
 
 type SortKey = "title" | "artist_name" | "album_title" | "duration";
