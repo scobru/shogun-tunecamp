@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../stores/useAuthStore";
 import { Link } from "react-router-dom";
-import { ListMusic, Plus, Music, Lock, Unlock, Database } from "lucide-react";
+import { ListMusic, Plus, Music, Lock, Unlock, Heart } from "lucide-react";
 import type { Playlist, UserPlaylist } from "../types";
 import { API } from "../services/api";
 import { CreateUserPlaylistModal } from "../components/modals/CreateUserPlaylistModal";

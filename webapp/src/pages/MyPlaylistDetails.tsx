@@ -172,12 +172,15 @@ export const MyPlaylistDetails = () => {
   };
 
   const handlePlayAll = () => {
-    if (!playlist || !playlist.tracks.length) return;
+    if (!playlist || !playlist.tracks || !playlist.tracks.length) return;
     const allPlayable = playlist.tracks.map(toPlayableTrack);
     playTrack(allPlayable[0], allPlayable);
   };
 
-  const isOwner = isAuthenticated && user?.gunProfile?.pub === playlist?.ownerPub;
+  const isOwner = isAuthenticated && (
+    (playlist && 'ownerPub' in playlist && user?.gunProfile?.pub === playlist.ownerPub) ||
+    (playlist && 'username' in playlist && user?.username === playlist.username)
+  );
 
   if (loading || authLoading)
     return (
