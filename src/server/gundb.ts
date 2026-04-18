@@ -109,9 +109,12 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             console.log(`📡 [GunDB] Initializing with peers: ${initializationPeers.join(', ')}`);
             
-            // Fallback for registry peer if /zen fails (handled by ZEN internal discovery usually, but we help it)
-            if (initializationPeers.some(p => p.includes('/zen'))) {
-                console.log("ℹ️  [GunDB] Registry peer includes /zen. A fallback to /gun will be attempted if connection fails.");
+            // All ZEN peers must use the /zen WebSocket path - ZEN uses its own wire protocol
+            // and is NOT compatible with classic GunDB /gun endpoints.
+            const nonZenPeers = initializationPeers.filter(p => !p.includes('/zen'));
+            if (nonZenPeers.length > 0) {
+                console.warn(`⚠️  [ZEN] Some peers do NOT use /zen path (will likely fail):`, nonZenPeers);
+                console.warn(`⚠️  [ZEN] Make sure TUNECAMP_GUN_PEERS only contains /zen endpoints.`);
             }
 
             if (!peers || peers.length === 0) {
@@ -135,13 +138,13 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             console.log(`📡 [GunDB] Shared instance acquired. Type: ${typeof gun}. .user type: ${typeof gun?.user}`);
 
-            // Implement automatic /zen to /gun fallback if no peers connected after 15s
+            // Diagnostic: warn if no peers connected after 15s (no auto-fallback to /gun - incompatible)
             setTimeout(() => {
                 const connectedCount = getPeerCount();
-                if (connectedCount === 0 && initializationPeers.some(p => p.includes('/zen'))) {
-                    const fallbackPeers = initializationPeers.map(p => p.replace('/zen', '/gun'));
-                    console.warn(`🕒 [GunDB] No peers connected to /zen after 15s. Attempting fallback to:`, fallbackPeers);
-                    gun.opt({ peers: fallbackPeers });
+                if (connectedCount === 0) {
+                    console.warn(`🕒 [ZEN] No peers connected after 15s. Targets:`, initializationPeers);
+                    console.warn(`🕒 [ZEN] Check that the /zen WebSocket path is correctly proxied on the relay server.`);
+                    console.warn(`🕒 [ZEN] TIP: CapRover/Nginx must proxy WebSocket upgrades at exactly the /zen path.`);
                 }
             }, 15000);
 

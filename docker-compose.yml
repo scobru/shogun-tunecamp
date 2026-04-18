@@ -35,6 +35,9 @@ services:
       - JWT_SECRET=
       - DISCOGS_TOKEN=${DISCOGS_TOKEN:-}
       - TUNECAMP_DOWNLOAD_DIR=${TUNECAMP_DOWNLOAD_DIR:-/data/downloads}
+      # ZEN Relay peer - must use /zen WebSocket path
+      - TUNECAMP_GUN_PEERS=${TUNECAMP_GUN_PEERS:-wss://shogun-relay.scobrudot.dev/zen}
+      - VITE_GUN_PEERS=${TUNECAMP_GUN_PEERS:-wss://shogun-relay.scobrudot.dev/zen}
     restart: unless-stopped
     # Optional: healthcheck configured in Dockerfile
 
