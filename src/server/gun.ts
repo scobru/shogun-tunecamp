@@ -114,8 +114,10 @@ export function getGun(options?: GunOptions): any {
             web: options?.web,
             ws: { path: '/zen' }, // Explicit path for ZEN wire to match shogun-relay pattern
             radisk: options?.radisk !== undefined ? options.radisk : GUN_CONFIG_DEFAULTS.radisk,
-            localStorage: options?.localStorage !== undefined ? options.localStorage : GUN_CONFIG_DEFAULTS.localStorage,
-            file: options?.file || GUN_CONFIG_DEFAULTS.file
+            localStorage: false, // Ensure localStorage is always disabled on server
+            file: options?.file || GUN_CONFIG_DEFAULTS.file,
+            axe: false, // Explicitly disable legacy AXE mesh
+            super: true // Identify as a ZEN Relay node
         };
 
         console.log(`📡 [ZEN] Initializing shared singleton with ${initializationOptions.peers.length} peers...`);
