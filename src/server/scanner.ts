@@ -515,9 +515,15 @@ export class Scanner implements ScannerService {
                 return { originalPath: filePath, success: true, message: "Track updated.", trackId: existing.id };
             }
 
-            if (!metadata) metadata = await parseFileWithRetry(currentFilePath);
-            const common = metadata.common;
-            const format = metadata.format;
+            if (!metadata) {
+                try {
+                    metadata = await parseFileWithRetry(currentFilePath);
+                } catch (e) {
+                    console.warn(`[Scanner] Ignored metadata parsing error for ${currentFilePath}:`, String(e));
+                }
+            }
+            const common = metadata?.common || {};
+            const format = metadata?.format || {};
 
             let artistId: number | null = overrideArtistId || null;
             if (!artistId) {
