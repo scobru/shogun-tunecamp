@@ -30,6 +30,7 @@ if (envPeers && typeof envPeers === 'string' && envPeers.trim().length > 0) {
 // Initialize Gun
 const gun = new ZEN({
     peers: PEERS,
+    port: 1970,
     localStorage: true,
     radisk: true,
     axe: false

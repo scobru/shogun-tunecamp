@@ -115,7 +115,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const waveformService = new WaveformService(path.dirname(config.dbPath));
 
     // Initialize GunDB service (with HTTP server for WebSockets)
-    const gundbService = createGunDBService(database, server, config.gunPeers);
+    const gundbService = createGunDBService(database, server, config.gunPeers, config.publicUrl);
     await gundbService.init();
 
     // Initialize Fedify (Must be before AP Service)

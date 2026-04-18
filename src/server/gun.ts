@@ -1,5 +1,7 @@
 // @ts-ignore
 import ZEN from 'zen';
+// @ts-ignore
+import 'zen/lib/yson.js'; // Fix: JSON blocking CPU warning
 import { DEFAULT_GUN_PEERS, GUN_CONFIG_DEFAULTS } from '../common/gun-config.js';
 
 let gunInstance: any = null;
@@ -10,6 +12,7 @@ interface GunOptions {
     radisk?: boolean;
     localStorage?: boolean;
     file?: string;
+    publicUrl?: string; // New: to filter out self from peers
 }
 
 /**
@@ -109,9 +112,18 @@ class ServerZenUser {
  */
 export function getGun(options?: GunOptions): any {
     if (!gunInstance) {
+        // Filter out self-peer to avoid loopback non-101 errors (proxy limitation)
+        let filteredPeers = options?.peers || DEFAULT_GUN_PEERS;
+        if (options?.publicUrl) {
+            const selfHost = new URL(options.publicUrl).hostname;
+            filteredPeers = filteredPeers.filter(p => !p.includes(selfHost));
+            console.log(`🛡️ [ZEN] Filtered self-peer (${selfHost}) from initialization peers.`);
+        }
+
         const initializationOptions = {
-            peers: options?.peers || DEFAULT_GUN_PEERS,
+            peers: filteredPeers,
             web: options?.web,
+            port: 1970, // Explicitly use port 1970 for ZEN relay as requested
             ws: { path: '/zen' }, // Explicit path for ZEN wire to match shogun-relay pattern
             radisk: options?.radisk !== undefined ? options.radisk : GUN_CONFIG_DEFAULTS.radisk,
             localStorage: false, // Ensure localStorage is always disabled on server
@@ -135,13 +147,18 @@ export function getGun(options?: GunOptions): any {
             configurable: true
         });
 
-        console.log(`✅ [ZEN] Instance created and .user() shim attached.`);
+        console.log(`✅ [ZEN] Instance created (Port 1970) and .user() shim attached.`);
         gunInstance._graph; // Force relay initialization as per examples
     } else if (options?.peers || options?.web) {
         // Update existing instance if new options provided (peers/server)
         if (options.peers) {
-            console.log(`📡 [ZEN] Shared singleton adding ${options.peers.length} peers...`);
-            gunInstance.opt({ peers: options.peers });
+            let filteredPeers = options.peers;
+            if (options.publicUrl) {
+                const selfHost = new URL(options.publicUrl).hostname;
+                filteredPeers = filteredPeers.filter(p => !p.includes(selfHost));
+            }
+            console.log(`📡 [ZEN] Shared singleton adding ${filteredPeers.length} peers...`);
+            gunInstance.opt({ peers: filteredPeers });
         }
         if (options.web) {
             gunInstance.opt({ web: options.web });

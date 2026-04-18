@@ -76,7 +76,7 @@ export interface GunDBService {
     getPeerCount(): number;
 }
 
-export function createGunDBService(database: DatabaseService, server?: any, peers?: string[]): GunDBService {
+export function createGunDBService(database: DatabaseService, server?: any, peers?: string[], publicUrl?: string): GunDBService {
     let gun: any = null;
     let initialized = false;
     let serverPair: any = null;
@@ -129,7 +129,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             gun = getGun({
                 peers: initializationPeers,
-                web: server
+                web: server,
+                publicUrl: publicUrl
             });
 
             console.log(`📡 [GunDB] Shared instance acquired. Type: ${typeof gun}. .user type: ${typeof gun?.user}`);
