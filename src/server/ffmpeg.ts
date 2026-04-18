@@ -15,18 +15,36 @@ const isValidPath = (p: string | null) => p && fs.existsSync(p);
 
 if (!isValidPath(finalFfmpegPath)) {
     // Fallback for Alpine/Docker system path
-    if (fs.existsSync('/usr/bin/ffmpeg')) {
-        finalFfmpegPath = '/usr/bin/ffmpeg';
-    } else if (fs.existsSync('/usr/local/bin/ffmpeg')) {
-        finalFfmpegPath = '/usr/local/bin/ffmpeg';
+    const fallbacks = [
+        '/usr/bin/ffmpeg',
+        '/usr/local/bin/ffmpeg',
+        '/opt/homebrew/bin/ffmpeg', // macOS
+        'C:\\ffmpeg\\bin\\ffmpeg.exe' // Windows manual install
+    ];
+    for (const f of fallbacks) {
+        if (isValidPath(f)) {
+            finalFfmpegPath = f;
+            break;
+        }
     }
 }
 
+// Set global environment variable for other modules (like play-dl / ytdl-core fallbacks)
+if (finalFfmpegPath) {
+    process.env.FFMPEG_PATH = finalFfmpegPath;
+}
+
 if (!isValidPath(finalFfprobePath)) {
-    if (fs.existsSync('/usr/bin/ffprobe')) {
-        finalFfprobePath = '/usr/bin/ffprobe';
-    } else if (fs.existsSync('/usr/local/bin/ffprobe')) {
-        finalFfprobePath = '/usr/local/bin/ffprobe';
+    const fallbacks = [
+        '/usr/bin/ffprobe',
+        '/usr/local/bin/ffprobe',
+        '/opt/homebrew/bin/ffprobe'
+    ];
+    for (const f of fallbacks) {
+        if (isValidPath(f)) {
+            finalFfprobePath = f;
+            break;
+        }
     }
 }
 

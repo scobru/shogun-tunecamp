@@ -41,7 +41,8 @@ export const CreateUserPlaylistModal = ({
     try {
       const newPlaylist = await API.createPlaylist(
         name,
-        description
+        description,
+        isPublic
       );
       onCreated?.(newPlaylist);
       dialogRef.current?.close();

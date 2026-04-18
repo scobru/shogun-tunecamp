@@ -107,8 +107,8 @@ export const API = {
 
     getPlaylists: () => handleResponse(api.get<Playlist[]>('/playlists')),
     getPlaylist: (id: string) => handleResponse(api.get<Playlist>(`/playlists/${id}`)),
-    createPlaylist: (name: string, description?: string) =>
-        handleResponse(api.post<Playlist>('/playlists', { name, description })),
+    createPlaylist: (name: string, description?: string, isPublic = false) =>
+        handleResponse(api.post<Playlist>('/playlists', { name, description, isPublic })),
     updatePlaylist: (id: string, data: Partial<Playlist>) => handleResponse(api.put<Playlist>(`/playlists/${id}`, data)),
     deletePlaylist: (id: string) => handleResponse(api.delete(`/playlists/${id}`)),
     addTrackToPlaylist: (playlistId: string, trackId: string) =>

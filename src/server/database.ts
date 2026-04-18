@@ -2872,19 +2872,19 @@ export function createDatabase(dbPath: string): DatabaseService {
         getPlaylists(username?: string, publicOnly = false): Playlist[] {
             if (username) {
                 const sql = publicOnly
-                    ? "SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists WHERE username = ? AND is_public = 1 ORDER BY name"
-                    : "SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists WHERE username = ? ORDER BY name";
+                    ? "SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at as createdAt FROM playlists WHERE username = ? AND is_public = 1 ORDER BY name"
+                    : "SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at as createdAt FROM playlists WHERE username = ? ORDER BY name";
                 return db.prepare(sql).all(username) as Playlist[];
             }
             
             const sql = publicOnly
-                ? "SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists WHERE is_public = 1 ORDER BY name"
-                : "SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists ORDER BY name";
+                ? "SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at as createdAt FROM playlists WHERE is_public = 1 ORDER BY name"
+                : "SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at as createdAt FROM playlists ORDER BY name";
             return db.prepare(sql).all() as Playlist[];
         },
 
         getPlaylist(id: number): Playlist | undefined {
-            return db.prepare("SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at FROM playlists WHERE id = ?").get(id) as Playlist | undefined;
+            return db.prepare("SELECT id, name, username, description, is_public as isPublic, cover_path as coverPath, created_at as createdAt FROM playlists WHERE id = ?").get(id) as Playlist | undefined;
         },
 
         createPlaylist(name: string, username: string, description?: string, isPublic = false): number {

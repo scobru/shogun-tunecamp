@@ -43,18 +43,18 @@ export function createPlaylistsRoutes(database: DatabaseService, gunDb?: GunDBSe
         if (!req.isAdmin && !req.username) return res.status(401).json({ error: "Unauthorized" });
         if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
         try {
-            const { name, description } = req.body;
+            const { name, description, isPublic } = req.body;
 
             if (!name || typeof name !== "string") {
                 return res.status(400).json({ error: "Name is required" });
             }
 
             const username = req.username || "admin";
-            const id = database.createPlaylist(name, username, description);
+            const id = database.createPlaylist(name, username, description, !!isPublic);
             
 
             
-            res.status(201).json({ id, name, username, description });
+            res.status(201).json({ id, name, username, description, isPublic: !!isPublic });
         } catch (error) {
             console.error("Error creating playlist:", error);
             res.status(500).json({ error: "Failed to create playlist" });
