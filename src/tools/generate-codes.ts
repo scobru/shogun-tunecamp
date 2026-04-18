@@ -13,7 +13,7 @@
  */
 
 // @ts-ignore
-import Gun from 'zen';
+import { getGun as Gun } from '../server/gun.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';

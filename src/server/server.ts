@@ -16,7 +16,10 @@ process.on('uncaughtException', (err) => {
         err.message.includes('GunDB') ||
         err.message.includes('ECONNREFUSED') ||
         err.message.includes('ETIMEDOUT') ||
-        err.message.includes('socket hang up')
+        err.message.includes('socket hang up') ||
+        err.message.includes('non-101 status code') ||
+        err.message.includes('network error') ||
+        err.message.includes('fetch failed')
     )) {
         console.warn('⚠️ Non-fatal exception caught, staying alive...');
         return;

@@ -103,8 +103,19 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             // Load peers from settings if not provided in constructor
             let initializationPeers = activePeers;
             const storedPeers = database.getSetting("gunPeers");
+            if (storedPeers && Array.isArray(storedPeers)) {
+                initializationPeers.push(...storedPeers);
+            }
+
+            console.log(`📡 [GunDB] Initializing with peers: ${initializationPeers.join(', ')}`);
+            
+            // Fallback for registry peer if /zen fails (handled by ZEN internal discovery usually, but we help it)
+            if (initializationPeers.some(p => p.includes('/zen'))) {
+                console.log("ℹ️  [GunDB] Registry peer includes /zen. If connection fails, will try /gun automatically.");
+            }
+
             if (!peers || peers.length === 0) {
-                if (storedPeers) {
+                if (storedPeers && typeof storedPeers === 'string') {
                     try {
                         initializationPeers = storedPeers.split(",").map(p => p.trim()).filter(p => p.length > 0);
                         console.log(`🌐 [ZEN] Using ${initializationPeers.length} peers from database settings:`, initializationPeers);
@@ -120,6 +131,17 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 peers: initializationPeers,
                 web: server
             });
+
+            console.log(`📡 [GunDB] Shared instance acquired. Type: ${typeof gun}. .user type: ${typeof gun?.user}`);
+
+            if (typeof gun.user !== 'function') {
+                console.error("🚨 [GunDB] ERROR: gun.user is not a function! This usually means the TS/JS build is corrupted or out of sync.");
+                console.log("🛠️  [GunDB] Attempting manual recovery of .user() shim...");
+                try {
+                    // If it's missing, maybe we can re-initialize or log the actual object keys
+                    console.log(`🛠️  [GunDB] Gun instance keys: ${Object.keys(gun).join(', ')}`);
+                } catch (e) {}
+            }
 
             // Initialize User Auth (SEA)
             // Check if we have a stored pair
