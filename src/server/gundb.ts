@@ -111,7 +111,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             
             // Fallback for registry peer if /zen fails (handled by ZEN internal discovery usually, but we help it)
             if (initializationPeers.some(p => p.includes('/zen'))) {
-                console.log("ℹ️  [GunDB] Registry peer includes /zen. If connection fails, will try /gun automatically.");
+                console.log("ℹ️  [GunDB] Registry peer includes /zen. A fallback to /gun will be attempted if connection fails.");
             }
 
             if (!peers || peers.length === 0) {
@@ -134,6 +134,16 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             });
 
             console.log(`📡 [GunDB] Shared instance acquired. Type: ${typeof gun}. .user type: ${typeof gun?.user}`);
+
+            // Implement automatic /zen to /gun fallback if no peers connected after 15s
+            setTimeout(() => {
+                const connectedCount = getPeerCount();
+                if (connectedCount === 0 && initializationPeers.some(p => p.includes('/zen'))) {
+                    const fallbackPeers = initializationPeers.map(p => p.replace('/zen', '/gun'));
+                    console.warn(`🕒 [GunDB] No peers connected to /zen after 15s. Attempting fallback to:`, fallbackPeers);
+                    gun.opt({ peers: fallbackPeers });
+                }
+            }, 15000);
 
             if (typeof gun.user !== 'function') {
                 console.error("🚨 [GunDB] ERROR: gun.user is not a function! This usually means the TS/JS build is corrupted or out of sync.");
