@@ -16,7 +16,8 @@ import {
   Unlock,
   Lock,
   Image as ImageIcon,
-import { Globe } from "lucide-react";
+  Globe
+} from "lucide-react";
 import type { UserPlaylist, Playlist, UserPlaylistTrack, Track } from "../types";
 import { AddTrackToUserPlaylistModal } from "../components/modals/AddTrackToUserPlaylistModal";
 
