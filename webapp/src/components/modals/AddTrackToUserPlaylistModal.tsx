@@ -133,6 +133,7 @@ export const AddTrackToUserPlaylistModal = ({
       let coverUrl = track.coverUrl || track.coverImage;
 
       if (options?.source === "network" && options.siteUrl) {
+        // Network tracks are currently handled via GunDB or not supported in SQL backend yet
         const baseUrl = options.siteUrl.replace(/\/$/, "");
         if (!streamUrl) streamUrl = `${baseUrl}/api/tracks/${track.id}/stream`;
         if (!coverUrl && track.albumId)
@@ -144,25 +145,31 @@ export const AddTrackToUserPlaylistModal = ({
           : undefined;
       }
 
-      const playlistTrack: UserPlaylistTrack = {
-        id: crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        title: track.title,
-        artistName: track.artistName || "Unknown",
-        albumName: track.albumName,
-        albumId: track.albumId ? String(track.albumId) : undefined,
-        source: options?.source || "tunecamp",
-        siteUrl: options?.siteUrl,
-        siteName: options?.siteName,
-        streamUrl,
-        coverUrl,
-        duration: track.duration,
-        tunecampTrackId: options?.source === "network" ? undefined : String(track.id),
-        addedAt: Date.now(),
-      };
+      if (options?.source === "network") {
+        // For network tracks, we still use GunDB for metadata flexibility 
+        // or we could mirror them to local DB later.
+        const playlistTrack: UserPlaylistTrack = {
+          id: crypto.randomUUID
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          title: track.title,
+          artistName: track.artistName || "Unknown",
+          albumName: track.albumName,
+          albumId: track.albumId ? String(track.albumId) : undefined,
+          source: "network",
+          siteUrl: options?.siteUrl,
+          siteName: options?.siteName,
+          streamUrl,
+          coverUrl,
+          duration: track.duration,
+          addedAt: Date.now(),
+        };
+        await GunPlaylists.addTrackToPlaylist(playlistId, playlistTrack);
+      } else {
+        // For local tracks, use the reliable SQL API
+        await API.addTrackToPlaylist(playlistId, String(track.id));
+      }
 
-      await GunPlaylists.addTrackToPlaylist(playlistId, playlistTrack);
       setSuccessId(id);
       onAdded?.();
       setTimeout(() => setSuccessId(null), 2000);

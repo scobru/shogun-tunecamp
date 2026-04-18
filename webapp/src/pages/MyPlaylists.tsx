@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../stores/useAuthStore";
 import { Link } from "react-router-dom";
-import { ListMusic, Plus, Heart, Music, Lock, Unlock } from "lucide-react";
-import type { UserPlaylist } from "../types";
-import { GunPlaylists } from "../services/gun";
+import { ListMusic, Plus, Music, Lock, Unlock, Database } from "lucide-react";
+import type { Playlist, UserPlaylist } from "../types";
+import { API } from "../services/api";
 import { CreateUserPlaylistModal } from "../components/modals/CreateUserPlaylistModal";
 
 export const MyPlaylists = () => {
-  const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
+  const [playlists, setPlaylists] = useState<(Playlist | UserPlaylist)[]>([]);
   const [loading, setLoading] = useState(true);
   const { isAuthenticated, user } = useAuthStore();
 
@@ -19,7 +19,7 @@ export const MyPlaylists = () => {
   const loadPlaylists = async () => {
     setLoading(true);
     try {
-      const data = await GunPlaylists.getMyPlaylists();
+      const data = await API.getPlaylists();
       setPlaylists(data);
     } catch (e) {
       console.error(e);
@@ -28,10 +28,10 @@ export const MyPlaylists = () => {
     }
   };
 
-  const handleCreated = (newPlaylist: UserPlaylist) => {
+  const handleCreated = (newPlaylist: Playlist | UserPlaylist) => {
     setPlaylists((prev) => {
       if (prev.some((p) => p.id === newPlaylist.id)) return prev;
-      return [newPlaylist, ...prev].sort((a, b) => b.updatedAt - a.updatedAt);
+      return [newPlaylist, ...prev];
     });
   };
 
@@ -87,8 +87,8 @@ export const MyPlaylists = () => {
 
       {loading ? (
         <div className="text-center opacity-50 py-12">
-          <span className="loading loading-spinner loading-lg"></span>
-          <p className="mt-4">Loading playlists from GunDB...</p>
+          <span className="loading loading-spinner loading-lg text-primary"></span>
+          <p className="mt-4">Loading your playlists...</p>
         </div>
       ) : playlists.length === 0 ? (
         <div className="text-center opacity-50 py-16 border-2 border-dashed border-white/5 rounded-2xl">
@@ -119,9 +119,9 @@ export const MyPlaylists = () => {
               <div className="card-body">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center overflow-hidden">
-                    {p.coverUrl ? (
+                    {(p as any).coverUrl || (p as any).coverPath ? (
                       <img
-                        src={p.coverUrl}
+                        src={(p as any).coverUrl || (p as any).coverPath}
                         className="w-full h-full object-cover"
                         alt=""
                       />
@@ -151,8 +151,8 @@ export const MyPlaylists = () => {
                     </span>
                   </div>
                   <span className="text-xs opacity-40">
-                    {p.updatedAt
-                      ? new Date(p.updatedAt).toLocaleDateString()
+                    {p.updatedAt || p.createdAt
+                      ? new Date(p.updatedAt || p.createdAt).toLocaleDateString()
                       : ""}
                   </span>
                 </div>

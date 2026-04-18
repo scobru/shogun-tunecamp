@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/useAuthStore";
 import { usePlayerStore } from "../stores/usePlayerStore";
+import { API } from "../services/api";
 import { GunPlaylists } from "../services/gun";
 import {
   Music,
@@ -15,37 +16,31 @@ import {
   Unlock,
   Lock,
   Image as ImageIcon,
-  Globe,
-} from "lucide-react";
-import type { UserPlaylist, UserPlaylistTrack, Track } from "../types";
+import { Globe } from "lucide-react";
+import type { UserPlaylist, Playlist, UserPlaylistTrack, Track } from "../types";
 import { AddTrackToUserPlaylistModal } from "../components/modals/AddTrackToUserPlaylistModal";
 
 /**
  * Convert a UserPlaylistTrack to a playable Track object for the player store
  */
-function toPlayableTrack(upt: UserPlaylistTrack): Track {
-  // TuneCamp or Network track
+function toPlayableTrack(t: Track | UserPlaylistTrack): Track {
+  if ('streamUrl' in t && t.streamUrl) {
+    return t as Track;
+  }
+  
+  // Local track from DB
+  const track = t as Track;
   return {
-    id: upt.tunecampTrackId || upt.id,
-    title: upt.title,
-    artistId: "",
-    artistName: upt.artistName,
-    albumId: upt.albumId || "",
-    albumName: upt.albumName,
-    duration: upt.duration || 0,
-    path: "",
-    filename: "",
-    playCount: 0,
-    streamUrl: upt.streamUrl,
-    coverUrl: upt.coverUrl,
-    coverImage: upt.coverUrl,
+    ...track,
+    streamUrl: API.getStreamUrl(String(track.id)),
+    coverUrl: track.albumId ? API.getAlbumCoverUrl(String(track.albumId)) : undefined
   };
 }
 
 export const MyPlaylistDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [playlist, setPlaylist] = useState<UserPlaylist | null>(null);
+  const [playlist, setPlaylist] = useState<Playlist | UserPlaylist | null>(null);
   const [loading, setLoading] = useState(true);
   const { isAuthenticated, user, isLoading: authLoading } = useAuthStore();
   const { playTrack } = usePlayerStore();
@@ -61,15 +56,33 @@ export const MyPlaylistDetails = () => {
     setLoading(true);
     try {
       console.log(`[Playlist] Loading ${playlistId}...`);
-      const data = await GunPlaylists.getPlaylist(playlistId);
-      if (!data) {
-        console.warn(`[Playlist] Not found: ${playlistId}`);
-        navigate("/my-playlists");
-        return;
+      
+      // Try SQL API first for numeric IDs
+      if (/^\d+$/.test(playlistId)) {
+        const data = await API.getPlaylist(playlistId);
+        setPlaylist(data);
+      } else {
+        // Fallback to GunDB for legacy/decentralized UUIDs
+        const data = await GunPlaylists.getPlaylist(playlistId);
+        if (!data) {
+          console.warn(`[Playlist] Not found: ${playlistId}`);
+          navigate("/my-playlists");
+          return;
+        }
+        setPlaylist(data);
       }
-      setPlaylist(data);
     } catch (e) {
       console.error("[Playlist] Load error:", e);
+      // If SQL fails, try GunDB as a last resort
+      try {
+          const data = await GunPlaylists.getPlaylist(playlistId);
+          if (data) {
+              setPlaylist(data);
+              return;
+          }
+      } catch (inner) {
+          console.error("[Playlist] GunDB fallback fail:", inner);
+      }
       navigate("/my-playlists");
     } finally {
       setLoading(false);
@@ -85,7 +98,11 @@ export const MyPlaylistDetails = () => {
     )
       return;
     try {
-      await GunPlaylists.deletePlaylist(playlist.id);
+      if (/^\d+$/.test(playlist.id)) {
+        await API.deletePlaylist(playlist.id);
+      } else {
+        await GunPlaylists.deletePlaylist(playlist.id);
+      }
       navigate("/my-playlists");
     } catch (e) {
       console.error(e);
@@ -93,11 +110,15 @@ export const MyPlaylistDetails = () => {
     }
   };
 
-  const handleRemoveTrack = async (trackId: string) => {
+  const handleRemoveTrack = async (trackId: string | number) => {
     if (!playlist) return;
     if (!confirm("Remove track from playlist?")) return;
     try {
-      await GunPlaylists.removeTrackFromPlaylist(playlist.id, trackId);
+      if (/^\d+$/.test(playlist.id)) {
+        await API.removeTrackFromPlaylist(playlist.id, String(trackId));
+      } else {
+        await GunPlaylists.removeTrackFromPlaylist(playlist.id, String(trackId));
+      }
       loadPlaylist(playlist.id);
     } catch (e) {
       console.error(e);
@@ -107,9 +128,13 @@ export const MyPlaylistDetails = () => {
   const handleToggleVisibility = async () => {
     if (!playlist) return;
     try {
-      await GunPlaylists.updatePlaylist(playlist.id, {
-        isPublic: !playlist.isPublic,
-      });
+      if (/^\d+$/.test(playlist.id)) {
+          await API.updatePlaylist(playlist.id, { isPublic: !playlist.isPublic });
+      } else {
+          await (GunPlaylists as any).updatePlaylist(playlist.id, {
+            isPublic: !playlist.isPublic,
+          });
+      }
       setPlaylist({ ...playlist, isPublic: !playlist.isPublic });
     } catch (e) {
       console.error(e);
@@ -119,22 +144,27 @@ export const MyPlaylistDetails = () => {
 
   const handleEditCover = async () => {
     if (!playlist) return;
+    const currentCover = (playlist as any).coverUrl || (playlist as any).coverPath || "";
     const url = window.prompt(
       "Enter the URL for the playlist cover image:",
-      playlist.coverUrl || "",
+      currentCover,
     );
     if (url === null) return; // cancelled
     try {
-      await GunPlaylists.updatePlaylist(playlist.id, { coverUrl: url });
-      setPlaylist({ ...playlist, coverUrl: url });
+      if (/^\d+$/.test(playlist.id)) {
+          await API.updatePlaylist(playlist.id, { coverPath: url });
+      } else {
+          await (GunPlaylists as any).updatePlaylist(playlist.id, { coverUrl: url });
+      }
+      setPlaylist({ ...playlist, coverUrl: url, coverPath: url } as any);
     } catch (e) {
       console.error(e);
       alert("Failed to update playlist cover");
     }
   };
 
-  const handlePlayTrack = (track: UserPlaylistTrack) => {
-    if (!playlist) return;
+  const handlePlayTrack = (track: Track | UserPlaylistTrack) => {
+    if (!playlist || !playlist.tracks) return;
     const playable = toPlayableTrack(track);
     const allPlayable = playlist.tracks.map(toPlayableTrack);
     playTrack(playable, allPlayable);
@@ -151,8 +181,8 @@ export const MyPlaylistDetails = () => {
   if (loading || authLoading)
     return (
       <div className="text-center opacity-50 py-12">
-        <span className="loading loading-spinner loading-lg"></span>
-        {authLoading && <p className="mt-4 text-xs">Waiting for GunDB...</p>}
+        <span className="loading loading-spinner loading-lg text-primary"></span>
+        {authLoading && <p className="mt-4 text-xs">Waiting for session...</p>}
       </div>
     );
   if (!playlist) return null;
@@ -170,9 +200,9 @@ export const MyPlaylistDetails = () => {
       {/* Hero */}
       <div className="flex flex-col md:flex-row gap-8 items-end">
         <div className="w-52 h-52 bg-gradient-to-br from-pink-500/30 to-purple-500/30 rounded-2xl shadow-2xl flex items-center justify-center shrink-0 overflow-hidden relative group">
-          {playlist.coverUrl ? (
+          {(playlist as any).coverUrl || (playlist as any).coverPath ? (
             <img
-              src={playlist.coverUrl}
+              src={(playlist as any).coverUrl || (playlist as any).coverPath}
               className="w-full h-full object-cover"
               alt="Playlist Cover"
             />
@@ -315,15 +345,15 @@ export const MyPlaylistDetails = () => {
                   </td>
                   <td>
                     <div
-                      className={`badge badge-sm gap-1 ${track.source === "network" ? "badge-secondary" : "badge-primary"} badge-outline`}
+                      className={`badge badge-sm gap-1 ${(track as any).source === "network" ? "badge-secondary" : "badge-primary"} badge-outline`}
                     >
-                      {track.source === "network" ? (
+                      {(track as any).source === "network" ? (
                         <Globe size={10} />
                       ) : (
                         <Music size={10} />
                       )}
-                      {track.source === "network"
-                        ? track.siteName || "Network"
+                      {(track as any).source === "network"
+                        ? (track as any).siteName || "Network"
                         : "TuneCamp"}
                     </div>
                   </td>

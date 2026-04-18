@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "../../stores/useAuthStore";
-import { GunPlaylists } from "../../services/gun";
+import { API } from "../../services/api";
 import { Save, Heart } from "lucide-react";
 
-import type { UserPlaylist } from "../../types";
+import type { UserPlaylist, Playlist } from "../../types";
 
 export const CreateUserPlaylistModal = ({
   onCreated,
 }: {
-  onCreated?: (playlist: UserPlaylist) => void;
+  onCreated?: (playlist: Playlist | UserPlaylist) => void;
 }) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState("");
@@ -39,10 +39,9 @@ export const CreateUserPlaylistModal = ({
     setError("");
 
     try {
-      const newPlaylist = await GunPlaylists.createPlaylist(
+      const newPlaylist = await API.createPlaylist(
         name,
-        description,
-        isPublic,
+        description
       );
       onCreated?.(newPlaylist);
       dialogRef.current?.close();

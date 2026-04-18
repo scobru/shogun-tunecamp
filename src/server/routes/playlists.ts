@@ -14,7 +14,7 @@ export function createPlaylistsRoutes(database: DatabaseService, gunDb?: GunDBSe
         try {
             if (req.isAdmin) {
                 res.json(database.getPlaylists());
-            } else if (req.artistId && req.username) {
+            } else if (req.username) {
                 const myPlaylists = database.getPlaylists(req.username, false);
                 const publicPlaylists = database.getPlaylists(undefined, true);
                 
@@ -40,7 +40,7 @@ export function createPlaylistsRoutes(database: DatabaseService, gunDb?: GunDBSe
      * Create new playlist
      */
     router.post("/", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.username) return res.status(401).json({ error: "Unauthorized" });
         if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
         try {
             const { name, description } = req.body;
@@ -66,7 +66,7 @@ export function createPlaylistsRoutes(database: DatabaseService, gunDb?: GunDBSe
      * Update playlist (rename, visibility, cover)
      */
     router.put("/:id", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.username) return res.status(401).json({ error: "Unauthorized" });
         if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
         try {
             const id = parseInt(req.params.id as string, 10);
@@ -130,7 +130,7 @@ export function createPlaylistsRoutes(database: DatabaseService, gunDb?: GunDBSe
      * Delete playlist
      */
     router.delete("/:id", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.username) return res.status(401).json({ error: "Unauthorized" });
         if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
         try {
             const id = parseInt(req.params.id as string, 10);
@@ -159,7 +159,7 @@ export function createPlaylistsRoutes(database: DatabaseService, gunDb?: GunDBSe
      * Add track to playlist
      */
     router.post("/:id/tracks", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.username) return res.status(401).json({ error: "Unauthorized" });
         if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
         try {
             const playlistId = parseInt(req.params.id as string, 10);
@@ -199,7 +199,7 @@ export function createPlaylistsRoutes(database: DatabaseService, gunDb?: GunDBSe
      * Remove track from playlist
      */
     router.delete("/:id/tracks/:trackId", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) return res.status(401).json({ error: "Unauthorized" });
+        if (!req.isAdmin && !req.username) return res.status(401).json({ error: "Unauthorized" });
         if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
         try {
             const playlistId = parseInt(req.params.id as string, 10);

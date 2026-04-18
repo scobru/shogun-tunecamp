@@ -6,11 +6,39 @@ import ffprobePath from "ffprobe-static";
 import os from "os";
 
 // Set ffmpeg path
-if (ffmpegPath) {
-    ffmpeg.setFfmpegPath(ffmpegPath);
+// Logic: Try ffmpeg-static first, then check common system paths (helpful for Docker/Alpine)
+let finalFfmpegPath = ffmpegPath;
+let finalFfprobePath = ffprobePath?.path || null;
+
+// Validation function
+const isValidPath = (p: string | null) => p && fs.existsSync(p);
+
+if (!isValidPath(finalFfmpegPath)) {
+    // Fallback for Alpine/Docker system path
+    if (fs.existsSync('/usr/bin/ffmpeg')) {
+        finalFfmpegPath = '/usr/bin/ffmpeg';
+    } else if (fs.existsSync('/usr/local/bin/ffmpeg')) {
+        finalFfmpegPath = '/usr/local/bin/ffmpeg';
+    }
 }
-if (ffprobePath && ffprobePath.path) {
-    ffmpeg.setFfprobePath(ffprobePath.path);
+
+if (!isValidPath(finalFfprobePath)) {
+    if (fs.existsSync('/usr/bin/ffprobe')) {
+        finalFfprobePath = '/usr/bin/ffprobe';
+    } else if (fs.existsSync('/usr/local/bin/ffprobe')) {
+        finalFfprobePath = '/usr/local/bin/ffprobe';
+    }
+}
+
+if (finalFfmpegPath) {
+    console.log(`🚀 [FFmpeg] Path set to: ${finalFfmpegPath}`);
+    ffmpeg.setFfmpegPath(finalFfmpegPath);
+} else {
+    console.warn("⚠️ [FFmpeg] COULD NOT FIND FFMPEG EXECUTABLE! Conversion and waveforms will fail.");
+}
+
+if (finalFfprobePath) {
+    ffmpeg.setFfprobePath(finalFfprobePath);
 }
 
 // FFmpeg Concurrency Control - Dynamic based on CPU cores
