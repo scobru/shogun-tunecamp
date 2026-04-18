@@ -15,7 +15,7 @@ ARG DISCOGS_TOKEN
 ARG TUNECAMP_DOWNLOAD_DIR
 ARG NODE_OPTIONS="--max-old-space-size=6144 --expose-gc"
 ARG MEMORY_LIMIT_MB=6000
-ARG SKIP_STARTUP_MAINTENANCE=true
+ARG SKIP_STARTUP_MAINTENANCE=false
 
 # CapRover passes this on deploy; using it invalidates cache per commit
 ARG CAPROVER_GIT_COMMIT_SHA
