@@ -3,7 +3,7 @@ import { useAuthStore } from "../stores/useAuthStore";
 import { useWalletStore } from "../stores/useWalletStore";
 import { usePurchases } from "../hooks/usePurchases";
 import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
-import { GunAuth, GunSocial } from "../services/gun";
+import { GunAuth } from "../services/gun";
 import {
   User,
   Settings,
@@ -45,7 +45,7 @@ export const Profile = () => {
   const [alias, setAlias] = useState(user?.gunProfile?.alias || "");
   const [avatar, setAvatar] = useState<string | null>(user?.gunProfile?.profile?.avatar || null);
   const [isSaving, setIsSaving] = useState(false);
-  const [likedTracks, setLikedTracks] = useState<any[]>([]);
+  const [starredTracks, setStarredTracks] = useState<Track[]>([]);
   const [allTracks, setAllTracks] = useState<Track[]>([]);
   const [loadingTracks, setLoadingTracks] = useState(true);
 
@@ -60,12 +60,12 @@ export const Profile = () => {
     if (isAuthenticated) {
       setLoadingTracks(true);
 
-      // Load liked tracks from GunDB
-      GunSocial.getLikedTracks().then(setLikedTracks);
-
-      // Load all tracks from API to match likes/purchases with full metadata
+      // Load tracks from API — backend already sets starred:true for liked tracks
       API.getTracks()
-        .then(setAllTracks)
+        .then((tracks) => {
+          setAllTracks(tracks);
+          setStarredTracks(tracks.filter(t => t.starred));
+        })
         .finally(() => setLoadingTracks(false));
 
       // Load artist data if user is linked to an artist AND is admin
@@ -88,10 +88,6 @@ export const Profile = () => {
       return isRecordPurchased || isNFTPurchased;
     });
   }, [allTracks, isPurchased, ownedNFTs]);
-  const favorites = useMemo(() => {
-    const likedIds = new Set(likedTracks.map((t) => t.id));
-    return allTracks.filter((t) => likedIds.has(t.id));
-  }, [allTracks, likedTracks]);
 
   const handleUpdateAlias = async () => {
     if (!alias.trim()) return;
@@ -188,7 +184,7 @@ export const Profile = () => {
           <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-4">
             <div className="badge badge-outline gap-2 py-3 px-4">
               <Heart size={14} className="text-primary" />
-              {likedTracks.length} Likes
+              {starredTracks.length} Likes
             </div>
             <div className="badge badge-outline gap-2 py-3 px-4">
               <Download size={14} className="text-secondary" />
@@ -372,15 +368,15 @@ export const Profile = () => {
               <div className="p-12 text-center opacity-50">
                 Loading favorites...
               </div>
-            ) : favorites.length === 0 ? (
+            ) : starredTracks.length === 0 ? (
               <div className="p-20 text-center opacity-40 bg-base-200/20 rounded-3xl border border-dashed border-white/10">
                 <Heart size={48} className="mx-auto mb-4" />
                 <p>You haven't liked any tracks yet.</p>
               </div>
             ) : (
               <TrackList
-                tracks={favorites}
-                onPlay={(t) => playTrack(t, favorites)}
+                tracks={starredTracks}
+                onPlay={(t) => playTrack(t, starredTracks)}
               />
             )}
           </div>
