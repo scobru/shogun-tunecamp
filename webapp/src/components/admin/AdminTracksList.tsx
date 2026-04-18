@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import API from "../../services/api";
-import { Link as LinkIcon, Edit, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Link as LinkIcon, Edit, Trash2, ChevronUp, ChevronDown, Search, X } from "lucide-react";
 import { BatchTrackEditModal } from "../modals/BatchTrackEditModal";
 
 type SortKey = "title" | "artist_name" | "album_title" | "duration";
@@ -12,6 +12,7 @@ interface SortConfig {
 export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
   const [tracks, setTracks] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
+  const [searchTerm, setSearchTerm] = useState("");
   const [showBatchEdit, setShowBatchEdit] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "title", direction: "asc" });
 
@@ -23,10 +24,19 @@ export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
     return () => window.removeEventListener("refresh-admin-tracks", loadTracks);
   }, [mine]);
 
-  const sortedTracks = useMemo(() => {
-    const sortableTracks = [...tracks];
+  const filteredAndSortedTracks = useMemo(() => {
+    let result = tracks.filter(t => {
+      if (!searchTerm) return true;
+      const search = searchTerm.toLowerCase();
+      return (
+        (t.title?.toLowerCase().includes(search)) ||
+        (t.artist_name?.toLowerCase().includes(search)) ||
+        (t.album_title?.toLowerCase().includes(search))
+      );
+    });
+
     if (sortConfig !== null) {
-      sortableTracks.sort((a, b) => {
+      result.sort((a, b) => {
         const aValue = a[sortConfig.key] || "";
         const bValue = b[sortConfig.key] || "";
 
@@ -39,8 +49,8 @@ export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
         return 0;
       });
     }
-    return sortableTracks;
-  }, [tracks, sortConfig]);
+    return result;
+  }, [tracks, sortConfig, searchTerm]);
 
   const requestSort = (key: SortKey) => {
     let direction: "asc" | "desc" = "asc";
@@ -128,6 +138,33 @@ export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
         </div>
       )}
 
+      <div className="flex flex-col md:flex-row gap-4 mb-4 items-center justify-between">
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50" size={18} />
+          <input
+            type="text"
+            placeholder="Search tracks..."
+            className="input input-bordered input-sm w-full pl-10 pr-10 bg-base-200/50"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <button 
+              className="absolute right-3 top-1/2 -translate-y-1/2 hover:text-primary transition-colors"
+              onClick={() => setSearchTerm("")}
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+        
+        {searchTerm && (
+          <div className="text-sm opacity-50">
+            Found {filteredAndSortedTracks.length} matches
+          </div>
+        )}
+      </div>
+
       <table className="table">
         <thead>
           <tr>
@@ -156,7 +193,7 @@ export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
           </tr>
         </thead>
         <tbody>
-          {sortedTracks.map((t) => (
+          {filteredAndSortedTracks.map((t) => (
             <tr key={t.id} className={selectedIds.has(t.id) ? "bg-primary/5" : ""}>
               <td>
                 <input 
@@ -221,6 +258,14 @@ export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
           ))}
         </tbody>
       </table>
+
+      {filteredAndSortedTracks.length === 0 && (
+        <div className="text-center py-12 opacity-50">
+          <Music size={48} className="mx-auto mb-4 opacity-20" />
+          <p>No tracks matching "{searchTerm}"</p>
+          <button className="btn btn-link btn-sm" onClick={() => setSearchTerm("")}>Clear search</button>
+        </div>
+      )}
 
       {showBatchEdit && (
         <BatchTrackEditModal 
