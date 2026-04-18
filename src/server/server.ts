@@ -607,6 +607,18 @@ export async function startServer(config: ServerConfig): Promise<void> {
             const heapTotalMB = Math.round(mem.heapTotal / 1024 / 1024);
             const rssMB = Math.round(mem.rss / 1024 / 1024);
 
+            // Fetch current peer status
+            const gun = (gundbService as any).gun;
+            let peerCount = 0;
+            let activePeers: string[] = [];
+            if (gun && gun._ && gun._.opt && gun._.opt.peers) {
+                activePeers = Object.keys(gun._.opt.peers).filter(url => {
+                   const p = gun._.opt.peers[url];
+                   return p && (p.wire || p.active);
+                });
+                peerCount = activePeers.length;
+            }
+
             // Warning at 80% of limit
             if (heapUsedMB > MEM_LIMIT * 0.8) {
                 console.warn(`[Monitor] ⚠️ CRITICAL Memory Usage: Heap ${heapUsedMB}MB / ${heapTotalMB}MB | RSS ${rssMB}MB. Limit: ${MEM_LIMIT}MB`);
@@ -614,18 +626,17 @@ export async function startServer(config: ServerConfig): Promise<void> {
                     console.log("[Monitor] Triggering emergency GC...");
                     try {
                         (global as any).gc();
-                        const memAfter = process.memoryUsage();
-                        const heapAfterMB = Math.round(memAfter.heapUsed / 1024 / 1024);
-                        console.log(`[Monitor] Emergency GC completed. Heap: ${heapUsedMB}MB -> ${heapAfterMB}MB`);
                     } catch (e) {
                         console.error("[Monitor] Emergency GC failed:", e);
                     }
-                } else {
-                    console.warn("[Monitor] Emergency GC skipped: --expose-gc not enabled in NODE_OPTIONS.");
                 }
-            } else if (heapUsedMB > 1500) {
-                // Regular status log for moderate usage
-                console.log(`[Monitor] Memory Status: Heap ${heapUsedMB}MB / RSS ${rssMB}MB`);
+            } else if (heapUsedMB > 1500 || peerCount === 0) {
+                // Regular status log
+                console.log(`[Diag] Heap: ${heapUsedMB}MB | RSS: ${rssMB}MB | ZEN Peers: ${peerCount}`);
+                if (peerCount === 0 && (config.gunPeers?.length || 0) > 0) {
+                    console.warn(`[Diag] ⚠️  0 connected peers. Targets: ${config.gunPeers?.join(', ')}`);
+                    console.log(`[Diag] TIP: Connection failure (non-101) usually means the /zen path isn't proxied yet.`);
+                }
             }
         }, 60000);
     });
