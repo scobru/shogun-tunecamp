@@ -163,10 +163,15 @@ export function createPlaylistsRoutes(database: DatabaseService, gunDb?: GunDBSe
         if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
         try {
             const playlistId = parseInt(req.params.id as string, 10);
-            const { trackId } = req.body;
+            let { trackId } = req.body;
 
-            if (!trackId || typeof trackId !== "number") {
-                return res.status(400).json({ error: "trackId is required" });
+            // Handle trackId as string or number
+            if (typeof trackId === "string") {
+                trackId = parseInt(trackId, 10);
+            }
+
+            if (!trackId || isNaN(trackId)) {
+                return res.status(400).json({ error: "trackId is required and must be a number" });
             }
 
             const playlist = database.getPlaylist(playlistId);
