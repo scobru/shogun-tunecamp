@@ -56,8 +56,7 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 # Install all dependencies (including dev) for the entire workspace
-RUN npm install -g npm@latest && \
-    npm ci && \
+RUN npm ci && \
     npm install @rollup/rollup-linux-x64-musl lightningcss-linux-x64-musl @tailwindcss/oxide-linux-x64-musl && \
     npm cache clean --force
 
