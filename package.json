@@ -41,7 +41,7 @@
     "adm-zip": "^0.5.16",
     "andrade-soulseek-downloader": "^1.0.28",
     "archiver": "^7.0.1",
-    "axios": "1.14.0",
+    "axios": "^1.15.0",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.6.2",
     "chokidar": "^5.0.0",
@@ -58,7 +58,6 @@
     "fluent-ffmpeg": "^2.1.3",
     "fs-extra": "^11.2.0",
     "glob": "^10.3.10",
-    "zen": "https://github.com/scobru/zen",
     "inquirer": "^13.2.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
@@ -72,7 +71,8 @@
     "vercel": "^32.3.0",
     "waveform-data": "^4.5.2",
     "xmlbuilder2": "^4.0.3",
-    "yaml": "^2.3.4"
+    "yaml": "^2.3.4",
+    "zen": "https://github.com/scobru/zen"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
