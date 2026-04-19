@@ -21,7 +21,15 @@ async function test() {
         file_path: "missing/file/path.mp3",
         format: "mp3",
         bitrate: 320,
-        sample_rate: 44100
+        sample_rate: 44100,
+        price: 0,
+        price_usdc: 0,
+        currency: 'ETH',
+        lossless_path: null,
+        waveform: null,
+        url: null,
+        service: null,
+        external_artwork: null
     });
     
     console.log(`Track created with ID: ${trackId}`);
