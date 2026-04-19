@@ -124,7 +124,7 @@ export interface ScannerService {
     stopWatching(): void;
     processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number, suggestedCoverPath?: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
     getOrCreateLibraryAlbum(dir: string, musicDir: string, forcedCoverPath?: string): Promise<number | null>;
-    consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number }>;
+    consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number, deleted: number }>;
     clearCaches(): void;
 }
 
@@ -713,16 +713,21 @@ export class Scanner implements ScannerService {
         if (this.watcher) { this.watcher.close(); this.watcher = null; }
     }
 
-    public async consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number }> {
-        if (this.isConsolidating) return { success: 0, failed: 0, skipped: 0 };
+    public async consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number, deleted: number }> {
+        if (this.isConsolidating) return { success: 0, failed: 0, skipped: 0, deleted: 0 };
         this.isConsolidating = true;
         try {
-            let success = 0, failed = 0, skipped = 0, count = 0;
+            let success = 0, failed = 0, skipped = 0, deleted = 0, count = 0;
             const cache = new Map<number, any>();
             const iter = this.database.iterateTracks("file_path IS NOT NULL");
             for (const t of iter) {
                 try {
                     if (!t.file_path) { count++; continue; }
+                    
+                    const oldP = t.file_path;
+                    const fOld = path.join(musicDir, oldP);
+                    const existsOld = await fs.pathExists(fOld);
+                    
                     let art = t.artist_id ? (cache.get(t.artist_id) || this.database.getArtist(t.artist_id)) : null;
                     if (t.artist_id && art) cache.set(t.artist_id, art);
                     
@@ -731,24 +736,48 @@ export class Scanner implements ScannerService {
                     const safe = (s: string) => s.replace(/[^a-zA-Z0-9\s._-]/g, "_").trim();
                     const base = `${safe(name)} - ${safe(title)}`;
                     
-                    const oldP = t.file_path;
                     const ext = path.extname(oldP).toLowerCase();
                     const newP = path.join(path.dirname(oldP), `${base}${ext}`).replace(/\\/g, "/");
+                    const fNew = path.join(musicDir, newP);
+
+                    // If original file is missing
+                    if (!existsOld) {
+                        const existsNew = await fs.pathExists(fNew);
+                        if (!existsNew) {
+                            // Check lossless path as well if available
+                            const existsLossless = t.lossless_path ? await fs.pathExists(path.join(musicDir, t.lossless_path)) : false;
+                            
+                            if (!existsLossless && !t.url) {
+                                console.log(`🗑️ [Consolidate] File missing for track ${t.id} (${oldP}), deleting from DB`);
+                                this.database.deleteTrack(t.id);
+                                deleted++;
+                                count++;
+                                continue;
+                            }
+                        } else if (oldP !== newP) {
+                            // File already exists at new path, just update DB
+                            this.database.updateTrackPath(t.id, newP, t.album_id);
+                            success++;
+                            count++;
+                            continue;
+                        }
+                    }
 
                     if (oldP === newP) { skipped++; count++; continue; }
 
-                    const fOld = path.join(musicDir, oldP);
-                    const fNew = path.join(musicDir, newP);
                     if (await fs.pathExists(fOld)) {
                         await fs.move(fOld, fNew, { overwrite: true });
                         this.database.updateTrackPath(t.id, newP, t.album_id);
                         success++;
                     } else skipped++;
-                } catch (e) { failed++; }
+                } catch (e) { 
+                    console.error(`❌ [Consolidate] Failed to process ${t.file_path}:`, e);
+                    failed++; 
+                }
                 count++;
                 if (count % 100 === 0 && (global as any).gc) (global as any).gc();
             }
-            return { success, failed, skipped };
+            return { success, failed, skipped, deleted };
         } finally { this.isConsolidating = false; }
     }
 }
