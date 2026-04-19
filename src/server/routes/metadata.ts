@@ -11,10 +11,6 @@ import type { AuthenticatedRequest } from "../middleware/auth.js";
 export function createMetadataRoutes(database: DatabaseService, musicDir: string): Router {
     const router = Router();
 
-    /**
-     * GET /api/metadata/search
-     * Search for release metadata
-     */
     router.get("/search", async (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin && req.userId === undefined) return res.status(401).json({ error: "Unauthorized" });
 
@@ -22,6 +18,20 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
         if (!query) return res.status(400).json({ error: "Query required" });
 
         const results = await metadataService.searchRelease(query);
+        res.json(results);
+    });
+
+    /**
+     * GET /api/metadata/artist-search
+     * Search for artist metadata
+     */
+    router.get("/artist-search", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin && req.userId === undefined) return res.status(401).json({ error: "Unauthorized" });
+
+        const query = req.query.q as string;
+        if (!query) return res.status(400).json({ error: "Query required" });
+
+        const results = await metadataService.searchArtist(query);
         res.json(results);
     });
 

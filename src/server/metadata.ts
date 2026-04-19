@@ -13,7 +13,17 @@ export interface MetadataMatch {
     date: string;
     coverUrl?: string;
     albumTitle?: string;
-    source: "musicbrainz" | "discogs";
+    source: "musicbrainz" | "discogs" | "theaudiodb";
+}
+
+export interface ArtistMetadata {
+    id: string;
+    name: string;
+    bio?: string;
+    bioIT?: string;
+    avatarUrl?: string;
+    links?: { platform: string; url: string; type: 'social' | 'support' | 'music' }[];
+    source: "theaudiodb";
 }
 
 export interface MetadataProvider {
@@ -21,6 +31,7 @@ export interface MetadataProvider {
     searchRelease(query: string): Promise<MetadataMatch[]>;
     searchRecording(query: string): Promise<MetadataMatch[]>;
     getCoverUrl(id: string): Promise<string | null>;
+    searchArtist?(query: string): Promise<ArtistMetadata[]>;
 }
 
 class MusicBrainzProvider implements MetadataProvider {
@@ -153,10 +164,69 @@ class DiscogsProvider implements MetadataProvider {
     }
 }
 
+class TheAudioDBProvider implements MetadataProvider {
+    name = "theaudiodb";
+    private apiKey = "2"; // Use free public key
+
+    async searchRelease(query: string): Promise<MetadataMatch[]> {
+        // TheAudioDB is better for artists/albums than individual releases, 
+        // but we could implement if needed. For now focused on artists.
+        return [];
+    }
+
+    async searchRecording(query: string): Promise<MetadataMatch[]> {
+        return [];
+    }
+
+    async getCoverUrl(id: string): Promise<string | null> {
+        return null;
+    }
+
+    async searchArtist(query: string): Promise<ArtistMetadata[]> {
+        const url = `https://www.theaudiodb.com/api/v1/json/${this.apiKey}/search.php?s=${encodeURIComponent(query)}`;
+
+        try {
+            const response = await fetch(url, {
+                headers: { "User-Agent": USER_AGENT }
+            });
+
+            if (!response.ok) {
+                console.error(`TheAudioDB API error: ${response.status}`);
+                await drainResponse(response);
+                return [];
+            }
+
+            const data = await response.json() as any;
+            const artists = (data.artists || []);
+
+            return artists.map((a: any) => {
+                const links: any[] = [];
+                if (a.strWebsite) links.push({ platform: 'website', url: a.strWebsite.startsWith('http') ? a.strWebsite : `https://${a.strWebsite}`, type: 'music' });
+                if (a.strFacebook) links.push({ platform: 'facebook', url: a.strFacebook.startsWith('http') ? a.strFacebook : `https://${a.strFacebook}`, type: 'social' });
+                if (a.strTwitter) links.push({ platform: 'twitter', url: a.strTwitter.startsWith('http') ? a.strTwitter : `https://${a.strTwitter}`, type: 'social' });
+                
+                return {
+                    id: a.idArtist,
+                    name: a.strArtist,
+                    bio: a.strBiographyEN,
+                    bioIT: a.strBiographyIT,
+                    avatarUrl: a.strArtistThumb || a.strArtistFanart,
+                    links,
+                    source: "theaudiodb"
+                };
+            });
+        } catch (error) {
+            console.error("Error searching TheAudioDB:", error);
+            return [];
+        }
+    }
+}
+
 export class MetadataService {
     private providers: MetadataProvider[] = [
         new MusicBrainzProvider(),
-        new DiscogsProvider()
+        new DiscogsProvider(),
+        new TheAudioDBProvider()
     ];
 
     async searchRelease(query: string): Promise<MetadataMatch[]> {
@@ -166,6 +236,14 @@ export class MetadataService {
 
     async searchRecording(query: string): Promise<MetadataMatch[]> {
         const results = await Promise.all(this.providers.map(p => p.searchRecording(query)));
+        return results.flat();
+    }
+
+    async searchArtist(query: string): Promise<ArtistMetadata[]> {
+        const results = await Promise.all(this.providers.map(p => {
+            if (p.searchArtist) return p.searchArtist(query);
+            return Promise.resolve([]);
+        }));
         return results.flat();
     }
 

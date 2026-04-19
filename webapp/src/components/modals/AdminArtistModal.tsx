@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import API from '../../services/api';
-import { User, Image as ImageIcon, Globe, AlertTriangle } from 'lucide-react';
+import { User, Image as ImageIcon, Globe, AlertTriangle, Search } from 'lucide-react';
 
 interface AdminArtistModalProps {
     onArtistUpdated: () => void;
@@ -111,6 +111,45 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
         return () => document.removeEventListener('open-admin-artist-modal', handleOpen as EventListener);
     }, []);
 
+    const handleFetchTheAudioDB = async () => {
+        if (!name) {
+            setError("Please enter an artist name first");
+            return;
+        }
+        setLoading(true);
+        setError('');
+        try {
+            const results = await API.searchArtistMetadata(name);
+            if (results && results.length > 0) {
+                const match = results[0]; // Take first result
+                // Prefer Italian bio if available, fallback to English
+                if (match.bioIT || match.bio) {
+                    setBio(match.bioIT || match.bio);
+                }
+                
+                if (match.avatarUrl) {
+                    setAvatarUrl(match.avatarUrl);
+                }
+                
+                // Merge links
+                if (match.links && match.links.length > 0) {
+                    setSocialLinks(prev => {
+                        const existingUrls = new Set(prev.map(l => l.url.toLowerCase()));
+                        const newLinks = match.links.filter((l: any) => !existingUrls.has(l.url.toLowerCase()));
+                        return [...prev, ...newLinks];
+                    });
+                }
+            } else {
+                setError("No artist found on TheAudioDB");
+            }
+        } catch (err: any) {
+            console.error(err);
+            setError("Failed to fetch from TheAudioDB");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -199,6 +238,14 @@ export const AdminArtistModal = ({ onArtistUpdated }: AdminArtistModalProps) => 
                         <div className="form-control">
                             <label className="label">
                                 <span className="label-text">Name</span>
+                                <button 
+                                    type="button" 
+                                    className="label-text-alt btn btn-xs btn-ghost gap-1 h-auto min-h-0 py-1"
+                                    onClick={handleFetchTheAudioDB}
+                                    disabled={loading}
+                                >
+                                    <Search size={12}/> Fetch from TheAudioDB
+                                </button>
                             </label>
                             <input 
                                 type="text" 
