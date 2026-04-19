@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs-extra";
@@ -631,9 +631,13 @@ export function createUploadRoutes(
      * POST /api/admin/upload/avatar-url
      * Download avatar for an artist from a URL
      */
-    router.post("/avatar-url", async (req: any, res: any) => {
+    router.post("/avatar-url", express.json(), async (req: any, res: any) => {
         try {
-            const { artistId, url } = req.body;
+            const { artistId, url } = req.body || {};
+            
+            if (!req.body) {
+                return res.status(400).json({ error: "No JSON body provided" });
+            }
 
             if (!url || !artistId) {
                 return res.status(400).json({ error: "Artist ID and URL are required" });
@@ -696,11 +700,10 @@ export function createUploadRoutes(
             res.json({ message: "Avatar downloaded and saved" });
             console.log(`✅ Avatar URL download completed for artist ${id}`);
         } catch (error: any) {
-            const url = req.body.url;
-            console.error(`❌ Avatar URL download error for ${url}:`, error.message);
+            const url = req.body?.url;
+            console.error(`❌ Avatar URL download error for ${url || 'unknown URL'}:`, error.message);
             if (error.response) {
                 console.error(`   Status: ${error.response.status}`);
-                console.error(`   Data: ${JSON.stringify(error.response.data)}`);
             }
             res.status(500).json({ error: `Failed to download image from URL: ${error.message}` });
         }
