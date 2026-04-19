@@ -654,16 +654,18 @@ export function createUploadRoutes(
 
             const response = await axios.get(url, { 
                 responseType: 'arraybuffer', 
-                timeout: 15000,
+                timeout: 30000, // Increased timeout
                 maxRedirects: 5,
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+                    'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                    'Referer': 'https://www.theaudiodb.com/'
                 }
             });
             const contentType = response.headers['content-type'];
             
             if (!contentType || !contentType.startsWith('image/')) {
+                console.warn(`⚠️ URL ${url} returned invalid content-type: ${contentType}`);
                 return res.status(400).json({ error: "URL does not point to a valid image" });
             }
 
@@ -694,8 +696,13 @@ export function createUploadRoutes(
             res.json({ message: "Avatar downloaded and saved" });
             console.log(`✅ Avatar URL download completed for artist ${id}`);
         } catch (error: any) {
-            console.error("❌ Avatar URL download error:", error.message);
-            res.status(500).json({ error: "Failed to download image from URL" });
+            const url = req.body.url;
+            console.error(`❌ Avatar URL download error for ${url}:`, error.message);
+            if (error.response) {
+                console.error(`   Status: ${error.response.status}`);
+                console.error(`   Data: ${JSON.stringify(error.response.data)}`);
+            }
+            res.status(500).json({ error: `Failed to download image from URL: ${error.message}` });
         }
     });
 
