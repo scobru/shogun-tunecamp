@@ -573,13 +573,13 @@ export function createAdminRoutes(
 
                     console.log(`   - Library Album Sync: existing=${existingTrackIds.length}, toAdd=${toAdd.length}, toRemove=${toRemove.length}`);
 
-                    for (const trackId of toAdd) {
-                        console.log(`     🔗 Linking track ${trackId} to library album ${id}`);
-                        database.updateTrackAlbum(trackId, id);
+                    if (toAdd.length > 0) {
+                        console.log(`     🔗 Linking ${toAdd.length} tracks to library album ${id}`);
+                        database.updateTracksAlbum(toAdd, id);
                     }
-                    for (const trackId of toRemove) {
-                        console.log(`     ✂️ Unlinking track ${trackId} from library album ${id}`);
-                        database.updateTrackAlbum(trackId, null);
+                    if (toRemove.length > 0) {
+                        console.log(`     ✂️ Unlinking ${toRemove.length} tracks from library album ${id}`);
+                        database.updateTracksAlbum(toRemove, null);
                     }
 
                     // For library albums, we should also update the track_num in the tracks table to preserve reordering

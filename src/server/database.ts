@@ -397,6 +397,7 @@ export interface DatabaseService {
     getTrackByPath(filePath: string): Track | undefined;
     createTrack(track: Omit<Track, "id" | "created_at" | "album_title" | "artist_name">): number;
     updateTrackAlbum(id: number, albumId: number | null): void;
+    updateTracksAlbum(trackIds: number[], albumId: number | null): void;
     updateTrackOrder(id: number, trackNum: number): void;
     updateTrackArtist(id: number, artistId: number | null): void;
     getTrackByMetadata(title: string, artistId: number | null, albumId: number | null): Track | undefined;
@@ -2744,6 +2745,16 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updateTrackAlbum(id: number, albumId: number | null): void {
             db.prepare("UPDATE tracks SET album_id = ? WHERE id = ?").run(albumId, id);
+        },
+
+        updateTracksAlbum(trackIds: number[], albumId: number | null): void {
+            if (trackIds.length === 0) return;
+            const CHUNK_SIZE = 900;
+            for (let i = 0; i < trackIds.length; i += CHUNK_SIZE) {
+                const chunk = trackIds.slice(i, i + CHUNK_SIZE);
+                const placeholders = chunk.map(() => "?").join(",");
+                db.prepare(`UPDATE tracks SET album_id = ? WHERE id IN (${placeholders})`).run(albumId, ...chunk);
+            }
         },
 
         updateTrackOrder(id: number, trackNum: number): void {
