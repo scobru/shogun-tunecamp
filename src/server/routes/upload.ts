@@ -168,11 +168,11 @@ export function createUploadRoutes(
             if (release) {
                 // If uploading to a specific release, tracks should belong to that release's artist
                 targetArtistId = release.artist_id ?? undefined;
-            } else if (bodyArtistId) {
-                // Explicit ID takes priority
+            } else if (bodyArtistId && req.isAdmin) {
+                // Explicit ID takes priority (Admin only)
                 targetArtistId = parseInt(bodyArtistId as string);
-            } else if (bodyArtistName && (req.isAdmin || req.isActive)) {
-                // Name-based lookup/creation for admins or active artists
+            } else if (bodyArtistName && (req.isAdmin || (req.isActive && !req.artistId))) {
+                // Name-based lookup/creation for admins or new active artists without a profile
                 const trimmedName = bodyArtistName.trim();
                 if (trimmedName) {
                     const artist = database.getArtistByName(trimmedName);
@@ -275,7 +275,9 @@ export function createUploadRoutes(
             }
 
             // SECURITY FIX: Prevent uploading to another artist's release (unless root admin)
-            const isAuthorized = req.isRootAdmin || req.userId === undefined || release?.owner_id === req.userId || release?.artist_id === req.artistId;
+            const isAuthorized = req.isRootAdmin ||
+                (req.userId !== undefined && release?.owner_id !== null && Number(release?.owner_id) === Number(req.userId)) ||
+                (req.artistId !== undefined && release?.artist_id !== null && Number(release?.artist_id) === Number(req.artistId));
 
             if (release && !isAuthorized) {
                 console.warn(`⛔ Access Denied: User ${(req as any).username} (User ID ${req.userId}) tried to upload to release ${release.slug} (Owner ${release.owner_id})`);
@@ -411,8 +413,9 @@ export function createUploadRoutes(
                     return res.status(404).json({ error: "Release not found" });
                 }
 
-                const isAuthorized = req.isRootAdmin || req.userId === undefined || 
-                    targetItem.owner_id === req.userId || targetItem.artist_id === req.artistId;
+                const isAuthorized = req.isRootAdmin ||
+                    (req.userId !== undefined && targetItem.owner_id !== null && Number(targetItem.owner_id) === Number(req.userId)) ||
+                    (req.artistId !== undefined && targetItem.artist_id !== null && Number(targetItem.artist_id) === Number(req.artistId));
 
                 if (!isAuthorized) {
                     await fs.remove(file.path);
