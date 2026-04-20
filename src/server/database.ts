@@ -892,7 +892,36 @@ export function createDatabase(dbPath: string): DatabaseService {
       expires_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_gun_cache_expires ON gun_cache(expires_at);
+
+    CREATE TABLE IF NOT EXISTS album_genres (
+      album_id INTEGER REFERENCES albums(id) ON DELETE CASCADE,
+      genre TEXT,
+      PRIMARY KEY (album_id, genre)
+    );
+    CREATE INDEX IF NOT EXISTS idx_album_genres_genre ON album_genres(genre);
   `);
+
+    // Migration: Populate album_genres from existing albums
+    try {
+        const genreCount = (db.prepare("SELECT COUNT(*) as count FROM album_genres").get() as { count: number }).count;
+        if (genreCount === 0) {
+            const albumsWithGenres = db.prepare("SELECT id, genre FROM albums WHERE genre IS NOT NULL AND genre != ''").all() as { id: number, genre: string }[];
+            if (albumsWithGenres.length > 0) {
+                console.log(`📦 Populating album_genres from ${albumsWithGenres.length} albums...`);
+                const insertGenre = db.prepare("INSERT OR IGNORE INTO album_genres (album_id, genre) VALUES (?, ?)");
+                db.transaction(() => {
+                    for (const album of albumsWithGenres) {
+                        const genres = album.genre.split(',').map(g => g.trim().toLowerCase()).filter(g => g !== '');
+                        for (const genre of genres) {
+                            insertGenre.run(album.id, genre);
+                        }
+                    }
+                })();
+            }
+        }
+    } catch (e) {
+        console.error("Migration error (album_genres population):", e);
+    }
 
     // Migration: Move existing releases from 'albums' to 'releases' table
     try {
@@ -2245,6 +2274,14 @@ export function createDatabase(dbPath: string): DatabaseService {
                     if (ownerId) {
                         this.addAlbumOwner(albumId, ownerId);
                     }
+
+                    // Update album_genres
+                    if (album.genre) {
+                        const genres = album.genre.split(',').map(g => g.trim().toLowerCase()).filter(g => g !== '');
+                        for (const genre of genres) {
+                            db.prepare("INSERT OR IGNORE INTO album_genres (album_id, genre) VALUES (?, ?)").run(albumId, genre);
+                        }
+                    }
                     
                     return albumId;
                 } catch (e: any) {
@@ -2321,7 +2358,17 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         updateAlbumGenre(id: number, genre: string | null): void {
-            db.prepare("UPDATE albums SET genre = ? WHERE id = ?").run(genre, id);
+            db.transaction(() => {
+                db.prepare("UPDATE albums SET genre = ? WHERE id = ?").run(genre, id);
+                db.prepare("DELETE FROM album_genres WHERE album_id = ?").run(id);
+                if (genre) {
+                    const genres = genre.split(',').map(g => g.trim().toLowerCase()).filter(g => g !== '');
+                    const insertStmt = db.prepare("INSERT OR IGNORE INTO album_genres (album_id, genre) VALUES (?, ?)");
+                    for (const g of genres) {
+                        insertStmt.run(id, g);
+                    }
+                }
+            })();
         },
 
         updateAlbumDownload(id: number, download: string | null): void {
@@ -2389,6 +2436,9 @@ export function createDatabase(dbPath: string): DatabaseService {
                 // First delete associated tracks
                 db.prepare("DELETE FROM tracks WHERE album_id = ?").run(id);
             }
+            // Delete associated genres
+            db.prepare("DELETE FROM album_genres WHERE album_id = ?").run(id);
+
             // Then delete the album
             db.prepare("DELETE FROM albums WHERE id = ?").run(id);
         },
@@ -2883,17 +2933,9 @@ export function createDatabase(dbPath: string): DatabaseService {
 
             // Genre count
             const genreQuery = artistId 
-                ? `SELECT genre FROM albums WHERE artist_id = ${artistId} AND genre IS NOT NULL AND genre != ''`
-                : `SELECT genre FROM albums WHERE genre IS NOT NULL AND genre != ''`;
-            const allGenres = db.prepare(genreQuery).all() as { genre: string }[];
-            const genreSet = new Set<string>();
-            allGenres.forEach(row => {
-                row.genre.split(',').forEach(g => {
-                    const trimmed = g.trim();
-                    if (trimmed) genreSet.add(trimmed.toLowerCase());
-                });
-            });
-            const genresCount = genreSet.size;
+                ? `SELECT COUNT(DISTINCT genre) as count FROM album_genres WHERE album_id IN (SELECT id FROM albums WHERE artist_id = ?)`
+                : `SELECT COUNT(DISTINCT genre) as count FROM album_genres`;
+            const genresCount = (db.prepare(genreQuery).get(artistId ? [artistId] : []) as { count: number }).count;
 
             return {
                 artists,
