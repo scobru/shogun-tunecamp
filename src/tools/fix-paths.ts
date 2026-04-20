@@ -5,6 +5,13 @@ import path from 'path';
 import sqlite3 from 'better-sqlite3';
 import { loadConfig } from '../server/config.js';
 
+interface TrackRow {
+    id: number;
+    title: string;
+    file_path: string | null;
+    lossless_path: string | null;
+}
+
 async function main() {
     const args = process.argv.slice(2);
     const dbArgIdx = args.indexOf('--db');
@@ -26,7 +33,7 @@ async function main() {
     console.log(`📂 Music Directory: ${musicDir}`);
     console.log(`🗄️  Database: ${dbPath}`);
 
-    const tracks = db.prepare("SELECT id, title, file_path, lossless_path FROM tracks").all() as any[];
+    const tracks = db.prepare("SELECT id, title, file_path, lossless_path FROM tracks").all() as TrackRow[];
     console.log(`🔍 Checking ${tracks.length} tracks...`);
 
     let fixedCount = 0;
