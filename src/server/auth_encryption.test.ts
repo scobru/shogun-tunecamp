@@ -1,5 +1,6 @@
 import { encryptGunPrivHelper, decryptGunPrivHelper } from './auth.js';
 import { describe, test, expect } from '@jest/globals';
+import crypto from 'crypto';
 
 describe("Auth Encryption (GunDB)", () => {
     const TEST_SECRET = "my-secret-key";
@@ -36,17 +37,63 @@ describe("Auth Encryption (GunDB)", () => {
         const encrypted = encryptGunPrivHelper(TEST_DATA, TEST_SECRET);
         const parts = encrypted.split(":");
 
-        // Tamper with the ciphertext
+        // 1. Tamper with the ciphertext
         const originalData = parts[1];
-        // Flip last bit
-        const lastChar = originalData.slice(-1);
-        const newLastChar = lastChar === '0' ? '1' : '0';
-        const tamperedData = originalData.slice(0, -1) + newLastChar;
-
-        const tamperedEncrypted = `${parts[0]}:${tamperedData}:${parts[2]}`;
+        const tamperedData = originalData.slice(0, -1) + (originalData.slice(-1) === '0' ? '1' : '0');
+        const tamperedEncryptedData = `${parts[0]}:${tamperedData}:${parts[2]}`;
 
         expect(() => {
-            decryptGunPrivHelper(tamperedEncrypted, TEST_SECRET);
+            decryptGunPrivHelper(tamperedEncryptedData, TEST_SECRET);
+        }).toThrow(/Unsupported state or unable to authenticate data/);
+
+        // 2. Tamper with the IV
+        const originalIv = parts[0];
+        const tamperedIv = originalIv.slice(0, -1) + (originalIv.slice(-1) === '0' ? '1' : '0');
+        const tamperedEncryptedIv = `${tamperedIv}:${parts[1]}:${parts[2]}`;
+
+        expect(() => {
+            decryptGunPrivHelper(tamperedEncryptedIv, TEST_SECRET);
+        }).toThrow(/Unsupported state or unable to authenticate data/);
+
+        // 3. Tamper with the AuthTag
+        const originalTag = parts[2];
+        const tamperedTag = originalTag.slice(0, -1) + (originalTag.slice(-1) === '0' ? '1' : '0');
+        const tamperedEncryptedTag = `${parts[0]}:${parts[1]}:${tamperedTag}`;
+
+        expect(() => {
+            decryptGunPrivHelper(tamperedEncryptedTag, TEST_SECRET);
+        }).toThrow(/Unsupported state or unable to authenticate data/);
+    });
+
+    test("should fail for malformed input strings", () => {
+        expect(() => {
+            decryptGunPrivHelper("not-enough-parts", TEST_SECRET);
+        }).toThrow();
+
+        expect(() => {
+            decryptGunPrivHelper("too:many:parts:here", TEST_SECRET);
+        }).toThrow();
+    });
+
+    test("should fail if decrypted data is not valid JSON (Legacy CBC)", () => {
+        // Create valid CBC encrypted data but with non-JSON content
+        const iv = crypto.randomBytes(16);
+        const key = crypto.createHash('sha256').update(TEST_SECRET).digest();
+        const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+        let enc = cipher.update("not json", "utf8", "hex");
+        enc += cipher.final("hex");
+        const legacyNotJson = `${iv.toString("hex")}:${enc}`;
+
+        expect(() => {
+            decryptGunPrivHelper(legacyNotJson, TEST_SECRET);
+        }).toThrow(/Unexpected token/);
+    });
+
+    test("should fail with empty or invalid secret", () => {
+        const encrypted = encryptGunPrivHelper(TEST_DATA, TEST_SECRET);
+
+        expect(() => {
+            decryptGunPrivHelper(encrypted, "");
         }).toThrow(/Unsupported state or unable to authenticate data/);
     });
 });
