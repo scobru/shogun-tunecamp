@@ -41,17 +41,6 @@ export async function deriveTunecampWallet(pair: { priv: string, [key: string]: 
   return wallet;
 }
 
-/**
- * Convenience overload: derive from a raw priv string (legacy support).
- * Constructs a minimal pair object and calls the main derivation.
- *
- * @deprecated Pass the full SEA pair instead.
- */
-export async function deriveTunecampWalletFromPriv(userPrivStr: string): Promise<ethers.Wallet> {
-  if (!userPrivStr) throw new Error("Missing user private key");
-  return deriveTunecampWallet({ priv: userPrivStr });
-}
-
 export const WalletService = {
   provider,
   getChainId: async (): Promise<number> => {
