@@ -115,7 +115,22 @@ export const SharePage = () => {
     const title = (item as any).title;
     const artistName = (item as any).artistName || (item as any).artist_name;
     const albumName = isTrack ? (item as any).albumName : null;
-    let coverUrl = isTrack ? API.getTrackCoverUrl(item.id) : API.getAlbumCoverUrl(item.id);
+    let coverUrl = (item as any).coverImage ||
+                   (item as any).coverUrl ||
+                   (item as any).coverPath ||
+                   (item as any).cover_path;
+
+    if (!coverUrl && isTrack && (item as any).albumId) {
+        coverUrl = API.getAlbumCoverUrl((item as any).albumId);
+    }
+
+    if (!coverUrl) {
+        coverUrl = isTrack ? API.getTrackCoverUrl(item.id) : API.getAlbumCoverUrl(item.id);
+    }
+
+    if (!coverUrl && (item as any).artistId) {
+        coverUrl = API.getArtistCoverUrl((item as any).artistId);
+    }
 
     // Fix relative paths that might be missing the root / or /api
     if (coverUrl && !coverUrl.startsWith('http') && !coverUrl.startsWith('/')) {
