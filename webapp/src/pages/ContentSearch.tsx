@@ -208,12 +208,12 @@ export const ContentSearch: React.FC = () => {
 
                             {results.map((res: any, i: number) => (
                                 <div key={i} className="group card bg-base-200/50 hover:bg-base-200 border border-base-300/50 hover:border-primary/30 transition-all duration-200">
-                                    <div className="card-body p-4 flex-row justify-between items-center">
-                                        <div className="flex-1 min-w-0 pr-4">
-                                            <h3 className="font-bold truncate text-sm lg:text-base group-hover:text-primary transition-colors">
+                                    <div className="card-body p-4 flex-row justify-between items-center overflow-hidden">
+                                        <div className="flex-1 min-w-0 pr-4 overflow-hidden">
+                                            <h3 className="font-bold truncate text-sm lg:text-base group-hover:text-primary transition-colors w-full" title={res.title || res.name || res.file}>
                                                 {res.title || res.name || res.file}
                                             </h3>
-                                            <div className="text-xs opacity-50 flex flex-wrap gap-x-4 gap-y-1 mt-1 font-medium">
+                                            <div className="text-xs opacity-50 flex flex-wrap gap-x-4 gap-y-1 mt-1 font-medium truncate">
                                                 <span className="flex items-center gap-1">User: {res.user}</span>
                                                 <span className="flex items-center gap-1">{(res.size / 1024 / 1024).toFixed(2)} MB</span>
                                                 <span className="flex items-center gap-1">{(res.speed / 1024).toFixed(0)} KB/s</span>
@@ -221,7 +221,7 @@ export const ContentSearch: React.FC = () => {
                                         </div>
                                         <button 
                                             onClick={() => handleSoulseekDownload(res)}
-                                            className="btn btn-circle btn-sm btn-ghost hover:bg-primary hover:text-primary-content transition-all"
+                                            className="btn btn-circle btn-sm btn-ghost hover:bg-primary hover:text-primary-content transition-all flex-shrink-0"
                                             title="Download"
                                         >
                                             <Download size={18} />
@@ -267,8 +267,8 @@ export const ContentSearch: React.FC = () => {
                             )}
                             {downloads.map((dl: any) => (
                                 <tr key={dl.id} className="hover:bg-base-300/30 transition-colors">
-                                    <td className="max-w-[12rem] lg:max-w-xs">
-                                        <div className="truncate font-semibold text-base-content" title={dl.filename}>
+                                    <td className="max-w-[12rem] lg:max-w-md">
+                                        <div className="truncate font-semibold text-base-content min-w-0" title={dl.filename}>
                                             {dl.filename}
                                         </div>
                                     </td>
