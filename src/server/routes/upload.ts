@@ -350,6 +350,11 @@ export function createUploadRoutes(
             }
 
             console.log(`✅ Processed ${movedCount}/${files.length} uploads to ${destDir}. Scanned: ${processedCount}`);
+            
+            // Sync changes if we uploaded to a release
+            if (release && processedCount > 0) {
+                publishingService.syncRelease(release.id).catch(e => console.error("❌ Failed to sync release after track upload:", e));
+            }
 
             // Update storage usage for quota-tracked users
             if (currentUser && processedCount > 0 && authService) {

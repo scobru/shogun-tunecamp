@@ -67,6 +67,9 @@ export interface GunDBService {
     addComment(trackId: number, data: { pubKey: string; username: string; text: string; signature?: string }): Promise<Comment | null>;
     getComments(trackId: number): Promise<Comment[]>;
     deleteComment(commentId: string, pubKey: string, signature?: string): Promise<boolean>;
+    // Releases
+    publishRelease(id: number): Promise<boolean>;
+    unpublishRelease(id: number): Promise<boolean>;
     // Key Management
     getIdentityKeyPair(): Promise<any>;
     setIdentityKeyPair(pair: any): Promise<boolean>;
@@ -899,6 +902,102 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         });
     }
 
+    async function publishRelease(id: number): Promise<boolean> {
+        if (!initialized || !gun || !serverPair) return false;
+
+        try {
+            const release = database.getRelease(id);
+            if (!release || !release.published_to_gundb) return false;
+
+            const tracks = database.getTracksByReleaseId(id);
+            const publicUrl = database.getSetting("publicUrl") || "";
+            
+            console.log(`📡 [ZEN] Publishing release: ${release.title} (${release.slug})`);
+
+            const user = (gun as any).user();
+            await new Promise<void>((resolve) => {
+                user.auth(serverPair, (ack: any) => {
+                    if (ack.err) console.error("❌ Zen auth failed for publishing:", ack.err);
+                    resolve();
+                });
+            });
+
+            // 1. Publish Release Metadata
+            const releaseData = {
+                id: release.id,
+                title: release.title,
+                slug: release.slug,
+                description: release.description || "",
+                coverUrl: release.cover_path ? `${publicUrl}${release.cover_path}` : "",
+                artistName: database.getSetting("artistName") || "Unknown Artist",
+                publishedAt: release.published_at || Date.now(),
+                updatedAt: Date.now()
+            };
+
+            await new Promise<void>((resolve) => {
+                user.get('tunecamp').get('releases').get(release.slug).put(releaseData, (ack: any) => {
+                    resolve();
+                });
+            });
+
+            // 2. Publish Tracks
+            for (const track of tracks) {
+                const trackData = {
+                    id: track.id,
+                    title: track.title,
+                    slug: track.slug,
+                    releaseId: release.id,
+                    releaseTitle: release.title,
+                    artistName: track.artist || releaseData.artistName,
+                    audioUrl: track.file_path ? `${publicUrl}${track.file_path}` : "",
+                    coverUrl: releaseData.coverUrl,
+                    duration: track.duration || 0,
+                    addedAt: track.created_at || Date.now()
+                };
+
+                await new Promise<void>((resolve) => {
+                    user.get('tunecamp').get('tracks').get(track.slug).put(trackData, (ack: any) => {
+                        resolve();
+                    });
+                });
+            }
+
+            console.log(`✅ [ZEN] Successfully published release and ${tracks.length} tracks.`);
+            return true;
+        } catch (error) {
+            console.error("❌ Error publishing to Zen:", error);
+            return false;
+        }
+    }
+
+    async function unpublishRelease(id: number): Promise<boolean> {
+        if (!initialized || !gun || !serverPair) return false;
+
+        try {
+            const release = database.getRelease(id);
+            if (!release) return false;
+
+            console.log(`🗑️ [ZEN] Unpublishing release: ${release.slug}`);
+
+            const user = (gun as any).user();
+            user.auth(serverPair);
+
+            // Remove release
+            user.get('tunecamp').get('releases').get(release.slug).put(null);
+
+            // Remove tracks
+            const tracks = database.getTracksByReleaseId(id);
+            for (const track of tracks) {
+                user.get('tunecamp').get('tracks').get(track.slug).put(null);
+            }
+
+            return true;
+        } catch (error) {
+            console.error("❌ Error unpublishing from Zen:", error);
+            return false;
+        }
+    }
+
     // ─── Network Cleanup (sites only) ────────────────────────────────────────────
 
     async function cleanupNetwork() {
@@ -1069,6 +1168,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         addComment,
         getComments,
         deleteComment,
+        // Releases
+        publishRelease,
+        unpublishRelease,
         // Key Management
         getIdentityKeyPair,
         setIdentityKeyPair,

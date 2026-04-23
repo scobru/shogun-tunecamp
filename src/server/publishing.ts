@@ -106,6 +106,17 @@ export class PublishingService {
             } catch (e) {
                 console.error(`❌ ActivityPub sync failed for release ${releaseId}:`, e);
             }
+
+            // Zen (GunDB) Logic
+            try {
+                if (isPublic && release.published_to_gundb) {
+                    await this.gundb.publishRelease(releaseId);
+                } else {
+                    await this.gundb.unpublishRelease(releaseId);
+                }
+            } catch (e) {
+                console.error(`❌ Zen sync failed for release ${releaseId}:`, e);
+            }
         } catch (error) {
             console.error(`🔥 Critical error in syncRelease for ${releaseId}:`, error);
         }
