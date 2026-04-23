@@ -4,7 +4,7 @@
 
 // Default peers
 const REGISTRY_PEERS = [
-    "https://delay.scobrudot.dev/zen"
+    "https://shogun-relay.scobrudot.dev/zen"
 ];
 
 // Singleton instance
@@ -16,7 +16,7 @@ function getZen() {
             console.error("Zen library not loaded! Make sure zen.js is included before gun-init.js");
             return null;
         }
-        
+
         console.log("📡 Initializing shared Zen instance...");
         gunInstance = new Zen({
             peers: REGISTRY_PEERS,
