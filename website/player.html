@@ -519,10 +519,10 @@
     </div>
 
     <!-- Zen Consolidato -->
-    <script src="zen.js"></script>
-    <script src="gun-init.js"></script>
+    <script type="module" src="zen.js"></script>
+    <script type="module" src="gun-init.js"></script>
 
-    <script>
+    <script type="module">
         const REGISTRY_ROOT = 'shogun';
         const REGISTRY_NAMESPACE = 'tunecamp-community';
 
@@ -801,20 +801,30 @@
         }
 
         function updateDuration() {
+            if (!audio.duration) return;
             document.getElementById('duration').textContent = formatTime(audio.duration);
         }
 
         function formatTime(seconds) {
-            if (!seconds || isNaN(seconds)) return '0:00';
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
+            if (!seconds || isNaN(seconds)) return "0:00";
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s.toString().padStart(2, '0')}`;
         }
 
         function esc(str) {
             if (!str) return '';
-            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
+
+        // Expose to global scope for inline handlers
+        window.filterTracks = filterTracks;
+        window.shufflePlay = shufflePlay;
+        window.playTrack = playTrack;
+        window.togglePlay = togglePlay;
+        window.playPrev = playPrev;
+        window.playNext = playNext;
     </script>
 </body>
 
