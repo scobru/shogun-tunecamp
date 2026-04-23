@@ -429,7 +429,7 @@
 
                     // 1. Secure Mode: Read from user graph if pub key is available
                     if (directoryData.pub) {
-                        zen.user(directoryData.pub)
+                        zen.get('~' + directoryData.pub)
                             .get('tunecamp')
                             .get('profile')
                             .once((profileData) => {
@@ -473,7 +473,7 @@
         }
 
         function scanSecureTracks(pub, siteInfo) {
-            zen.user(pub)
+            zen.get('~' + pub)
                 .get('tunecamp')
                 .get('tracks')
                 .map()

@@ -587,9 +587,9 @@
 
                     sitesProcessed++;
 
-                    // Secure Mode: Read from user graph if pub key is available
+                    // Secure Mode: Read from 2. Prioritize secure graphs
                     if (siteData.pub) {
-                        zen.user(siteData.pub)
+                        zen.get('~' + siteData.pub)
                             .get('tunecamp')
                             .get('tracks')
                             .map()
