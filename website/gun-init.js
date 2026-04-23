@@ -4,24 +4,21 @@
 
 // Default peers
 const REGISTRY_PEERS = [
-    "https://shogun-relay.scobrudot.dev/gun",
-    "https://gun.defucc.me/gun",
-    "https://a.talkflow.team/gun",
-    "https://peer.wallie.io/gun",
+    "https://delay.scobrudot.dev/zen"
 ];
 
 // Singleton instance
 let gunInstance = null;
 
-function getGun() {
+function getZen() {
     if (!gunInstance) {
-        if (typeof Gun === 'undefined') {
-            console.error("Gun library not loaded! Make sure zen.js is included before gun-init.js");
+        if (typeof Zen === 'undefined') {
+            console.error("Zen library not loaded! Make sure zen.js is included before gun-init.js");
             return null;
         }
         
-        console.log("📡 Initializing shared Gun instance...");
-        gunInstance = Gun({
+        console.log("📡 Initializing shared Zen instance...");
+        gunInstance = new Zen({
             peers: REGISTRY_PEERS,
             localStorage: true
         });
@@ -30,4 +27,5 @@ function getGun() {
 }
 
 // Global export
-window.getGun = getGun;
+window.getZen = getZen;
+window.getGun = getZen; // fallback

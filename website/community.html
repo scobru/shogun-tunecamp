@@ -345,7 +345,7 @@
         <div class="cta-section">
             <h3>🎵 Join the Community</h3>
             <p>Your Tunecamp site is automatically registered when visitors browse it.<br>
-                No sign-up needed — it's fully decentralized via GunDB.</p>
+                No sign-up needed — it's fully decentralized via Zen.</p>
             <a href="player.html" class="btn" style="margin-right: 10px;">🎵 Listen Now</a>
             <a href="index.html" class="btn">Get Started</a>
         </div>
@@ -359,19 +359,19 @@
                 <a href="https://buymeacoffee.com/scobru" target="_blank">☕ Support</a>
             </nav>
             <p class="copyright">
-                Powered by GunDB. Made with ❤️ by <a href="https://github.com/scobru" target="_blank">scobru</a>
+                Powered by Zen. Made with ❤️ by <a href="https://github.com/scobru" target="_blank">scobru</a>
             </p>
         </footer>
     </div>
 
-    <!-- GunDB Consolidato -->
+    <!-- Zen Consolidato -->
     <script src="zen.js"></script>
     <script src="gun-init.js"></script>
     <script>
         const REGISTRY_ROOT = 'shogun';
         const REGISTRY_NAMESPACE = 'tunecamp-community';
 
-        const gun = getGun();
+        const zen = getZen();
 
         // Data Stores
         const sitesMap = new Map();
@@ -415,7 +415,7 @@
         function initDiscovery() {
             const processedIds = new Set();
 
-            gun.get(REGISTRY_ROOT)
+            zen.get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get('sites')
                 .map()
@@ -429,7 +429,7 @@
 
                     // 1. Secure Mode: Read from user graph if pub key is available
                     if (directoryData.pub) {
-                        gun.user(directoryData.pub)
+                        zen.user(directoryData.pub)
                             .get('tunecamp')
                             .get('profile')
                             .once((profileData) => {
@@ -473,7 +473,7 @@
         }
 
         function scanSecureTracks(pub, siteInfo) {
-            gun.user(pub)
+            zen.user(pub)
                 .get('tunecamp')
                 .get('tracks')
                 .map()
@@ -485,7 +485,7 @@
         }
 
         function scanLegacyTracks(siteId, siteInfo) {
-            gun.get(REGISTRY_ROOT)
+            zen.get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get('sites')
                 .get(siteId)

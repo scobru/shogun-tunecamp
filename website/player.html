@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tunecamp Community Player - Listen to Independent Music</title>
     <meta name="description"
-        content="Listen to music from independent artists using Tunecamp. A decentralized community player powered by GunDB.">
+        content="Listen to music from independent artists using Tunecamp. A decentralized community player powered by Zen.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -513,12 +513,12 @@
                 <a href="https://buymeacoffee.com/scobru" target="_blank">☕ Support</a>
             </nav>
             <p class="copyright">
-                Powered by GunDB. Made with ❤️ by <a href="https://github.com/scobru" target="_blank">scobru</a>
+                Powered by Zen. Made with ❤️ by <a href="https://github.com/scobru" target="_blank">scobru</a>
             </p>
         </footer>
     </div>
 
-    <!-- GunDB Consolidato -->
+    <!-- Zen Consolidato -->
     <script src="zen.js"></script>
     <script src="gun-init.js"></script>
 
@@ -526,7 +526,7 @@
         const REGISTRY_ROOT = 'shogun';
         const REGISTRY_NAMESPACE = 'tunecamp-community';
 
-        let gun;
+        let zen;
         let audio = new Audio();
         let allTracks = [];
         let filteredTracks = [];
@@ -534,7 +534,7 @@
         let isPlaying = false;
 
         document.addEventListener('DOMContentLoaded', function () {
-            gun = getGun();
+            zen = getZen();
             loadTracks();
             initPlayer();
         });
@@ -569,7 +569,7 @@
             let totalSites = 0;
 
             // First, count sites to process
-            gun.get(REGISTRY_ROOT)
+            zen.get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get('sites')
                 .map()
@@ -577,7 +577,7 @@
                     if (siteData && siteId !== "_") totalSites++;
                 });
 
-            gun.get(REGISTRY_ROOT)
+            zen.get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get('sites')
                 .map()
@@ -589,7 +589,7 @@
 
                     // Secure Mode: Read from user graph if pub key is available
                     if (siteData.pub) {
-                        gun.user(siteData.pub)
+                        zen.user(siteData.pub)
                             .get('tunecamp')
                             .get('tracks')
                             .map()
@@ -612,7 +612,7 @@
                     }
 
                     // Legacy Mode: Also check public graph for backward compatibility
-                    gun.get(REGISTRY_ROOT)
+                    zen.get(REGISTRY_ROOT)
                         .get(REGISTRY_NAMESPACE)
                         .get('sites')
                         .get(siteId)
