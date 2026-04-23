@@ -4,7 +4,7 @@ import { drainResponse } from "./utils.js";
 // ZEN handles its own crypto, no need for gun/sea.js or gun/lib/yson.js separately if bundled
 
 import type { DatabaseService } from "./database.js";
-import { normalizeUrl } from "../utils/audioUtils.js";
+import { normalizeUrl, slugify } from "../utils/audioUtils.js";
 import { isSafeUrl } from "../utils/networkUtils.js";
 import fs from "fs-extra";
 import path from "path";
@@ -942,13 +942,14 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             // 2. Publish Tracks
             for (const track of tracks) {
+                const trackSlug = slugify(track.title) || track.id.toString();
                 const trackData = {
                     id: track.id,
                     title: track.title,
-                    slug: track.slug,
+                    slug: trackSlug,
                     releaseId: release.id,
                     releaseTitle: release.title,
-                    artistName: track.artist || releaseData.artistName,
+                    artistName: track.artist_name || releaseData.artistName,
                     audioUrl: track.file_path ? `${publicUrl}${track.file_path}` : "",
                     coverUrl: releaseData.coverUrl,
                     duration: track.duration || 0,
@@ -956,7 +957,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 };
 
                 await new Promise<void>((resolve) => {
-                    user.get('tunecamp').get('tracks').get(track.slug).put(trackData, (ack: any) => {
+                    user.get('tunecamp').get('tracks').get(trackSlug).put(trackData, (ack: any) => {
                         resolve();
                     });
                 });
@@ -988,7 +989,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             // Remove tracks
             const tracks = database.getTracksByReleaseId(id);
             for (const track of tracks) {
-                user.get('tunecamp').get('tracks').get(track.slug).put(null);
+                const trackSlug = slugify(track.title) || track.id.toString();
+                user.get('tunecamp').get('tracks').get(trackSlug).put(null);
             }
 
             return true;
