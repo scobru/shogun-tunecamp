@@ -533,11 +533,9 @@
         let currentTrackIndex = -1;
         let isPlaying = false;
 
-        document.addEventListener('DOMContentLoaded', function () {
-            zen = getZen();
-            loadTracks();
-            initPlayer();
-        });
+        zen = getZen();
+        loadTracks();
+        initPlayer();
 
         function initPlayer() {
             audio.addEventListener('timeupdate', updateProgress);
@@ -582,6 +580,7 @@
                 .get('sites')
                 .map()
                 .on((siteData, siteId) => {
+                    console.log("📡 Received site update:", siteId, siteData);
                     if (!siteData || siteId === "_") return;
                     if (siteData.url && (siteData.url.includes('localhost') || siteData.url.includes('127.0.0.1'))) return;
 

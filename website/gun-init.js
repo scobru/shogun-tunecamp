@@ -22,6 +22,15 @@ function getZen() {
             peers: REGISTRY_PEERS,
             localStorage: true
         });
+
+        // Connection logging
+        gunInstance.on('hi', (peer) => {
+            console.log("✅ Zen connected to peer:", peer.url);
+        });
+
+        gunInstance.on('bye', (peer) => {
+            console.warn("❌ Zen disconnected from peer:", peer.url);
+        });
     }
     return gunInstance;
 }

@@ -413,6 +413,7 @@
 
         // --- Discovery Logic ---
         function initDiscovery() {
+            console.log("🔍 Starting discovery on namespace:", REGISTRY_NAMESPACE);
             const processedIds = new Set();
 
             zen.get(REGISTRY_ROOT)
@@ -420,6 +421,7 @@
                 .get('sites')
                 .map()
                 .on((directoryData, siteId) => {
+                    console.log("📡 Received site update:", siteId, directoryData);
                     if (!directoryData || siteId === "_") return;
                     if (processedIds.has(siteId)) return;
                     processedIds.add(siteId);
@@ -704,7 +706,7 @@
         window.switchTab = switchTab;
         window.playTrack = playTrack;
 
-        document.addEventListener('DOMContentLoaded', initDiscovery);
+        initDiscovery();
     </script>
 </body>
 
