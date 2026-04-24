@@ -573,7 +573,7 @@
                     if (!siteData || siteId === "_") return;
                     if (processedSites.has(siteId)) return;
                     
-                    const siteUrl = siteData.url ? siteData.url.replace(/\/$/, "") : null;
+                    const siteUrl = siteData.url ? siteData.url.replace(/\/zen$/, "").replace(/\/$/, "") : null;
                     if (!siteUrl || siteUrl.includes('localhost') || siteUrl.includes('127.0.0.1')) return;
                     
                     processedSites.add(siteId);

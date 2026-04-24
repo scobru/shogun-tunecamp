@@ -425,7 +425,7 @@
                     if (!directoryData || siteId === "_") return;
                     if (processedSites.has(siteId)) return;
                     
-                    const siteUrl = directoryData.url ? directoryData.url.replace(/\/$/, "") : null;
+                    const siteUrl = directoryData.url ? directoryData.url.replace(/\/zen$/, "").replace(/\/$/, "") : null;
                     if (!siteUrl || !isValidUrl(siteUrl)) return;
                     
                     processedSites.add(siteId);
