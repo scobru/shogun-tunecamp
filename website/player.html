@@ -563,88 +563,93 @@
             const container = document.getElementById('tracksContainer');
             const tracksMap = new Map();
             const artistsSet = new Set();
-            let sitesProcessed = 0;
-            let totalSites = 0;
-
-            // First, count sites to process
-            zen.get(REGISTRY_ROOT)
-                .get(REGISTRY_NAMESPACE)
-                .get('sites')
-                .map()
-                .once((siteData, siteId) => {
-                    if (siteData && siteId !== "_") totalSites++;
-                });
+            const processedSites = new Set();
 
             zen.get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get('sites')
                 .map()
                 .on((siteData, siteId) => {
-                    console.log("📡 Received site update:", siteId, siteData);
                     if (!siteData || siteId === "_") return;
-                    if (siteData.url && (siteData.url.includes('localhost') || siteData.url.includes('127.0.0.1'))) return;
+                    if (processedSites.has(siteId)) return;
+                    
+                    const siteUrl = siteData.url ? siteData.url.replace(/\/$/, "") : null;
+                    if (!siteUrl || siteUrl.includes('localhost') || siteUrl.includes('127.0.0.1')) return;
+                    
+                    processedSites.add(siteId);
+                    console.log("📡 Discovered site via Zen:", siteId, siteUrl);
 
-                    sitesProcessed++;
+                    // Fetch catalog from instance REST API
+                    fetch(`${siteUrl}/api/catalog`, {
+                        headers: { 'Accept': 'application/json' }
+                    })
+                    .then(res => res.ok ? res.json() : Promise.reject('Failed to fetch catalog'))
+                    .then(catalog => {
+                        console.log(`📦 Received catalog from ${siteId}:`, catalog);
+                        
+                        // Process Releases
+                        if (catalog.releases && Array.isArray(catalog.releases)) {
+                            catalog.releases.forEach(release => {
+                                if (!release.tracks || !Array.isArray(release.tracks)) return;
+                                
+                                release.tracks.forEach(track => {
+                                    const uniqueKey = `${siteId}:${track.id || track.title}`;
+                                    const trackData = {
+                                        id: track.id || track.title,
+                                        title: track.title || "Untitled",
+                                        artistName: track.artistName || track.artist || release.artist_name || siteData.title || "Unknown Artist",
+                                        releaseTitle: release.title || "Unknown Release",
+                                        coverUrl: track.coverUrl || (release.cover_path ? `${siteUrl}/api/albums/${release.slug || release.id}/cover` : null),
+                                        audioUrl: track.streamUrl || (track.id ? `${siteUrl}/api/tracks/${track.id}/stream` : null),
+                                        duration: track.duration || 0,
+                                        siteUrl: siteUrl,
+                                        addedAt: track.addedAt || release.created_at || Date.now()
+                                    };
 
-                    // Secure Mode: Read from user graph if pub key is available
-                    if (siteData.pub) {
-                        zen.get('~' + siteData.pub)
-                            .get('tunecamp')
-                            .get('tracks')
-                            .map()
-                            .on((trackData, slug) => {
-                                if (trackData && trackData.audioUrl && slug !== "_") {
-                                    const uniqueKey = `${siteId}:${slug}`;
-                                    tracksMap.set(uniqueKey, {
-                                        id: slug,
-                                        siteId: siteId,
-                                        siteUrl: siteData.url || '',
-                                        siteName: siteData.title || '',
-                                        ...trackData,
-                                        _secure: true
-                                    });
+                                    if (trackData.audioUrl) {
+                                        tracksMap.set(uniqueKey, trackData);
+                                        if (trackData.artistName) artistsSet.add(trackData.artistName);
+                                    }
+                                });
+                            });
+                        }
+                        // Support flat tracks array if releases structure is missing
+                        else if (catalog.tracks && Array.isArray(catalog.tracks)) {
+                            catalog.tracks.forEach(track => {
+                                const uniqueKey = `${siteId}:${track.id || track.title}`;
+                                const trackData = {
+                                    id: track.id || track.title,
+                                    title: track.title || "Untitled",
+                                    artistName: track.artistName || track.artist || siteData.title || "Unknown Artist",
+                                    releaseTitle: track.album || "Unknown Release",
+                                    coverUrl: track.coverUrl || null,
+                                    audioUrl: track.streamUrl || (track.id ? `${siteUrl}/api/tracks/${track.id}/stream` : null),
+                                    duration: track.duration || 0,
+                                    siteUrl: siteUrl,
+                                    addedAt: track.addedAt || Date.now()
+                                };
 
+                                if (trackData.audioUrl) {
+                                    tracksMap.set(uniqueKey, trackData);
                                     if (trackData.artistName) artistsSet.add(trackData.artistName);
-                                    updateTracksList(tracksMap, artistsSet);
                                 }
                             });
-                    }
-
-                    // Legacy Mode: Also check public graph for backward compatibility
-                    zen.get(REGISTRY_ROOT)
-                        .get(REGISTRY_NAMESPACE)
-                        .get('sites')
-                        .get(siteId)
-                        .get('tracks')
-                        .map()
-                        .on((trackData, trackId) => {
-                            if (trackData && trackData.audioUrl && trackId !== "_") {
-                                const uniqueKey = `${siteId}:${trackId}`;
-                                // Only add if not already in map (secure takes priority)
-                                if (!tracksMap.has(uniqueKey)) {
-                                    tracksMap.set(uniqueKey, {
-                                        id: trackId,
-                                        siteId: siteId,
-                                        siteUrl: siteData.url || '',
-                                        siteName: siteData.title || '',
-                                        ...trackData,
-                                        _secure: false
-                                    });
-
-                                    if (trackData.artistName) artistsSet.add(trackData.artistName);
-                                    updateTracksList(tracksMap, artistsSet);
-                                }
-                            }
-                        });
+                        }
+                        
+                        updateTracksList(tracksMap, artistsSet);
+                    })
+                    .catch(err => {
+                        console.warn(`⚠️ Could not fetch catalog from ${siteUrl}:`, err);
+                    });
                 });
 
             function updateTracksList(tracksMap, artistsSet) {
-                // Deduplicate by slug/title + artist (prefer secure)
+                // Deduplicate by title + artist
                 const deduped = new Map();
                 Array.from(tracksMap.values()).forEach(track => {
                     const dedupKey = `${(track.title || '').toLowerCase()}::${(track.artistName || '').toLowerCase()}`;
                     const existing = deduped.get(dedupKey);
-                    if (!existing || track._secure || (track.addedAt || 0) > (existing.addedAt || 0)) {
+                    if (!existing || (track.addedAt || 0) > (existing.addedAt || 0)) {
                         deduped.set(dedupKey, track);
                     }
                 });
@@ -669,6 +674,7 @@
                 }
             }, 5000);
         }
+
 
         function updateArtistFilter(artistsSet) {
             const select = document.getElementById('artistFilter');
