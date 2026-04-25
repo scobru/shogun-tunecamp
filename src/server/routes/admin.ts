@@ -892,8 +892,7 @@ export function createAdminRoutes(
                 return res.status(400).json({ error: passwordValidation.error });
             }
 
-            const admins = authService.listAdmins();
-            const admin = admins.find(a => a.id === id);
+            const admin = authService.getAdminById(id);
 
             if (!admin) {
                 return res.status(404).json({ error: "User not found" });
