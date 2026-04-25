@@ -84,8 +84,29 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
                     const uniqueId = Date.now();
                     const dest = path.join(dir, `cover-al${albumId}-${uniqueId}.jpg`);
 
-                    const response = await fetch(coverUrl);
-                    if (response.ok) {
+                    let currentUrl = coverUrl;
+                    let response: import("node-fetch").Response | null = null;
+
+                    for (let i = 0; i <= 3; i++) {
+                        response = await fetch(currentUrl, {
+                            redirect: 'manual',
+                            size: 5 * 1024 * 1024 // 5MB limit
+                        });
+
+                        if (response.status >= 300 && response.status < 400 && response.headers.has('location')) {
+                            const location = response.headers.get('location');
+                            if (!location) break;
+                            currentUrl = new URL(location, currentUrl).toString();
+                            await drainResponse(response);
+                            if (!(await isSafeUrl(currentUrl))) {
+                                return res.status(400).json({ error: "Invalid or unsafe cover URL on redirect" });
+                            }
+                            continue;
+                        }
+                        break; // Not a redirect
+                    }
+
+                    if (response && response.ok) {
                         const buffer = await response.buffer();
                         await fs.writeFile(dest, buffer);
                         console.log(`Downloaded cover to ${dest}`);
@@ -94,7 +115,7 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
                         const dbPath = path.relative(musicDir, dest).replace(/\\/g, "/");
                         database.updateAlbumCover(albumId, dbPath);
                         coverUpdated = true;
-                    } else {
+                    } else if (response) {
                         await drainResponse(response);
                     }
                 }
