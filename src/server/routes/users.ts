@@ -196,8 +196,7 @@ export function createUsersRoutes(
      */
     router.get("/me/storage", authMiddleware.requireUser, (req: AuthenticatedRequest, res) => {
         try {
-            const admins = authService.listAdmins();
-            const user = admins.find(a => a.username === req.username);
+            const user = authService.getUserByUsername(req.username!);
             if (!user) {
                 return res.status(404).json({ error: "User not found" });
             }
