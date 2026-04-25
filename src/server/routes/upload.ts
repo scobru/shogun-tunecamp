@@ -676,16 +676,18 @@ export function createUploadRoutes(
             });
             const contentType = response.headers['content-type'];
             
-            if (!contentType || !contentType.startsWith('image/')) {
+            if (typeof contentType !== 'string' || !contentType.startsWith('image/')) {
                 console.warn(`⚠️ URL ${url} returned invalid content-type: ${contentType}`);
                 return res.status(400).json({ error: "URL does not point to a valid image" });
             }
 
+            const contentTypeStr = contentType as string;
+
             // Determine extension
             let ext = '.jpg';
-            if (contentType.includes('png')) ext = '.png';
-            else if (contentType.includes('webp')) ext = '.webp';
-            else if (contentType.includes('gif')) ext = '.gif';
+            if (contentTypeStr.includes('png')) ext = '.png';
+            else if (contentTypeStr.includes('webp')) ext = '.webp';
+            else if (contentTypeStr.includes('gif')) ext = '.gif';
 
             const assetsDir = path.join(musicDir, "assets");
             await fs.ensureDir(assetsDir);
