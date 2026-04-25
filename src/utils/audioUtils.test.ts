@@ -1,6 +1,25 @@
 
 import { describe, expect, test } from '@jest/globals';
-import { getPlaceholderSVG, formatDuration } from './audioUtils.js';
+import { getPlaceholderSVG, formatDuration, escapeHtml } from './audioUtils.js';
+
+describe('escapeHtml', () => {
+    test('should return empty string for null, undefined, or empty string', () => {
+        expect(escapeHtml(null)).toBe('');
+        expect(escapeHtml(undefined)).toBe('');
+        expect(escapeHtml('')).toBe('');
+    });
+
+    test('should return the same string if there are no HTML special characters', () => {
+        const text = 'Hello World! 123';
+        expect(escapeHtml(text)).toBe(text);
+    });
+
+    test('should escape HTML special characters correctly', () => {
+        const text = '<script>alert("xss & hax\'s")</script>';
+        const expected = '&lt;script&gt;alert(&quot;xss &amp; hax&#039;s&quot;)&lt;/script&gt;';
+        expect(escapeHtml(text)).toBe(expected);
+    });
+});
 
 describe('Audio Utils Security', () => {
     test('getPlaceholderSVG should escape HTML special characters to prevent XSS', () => {
