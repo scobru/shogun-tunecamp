@@ -23,6 +23,7 @@ const mockDatabase = {
     getPost: jest.fn(),
     updatePost: jest.fn(),
     createPost: jest.fn(),
+    updateTracksOrder: jest.fn(),
     deletePost: jest.fn(),
 } as unknown as DatabaseService;
 

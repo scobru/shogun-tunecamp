@@ -584,10 +584,11 @@ export function createAdminRoutes(
 
                     // For library albums, we should also update the track_num in the tracks table to preserve reordering
                     console.log(`     🔢 Updating track order for library album ${id}`);
-                    for (let i = 0; i < newTrackIds.length; i++) {
-                        const trackId = newTrackIds[i];
-                        database.updateTrackOrder(trackId, i + 1);
-                    }
+                    const trackOrders = newTrackIds.map((trackId: number, index: number) => ({
+                        id: trackId,
+                        trackNum: index + 1
+                    }));
+                    database.updateTracksOrder(trackOrders);
                 }
             }
 
