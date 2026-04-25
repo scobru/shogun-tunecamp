@@ -307,7 +307,7 @@ export const ActivityPubPanel = () => {
                                     <div className="flex flex-col gap-2">
                                         <a
                                             href={note.note_type === 'release'
-                                                ? `/albums/${note.content_slug}`
+                                                ? `/releases/${note.content_slug}`
                                                 : `/artists/${selectedArtist?.slug}?post=${note.content_slug}`
                                             }
                                             target="_blank"
