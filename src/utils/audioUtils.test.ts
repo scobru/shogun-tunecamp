@@ -1,6 +1,31 @@
 
 import { describe, expect, test } from '@jest/globals';
-import { getPlaceholderSVG, formatDuration } from './audioUtils.js';
+import { getPlaceholderSVG, formatDuration, slugify } from './audioUtils.js';
+
+describe('slugify', () => {
+    test('should return empty string for null/undefined/empty input', () => {
+        // @ts-ignore
+        expect(slugify(null)).toBe('');
+        // @ts-ignore
+        expect(slugify(undefined)).toBe('');
+        expect(slugify('')).toBe('');
+    });
+
+    test('should convert text to a URL-safe slug correctly', () => {
+        expect(slugify('Hello World!')).toBe('hello-world');
+        expect(slugify('My Awesome Track 1')).toBe('my-awesome-track-1');
+    });
+
+    test('should handle special characters', () => {
+        expect(slugify('A b c 1@#')).toBe('a-b-c-1');
+        expect(slugify('Track name with (parentheses) & [brackets]!')).toBe('track-name-with-parentheses-brackets');
+    });
+
+    test('should trim leading/trailing dashes', () => {
+        expect(slugify('--Hello--')).toBe('hello');
+        expect(slugify('---Multiple--Dashes---')).toBe('multiple-dashes');
+    });
+});
 
 describe('Audio Utils Security', () => {
     test('getPlaceholderSVG should escape HTML special characters to prevent XSS', () => {
