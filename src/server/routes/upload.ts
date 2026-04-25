@@ -247,8 +247,7 @@ export function createUploadRoutes(
             // Retrieve currentUser to use for quota and ownership attribution
             let currentUser: any = undefined;
             if (authService && req.username) {
-                const admins = authService.listAdmins();
-                currentUser = admins.find(a => a.username === req.username);
+                currentUser = authService.getUserByUsername(req.username);
             }
 
             // Storage quota check for non-admin users
