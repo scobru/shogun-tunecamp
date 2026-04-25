@@ -1630,6 +1630,18 @@ export function createDatabase(dbPath: string): DatabaseService {
     }
 
     // Optimized: Pre-compile frequent queries
+    const savePlayQueueStateStmt = db.prepare("INSERT OR REPLACE INTO play_queue_state (username, current_track_id, position_ms, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)");
+    const deletePlayQueueTracksStmt = db.prepare("DELETE FROM play_queue_tracks WHERE username = ?");
+    const playQueueChunkStmts = new Map<number, any>();
+
+    function getPlayQueueChunkStmt(size: number) {
+        if (!playQueueChunkStmts.has(size)) {
+            const placeholders = Array(size).fill("(?, ?, ?)").join(",");
+            playQueueChunkStmts.set(size, db.prepare(`INSERT INTO play_queue_tracks (username, track_id, position) VALUES ${placeholders}`));
+        }
+        return playQueueChunkStmts.get(size)!;
+    }
+
     const getArtistStmt = db.prepare(`
         SELECT a.*, a.wallet_address as walletAddress,
         (CASE WHEN EXISTS (SELECT 1 FROM admin WHERE artist_id = a.id) 
@@ -3651,14 +3663,20 @@ export function createDatabase(dbPath: string): DatabaseService {
         // Play Queue (Subsonic)
         savePlayQueue(username: string, trackIds: string[], current: string | null, positionMs: number): void {
             db.transaction(() => {
-                db.prepare("INSERT OR REPLACE INTO play_queue_state (username, current_track_id, position_ms, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)")
-                  .run(username, current || null, positionMs || 0);
+                savePlayQueueStateStmt.run(username, current || null, positionMs || 0);
+                deletePlayQueueTracksStmt.run(username);
                 
-                db.prepare("DELETE FROM play_queue_tracks WHERE username = ?").run(username);
+                if (!trackIds || trackIds.length === 0) return;
                 
-                const insertTrack = db.prepare("INSERT INTO play_queue_tracks (username, track_id, position) VALUES (?, ?, ?)");
-                for (let i = 0; i < trackIds.length; i++) {
-                    insertTrack.run(username, trackIds[i], i);
+                const CHUNK_ROWS = 300;
+                for (let i = 0; i < trackIds.length; i += CHUNK_ROWS) {
+                    const chunk = trackIds.slice(i, i + CHUNK_ROWS);
+                    const stmt = getPlayQueueChunkStmt(chunk.length);
+                    const values: any[] = [];
+                    for (let j = 0; j < chunk.length; j++) {
+                        values.push(username, chunk[j], i + j);
+                    }
+                    stmt.run(...values);
                 }
             })();
         },
