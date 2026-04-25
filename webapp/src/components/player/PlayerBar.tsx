@@ -218,7 +218,7 @@ export const PlayerBar = () => {
   ) : "";
 
   // Fix relative paths that might be missing the root / or /api
-  if (coverUrl && !coverUrl.startsWith('http') && !coverUrl.startsWith('/')) {
+  if (coverUrl && !coverUrl.startsWith('http') && !coverUrl.startsWith('/') && !coverUrl.startsWith('data:') && !coverUrl.startsWith('blob:')) {
     // If it looks like a local asset path, prepend /api/
     if (coverUrl.startsWith('assets/')) {
         coverUrl = `/api/${coverUrl}`;
