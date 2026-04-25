@@ -11,6 +11,7 @@ import type { ScannerService } from '../scanner.js';
 // Mock dependencies
 const mockDatabase = {
     getAlbumBySlug: jest.fn(),
+    getReleaseBySlug: jest.fn(),
     addTrackToRelease: jest.fn(),
 } as unknown as DatabaseService;
 
@@ -43,7 +44,9 @@ describe('Upload Routes - Security Check', () => {
         const router = createUploadRoutes(
             mockDatabase,
             mockScanner,
-            tempMusicDir
+            tempMusicDir,
+            {} as any, // mock publishingService
+            {} as any  // mock authService
         );
         app.use('/upload', router);
     });
@@ -55,7 +58,7 @@ describe('Upload Routes - Security Check', () => {
 
     test('POST /tracks should prevent uploading to another artist\'s release', async () => {
         // Setup: Target release belongs to Artist 2
-        (mockDatabase.getAlbumBySlug as jest.Mock).mockReturnValue({
+        (mockDatabase.getReleaseBySlug as jest.Mock).mockReturnValue({
             id: 99,
             title: 'Other Artist Album',
             slug: 'other-artist-album',
