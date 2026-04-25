@@ -400,6 +400,7 @@ export interface DatabaseService {
     updateTrackAlbum(id: number, albumId: number | null): void;
     updateTracksAlbum(trackIds: number[], albumId: number | null): void;
     updateTrackOrder(id: number, trackNum: number): void;
+    updateTracksOrder(trackOrders: { id: number, trackNum: number }[]): void;
     updateTrackArtist(id: number, artistId: number | null): void;
     getTrackByMetadata(title: string, artistId: number | null, albumId: number | null): Track | undefined;
     updateTrackTitle(id: number, title: string): void;
@@ -2820,6 +2821,16 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updateTrackOrder(id: number, trackNum: number): void {
             db.prepare("UPDATE tracks SET track_num = ? WHERE id = ?").run(trackNum, id);
+        },
+
+        updateTracksOrder(trackOrders: { id: number, trackNum: number }[]): void {
+            const stmt = db.prepare("UPDATE tracks SET track_num = ? WHERE id = ?");
+            const updateMany = db.transaction((orders: { id: number, trackNum: number }[]) => {
+                for (const order of orders) {
+                    stmt.run(order.trackNum, order.id);
+                }
+            });
+            updateMany(trackOrders);
         },
 
         updateTrackArtist(id: number, artistId: number | null): void {
