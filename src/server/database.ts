@@ -547,6 +547,8 @@ export interface DatabaseService {
     isArtistLinkedToUserBySlug(slug: string): boolean;
 }
 
+const _insertQueueTrackStmts = new Map<number, any>();
+
 export function createDatabase(dbPath: string): DatabaseService {
     const db = new Database(dbPath);
 
@@ -3656,9 +3658,28 @@ export function createDatabase(dbPath: string): DatabaseService {
                 
                 db.prepare("DELETE FROM play_queue_tracks WHERE username = ?").run(username);
                 
-                const insertTrack = db.prepare("INSERT INTO play_queue_tracks (username, track_id, position) VALUES (?, ?, ?)");
-                for (let i = 0; i < trackIds.length; i++) {
-                    insertTrack.run(username, trackIds[i], i);
+                if (trackIds && trackIds.length > 0) {
+                    const CHUNK_SIZE = 300;
+                    for (let i = 0; i < trackIds.length; i += CHUNK_SIZE) {
+                        const chunkLength = Math.min(CHUNK_SIZE, trackIds.length - i);
+
+                        let stmt = _insertQueueTrackStmts.get(chunkLength);
+                        if (!stmt) {
+                            let placeholders = "(?, ?, ?)";
+                            for (let j = 1; j < chunkLength; j++) placeholders += ", (?, ?, ?)";
+                            stmt = db.prepare(`INSERT INTO play_queue_tracks (username, track_id, position) VALUES ${placeholders}`);
+                            _insertQueueTrackStmts.set(chunkLength, stmt);
+                        }
+
+                        const params: any[] = new Array(chunkLength * 3);
+                        for (let j = 0; j < chunkLength; j++) {
+                            const offset = j * 3;
+                            params[offset] = username;
+                            params[offset + 1] = trackIds[i + j];
+                            params[offset + 2] = i + j;
+                        }
+                        stmt.run(...params);
+                    }
                 }
             })();
         },
