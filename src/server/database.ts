@@ -3660,13 +3660,25 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
         unstarItems(username: string, items: { type: string; id: string }[]): void {
             if (items.length === 0) return;
-            const deleteStmt = db.prepare("DELETE FROM starred_items WHERE username = ? AND item_type = ? AND item_id = ?");
-            const transaction = db.transaction((chunk: { type: string; id: string }[]) => {
-                for (const item of chunk) {
-                    deleteStmt.run(username, item.type, item.id);
+
+            const itemsByType: Record<string, string[]> = {};
+            for (const item of items) {
+                if (!itemsByType[item.type]) itemsByType[item.type] = [];
+                itemsByType[item.type].push(item.id);
+            }
+
+            const CHUNK_SIZE = 900;
+            const transaction = db.transaction(() => {
+                for (const [type, ids] of Object.entries(itemsByType)) {
+                    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+                        const chunk = ids.slice(i, i + CHUNK_SIZE);
+                        const placeholders = chunk.map(() => '?').join(',');
+                        const deleteStmt = db.prepare(`DELETE FROM starred_items WHERE username = ? AND item_type = ? AND item_id IN (${placeholders})`);
+                        deleteStmt.run(username, type, ...chunk);
+                    }
                 }
             });
-            transaction(items);
+            transaction();
         },
 
         getStarredItems(username: string, itemType?: string): { item_type: string; item_id: string; created_at: string }[] {
