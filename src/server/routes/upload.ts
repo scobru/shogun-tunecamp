@@ -1,5 +1,6 @@
 import express, { Router } from "express";
 import multer from "multer";
+import crypto from "crypto";
 import path from "path";
 import fs from "fs-extra";
 import os from "os";
@@ -25,7 +26,7 @@ function createTempStorage() {
         },
         filename: (req, file, cb) => {
             // Use random name to avoid collisions in temp
-            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            const uniqueSuffix = Date.now() + '-' + crypto.randomBytes(8).toString('hex');
             const ext = path.extname(file.originalname).toLowerCase();
             const filename = file.fieldname + '-' + uniqueSuffix + ext;
             console.log(`📄 [Debug] Multer filename: ${filename}`);
