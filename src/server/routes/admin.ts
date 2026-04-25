@@ -539,10 +539,11 @@ export function createAdminRoutes(
 
                     console.log(`   - Formal Release Sync: existing=${existingTrackIds.length}, toAdd=${toAdd.length}, toRemove=${toRemove.length}`);
 
-                    for (const trackId of toAdd) {
-                        console.log(`     🔗 Adding track ${trackId} to formal release ${id}`);
-                        database.addTrackToRelease(id, trackId);
+                    if (toAdd.length > 0) {
+                        console.log(`     🔗 Adding ${toAdd.length} tracks to formal release ${id}`);
+                        database.addTracksToRelease(id, toAdd);
                     }
+
                     for (const trackId of toRemove) {
                         console.log(`     ✂️ Removing track ${trackId} from formal release ${id}`);
                         database.removeTrackFromRelease(id, trackId);

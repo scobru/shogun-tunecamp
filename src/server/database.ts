@@ -353,6 +353,7 @@ export interface DatabaseService {
     getReleaseTrackIds(releaseId: number): number[];
     getReleaseTrack(id: number): ReleaseTrack | undefined;
     addTrackToRelease(releaseId: number, trackId: number, metadata?: Partial<ReleaseTrack>): number;
+    addTracksToRelease(releaseId: number, trackIds: number[], metadata?: Partial<ReleaseTrack>[]): void;
     updateReleaseTrack(id: number, metadata: Partial<ReleaseTrack>): void;
     updateReleaseTrackMetadata(releaseId: number, trackId: number, metadata: Partial<ReleaseTrack>): void;
     removeTrackFromRelease(releaseId: number, trackId: number): void; // Old version by IDs
@@ -1958,6 +1959,61 @@ export function createDatabase(dbPath: string): DatabaseService {
             `).run(releaseId, effectiveTrackId, title, artistName, trackNum, duration, filePath, price, priceUsdc, currency);
 
             return result.lastInsertRowid as number;
+        },
+
+        addTracksToRelease(releaseId: number, trackIds: number[], metadata: Partial<ReleaseTrack>[] = []): void {
+            if (!trackIds || trackIds.length === 0) return;
+
+            // Get base metadata from library tracks in bulk to avoid N+1 queries
+            const libraryTracks = this.getTracksByIds(trackIds);
+            const tracksMap = new Map(libraryTracks.map((t: Track) => [t.id, t]));
+
+            // Auto-calculate starting track_num
+            const maxNumResult = db.prepare("SELECT MAX(track_num) as max FROM release_tracks WHERE release_id = ?").get(releaseId) as { max: number | null };
+            let currentTrackNum = (maxNumResult.max || 0) + 1;
+
+            const insertStmt = db.prepare(`
+                INSERT INTO release_tracks (release_id, track_id, title, artist_name, track_num, duration, file_path, price, price_usdc, currency)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `);
+
+            const insertMany = db.transaction((items: { trackId: number; meta?: Partial<ReleaseTrack> }[]) => {
+                for (const item of items) {
+                    const trackId = item.trackId;
+                    const meta = item.meta;
+
+                    const libraryTrack = trackId ? tracksMap.get(trackId) : null;
+                    if (trackId && !libraryTrack) {
+                        console.warn(`⚠️ Attempted to add non-existent library track ${trackId} to release ${releaseId}. Avoiding ghost track.`);
+                        continue;
+                    }
+
+                    // SECURITY: If trackId was provided but track doesn't exist, use NULL for track_id column
+                    const effectiveTrackId = libraryTrack ? trackId : null;
+
+                    const title = meta?.title || libraryTrack?.title || "Unknown Track";
+                    const artistName = meta?.artist_name || libraryTrack?.artist_name || null;
+                    const duration = meta?.duration || libraryTrack?.duration || 0;
+                    const filePath = meta?.file_path || libraryTrack?.file_path || null;
+                    const price = meta?.price || 0;
+                    const priceUsdc = meta?.price_usdc || 0;
+                    const currency = meta?.currency || 'ETH';
+
+                    let trackNum = meta?.track_num;
+                    if (trackNum === undefined) {
+                        trackNum = currentTrackNum++;
+                    }
+
+                    insertStmt.run(releaseId, effectiveTrackId, title, artistName, trackNum, duration, filePath, price, priceUsdc, currency);
+                }
+            });
+
+            const items = trackIds.map((id, index) => ({
+                trackId: id,
+                meta: metadata[index]
+            }));
+
+            insertMany(items);
         },
 
         updateReleaseTrack(id: number, metadata: Partial<ReleaseTrack>): void {
