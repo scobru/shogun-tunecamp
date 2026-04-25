@@ -1,6 +1,34 @@
 
 import { describe, expect, test } from '@jest/globals';
-import { getPlaceholderSVG, formatDuration } from './audioUtils.js';
+import { getPlaceholderSVG, formatDuration, validateUsername } from './audioUtils.js';
+
+describe('validateUsername', () => {
+    test('should return valid: false for empty or undefined username', () => {
+        expect(validateUsername('')).toEqual({ valid: false, error: 'Username is required' });
+        expect(validateUsername(undefined as any)).toEqual({ valid: false, error: 'Username is required' });
+    });
+
+    test('should return valid: true for valid usernames', () => {
+        expect(validateUsername('valid_user123')).toEqual({ valid: true });
+        expect(validateUsername('abc')).toEqual({ valid: true }); // minimum length
+        expect(validateUsername('a'.repeat(20))).toEqual({ valid: true }); // maximum length
+    });
+
+    test('should return valid: false for usernames shorter than 3 characters', () => {
+        expect(validateUsername('ab')).toEqual({ valid: false, error: 'Username must be at least 3 characters' });
+        expect(validateUsername('a')).toEqual({ valid: false, error: 'Username must be at least 3 characters' });
+    });
+
+    test('should return valid: false for usernames longer than 20 characters', () => {
+        expect(validateUsername('a'.repeat(21))).toEqual({ valid: false, error: 'Username must be at most 20 characters' });
+    });
+
+    test('should return valid: false for usernames with invalid characters', () => {
+        expect(validateUsername('user-name')).toEqual({ valid: false, error: 'Username must contain only letters, numbers, and underscores' });
+        expect(validateUsername('user space')).toEqual({ valid: false, error: 'Username must contain only letters, numbers, and underscores' });
+        expect(validateUsername('user@name')).toEqual({ valid: false, error: 'Username must contain only letters, numbers, and underscores' });
+    });
+});
 
 describe('Audio Utils Security', () => {
     test('getPlaceholderSVG should escape HTML special characters to prevent XSS', () => {
