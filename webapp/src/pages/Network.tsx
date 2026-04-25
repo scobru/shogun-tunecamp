@@ -209,7 +209,7 @@ const TrackCard = memo(({
         ? `${baseUrl}/api/albums/${encodeURIComponent(item.track.albumId)}/cover`
         : undefined);
   }
-  if (coverUrl && !coverUrl.startsWith("http") && !coverUrl.startsWith("/")) {
+  if (coverUrl && !coverUrl.startsWith("http") && !coverUrl.startsWith("/") && !coverUrl.startsWith("data:") && !coverUrl.startsWith("blob:")) {
     coverUrl = undefined;
   }
 
