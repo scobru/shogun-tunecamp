@@ -543,9 +543,11 @@ export function createAdminRoutes(
                         console.log(`     🔗 Adding track ${trackId} to formal release ${id}`);
                         database.addTrackToRelease(id, trackId);
                     }
-                    for (const trackId of toRemove) {
-                        console.log(`     ✂️ Removing track ${trackId} from formal release ${id}`);
-                        database.removeTrackFromRelease(id, trackId);
+                    if (toRemove.length > 0) {
+                        for (const trackId of toRemove) {
+                            console.log(`     ✂️ Removing track ${trackId} from formal release ${id}`);
+                        }
+                        database.removeTracksFromRelease(id, toRemove);
                     }
                     // Also update order if provided (preserving the list order)
                     console.log(`     🔢 Updating track order for formal release ${id}:`, newTrackIds);

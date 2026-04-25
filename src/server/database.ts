@@ -356,6 +356,7 @@ export interface DatabaseService {
     updateReleaseTrack(id: number, metadata: Partial<ReleaseTrack>): void;
     updateReleaseTrackMetadata(releaseId: number, trackId: number, metadata: Partial<ReleaseTrack>): void;
     removeTrackFromRelease(releaseId: number, trackId: number): void; // Old version by IDs
+    removeTracksFromRelease(releaseId: number, trackIds: number[]): void; // Batch removal
     deleteReleaseTrack(id: number): void; // New version by record ID
     updateReleaseTracksOrder(releaseId: number, trackIds: number[]): void;
     cleanUpGhostTracks(releaseId: number): void;
@@ -1994,6 +1995,16 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         removeTrackFromRelease(releaseId: number, trackId: number): void {
             db.prepare("DELETE FROM release_tracks WHERE release_id = ? AND track_id = ?").run(releaseId, trackId);
+        },
+
+        removeTracksFromRelease(releaseId: number, trackIds: number[]): void {
+            if (trackIds.length === 0) return;
+            const CHUNK_SIZE = 900;
+            for (let i = 0; i < trackIds.length; i += CHUNK_SIZE) {
+                const chunk = trackIds.slice(i, i + CHUNK_SIZE);
+                const placeholders = chunk.map(() => "?").join(",");
+                db.prepare(`DELETE FROM release_tracks WHERE release_id = ? AND track_id IN (${placeholders})`).run(releaseId, ...chunk);
+            }
         },
 
         deleteReleaseTrack(id: number): void {
