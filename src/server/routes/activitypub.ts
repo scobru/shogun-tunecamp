@@ -489,7 +489,7 @@ export function createActivityPubRoutes(apService: ActivityPubService, db: Datab
 
         // SECURITY FIX: Check if restricted admin owns this note
         const request = req as AuthenticatedRequest;
-        if (!request.isRootAdmin && Number(note.artist_id) !== Number(request.artistId)) {
+        if (!request.isRootAdmin && (request.artistId === undefined || request.artistId === null || Number(note.artist_id) !== Number(request.artistId))) {
             console.warn(`⛔ Access Denied: Artist ${request.artistId} tried to delete note ${noteId} owned by Artist ${note.artist_id}`);
             return res.status(403).send("Access denied");
         }
