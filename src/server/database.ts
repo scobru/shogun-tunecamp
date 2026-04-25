@@ -3643,13 +3643,16 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
         starItems(username: string, items: { type: string; id: string }[]): void {
             if (items.length === 0) return;
-            const insertStmt = db.prepare(`
-                INSERT OR IGNORE INTO starred_items (username, item_type, item_id)
-                VALUES (?, ?, ?)
-            `);
-            const transaction = db.transaction((chunk: { type: string; id: string }[]) => {
-                for (const item of chunk) {
-                    insertStmt.run(username, item.type, item.id);
+            const CHUNK_SIZE = 300; // 300 items * 3 variables = 900 variables (safe for SQLite limit)
+            const transaction = db.transaction((allItems: { type: string; id: string }[]) => {
+                for (let i = 0; i < allItems.length; i += CHUNK_SIZE) {
+                    const chunk = allItems.slice(i, i + CHUNK_SIZE);
+                    const placeholders = chunk.map(() => '(?, ?, ?)').join(', ');
+                    const values = chunk.flatMap(item => [username, item.type, item.id]);
+                    db.prepare(`
+                        INSERT OR IGNORE INTO starred_items (username, item_type, item_id)
+                        VALUES ${placeholders}
+                    `).run(...values);
                 }
             });
             transaction(items);
