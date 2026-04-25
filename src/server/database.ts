@@ -2637,24 +2637,48 @@ export function createDatabase(dbPath: string): DatabaseService {
             const CHUNK_SIZE = 900; // Safe limit for SQLite variables
             const allTracks: Track[] = [];
 
+            let fullChunkStmt: ReturnType<typeof db.prepare> | undefined;
+
             for (let i = 0; i < albumIds.length; i += CHUNK_SIZE) {
                 const chunk = albumIds.slice(i, i + CHUNK_SIZE);
-                const placeholders = chunk.map(() => '?').join(',');
-                const tracks = db
-                    .prepare(
-                        `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, 
-                     COALESCE(ar_t.id, ar_a.id) as artist_id,
-                     COALESCE(ar_t.name, ar_a.name) as artist_name, 
-                     COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
-                     COALESCE(t.owner_id, a.owner_id) as owner_id
-             FROM tracks t
-             LEFT JOIN albums a ON t.album_id = a.id
-             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
-             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-             WHERE t.album_id IN (${placeholders})
-             ORDER BY t.album_id, t.track_num`
-                    )
-                    .all(...chunk) as Track[];
+                let tracks;
+
+                if (chunk.length === CHUNK_SIZE) {
+                    if (!fullChunkStmt) {
+                        const fullChunkPlaceholders = Array(CHUNK_SIZE).fill('?').join(',');
+                        fullChunkStmt = db.prepare(
+                            `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility,
+                                 COALESCE(ar_t.id, ar_a.id) as artist_id,
+                                 COALESCE(ar_t.name, ar_a.name) as artist_name,
+                                 COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+                                 COALESCE(t.owner_id, a.owner_id) as owner_id
+                         FROM tracks t
+                         LEFT JOIN albums a ON t.album_id = a.id
+                         LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                         LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                         WHERE t.album_id IN (${fullChunkPlaceholders})
+                         ORDER BY t.album_id, t.track_num`
+                        );
+                    }
+                    tracks = fullChunkStmt.all(chunk) as Track[];
+                } else {
+                    const placeholders = chunk.map(() => '?').join(',');
+                    tracks = db
+                        .prepare(
+                            `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility,
+                         COALESCE(ar_t.id, ar_a.id) as artist_id,
+                         COALESCE(ar_t.name, ar_a.name) as artist_name,
+                         COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+                         COALESCE(t.owner_id, a.owner_id) as owner_id
+                 FROM tracks t
+                 LEFT JOIN albums a ON t.album_id = a.id
+                 LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                 LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                 WHERE t.album_id IN (${placeholders})
+                 ORDER BY t.album_id, t.track_num`
+                        )
+                        .all(chunk) as Track[];
+                }
                 allTracks.push(...tracks);
             }
 
@@ -2669,21 +2693,45 @@ export function createDatabase(dbPath: string): DatabaseService {
             if (ids.length === 0) return [];
             const CHUNK_SIZE = 900;
             const results: Track[] = [];
+
+            let fullChunkStmt: ReturnType<typeof db.prepare> | undefined;
+
             for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
                 const chunk = ids.slice(i, i + CHUNK_SIZE);
-                const placeholders = chunk.map(() => "?").join(",");
-                const rows = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price,
-                    COALESCE(ar_t.id, ar_a.id) as artist_id,
-                    COALESCE(ar_t.name, ar_a.name) as artist_name,
-                    COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
-                    COALESCE(t.owner_id, a.owner_id) as owner_id,
-                    own.username as owner_name
-                   FROM tracks t
-                   LEFT JOIN albums a ON t.album_id = a.id
-                   LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
-                   LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-                   LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
-                   WHERE t.id IN (${placeholders})`).all(...chunk) as Track[];
+                let rows;
+
+                if (chunk.length === CHUNK_SIZE) {
+                    if (!fullChunkStmt) {
+                        const fullChunkPlaceholders = Array(CHUNK_SIZE).fill('?').join(',');
+                        fullChunkStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price,
+                                COALESCE(ar_t.id, ar_a.id) as artist_id,
+                                COALESCE(ar_t.name, ar_a.name) as artist_name,
+                                COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+                                COALESCE(t.owner_id, a.owner_id) as owner_id,
+                                own.username as owner_name
+                               FROM tracks t
+                               LEFT JOIN albums a ON t.album_id = a.id
+                               LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                               LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                               LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
+                               WHERE t.id IN (${fullChunkPlaceholders})`);
+                    }
+                    rows = fullChunkStmt.all(chunk) as Track[];
+                } else {
+                    const placeholders = chunk.map(() => "?").join(",");
+                    rows = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price,
+                        COALESCE(ar_t.id, ar_a.id) as artist_id,
+                        COALESCE(ar_t.name, ar_a.name) as artist_name,
+                        COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+                        COALESCE(t.owner_id, a.owner_id) as owner_id,
+                        own.username as owner_name
+                       FROM tracks t
+                       LEFT JOIN albums a ON t.album_id = a.id
+                       LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                       LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                       LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
+                       WHERE t.id IN (${placeholders})`).all(chunk) as Track[];
+                }
                 results.push(...rows);
             }
             return results;
