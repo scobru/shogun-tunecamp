@@ -188,6 +188,17 @@ export function createPlaylistsRoutes(database: DatabaseService, gunDb?: GunDBSe
                 return res.status(404).json({ error: "Track not found" });
             }
 
+            // SECURITY: Prevent adding private tracks to playlists unless you're the owner or an admin
+            if (!req.isAdmin && track.album_id) {
+                const album = database.getAlbum(track.album_id);
+                const isOwner = track.owner_id === req.userId || (track.artist_id && track.artist_id === req.artistId);
+                
+                if (album && album.visibility === 'private' && !isOwner) {
+                    console.warn(`🛑 [Playlist] User ${req.username} tried to add private track ${trackId} from album ${album.id} to playlist ${playlistId}`);
+                    return res.status(403).json({ error: "Cannot add private tracks you don't own to a playlist" });
+                }
+            }
+
             database.addTrackToPlaylist(playlistId, trackId);
 
 

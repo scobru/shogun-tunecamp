@@ -187,14 +187,17 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
                 return res.status(401).json({ error: "Unauthorized" });
             }
 
-            // If root admin, they can sync everything? Usually, an admin syncs their local node's tracks.
-            // Let's get all tracks owned by this instance's artists that have a price set.
+            const isRoot = req.username && authService && authService.isRootAdmin(req.username);
             let tracksToSync: any[] = [];
             
-            if (req.isAdmin) {
+            if (isRoot) {
                tracksToSync = database.getTracks(); // Root admin sees all
             } else if (req.artistId) {
                tracksToSync = database.getTracksByOwner(req.artistId);
+            } else {
+               // Non-root admin without artistId shouldn't see anything or only their assigned tracks
+               // If it's a generic admin with no artist link, they get nothing
+               return res.json([]);
             }
 
             // Get unique artist IDs for tracks that have a price
