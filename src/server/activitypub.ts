@@ -579,6 +579,7 @@ export class ActivityPubService {
     public generateNote(album: Album, artist: Artist, tracks: Track[]): any {
         const baseUrl = this.getBaseUrl();
         const userUrl = `${baseUrl}/users/${artist.slug}`;
+        const apiUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
         const isRelease = true; // generateNote exclusively used for releases
         const albumUrl = `${baseUrl}/releases/${album.slug}`;
 
@@ -646,13 +647,14 @@ export class ActivityPubService {
                     "MusicRecording": "https://schema.org/MusicRecording"
                 }
             ],
-            type: ["Note", "MusicAlbum"],
+            type: "Note",
             id: noteId,
             attributedTo: userUrl,
             content: `<p>New release available: <a href="${albumUrl}">${album.title}</a></p>`,
             url: albumUrl,
             published: published,
             to: ["https://www.w3.org/ns/activitystreams#Public"],
+            cc: [`${apiUrl}/followers`],
             attachment: attachments,
             tag: []
         };
@@ -661,6 +663,7 @@ export class ActivityPubService {
     public generatePostNote(post: Post, artist: Artist): any {
         const baseUrl = this.getBaseUrl();
         const userUrl = `${baseUrl}/users/${artist.slug}`;
+        const apiUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
         const postUrl = `${baseUrl}/artists/${artist.slug}?post=${post.slug}`;
 
         const published = post.published_at || post.created_at;
@@ -674,7 +677,7 @@ export class ActivityPubService {
             url: postUrl,
             published: published,
             to: ["https://www.w3.org/ns/activitystreams#Public"],
-            cc: [`${userUrl}/followers`],
+            cc: [`${apiUrl}/followers`],
             tag: []
         };
     }

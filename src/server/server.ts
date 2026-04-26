@@ -250,7 +250,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/metadata", authMiddleware.requireAdmin, createMetadataRoutes(database, config.musicDir));
     app.use("/api/users", createUsersRoutes(gundbService, database, authService, apService));
     app.use("/api/comments", createCommentsRoutes(gundbService));
-    app.use("/api/unlock", createUnlockRoutes(database));
+    app.use("/api/unlock", createUnlockRoutes(database, authMiddleware));
     app.use("/api/payments", createPaymentsRoutes(database, config.musicDir, config));
     app.use("/api/ap", createActivityPubRoutes(apService, database, authMiddleware));
     app.use("/api/proxy", createProxyRoutes());

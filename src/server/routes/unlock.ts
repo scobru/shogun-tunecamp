@@ -1,9 +1,9 @@
 import { Router } from "express";
 import type { DatabaseService } from "../database.js";
-import type { AuthenticatedRequest } from "../middleware/auth.js";
+import { createAuthMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
 import { StringUtils } from "../../utils/stringUtils.js";
 
-export function createUnlockRoutes(database: DatabaseService): Router {
+export function createUnlockRoutes(database: DatabaseService, authMiddleware: ReturnType<typeof createAuthMiddleware>): Router {
     const router = Router();
 
     /**
@@ -53,7 +53,7 @@ export function createUnlockRoutes(database: DatabaseService): Router {
      * GET /api/unlock/admin/list
      * List codes
      */
-    router.get("/admin/list", (req: AuthenticatedRequest, res) => {
+    router.get("/admin/list", authMiddleware.requireUser, (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
 
         const releaseId = req.query.releaseId ? parseInt(req.query.releaseId as string) : undefined;
@@ -65,7 +65,7 @@ export function createUnlockRoutes(database: DatabaseService): Router {
      * POST /api/unlock/admin/create
      * Generate new codes
      */
-    router.post("/admin/create", (req: AuthenticatedRequest, res) => {
+    router.post("/admin/create", authMiddleware.requireUser, (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin) return res.status(401).json({ error: "Unauthorized" });
 
         const { count, releaseId } = req.body;
