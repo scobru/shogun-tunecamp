@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import API from '../../services/api';
 import { UserPlus, UserCog } from 'lucide-react';
-// import type { User as UserType } from '../../types';
 
 interface AdminUserModalProps {
     onUserUpdated: () => void;
