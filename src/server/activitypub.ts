@@ -744,8 +744,11 @@ export class ActivityPubService {
             console.log(`📢 Sending release activity to ${inboxes.length} inboxes`);
             await Promise.all(inboxes.map(inbox => this.sendActivity(artist, inbox, activity)));
         } else {
-            console.log(`ℹ️ No followers for ${artist.name}, skipping broadcast.`);
+            console.log(`ℹ️ No followers for ${artist.name}, skipping direct broadcast.`);
         }
+
+        // Always announce to relay if configured, even without followers
+        await this.announceToRelay(activity);
 
         this.db.createApNote(artist.id, note.id, 'release', album.id, album.slug, album.title);
     }
@@ -957,6 +960,26 @@ export class ActivityPubService {
     }
 
     public async sendActivity(actor: Artist | { slug: string, private_key?: string, public_key?: string }, inboxUri: string, activity: any): Promise<void> {
+        try {
+            const handle = actor.slug;
+            const recipient = new URL(inboxUri);
+
+            console.log(`📤 Sending activity ${activity.type || 'unknown'} from ${handle} to ${inboxUri} via Fedify`);
+            
+            await this.federation.sendActivity(
+                { identifier: handle },
+                [recipient],
+                activity
+            );
+            
+            console.log(`✅ Activity queued/sent to ${inboxUri} via Fedify`);
+        } catch (e) {
+            console.error(`❌ Fedify failed to send activity to ${inboxUri}, falling back to manual:`, e);
+            await this.manualSendActivity(actor, inboxUri, activity);
+        }
+    }
+
+    private async manualSendActivity(actor: Artist | { slug: string, private_key?: string, public_key?: string }, inboxUri: string, activity: any): Promise<void> {
         let activityJson: any;
         if (activity && typeof activity.toJsonLd === 'function') {
             activityJson = await activity.toJsonLd();
@@ -970,13 +993,13 @@ export class ActivityPubService {
             const res = await this.fetchWithSignature(inboxUri, "post", activityJson, actor as Artist);
             if (!res.ok) {
                 const errText = await res.text().catch(() => "Unknown error");
-                console.error(`❌ Failed to send activity to ${inboxUri}: ${res.status} ${errText}`);
+                console.error(`❌ Manual fallback failed to send activity to ${inboxUri}: ${res.status} ${errText}`);
             } else {
                 await drainResponse(res);
-                console.log(`✅ Sent activity to ${inboxUri}`);
+                console.log(`✅ Manually sent activity to ${inboxUri}`);
             }
         } catch (e) {
-            console.error(`❌ Error sending activity to ${inboxUri}:`, e);
+            console.error(`❌ Error in manual fallback sending activity to ${inboxUri}:`, e);
         }
     }
 

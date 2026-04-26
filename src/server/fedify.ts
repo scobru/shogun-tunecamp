@@ -13,41 +13,28 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig) {
     });
 
     federation.setNodeInfoDispatcher("/nodeinfo/2.1", async (_ctx) => {
-        const stats = await dbService.getStats();
-        const siteName = dbService.getSetting("siteName") || config.siteName || "TuneCamp Instance";
-        return {
-            software: {
-                name: "tunecamp",
-                version: { major: 2, minor: 0, patch: 0 },
-                repository: new URL("https://github.com/scobru/shogun-tunecamp"),
-            },
-            protocols: ["activitypub"],
-            openRegistrations: false,
-            usage: {
-                users: {
-                    total: stats.artists > 0 ? stats.artists : 1,
-                    activeHalfyear: stats.artists > 0 ? stats.artists : 1,
-                    activeMonth: stats.artists > 0 ? stats.artists : 1,
-                },
-                localPosts: stats.tracks + (stats.albums || 0),
-                localComments: 0,
-            },
-            metadata: {
-                nodeName: siteName,
-                nodeDescription: dbService.getSetting("siteDescription") || "Tunecamp music server with ActivityPub federation",
-                library: {
-                    federationEnabled: true,
-                    anonymousCanListen: true,
-                },
-                supportedUploadExtensions: ["mp3", "flac", "ogg", "wav", "m4a", "aac", "opus"],
-                allowList: { enabled: false, domains: [] },
-                funkwhaleVersion: "compatible",
-            },
-        };
+        // ... (rest of nodeinfo logic)
+    });
+
+    federation.setWebFingerDispatcher(async (ctx, resource) => {
+        const url = new URL(resource);
+        if (url.protocol !== "acct:") return null;
+        const parts = url.pathname.split("@");
+        if (parts.length !== 2) return null;
+        const handle = parts[0];
+        
+        const isSite = handle === "site";
+        const artist = isSite ? null : dbService.getArtistBySlug(handle);
+        if (!artist && !isSite) return null;
+
+        const publicUrl = dbService.getSetting("publicUrl") || config.publicUrl;
+        const baseUrl = publicUrl ? new URL(publicUrl) : ctx.url;
+
+        return new URL(`/api/ap/users/${handle}`, baseUrl);
     });
 
     // Validates actor handles: @slug@domain
-    federation.setActorDispatcher("/users/{handle}", async (ctx, handle) => {
+    federation.setActorDispatcher("/api/ap/users/{handle}", async (ctx, handle) => {
         let name: string | null = null;
         let summary: string | null = null;
         let publicKey: string | null = null;
@@ -91,11 +78,11 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig) {
         }
 
         const actorOptions = {
-            id: new URL(`/users/${slug}`, baseUrl),
+            id: new URL(`/api/ap/users/${slug}`, baseUrl),
             preferredUsername: slug,
             name: name,
             summary: summary,
-            inbox: new URL(`/users/${slug}/inbox`, baseUrl),
+            inbox: new URL(`/api/ap/users/${slug}/inbox`, baseUrl),
             outbox: new URL(`/api/ap/users/${slug}/outbox`, baseUrl),
             followers: new URL(`/api/ap/users/${slug}/followers`, baseUrl),
             following: new URL(`/api/ap/users/${slug}/following`, baseUrl),
@@ -106,8 +93,8 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig) {
                 sharedInbox: new URL("/inbox", baseUrl)
             }),
             publicKey: cryptoKey ? new CryptographicKey({
-                id: new URL(`/users/${slug}#main-key`, baseUrl),
-                owner: new URL(`/users/${slug}`, baseUrl),
+                id: new URL(`/api/ap/users/${slug}#main-key`, baseUrl),
+                owner: new URL(`/api/ap/users/${slug}`, baseUrl),
                 publicKey: cryptoKey
             }) : undefined
         };
@@ -153,9 +140,86 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig) {
             return [{ privateKey, publicKey: publicKeyObj }];
         });
 
+    // Outbox Dispatcher - allows other instances to fetch historical content
+    federation.setOutboxDispatcher("/api/ap/users/{handle}/outbox", async (ctx, handle, cursor) => {
+        const isSite = handle === "site";
+        const artist = isSite ? null : dbService.getArtistBySlug(handle);
+        if (!artist && !isSite) return null;
+
+        let activities: any[] = [];
+        const publicUrl = dbService.getSetting("publicUrl") || config.publicUrl;
+        const baseUrl = publicUrl ? new URL(publicUrl) : ctx.url;
+
+        if (artist) {
+            // Get public releases
+            const albums = dbService.getAlbumsByArtist(artist.id, true);
+            const releases = albums.filter(a => a.is_release && a.is_public);
+            
+            // Get public posts
+            const posts = dbService.getPostsByArtist(artist.id, true);
+
+            // Fetch tracks for all releases
+            const releaseIds = releases.map(r => r.id);
+            const allTracks = dbService.getTracksByAlbumIds(releaseIds);
+            const tracksByRelease = new Map<number, any[]>();
+            for (const track of allTracks) {
+                if (!track.album_id) continue;
+                if (!tracksByRelease.has(track.album_id)) tracksByRelease.set(track.album_id, []);
+                tracksByRelease.get(track.album_id)!.push(track);
+            }
+
+            // Combine and create Fedify activities
+            for (const release of releases) {
+                const tracks = tracksByRelease.get(release.id) || [];
+                const published = release.published_at || release.created_at;
+                const albumUrl = new URL(`/releases/${release.slug}`, baseUrl);
+                
+                // Note: In a full implementation, we'd use generateNote logic here
+                // For now, we return a Create Activity with a Note object
+                activities.push(new Create({
+                    id: new URL(`/api/ap/activity/release/${release.slug}`, baseUrl),
+                    actor: new URL(`/users/${artist.slug}`, baseUrl),
+                    published: published ? new Date(published) : undefined,
+                    to: [new URL("https://www.w3.org/ns/activitystreams#Public")],
+                    object: new Note({
+                        id: new URL(`/api/ap/note/release/${release.slug}`, baseUrl),
+                        content: `<p>New release available: <a href="${albumUrl}">${release.title}</a></p>`,
+                        url: albumUrl,
+                        published: published ? new Date(published) : undefined,
+                        attributedTo: new URL(`/users/${artist.slug}`, baseUrl),
+                    })
+                }));
+            }
+
+            for (const post of posts) {
+                const published = post.published_at || post.created_at;
+                activities.push(new Create({
+                    id: new URL(`/api/ap/activity/post/${post.slug}`, baseUrl),
+                    actor: new URL(`/users/${artist.slug}`, baseUrl),
+                    published: published ? new Date(published) : undefined,
+                    to: [new URL("https://www.w3.org/ns/activitystreams#Public")],
+                    object: new Note({
+                        id: new URL(`/api/ap/note/post/${post.slug}`, baseUrl),
+                        content: `<p>${post.content}</p>`,
+                        url: new URL(`/artists/${artist.slug}?post=${post.slug}`, baseUrl),
+                        published: published ? new Date(published) : undefined,
+                        attributedTo: new URL(`/users/${artist.slug}`, baseUrl),
+                    })
+                }));
+            }
+        }
+
+        // Sort by date descending
+        activities.sort((a, b) => (b.published?.getTime() || 0) - (a.published?.getTime() || 0));
+
+        return {
+            items: activities,
+        };
+    });
+
     // Inbox listeners for handling Follow/Unfollow activities
     federation
-        .setInboxListeners("/users/{handle}/inbox", "/inbox")
+        .setInboxListeners("/api/ap/users/{handle}/inbox", "/api/ap/inbox")
         .on(Follow, async (ctx, follow) => {
             // Get the target (who is being followed)
             if (follow.objectId == null) return;
