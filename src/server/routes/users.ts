@@ -50,7 +50,7 @@ export function createUsersRoutes(
             }
 
             // Check if username is already taken (in database)
-            const existingDb = authService.listAdmins().find(a => a.username === username);
+            const existingDb = authService.getUserByUsername(username);
             if (existingDb) {
                 return res.status(409).json({ error: "Username already taken" });
             }
@@ -115,7 +115,7 @@ export function createUsersRoutes(
     router.get("/check/:username", async (req, res) => {
         try {
             const { username } = req.params;
-            const existingDb = authService.listAdmins().find(a => a.username === username);
+            const existingDb = authService.getUserByUsername(username);
             res.json({ available: !existingDb });
         } catch (error) {
             console.error("Username check error:", error);
@@ -196,8 +196,7 @@ export function createUsersRoutes(
      */
     router.get("/me/storage", authMiddleware.requireUser, (req: AuthenticatedRequest, res) => {
         try {
-            const admins = authService.listAdmins();
-            const user = admins.find(a => a.username === req.username);
+            const user = authService.getUserByUsername(req.username!);
             if (!user) {
                 return res.status(404).json({ error: "User not found" });
             }

@@ -356,6 +356,7 @@ export interface DatabaseService {
     updateReleaseTrack(id: number, metadata: Partial<ReleaseTrack>): void;
     updateReleaseTrackMetadata(releaseId: number, trackId: number, metadata: Partial<ReleaseTrack>): void;
     removeTrackFromRelease(releaseId: number, trackId: number): void; // Old version by IDs
+    removeTracksFromRelease(releaseId: number, trackIds: number[]): void;
     deleteReleaseTrack(id: number): void; // New version by record ID
     updateReleaseTracksOrder(releaseId: number, trackIds: number[]): void;
     cleanUpGhostTracks(releaseId: number): void;
@@ -399,6 +400,7 @@ export interface DatabaseService {
     updateTrackAlbum(id: number, albumId: number | null): void;
     updateTracksAlbum(trackIds: number[], albumId: number | null): void;
     updateTrackOrder(id: number, trackNum: number): void;
+    updateTracksOrder(trackOrders: { id: number, trackNum: number }[]): void;
     updateTrackArtist(id: number, artistId: number | null): void;
     getTrackByMetadata(title: string, artistId: number | null, albumId: number | null): Track | undefined;
     updateTrackTitle(id: number, title: string): void;
@@ -546,6 +548,8 @@ export interface DatabaseService {
     isArtistLinkedToUser(artistId: number): boolean;
     isArtistLinkedToUserBySlug(slug: string): boolean;
 }
+
+const _insertQueueTrackStmts = new Map<number, any>();
 
 export function createDatabase(dbPath: string): DatabaseService {
     const db = new Database(dbPath);
@@ -1996,6 +2000,16 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare("DELETE FROM release_tracks WHERE release_id = ? AND track_id = ?").run(releaseId, trackId);
         },
 
+        removeTracksFromRelease(releaseId: number, trackIds: number[]): void {
+            if (trackIds.length === 0) return;
+            const CHUNK_SIZE = 900;
+            for (let i = 0; i < trackIds.length; i += CHUNK_SIZE) {
+                const chunk = trackIds.slice(i, i + CHUNK_SIZE);
+                const placeholders = chunk.map(() => "?").join(",");
+                db.prepare(`DELETE FROM release_tracks WHERE release_id = ? AND track_id IN (${placeholders})`).run(releaseId, ...chunk);
+            }
+        },
+
         deleteReleaseTrack(id: number): void {
             db.prepare("DELETE FROM release_tracks WHERE id = ?").run(id);
         },
@@ -2637,24 +2651,48 @@ export function createDatabase(dbPath: string): DatabaseService {
             const CHUNK_SIZE = 900; // Safe limit for SQLite variables
             const allTracks: Track[] = [];
 
+            let fullChunkStmt: ReturnType<typeof db.prepare> | undefined;
+
             for (let i = 0; i < albumIds.length; i += CHUNK_SIZE) {
                 const chunk = albumIds.slice(i, i + CHUNK_SIZE);
-                const placeholders = chunk.map(() => '?').join(',');
-                const tracks = db
-                    .prepare(
-                        `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, 
-                     COALESCE(ar_t.id, ar_a.id) as artist_id,
-                     COALESCE(ar_t.name, ar_a.name) as artist_name, 
-                     COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
-                     COALESCE(t.owner_id, a.owner_id) as owner_id
-             FROM tracks t
-             LEFT JOIN albums a ON t.album_id = a.id
-             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
-             LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-             WHERE t.album_id IN (${placeholders})
-             ORDER BY t.album_id, t.track_num`
-                    )
-                    .all(...chunk) as Track[];
+                let tracks;
+
+                if (chunk.length === CHUNK_SIZE) {
+                    if (!fullChunkStmt) {
+                        const fullChunkPlaceholders = Array(CHUNK_SIZE).fill('?').join(',');
+                        fullChunkStmt = db.prepare(
+                            `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility,
+                                 COALESCE(ar_t.id, ar_a.id) as artist_id,
+                                 COALESCE(ar_t.name, ar_a.name) as artist_name,
+                                 COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+                                 COALESCE(t.owner_id, a.owner_id) as owner_id
+                         FROM tracks t
+                         LEFT JOIN albums a ON t.album_id = a.id
+                         LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                         LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                         WHERE t.album_id IN (${fullChunkPlaceholders})
+                         ORDER BY t.album_id, t.track_num`
+                        );
+                    }
+                    tracks = fullChunkStmt.all(chunk) as Track[];
+                } else {
+                    const placeholders = chunk.map(() => '?').join(',');
+                    tracks = db
+                        .prepare(
+                            `SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility,
+                         COALESCE(ar_t.id, ar_a.id) as artist_id,
+                         COALESCE(ar_t.name, ar_a.name) as artist_name,
+                         COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+                         COALESCE(t.owner_id, a.owner_id) as owner_id
+                 FROM tracks t
+                 LEFT JOIN albums a ON t.album_id = a.id
+                 LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                 LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                 WHERE t.album_id IN (${placeholders})
+                 ORDER BY t.album_id, t.track_num`
+                        )
+                        .all(chunk) as Track[];
+                }
                 allTracks.push(...tracks);
             }
 
@@ -2669,21 +2707,45 @@ export function createDatabase(dbPath: string): DatabaseService {
             if (ids.length === 0) return [];
             const CHUNK_SIZE = 900;
             const results: Track[] = [];
+
+            let fullChunkStmt: ReturnType<typeof db.prepare> | undefined;
+
             for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
                 const chunk = ids.slice(i, i + CHUNK_SIZE);
-                const placeholders = chunk.map(() => "?").join(",");
-                const rows = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price,
-                    COALESCE(ar_t.id, ar_a.id) as artist_id,
-                    COALESCE(ar_t.name, ar_a.name) as artist_name,
-                    COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
-                    COALESCE(t.owner_id, a.owner_id) as owner_id,
-                    own.username as owner_name
-                   FROM tracks t
-                   LEFT JOIN albums a ON t.album_id = a.id
-                   LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
-                   LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-                   LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
-                   WHERE t.id IN (${placeholders})`).all(...chunk) as Track[];
+                let rows;
+
+                if (chunk.length === CHUNK_SIZE) {
+                    if (!fullChunkStmt) {
+                        const fullChunkPlaceholders = Array(CHUNK_SIZE).fill('?').join(',');
+                        fullChunkStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price,
+                                COALESCE(ar_t.id, ar_a.id) as artist_id,
+                                COALESCE(ar_t.name, ar_a.name) as artist_name,
+                                COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+                                COALESCE(t.owner_id, a.owner_id) as owner_id,
+                                own.username as owner_name
+                               FROM tracks t
+                               LEFT JOIN albums a ON t.album_id = a.id
+                               LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                               LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                               LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
+                               WHERE t.id IN (${fullChunkPlaceholders})`);
+                    }
+                    rows = fullChunkStmt.all(chunk) as Track[];
+                } else {
+                    const placeholders = chunk.map(() => "?").join(",");
+                    rows = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price,
+                        COALESCE(ar_t.id, ar_a.id) as artist_id,
+                        COALESCE(ar_t.name, ar_a.name) as artist_name,
+                        COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+                        COALESCE(t.owner_id, a.owner_id) as owner_id,
+                        own.username as owner_name
+                       FROM tracks t
+                       LEFT JOIN albums a ON t.album_id = a.id
+                       LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+                       LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+                       LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
+                       WHERE t.id IN (${placeholders})`).all(chunk) as Track[];
+                }
                 results.push(...rows);
             }
             return results;
@@ -2759,6 +2821,16 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         updateTrackOrder(id: number, trackNum: number): void {
             db.prepare("UPDATE tracks SET track_num = ? WHERE id = ?").run(trackNum, id);
+        },
+
+        updateTracksOrder(trackOrders: { id: number, trackNum: number }[]): void {
+            const stmt = db.prepare("UPDATE tracks SET track_num = ? WHERE id = ?");
+            const updateMany = db.transaction((orders: { id: number, trackNum: number }[]) => {
+                for (const order of orders) {
+                    stmt.run(order.trackNum, order.id);
+                }
+            });
+            updateMany(trackOrders);
         },
 
         updateTrackArtist(id: number, artistId: number | null): void {
@@ -3582,13 +3654,16 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
         starItems(username: string, items: { type: string; id: string }[]): void {
             if (items.length === 0) return;
-            const insertStmt = db.prepare(`
-                INSERT OR IGNORE INTO starred_items (username, item_type, item_id)
-                VALUES (?, ?, ?)
-            `);
-            const transaction = db.transaction((chunk: { type: string; id: string }[]) => {
-                for (const item of chunk) {
-                    insertStmt.run(username, item.type, item.id);
+            const CHUNK_SIZE = 300; // 300 items * 3 variables = 900 variables (safe for SQLite limit)
+            const transaction = db.transaction((allItems: { type: string; id: string }[]) => {
+                for (let i = 0; i < allItems.length; i += CHUNK_SIZE) {
+                    const chunk = allItems.slice(i, i + CHUNK_SIZE);
+                    const placeholders = chunk.map(() => '(?, ?, ?)').join(', ');
+                    const values = chunk.flatMap(item => [username, item.type, item.id]);
+                    db.prepare(`
+                        INSERT OR IGNORE INTO starred_items (username, item_type, item_id)
+                        VALUES ${placeholders}
+                    `).run(...values);
                 }
             });
             transaction(items);
@@ -3599,13 +3674,25 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
         unstarItems(username: string, items: { type: string; id: string }[]): void {
             if (items.length === 0) return;
-            const deleteStmt = db.prepare("DELETE FROM starred_items WHERE username = ? AND item_type = ? AND item_id = ?");
-            const transaction = db.transaction((chunk: { type: string; id: string }[]) => {
-                for (const item of chunk) {
-                    deleteStmt.run(username, item.type, item.id);
+
+            const itemsByType: Record<string, string[]> = {};
+            for (const item of items) {
+                if (!itemsByType[item.type]) itemsByType[item.type] = [];
+                itemsByType[item.type].push(item.id);
+            }
+
+            const CHUNK_SIZE = 900;
+            const transaction = db.transaction(() => {
+                for (const [type, ids] of Object.entries(itemsByType)) {
+                    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+                        const chunk = ids.slice(i, i + CHUNK_SIZE);
+                        const placeholders = chunk.map(() => '?').join(',');
+                        const deleteStmt = db.prepare(`DELETE FROM starred_items WHERE username = ? AND item_type = ? AND item_id IN (${placeholders})`);
+                        deleteStmt.run(username, type, ...chunk);
+                    }
                 }
             });
-            transaction(items);
+            transaction();
         },
 
         getStarredItems(username: string, itemType?: string): { item_type: string; item_id: string; created_at: string }[] {
@@ -3656,9 +3743,28 @@ export function createDatabase(dbPath: string): DatabaseService {
                 
                 db.prepare("DELETE FROM play_queue_tracks WHERE username = ?").run(username);
                 
-                const insertTrack = db.prepare("INSERT INTO play_queue_tracks (username, track_id, position) VALUES (?, ?, ?)");
-                for (let i = 0; i < trackIds.length; i++) {
-                    insertTrack.run(username, trackIds[i], i);
+                if (trackIds && trackIds.length > 0) {
+                    const CHUNK_SIZE = 300;
+                    for (let i = 0; i < trackIds.length; i += CHUNK_SIZE) {
+                        const chunkLength = Math.min(CHUNK_SIZE, trackIds.length - i);
+
+                        let stmt = _insertQueueTrackStmts.get(chunkLength);
+                        if (!stmt) {
+                            let placeholders = "(?, ?, ?)";
+                            for (let j = 1; j < chunkLength; j++) placeholders += ", (?, ?, ?)";
+                            stmt = db.prepare(`INSERT INTO play_queue_tracks (username, track_id, position) VALUES ${placeholders}`);
+                            _insertQueueTrackStmts.set(chunkLength, stmt);
+                        }
+
+                        const params: any[] = new Array(chunkLength * 3);
+                        for (let j = 0; j < chunkLength; j++) {
+                            const offset = j * 3;
+                            params[offset] = username;
+                            params[offset + 1] = trackIds[i + j];
+                            params[offset + 2] = i + j;
+                        }
+                        stmt.run(...params);
+                    }
                 }
             })();
         },

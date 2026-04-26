@@ -51,6 +51,8 @@ export interface AuthService {
     updateAdmin(id: number, artistId: number | null, role?: UserRole): void;
     updateStorageUsed(userId: number, bytesUsed: number): void;
     getStorageInfo(userId: number): { storage_quota: number; storage_used: number } | null;
+    getAdminById(id: number): { id: number; username: string; artist_id: number | null; artist_name: string | null; role: UserRole; storage_quota: number; is_active: number; created_at: string; is_root: boolean } | undefined;
+    getUserByUsername(username: string): { id: number; username: string; artist_id: number | null; artist_name: string | null; role: UserRole; storage_quota: number; is_active: number; created_at: string; is_root: boolean } | undefined;
     listAdmins(): { id: number; username: string; artist_id: number | null; role: UserRole; storage_quota: number; is_active: number; created_at: string }[];
     deleteAdmin(id: number): void;
     toggleUserStatus(id: number, active: boolean): void;
@@ -487,6 +489,44 @@ export function createAuthService(
 
         getStorageInfo(userId: number): { storage_quota: number; storage_used: number } | null {
             return db.prepare("SELECT storage_quota, storage_used FROM admin WHERE id = ?").get(userId) as { storage_quota: number; storage_used: number } | null;
+        },
+
+        getAdminById(id: number): { id: number; username: string; artist_id: number | null; artist_name: string | null; role: UserRole; storage_quota: number; is_active: number; created_at: string; is_root: boolean } | undefined {
+            const row = db.prepare(`
+                SELECT a.id, a.username, a.artist_id, a.role, a.storage_quota, a.is_active, a.created_at, ar.name as artist_name
+                FROM admin a
+                LEFT JOIN artists ar ON a.artist_id = ar.id
+                WHERE a.id = ?
+            `).get(id) as any;
+
+            if (!row) {
+                return undefined;
+            }
+
+            return {
+                ...row,
+                role: row.role || 'admin',
+                is_root: row.id === 1
+            };
+        },
+
+        getUserByUsername(username: string): { id: number; username: string; artist_id: number | null; artist_name: string | null; role: UserRole; storage_quota: number; is_active: number; created_at: string; is_root: boolean } | undefined {
+            const row = db.prepare(`
+                SELECT a.id, a.username, a.artist_id, a.role, a.storage_quota, a.is_active, a.created_at, ar.name as artist_name
+                FROM admin a
+                LEFT JOIN artists ar ON a.artist_id = ar.id
+                WHERE a.username = ?
+            `).get(username) as any;
+
+            if (!row) {
+                return undefined;
+            }
+
+            return {
+                ...row,
+                role: row.role || 'admin',
+                is_root: row.id === 1
+            };
         },
 
         listAdmins(): { id: number; username: string; artist_id: number | null; artist_name: string | null; role: UserRole; storage_quota: number; is_active: number; created_at: string; is_root: boolean }[] {

@@ -23,6 +23,7 @@ const mockDatabase = {
     getPost: jest.fn(),
     updatePost: jest.fn(),
     createPost: jest.fn(),
+    updateTracksOrder: jest.fn(),
     deletePost: jest.fn(),
 } as unknown as DatabaseService;
 
@@ -47,6 +48,7 @@ const mockConfig = {
 const mockAuthService = {
     isRootAdmin: jest.fn(),
     listAdmins: jest.fn(),
+    getAdminById: jest.fn(),
     changePassword: jest.fn(),
     createAdmin: jest.fn(),
     updateAdmin: jest.fn(),
@@ -70,6 +72,16 @@ describe('Admin Routes Vulnerability Check', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+
+        (mockAuthService.listAdmins as jest.Mock).mockReturnValue([
+            { id: 1, username: 'root', role: 'admin' },
+            { id: 2, username: 'other', role: 'admin' }
+        ]);
+        (mockAuthService.getAdminById as jest.Mock).mockImplementation((id: any) => {
+            if (id === 1) return { id: 1, username: 'root', role: 'admin' };
+            if (id === 2) return { id: 2, username: 'other', role: 'admin' };
+            return undefined;
+        });
 
         app = express();
         app.use(express.json());

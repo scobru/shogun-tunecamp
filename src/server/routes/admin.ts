@@ -543,9 +543,9 @@ export function createAdminRoutes(
                         console.log(`     🔗 Adding track ${trackId} to formal release ${id}`);
                         database.addTrackToRelease(id, trackId);
                     }
-                    for (const trackId of toRemove) {
-                        console.log(`     ✂️ Removing track ${trackId} from formal release ${id}`);
-                        database.removeTrackFromRelease(id, trackId);
+                    if (toRemove.length > 0) {
+                        console.log(`     ✂️ Unlinking ${toRemove.length} tracks from formal release ${id}`);
+                        database.removeTracksFromRelease(id, toRemove);
                     }
                     // Also update order if provided (preserving the list order)
                     console.log(`     🔢 Updating track order for formal release ${id}:`, newTrackIds);
@@ -584,10 +584,11 @@ export function createAdminRoutes(
 
                     // For library albums, we should also update the track_num in the tracks table to preserve reordering
                     console.log(`     🔢 Updating track order for library album ${id}`);
-                    for (let i = 0; i < newTrackIds.length; i++) {
-                        const trackId = newTrackIds[i];
-                        database.updateTrackOrder(trackId, i + 1);
-                    }
+                    const trackOrders = newTrackIds.map((trackId: number, index: number) => ({
+                        id: trackId,
+                        trackNum: index + 1
+                    }));
+                    database.updateTracksOrder(trackOrders);
                 }
             }
 
@@ -892,8 +893,7 @@ export function createAdminRoutes(
                 return res.status(400).json({ error: passwordValidation.error });
             }
 
-            const admins = authService.listAdmins();
-            const admin = admins.find(a => a.id === id);
+            const admin = authService.getAdminById(id);
 
             if (!admin) {
                 return res.status(404).json({ error: "User not found" });

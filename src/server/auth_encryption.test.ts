@@ -21,6 +21,47 @@ describe("Auth Encryption (GunDB)", () => {
         expect(decrypted).toEqual(TEST_DATA);
     });
 
+    test("should generate different IVs and ciphertexts for the same data (IV randomness)", () => {
+        const encrypted1 = encryptGunPrivHelper(TEST_DATA, TEST_SECRET);
+        const encrypted2 = encryptGunPrivHelper(TEST_DATA, TEST_SECRET);
+
+        const parts1 = encrypted1.split(":");
+        const parts2 = encrypted2.split(":");
+
+        // IVs should be different
+        expect(parts1[0]).not.toEqual(parts2[0]);
+        // Ciphertexts should be different because of different IVs
+        expect(parts1[1]).not.toEqual(parts2[1]);
+
+        // Both should decrypt correctly
+        expect(decryptGunPrivHelper(encrypted1, TEST_SECRET)).toEqual(TEST_DATA);
+        expect(decryptGunPrivHelper(encrypted2, TEST_SECRET)).toEqual(TEST_DATA);
+    });
+
+    test("should correctly encrypt and decrypt various JSON-serializable types", () => {
+        const testTypes = [
+            "a simple string",
+            123456,
+            true,
+            false,
+            null,
+            ["an", "array", "of", "items"],
+            { complex: { nested: [1, 2, 3] } }
+        ];
+
+        for (const data of testTypes) {
+            const encrypted = encryptGunPrivHelper(data, TEST_SECRET);
+            const decrypted = decryptGunPrivHelper(encrypted, TEST_SECRET);
+            expect(decrypted).toEqual(data);
+        }
+    });
+
+    test("should fail or handle invalid inputs like undefined", () => {
+        expect(() => {
+            encryptGunPrivHelper(undefined, TEST_SECRET);
+        }).toThrow();
+    });
+
     test("should decrypt legacy CBC format", () => {
         const decrypted = decryptGunPrivHelper(LEGACY_ENCRYPTED, TEST_SECRET);
         expect(decrypted).toEqual(TEST_DATA);

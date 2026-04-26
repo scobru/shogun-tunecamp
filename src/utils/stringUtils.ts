@@ -41,23 +41,22 @@ export const StringUtils = {
      */
     formatTimeAgo: (timestampMs: number, currentTimeMs: number = Date.now()): string => {
         const diffMs = currentTimeMs - timestampMs;
-        const diffSeconds = Math.floor(diffMs / 1000);
+        const diffSeconds = Math.trunc(diffMs / 1000);
 
         if (diffSeconds < 60) return "just now";
         if (diffSeconds < 3600) {
-            const minutes = Math.floor(diffSeconds / 60);
+            const minutes = Math.trunc(diffSeconds / 60);
             return `${minutes}m ago`;
         }
         if (diffSeconds < 86400) {
-            const hours = Math.floor(diffSeconds / 3600);
+            const hours = Math.trunc(diffSeconds / 3600);
             return `${hours}h ago`;
         }
         if (diffSeconds < 604800) {
-            const days = Math.floor(diffSeconds / 86400);
+            const days = Math.trunc(diffSeconds / 86400);
             return `${days}d ago`;
         }
-        // For older dates, return empty string as per original Gleam logic (let JS handle it)
-        return "";
+        return new Date(timestampMs).toLocaleDateString();
     },
 
     /**

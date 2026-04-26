@@ -14,7 +14,8 @@ export const LibraryUtils = {
             numStr = StringUtils.padLeft(trackNum.toString(), 2, "0") + "-";
         }
 
-        return numStr + StringUtils.slugify(title) + "." + StringUtils.getFileExtension(`file.${extension}`) || extension.toLowerCase();
+        const ext = StringUtils.getFileExtension(`file.${extension}`);
+        return numStr + StringUtils.slugify(title) + "." + (ext || extension.toLowerCase().replace(/^\./, ''));
     },
 
     /**
@@ -30,7 +31,8 @@ export const LibraryUtils = {
      * Returns the standard cover filename: "cover.jpg" or "cover.png"
      */
     getStandardCoverFilename: (originalExt: string): string => {
-        if (originalExt.toLowerCase() === "png") {
+        const normalizedExt = originalExt.toLowerCase().startsWith('.') ? originalExt.slice(1) : originalExt;
+        if (normalizedExt.toLowerCase() === "png") {
             return "cover.png";
         }
         return "cover.jpg";

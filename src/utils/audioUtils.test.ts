@@ -1,6 +1,31 @@
 
-import { describe, expect, test } from '@jest/globals';
-import { getPlaceholderSVG, formatDuration } from './audioUtils.js';
+import { describe, expect, test, beforeAll, afterAll, jest } from '@jest/globals';
+import { getPlaceholderSVG, formatDuration, slugify, formatTimeAgo } from './audioUtils.js';
+
+describe('slugify', () => {
+    test('should return empty string for null/undefined/empty input', () => {
+        // @ts-ignore
+        expect(slugify(null)).toBe('');
+        // @ts-ignore
+        expect(slugify(undefined)).toBe('');
+        expect(slugify('')).toBe('');
+    });
+
+    test('should convert text to a URL-safe slug correctly', () => {
+        expect(slugify('Hello World!')).toBe('hello-world');
+        expect(slugify('My Awesome Track 1')).toBe('my-awesome-track-1');
+    });
+
+    test('should handle special characters', () => {
+        expect(slugify('A b c 1@#')).toBe('a-b-c-1');
+        expect(slugify('Track name with (parentheses) & [brackets]!')).toBe('track-name-with-parentheses-brackets');
+    });
+
+    test('should trim leading/trailing dashes', () => {
+        expect(slugify('--Hello--')).toBe('hello');
+        expect(slugify('---Multiple--Dashes---')).toBe('multiple-dashes');
+    });
+});
 
 describe('Audio Utils Security', () => {
     test('getPlaceholderSVG should escape HTML special characters to prevent XSS', () => {
@@ -60,5 +85,58 @@ describe('formatDuration', () => {
 
     test('should truncate floating point numbers', () => {
         expect(formatDuration(65.7)).toBe('1:05');
+    });
+});
+
+describe('formatTimeAgo', () => {
+    let dateNowSpy: ReturnType<typeof jest.spyOn>;
+    const MOCK_CURRENT_TIME = new Date('2024-01-01T12:00:00.000Z').getTime();
+
+    beforeAll(() => {
+        // Mock Date.now() to return a consistent timestamp
+        dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(MOCK_CURRENT_TIME);
+    });
+
+    afterAll(() => {
+        // Restore the original Date.now()
+        dateNowSpy.mockRestore();
+    });
+
+    test('should format time within 60 seconds as "just now"', () => {
+        // 10 seconds ago
+        expect(formatTimeAgo(MOCK_CURRENT_TIME - 10 * 1000)).toBe('just now');
+        // 59 seconds ago
+        expect(formatTimeAgo(MOCK_CURRENT_TIME - 59 * 1000)).toBe('just now');
+    });
+
+    test('should format time within 60 minutes as "Xm ago"', () => {
+        // 1 minute ago
+        expect(formatTimeAgo(MOCK_CURRENT_TIME - 60 * 1000)).toBe('1m ago');
+        // 45 minutes ago
+        expect(formatTimeAgo(MOCK_CURRENT_TIME - 45 * 60 * 1000)).toBe('45m ago');
+    });
+
+    test('should format time within 24 hours as "Xh ago"', () => {
+        // 1 hour ago
+        expect(formatTimeAgo(MOCK_CURRENT_TIME - 3600 * 1000)).toBe('1h ago');
+        // 23 hours ago
+        expect(formatTimeAgo(MOCK_CURRENT_TIME - 23 * 3600 * 1000)).toBe('23h ago');
+    });
+
+    test('should format time within 7 days as "Xd ago"', () => {
+        // 1 day ago
+        expect(formatTimeAgo(MOCK_CURRENT_TIME - 86400 * 1000)).toBe('1d ago');
+        // 6 days ago
+        expect(formatTimeAgo(MOCK_CURRENT_TIME - 6 * 86400 * 1000)).toBe('6d ago');
+    });
+
+    test('should format older dates with toLocaleDateString', () => {
+        // 8 days ago
+        const olderDate = new Date(MOCK_CURRENT_TIME - 8 * 86400 * 1000);
+        expect(formatTimeAgo(olderDate.getTime())).toBe(olderDate.toLocaleDateString());
+
+        // 1 year ago
+        const yearAgoDate = new Date(MOCK_CURRENT_TIME - 365 * 86400 * 1000);
+        expect(formatTimeAgo(yearAgoDate.getTime())).toBe(yearAgoDate.toLocaleDateString());
     });
 });
