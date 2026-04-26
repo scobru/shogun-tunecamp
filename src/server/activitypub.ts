@@ -705,16 +705,18 @@ export class ActivityPubService {
         await this.sendActivity(artist, inboxUri, acceptActivity);
     }
 
-    public async broadcastRelease(album: Album): Promise<void> {
+    public async broadcastRelease(album: Album, force: boolean = false): Promise<void> {
         if (!album.artist_id) return;
         const artist = this.db.getArtist(album.artist_id);
         if (!artist) return;
 
-        const existingNotes = this.db.getApNotes(artist.id, false);
-        const alreadyPublished = existingNotes.find(n => n.note_type === 'release' && n.content_id === album.id);
-        if (alreadyPublished) {
-            console.log(`ℹ️ Release "${album.title}" already published via ActivityPub. Skipping broadcast.`);
-            return;
+        if (!force) {
+            const existingNotes = this.db.getApNotes(artist.id, false);
+            const alreadyPublished = existingNotes.find(n => n.note_type === 'release' && n.content_id === album.id);
+            if (alreadyPublished) {
+                console.log(`ℹ️ Release "${album.title}" already published via ActivityPub. Skipping broadcast.`);
+                return;
+            }
         }
 
         console.log(`📢 Broadcasting release "${album.title}" to followers`);
@@ -748,17 +750,19 @@ export class ActivityPubService {
         this.db.createApNote(artist.id, note.id, 'release', album.id, album.slug, album.title);
     }
 
-    public async broadcastPost(post: Post): Promise<void> {
+    public async broadcastPost(post: Post, force: boolean = false): Promise<void> {
         if (post.visibility !== 'public') return;
 
         const artist = this.db.getArtist(post.artist_id);
         if (!artist) return;
 
-        const existingNotes = this.db.getApNotes(artist.id, false);
-        const alreadyPublished = existingNotes.find(n => n.note_type === 'post' && n.content_id === post.id);
-        if (alreadyPublished) {
-            console.log(`ℹ️ Post "${post.slug}" already published via ActivityPub. Skipping broadcast.`);
-            return;
+        if (!force) {
+            const existingNotes = this.db.getApNotes(artist.id, false);
+            const alreadyPublished = existingNotes.find(n => n.note_type === 'post' && n.content_id === post.id);
+            if (alreadyPublished) {
+                console.log(`ℹ️ Post "${post.slug}" already published via ActivityPub. Skipping broadcast.`);
+                return;
+            }
         }
 
         const note = this.generatePostNote(post, artist);
@@ -890,7 +894,7 @@ export class ActivityPubService {
                 noteCount++;
                 if (release.visibility === 'public' || release.visibility === 'unlisted') {
                     console.log(`  - Syncing public release: ${release.title}`);
-                    await this.broadcastRelease(release as any).catch(e => console.error(e));
+                    await this.broadcastRelease(release as any, true).catch(e => console.error(e));
                 } else {
                     console.log(`  - Syncing private release (Delete): ${release.title}`);
                     await this.broadcastDelete(release as any).catch(e => console.error(e));
@@ -902,7 +906,7 @@ export class ActivityPubService {
             const postPromises = posts.map(async (post) => {
                 noteCount++;
                 if (post.visibility === 'public') {
-                    await this.broadcastPost(post).catch(e => console.error(e));
+                    await this.broadcastPost(post, true).catch(e => console.error(e));
                 } else {
                     await this.broadcastPostDelete(post).catch(e => console.error(e));
                 }
@@ -926,7 +930,7 @@ export class ActivityPubService {
             const releasePromises = releases.map(async (release) => {
                 noteCount++;
                 if (release.visibility === 'public' || release.visibility === 'unlisted') {
-                    await this.broadcastRelease(release as any).catch(e => console.error(`❌ Sync release "${release.title}" failed:`, e));
+                    await this.broadcastRelease(release as any, true).catch(e => console.error(`❌ Sync release "${release.title}" failed:`, e));
                 } else {
                     await this.broadcastDelete(release as any).catch(e => console.error(`❌ Sync delete release "${release.title}" failed:`, e));
                 }
@@ -941,7 +945,7 @@ export class ActivityPubService {
             const postPromises = posts.map(async (post) => {
                 noteCount++;
                 if (post.visibility === 'public') {
-                    await this.broadcastPost(post).catch(e => console.error(`❌ Sync post failed:`, e));
+                    await this.broadcastPost(post, true).catch(e => console.error(`❌ Sync post failed:`, e));
                 } else {
                     await this.broadcastPostDelete(post).catch(e => console.error(`❌ Sync delete post failed:`, e));
                 }
