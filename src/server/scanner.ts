@@ -5,7 +5,7 @@ import { parseFile } from "music-metadata";
 import { parse } from "yaml";
 
 import type { DatabaseService, Artist, Album, Track } from "./database.js";
-import { WaveformService } from "./waveform.js";
+import { WaveformPeakService } from "./waveform.js";
 import { slugify } from "../utils/audioUtils.js";
 import { convertWavToMp3, getDurationFromFfmpeg } from "./ffmpeg.js";
 import { getFastFileHash } from "../utils/fileUtils.js";
@@ -787,7 +787,7 @@ export class Scanner implements ScannerService {
 }
 
 function processQueueWaveform(file: string, id: number, dur: number | undefined, queue: ProcessingQueue, db: DatabaseService) {
-    queue.add(() => WaveformService.generateWaveform(file, 100, dur))
+    queue.add(() => WaveformPeakService.generateWaveform(file, 100, dur))
         .then(p => db.updateTrackWaveform(id, JSON.stringify(p)))
         .catch(() => {});
 }

@@ -8,7 +8,7 @@ if (ffmpegPath) {
     ffmpeg.setFfmpegPath(ffmpegPath);
 }
 
-export class WaveformService {
+export class WaveformPeakService {
     /**
      * Generates a waveform data array from an audio file.
      * Returns an array of numbers representing audio peaks.

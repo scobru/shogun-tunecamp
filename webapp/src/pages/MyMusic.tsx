@@ -5,14 +5,12 @@ import { useNavigate } from "react-router-dom";
 import {
   BarChart2,
   Music,
-  User,
   Settings,
 } from "lucide-react";
 import { AdminReleaseModal } from "../components/modals/AdminReleaseModal";
 import { UploadTracksModal } from "../components/modals/UploadTracksModal";
 import { CreatePostModal } from "../components/modals/CreatePostModal";
-import { IdentityPanel } from "../components/admin/IdentityPanel";
-import { ArtistFediversePanel } from "../components/artist/ArtistFediversePanel";
+
 import { AdminReleasesList } from "../components/admin/AdminReleasesList";
 import { AdminTracksList } from "../components/admin/AdminTracksList";
 
@@ -20,7 +18,7 @@ export const MyMusic = () => {
   const { user, isAuthenticated, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "overview" | "albums" | "tracks" | "identity" | "fediverse"
+    "overview" | "albums" | "tracks"
   >("overview");
   const [stats, setStats] = useState<any>(null);
 
@@ -111,21 +109,6 @@ export const MyMusic = () => {
           onClick={() => setActiveTab("tracks")}
         >
           Tracks
-        </a>
-        <a
-          role="tab"
-          className={`tab ${activeTab === "identity" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("identity")}
-        >
-          Fediverse Settings
-        </a>
-        <a
-          role="tab"
-          className={`tab ${activeTab === "fediverse" ? "tab-active" : ""}`}
-          onClick={() => setActiveTab("fediverse")}
-        >
-          Community
-        </a>
       </div>
 
       <div className="bg-base-100 p-6 rounded-b-box border-x border-b border-base-300 min-h-[400px]">
@@ -202,20 +185,6 @@ export const MyMusic = () => {
         )}
 
         {activeTab === "tracks" && <AdminTracksList mine={true} />}
-
-        {activeTab === "identity" && (
-           <div className="space-y-4">
-             <div className="alert alert-info py-2">
-                <User size={16} />
-                <span>Configure your ActivityPub identity. This is how other users on the Fediverse will see you.</span>
-             </div>
-             <IdentityPanel isRootAdmin={user?.isRootAdmin} />
-           </div>
-        )}
-
-        {activeTab === "fediverse" && (
-           <ArtistFediversePanel />
-        )}
       </div>
 
       <AdminReleaseModal

@@ -23,6 +23,7 @@ const Post = lazy(() => import("./pages/Post").then(m => ({ default: m.PostPage 
 const Wallet = lazy(() => import("./pages/Wallet").then(m => ({ default: m.Wallet })));
 const Profile = lazy(() => import("./pages/Profile").then(m => ({ default: m.Profile })));
 const MyMusic = lazy(() => import("./pages/MyMusic").then(m => ({ default: m.MyMusic })));
+const Social = lazy(() => import("./pages/Social").then(m => ({ default: m.Social })));
 const About = lazy(() => import("./pages/About").then(m => ({ default: m.About })));
 const SharePage = lazy(() => import("./pages/SharePage").then(m => ({ default: m.SharePage })));
 const ContentSearch = lazy(() => import("./pages/ContentSearch").then(m => ({ default: m.ContentSearch })));
@@ -112,6 +113,7 @@ function App() {
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/my-music" element={<MyMusic />} />
+            <Route path="/social" element={<Social />} />
             <Route path="/share/:id" element={<SharePage />} />
 
             {/* Admin - Protected: only role='admin' can access */}

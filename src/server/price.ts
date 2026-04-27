@@ -27,7 +27,7 @@ export async function getEthUsdRate(): Promise<number> {
 
         if (!response.ok) {
             await drainResponse(response);
-            throw new Error(`Price API returned focus status: ${response.status}`);
+            throw new Error(`Price API returned non-OK status: ${response.status}`);
         }
 
         const data = await response.json() as any;
