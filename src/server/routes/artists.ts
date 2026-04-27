@@ -501,17 +501,13 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 }
             }
 
-            // Fallback to first formal release or album cover
-            const libraryAlbums = database.getAlbumsByArtist(artist.id, false);
-            const formalReleases = database.getReleasesByArtist(artist.id, false);
-            const allAlbums = [...formalReleases, ...libraryAlbums]; // check formal releases first
+            // Fallback to formal release or album cover
+            const coverPaths = database.getArtistCovers(artist.id);
             
-            for (const album of allAlbums) {
-                if (album.cover_path) {
-                    const coverPath = path.join(musicDir, album.cover_path);
-                    if (await fs.pathExists(coverPath)) {
-                        return res.sendFile(path.resolve(coverPath), { maxAge: 86400000 });
-                    }
+            for (const relPath of coverPaths) {
+                const coverPath = path.join(musicDir, relPath);
+                if (await fs.pathExists(coverPath)) {
+                    return res.sendFile(path.resolve(coverPath), { maxAge: 86400000 });
                 }
             }
 

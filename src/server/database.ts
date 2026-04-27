@@ -371,6 +371,7 @@ export interface DatabaseService {
     getAlbumByTitle(title: string, artistId?: number): Album | undefined;
     getArtistAlbumCounts(): { artist_id: number, count: number }[];
     getAlbumsByArtist(artistId: number, publicOnly?: boolean, artistName?: string): Album[];
+    getArtistCovers(artistId: number): string[];
     getAlbumsByOwner(ownerId: number, publicOnly?: boolean): Album[];
     createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number;
     updateAlbumVisibility(id: number, visibility: 'public' | 'private' | 'unlisted'): void;
@@ -2342,6 +2343,18 @@ export function createDatabase(dbPath: string): DatabaseService {
         getArtistAlbumCounts(): { artist_id: number, count: number }[] {
             const sql = `SELECT artist_id, count(*) as count FROM albums WHERE is_release = 0 GROUP BY artist_id`;
             return db.prepare(sql).all() as { artist_id: number, count: number }[];
+        },
+
+        getArtistCovers(artistId: number): string[] {
+            const rows = db.prepare(`
+                SELECT cover_path FROM (
+                    SELECT cover_path, date, 1 as is_release FROM releases WHERE artist_id = ? AND cover_path IS NOT NULL
+                    UNION ALL
+                    SELECT cover_path, date, 0 as is_release FROM albums WHERE artist_id = ? AND is_release = 0 AND cover_path IS NOT NULL
+                ) ORDER BY is_release DESC, date DESC
+            `).all(artistId, artistId) as { cover_path: string }[];
+
+            return rows.map(r => r.cover_path);
         },
 
         getAlbumsByArtist(artistId: number, publicOnly = false, artistName?: string): Album[] {
