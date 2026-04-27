@@ -625,17 +625,32 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const now = Date.now();
         const fiveMinutes = 5 * 60 * 1000;
 
+        const trackIds: number[] = [];
+        const validCacheEntries: { user: string; data: { trackId: number; timestamp: number } }[] = [];
+
         for (const [user, data] of nowPlayingCache.entries()) {
             if (now - data.timestamp < fiveMinutes) {
-                const track = db.getTrack(data.trackId);
-                if (track) {
-                    const formatted = formatTrack(track, 'admin');
-                    entries.push({ ...formatted, '@username': user, '@minutesAgo': Math.floor((now - data.timestamp) / 60000) });
-                }
+                trackIds.push(data.trackId);
+                validCacheEntries.push({ user, data });
             } else {
                 nowPlayingCache.delete(user);
             }
         }
+
+        const tracks = db.getTracksByIds(trackIds);
+        const tracksMap = new Map();
+        for (const track of tracks) {
+            tracksMap.set(track.id, track);
+        }
+
+        for (const { user, data } of validCacheEntries) {
+            const track = tracksMap.get(data.trackId);
+            if (track) {
+                const formatted = formatTrack(track, 'admin');
+                entries.push({ ...formatted, '@username': user, '@minutesAgo': Math.floor((now - data.timestamp) / 60000) });
+            }
+        }
+
         sendResponse(res, req, { nowPlaying: { entry: entries } });
     });
 
