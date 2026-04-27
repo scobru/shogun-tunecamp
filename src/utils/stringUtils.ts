@@ -131,5 +131,17 @@ export const StringUtils = {
         }
 
         return code.join("-");
+    },
+
+    /**
+     * Cleans a file path by normalizing slashes and removing leading '../'
+     */
+    cleanPath: (p: string | null): string | null => {
+        if (!p) return null;
+        let cleaned = p.replace(/\\/g, "/");
+        while (cleaned.startsWith("../")) {
+            cleaned = cleaned.substring(3);
+        }
+        return cleaned;
     }
 };
