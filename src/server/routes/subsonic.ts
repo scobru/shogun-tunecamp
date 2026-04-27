@@ -744,13 +744,24 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const albums = db.getAlbums(false);
         const genreMap = new Map<string, { count: number, songCount: number }>();
 
+        const albumIds = albums.map(a => a.id);
+        const allTracks = db.getTracksByAlbumIds(albumIds);
+
+        const trackCounts = new Map<number, number>();
+        allTracks.forEach(t => {
+            if (t.album_id) {
+                trackCounts.set(t.album_id, (trackCounts.get(t.album_id) || 0) + 1);
+            }
+        });
+
         albums.forEach(album => {
             if (!album.genre) return;
+            const songCount = trackCounts.get(album.id) || 0;
             album.genre.split(',').forEach(g => {
                 const name = g.trim();
                 const data = genreMap.get(name) || { count: 0, songCount: 0 };
                 data.count++;
-                data.songCount += db.getTracks(album.id).length;
+                data.songCount += songCount;
                 genreMap.set(name, data);
             });
         });
