@@ -580,7 +580,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.all('/getRandomSongs.view', (req, res) => {
         const username = (req as any).user?.username || 'admin';
         const size = parseInt(ensureString(req.query.size) || '10');
-        const tracks = db.getTracks().sort(() => Math.random() - 0.5).slice(0, size);
+        const tracks = db.getRandomTracks(size);
         sendResponse(res, req, { randomSongs: { song: tracks.map(t => formatTrack(t, username)) } });
     });
 
