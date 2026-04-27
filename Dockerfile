@@ -56,7 +56,8 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 # Install all dependencies (including dev) for the entire workspace
-RUN npm ci && \
+RUN npm install -g npm@latest && \
+    npm ci && \
     npm install @rollup/rollup-linux-x64-musl lightningcss-linux-x64-musl @tailwindcss/oxide-linux-x64-musl && \
     npm cache clean --force
 
@@ -117,7 +118,8 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 COPY package*.json ./
 COPY deps ./deps
 COPY webapp/package.json ./webapp/
-RUN npm ci --omit=dev && \
+RUN npm install -g npm@latest && \
+    npm ci --omit=dev && \
     npm cache clean --force && \
     apk del python3 make g++ && \
     rm -rf /root/.npm
