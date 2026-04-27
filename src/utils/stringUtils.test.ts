@@ -77,4 +77,20 @@ describe('StringUtils.generateUnlockCode', () => {
         }
         expect(codes.size).toBe(iterations);
     });
+
+    describe("cleanPath", () => {
+        it("should return null for empty input", () => {
+            expect(StringUtils.cleanPath("")).toBeNull();
+            expect(StringUtils.cleanPath(null)).toBeNull();
+        });
+
+        it("should normalize backslashes to forward slashes", () => {
+            expect(StringUtils.cleanPath("C:\\MyMusic\\song.mp3")).toBe("C:/MyMusic/song.mp3");
+        });
+
+        it("should remove leading '../'", () => {
+            expect(StringUtils.cleanPath("../../../song.mp3")).toBe("song.mp3");
+            expect(StringUtils.cleanPath(".././song.mp3")).toBe("./song.mp3");
+        });
+    });
 });
