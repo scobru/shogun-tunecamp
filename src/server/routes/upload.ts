@@ -276,8 +276,8 @@ export function createUploadRoutes(
 
             // SECURITY FIX: Prevent uploading to another artist's release (unless root admin)
             const isAuthorized = req.isRootAdmin ||
-                (req.userId !== undefined && release?.owner_id !== null && Number(release?.owner_id) === Number(req.userId)) ||
-                (req.artistId !== undefined && release?.artist_id !== null && Number(release?.artist_id) === Number(req.artistId));
+                (req.userId !== undefined && req.userId !== null && release?.owner_id !== undefined && release?.owner_id !== null && Number(release.owner_id) === Number(req.userId)) ||
+                (req.artistId !== undefined && req.artistId !== null && release?.artist_id !== undefined && release?.artist_id !== null && Number(release.artist_id) === Number(req.artistId));
 
             if (release && !isAuthorized) {
                 console.warn(`⛔ Access Denied: User ${(req as any).username} (User ID ${req.userId}) tried to upload to release ${release.slug} (Owner ${release.owner_id})`);
@@ -419,8 +419,8 @@ export function createUploadRoutes(
                 }
 
                 const isAuthorized = req.isRootAdmin ||
-                    (req.userId !== undefined && targetItem.owner_id !== null && Number(targetItem.owner_id) === Number(req.userId)) ||
-                    (req.artistId !== undefined && targetItem.artist_id !== null && Number(targetItem.artist_id) === Number(req.artistId));
+                    (req.userId !== undefined && req.userId !== null && targetItem.owner_id !== undefined && targetItem.owner_id !== null && Number(targetItem.owner_id) === Number(req.userId)) ||
+                    (req.artistId !== undefined && req.artistId !== null && targetItem.artist_id !== undefined && targetItem.artist_id !== null && Number(targetItem.artist_id) === Number(req.artistId));
 
                 if (!isAuthorized) {
                     await fs.remove(file.path);
@@ -530,7 +530,9 @@ export function createUploadRoutes(
             }
 
             // Permission Check
-            if (!req.isRootAdmin && req.artistId && req.artistId !== artistId) {
+            const isAuthorizedAvatar = req.isRootAdmin ||
+                (req.artistId !== undefined && req.artistId !== null && artistId !== undefined && artistId !== null && Number(req.artistId) === Number(artistId));
+            if (!isAuthorizedAvatar) {
                 await fs.remove(file.path);
                 return res.status(403).json({ error: "Access denied: You can only upload avatars for your own artist" });
             }
@@ -604,7 +606,7 @@ export function createUploadRoutes(
             }
 
             // Permission Check
-            const isOwner = req.userId !== undefined && track.owner_id === req.userId;
+            const isOwner = req.userId !== undefined && req.userId !== null && track.owner_id !== undefined && track.owner_id !== null && Number(track.owner_id) === Number(req.userId);
             if (!req.isRootAdmin && !isOwner) {
                 await fs.remove(file.path);
                 return res.status(403).json({ error: "Access denied: Cannot upload artwork for this track" });
@@ -658,7 +660,9 @@ export function createUploadRoutes(
             const id = parseInt(artistId as string, 10);
 
             // Permission Check
-            if (!req.isRootAdmin && req.artistId && req.artistId !== id) {
+            const isAuthorizedUrl = req.isRootAdmin ||
+                (req.artistId !== undefined && req.artistId !== null && id !== undefined && id !== null && Number(req.artistId) === Number(id));
+            if (!isAuthorizedUrl) {
                 return res.status(403).json({ error: "Access denied: You can only upload avatars for your own artist" });
             }
 
