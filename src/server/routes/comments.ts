@@ -1,7 +1,7 @@
 import { Router } from "express";
-import type { GunDBService } from "../gundb.js";
+import type { ZenDBService } from "../zendb.js";
 
-export function createCommentsRoutes(gundbService: GunDBService): Router {
+export function createCommentsRoutes(zendbService: ZenDBService): Router {
     const router = Router();
 
     /**
@@ -15,7 +15,7 @@ export function createCommentsRoutes(gundbService: GunDBService): Router {
                 return res.status(400).json({ error: "Invalid track ID" });
             }
 
-            const comments = await gundbService.getComments(trackId);
+            const comments = await zendbService.getComments(trackId);
             res.json(comments);
         } catch (error) {
             console.error("Get comments error:", error);
@@ -47,11 +47,11 @@ export function createCommentsRoutes(gundbService: GunDBService): Router {
             // Get username from profile if not provided
             let displayName = username;
             if (!displayName) {
-                const user = await gundbService.getUser(pubKey);
+                const user = await zendbService.getUser(pubKey);
                 displayName = user?.username || pubKey.substring(0, 8) + "...";
             }
 
-            const comment = await gundbService.addComment(trackId, {
+            const comment = await zendbService.addComment(trackId, {
                 pubKey,
                 username: displayName,
                 text,
@@ -83,7 +83,7 @@ export function createCommentsRoutes(gundbService: GunDBService): Router {
             }
 
             // Get the comment to verify ownership
-            const success = await gundbService.deleteComment(commentId, pubKey, signature);
+            const success = await zendbService.deleteComment(commentId, pubKey, signature);
 
             if (success) {
                 res.json({ success: true });

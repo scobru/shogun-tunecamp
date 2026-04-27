@@ -147,12 +147,11 @@ Configuration is managed via environment variables (or an `.env` file).
 | `TUNECAMP_ADMIN_PASS` | Default admin password | `admin` |
 | `TUNECAMP_PUBLIC_URL` | Public HTTPS URL (required for ActivityPub federation) | — |
 | `TUNECAMP_SITE_NAME` | Human-readable instance name | `My TuneCamp Server` |
-| `TUNECAMP_GUN_PEERS` | Comma-separated GunDB relay peer URLs | — |
-| `VITE_GUN_PEERS` | Same as above, for the frontend build | — |
+| `TUNECAMP_ZEN_PEERS` | Comma-separated Zen relay peer URLs | — |
+| `VITE_ZEN_PEERS` | Same as above, for the frontend build | — |
 | `TUNECAMP_RELAY_URL` | ActivityPub relay URL for broadcasting | — |
 | `TUNECAMP_CORS_ORIGINS` | Comma-separated allowed CORS origins | *all* |
 | `TUNECAMP_RPC_URL` | Base Network RPC endpoint (Web3) | `https://mainnet.base.org` |
-| `TUNECAMP_OWNER_ADDRESS` | Ethereum wallet address for payment collection | — |
 | `TUNECAMP_CURRENCY_CONTRACT` | ERC-20 token contract (USDC on Base) | `0x833589...02913` |
 | `TUNECAMP_DOWNLOAD_DIR` | Directory for soulseek downloads | `/data/downloads` |
 | `DISCOGS_TOKEN` | Discogs API token for metadata matching | — |

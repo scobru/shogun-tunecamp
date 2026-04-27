@@ -8,11 +8,11 @@ export interface ServerConfig {
     dbPath: string;
     jwtSecret: string;
     corsOrigins: string[];
-    publicUrl?: string;  // Public URL for GunDB registration (e.g., https://mysite.com)
+    publicUrl?: string;  // Public URL for Zen registration (e.g., https://mysite.com)
     siteName?: string;   // Site name for community registry    
     siteDescription?: string;
     relayUrl?: string;
-    gunPeers?: string[];
+    zenPeers?: string[];
     adminUser?: string;
     adminPass?: string;
     downloadDir?: string;
@@ -72,7 +72,7 @@ export function loadConfig(overrides?: Partial<ServerConfig>): ServerConfig {
         corsOrigins: process.env.TUNECAMP_CORS_ORIGINS?.split(",") || [],
         publicUrl: process.env.TUNECAMP_PUBLIC_URL || overrides?.publicUrl,
         siteName: process.env.TUNECAMP_SITE_NAME || overrides?.siteName,
-        gunPeers: process.env.TUNECAMP_GUN_PEERS?.split(/[,\s]+/).map(p => p.trim()).filter(p => p.length > 0) || overrides?.gunPeers,
+        zenPeers: process.env.TUNECAMP_ZEN_PEERS?.split(/[,\s]+/).map(p => p.trim()).filter(p => p.length > 0) || overrides?.zenPeers,
         adminUser: process.env.TUNECAMP_ADMIN_USER || overrides?.adminUser || "admin",
         adminPass: process.env.TUNECAMP_ADMIN_PASS || overrides?.adminPass || "admin",
         downloadDir: process.env.TUNECAMP_DOWNLOAD_DIR || overrides?.downloadDir || defaultDownloadDir,

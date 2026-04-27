@@ -6,7 +6,6 @@ services:
     build:
       context: .
       args:
-        - TUNECAMP_OWNER_ADDRESS=${TUNECAMP_OWNER_ADDRESS:-}
         - TUNECAMP_RPC_URL=${TUNECAMP_RPC_URL:-https://mainnet.base.org}
         - TUNECAMP_CURRENCY_CONTRACT=${TUNECAMP_CURRENCY_CONTRACT:-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913}
         - DISCOGS_TOKEN=${DISCOGS_TOKEN:-}
@@ -23,8 +22,6 @@ services:
     environment:
       # Base Mainnet RPC
       - TUNECAMP_RPC_URL=https://mainnet.base.org
-      # Creator Wallet Address (Ethereum)
-      - TUNECAMP_OWNER_ADDRESS=
       # Base Network Currency Contract (e.g. USDC)
       - TUNECAMP_CURRENCY_CONTRACT=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
       # Optional: Set public URL for community registration
@@ -36,8 +33,8 @@ services:
       - DISCOGS_TOKEN=${DISCOGS_TOKEN:-}
       - TUNECAMP_DOWNLOAD_DIR=${TUNECAMP_DOWNLOAD_DIR:-/data/downloads}
       # ZEN Relay peer - must use /zen WebSocket path
-      - TUNECAMP_GUN_PEERS=${TUNECAMP_GUN_PEERS:-wss://shogun-relay.scobrudot.dev/zen}
-      - VITE_GUN_PEERS=${TUNECAMP_GUN_PEERS:-wss://shogun-relay.scobrudot.dev/zen}
+      - TUNECAMP_ZEN_PEERS=${TUNECAMP_ZEN_PEERS:-wss://shogun-relay.scobrudot.dev/zen}
+      - VITE_ZEN_PEERS=${TUNECAMP_ZEN_PEERS:-wss://shogun-relay.scobrudot.dev/zen}
     restart: unless-stopped
     # Optional: healthcheck configured in Dockerfile
 

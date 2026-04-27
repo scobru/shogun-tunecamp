@@ -1,12 +1,12 @@
 import type { DatabaseService, Post, Release } from "./database.js";
-import type { GunDBService, SiteInfo } from "./gundb.js";
+import type { ZenDBService, SiteInfo } from "./zendb.js";
 import type { ActivityPubService } from "./activitypub.js";
 import type { ServerConfig } from "./config.js";
 
 export class PublishingService {
     constructor(
         private db: DatabaseService,
-        private gundb: GunDBService,
+        private zendb: ZenDBService,
         private ap: ActivityPubService,
         private config: ServerConfig
     ) {}
@@ -73,13 +73,13 @@ export class PublishingService {
     }
 
     /**
-     * Ensures the instance is registered in the GunDB community directory.
+     * Ensures the instance is registered in the Zen community directory.
      * Called during release sync to keep our instance visible.
      */
     private async ensureSiteRegistered(artistName?: string): Promise<void> {
         const siteInfo = this.getSiteInfo(artistName);
         if (siteInfo) {
-            await this.gundb.registerSite(siteInfo);
+            await this.zendb.registerSite(siteInfo);
         }
     }
 
@@ -93,7 +93,7 @@ export class PublishingService {
 
             const isPublic = release.visibility === 'public' || release.visibility === 'unlisted';
 
-            // Ensure our instance is registered in GunDB for discovery
+            // Ensure our instance is registered in Zen for discovery
             await this.ensureSiteRegistered(release.artist_name);
 
             // ActivityPub Logic
@@ -107,16 +107,8 @@ export class PublishingService {
                 console.error(`❌ ActivityPub sync failed for release ${releaseId}:`, e);
             }
 
-            // Zen (GunDB) Logic
-            try {
-                if (isPublic && release.published_to_gundb) {
-                    await this.gundb.publishRelease(releaseId);
-                } else {
-                    await this.gundb.unpublishRelease(releaseId);
-                }
-            } catch (e) {
-                console.error(`❌ Zen sync failed for release ${releaseId}:`, e);
-            }
+            // Zen Logic removed: tracks are published via ActivityPub only.
+            // Zen serves only as instance signaling.
         } catch (error) {
             console.error(`🔥 Critical error in syncRelease for ${releaseId}:`, error);
         }
@@ -155,7 +147,7 @@ export class PublishingService {
     }
 
     async syncCommunityFollows(): Promise<{ discovered: number, followed: number }> {
-        console.log("🌐 Starting decentralized community discovery via GunDB...");
+        console.log("🌐 Starting decentralized community discovery via Zen...");
         
         const publicUrl = this.db.getSetting("publicUrl") || this.config.publicUrl;
         if (!publicUrl) {
@@ -164,7 +156,7 @@ export class PublishingService {
         }
 
         try {
-            const sites = await this.gundb.getCommunitySites();
+            const sites = await this.zendb.getCommunitySites();
             const myUrl = publicUrl.replace(/\/$/, "");
             
             let followedCount = 0;
@@ -196,9 +188,9 @@ export class PublishingService {
 
 export function createPublishingService(
     db: DatabaseService,
-    gundb: GunDBService,
+    zendb: ZenDBService,
     ap: ActivityPubService,
     config: ServerConfig
 ): PublishingService {
-    return new PublishingService(db, gundb, ap, config);
+    return new PublishingService(db, zendb, ap, config);
 }

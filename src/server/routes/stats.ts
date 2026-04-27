@@ -1,10 +1,10 @@
 import { Router } from "express";
-import type { GunDBService } from "../gundb.js";
+import type { ZenDBService } from "../zendb.js";
 import type { DatabaseService } from "../database.js";
 import type { ServerConfig } from "../config.js";
 import { isSafeUrl } from "../../utils/networkUtils.js";
 
-export function createStatsRoutes(gundbService: GunDBService, dbService: DatabaseService, config: ServerConfig): Router {
+export function createStatsRoutes(zendbService: ZenDBService, dbService: DatabaseService, config: ServerConfig): Router {
     const router = Router();
 
     /**
@@ -14,7 +14,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
     router.get("/release/:slug", async (req, res) => {
         try {
             const slug = req.params.slug;
-            const count = await gundbService.getDownloadCount(slug);
+            const count = await zendbService.getDownloadCount(slug);
             res.json({ slug, downloads: count });
         } catch (error) {
             console.error("Error getting download count:", error);
@@ -29,7 +29,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
     router.post("/release/:slug/download", async (req, res) => {
         try {
             const slug = req.params.slug;
-            const count = await gundbService.incrementDownloadCount(slug);
+            const count = await zendbService.incrementDownloadCount(slug);
             res.json({ slug, downloads: count });
         } catch (error) {
             console.error("Error incrementing download count:", error);
@@ -44,7 +44,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
     router.get("/track/:releaseSlug/:trackId", async (req, res) => {
         try {
             const { releaseSlug, trackId } = req.params;
-            const count = await gundbService.getTrackDownloadCount(releaseSlug, trackId);
+            const count = await zendbService.getTrackDownloadCount(releaseSlug, trackId);
             res.json({ releaseSlug, trackId, downloads: count });
         } catch (error) {
             console.error("Error getting track download count:", error);
@@ -59,7 +59,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
     router.post("/track/:releaseSlug/:trackId/download", async (req, res) => {
         try {
             const { releaseSlug, trackId } = req.params;
-            const count = await gundbService.incrementTrackDownloadCount(releaseSlug, trackId);
+            const count = await zendbService.incrementTrackDownloadCount(releaseSlug, trackId);
             res.json({ releaseSlug, trackId, downloads: count });
         } catch (error) {
             console.error("Error incrementing track download count:", error);
@@ -69,12 +69,12 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
 
     /**
      * GET /api/stats/track/:releaseSlug/:trackId/plays
-     * Get play count for a specific track from GunDB
+     * Get play count for a specific track from Zen
      */
     router.get("/track/:releaseSlug/:trackId/plays", async (req, res) => {
         try {
             const { releaseSlug, trackId } = req.params;
-            const count = await gundbService.getTrackPlayCount(releaseSlug, trackId);
+            const count = await zendbService.getTrackPlayCount(releaseSlug, trackId);
             res.json({ releaseSlug, trackId, plays: count });
         } catch (error) {
             console.error("Error getting track play count:", error);
@@ -84,12 +84,12 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
 
     /**
      * POST /api/stats/track/:releaseSlug/:trackId/play
-     * Increment play count for a specific track in GunDB
+     * Increment play count for a specific track in Zen
      */
     router.post("/track/:releaseSlug/:trackId/play", async (req, res) => {
         try {
             const { releaseSlug, trackId } = req.params;
-            const count = await gundbService.incrementTrackPlayCount(releaseSlug, trackId);
+            const count = await zendbService.incrementTrackPlayCount(releaseSlug, trackId);
             res.json({ releaseSlug, trackId, plays: count });
         } catch (error) {
             console.error("Error incrementing track play count:", error);
@@ -99,14 +99,14 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
 
     /**
      * GET /api/stats/network/sites
-     * Get all TuneCamp instances registered in the community (GunDB signaling + AP Actors + Local)
+     * Get all TuneCamp instances registered in the community (Zen signaling + AP Actors + Local)
      */
     router.get("/network/sites", async (req, res) => {
         try {
             const publicUrl = dbService.getSetting("publicUrl") || config.publicUrl || `http://localhost:${config.port}`;
             
-            // 1. Get sites from GunDB (signaling — just URLs and basic metadata)
-            const gunSites = await gundbService.getCommunitySites();
+            // 1. Get sites from Zen (signaling — just URLs and basic metadata)
+            const gunSites = await zendbService.getCommunitySites();
             const formattedGunSites = gunSites.map(s => ({
                 url: s.url,
                 name: s.name || s.title || "Untitled",
@@ -114,7 +114,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
                 version: s.version || "2.0",
                 lastSeen: s.lastSeen,
                 coverImage: s.coverImage || null,
-                federation: "gundb"
+                federation: "zen"
             }));
 
             // 2. Get actors from ActivityPub (Local DB of remote actors)
@@ -151,7 +151,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
      * GET /api/stats/network/tracks
      * Get all content from the TuneCamp network.
      * 
-     * Architecture v2: GunDB provides instance URLs (signaling), then we fetch
+     * Architecture v2: Zen provides instance URLs (signaling), then we fetch
      * catalogs directly from each instance via HTTP. ActivityPub remote content
      * and local content are also included.
      */
@@ -160,8 +160,8 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
             const publicUrl = dbService.getSetting("publicUrl") || config.publicUrl || `http://localhost:${config.port}`;
             const baseUrl = publicUrl.replace(/\/$/, "");
 
-            // 1. Get remote catalogs via HTTP from discovered GunDB instances
-            const gunSites = await gundbService.getCommunitySites();
+            // 1. Get remote catalogs via HTTP from discovered Zen instances
+            const gunSites = await zendbService.getCommunitySites();
             const myUrl = baseUrl.replace(/\/$/, "");
             const remoteSites = gunSites.filter((s: any) => {
                 if (!s.url || !s.url.startsWith("https://")) return false;
@@ -257,7 +257,7 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
      */
     router.get("/network/status", async (req, res) => {
         try {
-            const gunSites = await gundbService.getCommunitySites();
+            const gunSites = await zendbService.getCommunitySites();
             const apActors = dbService.getFollowedActors();
             const apTracks = dbService.getRemoteTracks();
             const localReleases = dbService.getReleases(true);
@@ -269,9 +269,9 @@ export function createStatsRoutes(gundbService: GunDBService, dbService: Databas
                 sites: gunSites.length + apActors.length + 1, // +1 for local
                 tracks: apTracks.length + localReleases.length,
                 lastUpdate: new Date().toISOString(),
-                gundb: {
-                    connected: gundbService.getPeerCount() > 0,
-                    peers: gundbService.getPeerCount()
+                zen: {
+                    connected: zendbService.getPeerCount() > 0,
+                    peers: zendbService.getPeerCount()
                 },
                 activitypub: {
                     enabled: apEnabled

@@ -1,8 +1,9 @@
 import crypto from "crypto";
-import { createFederation, Person, Endpoints, CryptographicKey, Follow, Accept, Undo, Announce, Service, Note, Like, Image } from "@fedify/fedify";
+import { createFederation, Person, Endpoints, CryptographicKey, Follow, Accept, Undo, Announce, Service, Note, Like, Image, Create } from "@fedify/fedify";
 import { BetterSqliteKvStore } from "./fedify-kv.js";
 import type { DatabaseService } from "./database.js";
 import type { ServerConfig } from "./config.js";
+import { Temporal } from "@js-temporal/polyfill";
 
 export function createFedify(dbService: DatabaseService, config: ServerConfig) {
     const db = dbService.db;
@@ -13,24 +14,19 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig) {
     });
 
     federation.setNodeInfoDispatcher("/nodeinfo/2.1", async (_ctx) => {
-        // ... (rest of nodeinfo logic)
-    });
-
-    federation.setWebFingerDispatcher(async (ctx, resource) => {
-        const url = new URL(resource);
-        if (url.protocol !== "acct:") return null;
-        const parts = url.pathname.split("@");
-        if (parts.length !== 2) return null;
-        const handle = parts[0];
-        
-        const isSite = handle === "site";
-        const artist = isSite ? null : dbService.getArtistBySlug(handle);
-        if (!artist && !isSite) return null;
-
-        const publicUrl = dbService.getSetting("publicUrl") || config.publicUrl;
-        const baseUrl = publicUrl ? new URL(publicUrl) : ctx.url;
-
-        return new URL(`/api/ap/users/${handle}`, baseUrl);
+        return {
+            software: {
+                name: "tunecamp",
+                version: { major: 2, minor: 0, patch: 1 },
+                homepage: new URL("https://tunecamp.app/"),
+            },
+            protocols: ["activitypub"],
+            usage: {
+                users: { total: 0 },
+                localPosts: 0,
+                localComments: 0,
+            },
+        };
     });
 
     // Validates actor handles: @slug@domain
@@ -179,14 +175,14 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig) {
                 activities.push(new Create({
                     id: new URL(`/api/ap/activity/release/${release.slug}`, baseUrl),
                     actor: new URL(`/users/${artist.slug}`, baseUrl),
-                    published: published ? new Date(published) : undefined,
-                    to: [new URL("https://www.w3.org/ns/activitystreams#Public")],
+                    published: published ? Temporal.Instant.fromEpochMilliseconds(new Date(published).getTime()) : undefined,
+                    to: new URL("https://www.w3.org/ns/activitystreams#Public"),
                     object: new Note({
                         id: new URL(`/api/ap/note/release/${release.slug}`, baseUrl),
                         content: `<p>New release available: <a href="${albumUrl}">${release.title}</a></p>`,
                         url: albumUrl,
-                        published: published ? new Date(published) : undefined,
-                        attributedTo: new URL(`/users/${artist.slug}`, baseUrl),
+                        published: published ? Temporal.Instant.fromEpochMilliseconds(new Date(published).getTime()) : undefined,
+                        attribution: new URL(`/users/${artist.slug}`, baseUrl),
                     })
                 }));
             }
@@ -196,21 +192,25 @@ export function createFedify(dbService: DatabaseService, config: ServerConfig) {
                 activities.push(new Create({
                     id: new URL(`/api/ap/activity/post/${post.slug}`, baseUrl),
                     actor: new URL(`/users/${artist.slug}`, baseUrl),
-                    published: published ? new Date(published) : undefined,
-                    to: [new URL("https://www.w3.org/ns/activitystreams#Public")],
+                    published: published ? Temporal.Instant.fromEpochMilliseconds(new Date(published).getTime()) : undefined,
+                    to: new URL("https://www.w3.org/ns/activitystreams#Public"),
                     object: new Note({
                         id: new URL(`/api/ap/note/post/${post.slug}`, baseUrl),
                         content: `<p>${post.content}</p>`,
                         url: new URL(`/artists/${artist.slug}?post=${post.slug}`, baseUrl),
-                        published: published ? new Date(published) : undefined,
-                        attributedTo: new URL(`/users/${artist.slug}`, baseUrl),
+                        published: published ? Temporal.Instant.fromEpochMilliseconds(new Date(published).getTime()) : undefined,
+                        attribution: new URL(`/users/${artist.slug}`, baseUrl),
                     })
                 }));
             }
         }
 
         // Sort by date descending
-        activities.sort((a, b) => (b.published?.getTime() || 0) - (a.published?.getTime() || 0));
+        activities.sort((a, b) => {
+            const aTime = a.published ? a.published.epochMilliseconds : 0;
+            const bTime = b.published ? b.published.epochMilliseconds : 0;
+            return bTime - aTime;
+        });
 
         return {
             items: activities,

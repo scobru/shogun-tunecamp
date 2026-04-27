@@ -13,12 +13,12 @@
  */
 
 // @ts-ignore
-import { getGun as Gun } from '../server/gun.js';
+import { getZen as Zen } from '../server/zen.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { StringUtils } from '../utils/stringUtils.js';
-import { DEFAULT_GUN_PEERS } from '../common/gun-config.js';
+import { DEFAULT_ZEN_PEERS } from '../common/zen-config.js';
 
 interface ZENKeyPair {
     pub: string;
@@ -80,11 +80,11 @@ function loadKeyPair(keypairPath: string): ZENKeyPair {
 }
 
 /**
- * Authenticate with GunDB using ZEN pair
+ * Authenticate with Zen using ZEN pair
  */
-async function authenticateGunDB(gun: any, pair: ZENKeyPair): Promise<void> {
+async function authenticateZen(zen: any, pair: ZENKeyPair): Promise<void> {
     return new Promise((resolve, reject) => {
-        const user = gun.user();
+        const user = zen.user();
         
         user.auth(pair, (ack: any) => {
             if (ack.err) {
@@ -113,10 +113,10 @@ async function generateCodes(options: CodeOptions): Promise<string[]> {
     } else {
         console.log(`⚠️  Using public space (consider using --keypair for private storage)`);
     }
-    console.log(`\nConnecting to GunDB peers...`);
+    console.log(`\nConnecting to Zen peers...`);
 
-    // Initialize Gun
-    const gun = Gun({ peers: DEFAULT_GUN_PEERS });
+    // Initialize Zen
+    const zen = Zen({ peers: DEFAULT_ZEN_PEERS });
 
     // Wait for connection
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -125,7 +125,7 @@ async function generateCodes(options: CodeOptions): Promise<string[]> {
     if (keypair) {
         console.log(`\nAuthenticating with ZEN pair...`);
         try {
-            await authenticateGunDB(gun, keypair);
+            await authenticateZen(zen, keypair);
             console.log(`✅ Authenticated successfully`);
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -142,7 +142,7 @@ async function generateCodes(options: CodeOptions): Promise<string[]> {
     console.log(`\nGenerating ${count} codes...`);
 
     // Use user().get() for private space, or get() for public space
-    const dbRoot = keypair ? gun.user() : gun;
+    const dbRoot = keypair ? zen.user() : zen;
 
     for (let i = 0; i < count; i++) {
         const code = generateCode();
@@ -191,7 +191,7 @@ Options:
   --count <n>       Number of codes to generate (default: 10)
   --downloads <n>   Max downloads per code (default: 1)
   --expires <days>  Days until codes expire (optional)
-  --namespace <ns>  GunDB namespace (default: tunecamp)
+  --namespace <ns>  Zen namespace (default: tunecamp)
   --keypair <file>  Path to ZEN keypair JSON file (for private storage)
   --output <file>   Save codes to file (optional)
   --help            Show this help
@@ -239,7 +239,7 @@ Examples:
             maxDownloads,
             expiresInDays,
             namespace,
-            peers: DEFAULT_GUN_PEERS,
+            peers: DEFAULT_ZEN_PEERS,
             keypair,
         });
 
@@ -273,7 +273,7 @@ Examples:
         console.log(`    namespace: ${namespace}`);
         if (keypair) {
             console.log(`    publicKey: "${keypair.pub}"  # <-- REQUIRED!`);
-            console.log(`\n🔒 Codes stored in your private GunDB space`);
+            console.log(`\n🔒 Codes stored in your private Zen space`);
             console.log(`   Only you can access and manage these codes`);
             console.log(`\n⚠️  IMPORTANT: You MUST add the publicKey to release.yaml!`);
             console.log(`   Without it, the frontend won't find your codes.`);

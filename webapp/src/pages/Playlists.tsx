@@ -3,7 +3,7 @@ import API from "../services/api";
 import { Link } from "react-router-dom";
 import { ListMusic, Globe, Lock, Music } from "lucide-react";
 import type { Playlist } from "../types";
-import { GunPlaylists } from "../services/gun";
+import { ZenPlaylists } from "../services/zen";
 
 // Extended interface to handle both types
 interface UnifiedPlaylist extends Playlist {
@@ -23,10 +23,10 @@ export const Playlists = () => {
   const loadPlaylists = async () => {
     setLoading(true);
     try {
-      // Fetch both SQLite and GunDB public playlists concurrently
-      const [apiData, gunData] = await Promise.all([
+      // Fetch both SQLite and Zen public playlists concurrently
+      const [apiData, zenData] = await Promise.all([
         API.getPlaylists().catch(() => []),
-        GunPlaylists.getPublicPlaylists().catch(() => [])
+        ZenPlaylists.getPublicPlaylists().catch(() => [])
       ]);
 
       // Normalize SQLite playlists
@@ -41,8 +41,8 @@ export const Playlists = () => {
         createdAt: new Date((p as any).createdAt || (p as any).created_at || 0).getTime()
       }));
 
-      // Normalize GunDB playlists
-      const normalizedGun = gunData.map(p => ({
+      // Normalize Zen playlists
+      const normalizedZen = zenData.map(p => ({
         id: p.id,
         name: p.name,
         description: p.description || "",
@@ -54,7 +54,7 @@ export const Playlists = () => {
       }));
 
       // Merge and sort
-      const merged = [...normalizedApi, ...normalizedGun].sort((a, b) => b.createdAt - a.createdAt);
+      const merged = [...normalizedApi, ...normalizedZen].sort((a, b) => b.createdAt - a.createdAt);
       setPlaylists(merged as any);
     } catch (e) {
       console.error(e);

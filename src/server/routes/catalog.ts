@@ -135,11 +135,11 @@ export function createCatalogRoutes(database: DatabaseService): Router {
             const coverImage = database.getSetting("coverImage") || undefined;
             const mode = database.getSetting("mode") || 'label';
             const siteId = database.getSetting("siteId") || "";
-            const gunPeers = database.getSetting("gunPeers") || "";
+            const zenPeers = database.getSetting("zenPeers") || "";
             const web3_checkout_address = database.getSetting("web3_checkout_address") || "";
             const web3_nft_address = database.getSetting("web3_nft_address") || "";
 
-            res.json({ siteName, siteDescription, donationLinks, backgroundImage, coverImage, mode, siteId, gunPeers, web3_checkout_address, web3_nft_address });
+            res.json({ siteName, siteDescription, donationLinks, backgroundImage, coverImage, mode, siteId, zenPeers, web3_checkout_address, web3_nft_address });
         } catch (error) {
             console.error("Error getting settings:", error);
             res.status(500).json({ error: "Failed to get settings" });

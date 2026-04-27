@@ -962,13 +962,17 @@ export class ActivityPubService {
     public async sendActivity(actor: Artist | { slug: string, private_key?: string, public_key?: string }, inboxUri: string, activity: any): Promise<void> {
         try {
             const handle = actor.slug;
-            const recipient = new URL(inboxUri);
+            const recipient = {
+                id: new URL(inboxUri),
+                inboxId: new URL(inboxUri),
+            };
 
             console.log(`📤 Sending activity ${activity.type || 'unknown'} from ${handle} to ${inboxUri} via Fedify`);
             
-            await this.federation.sendActivity(
+            const ctx = this.federation.createContext(new URL(this.getBaseUrl()), undefined);
+            await ctx.sendActivity(
                 { identifier: handle },
-                [recipient],
+                recipient,
                 activity
             );
             

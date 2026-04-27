@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import API from "../services/api";
 import { useAuthStore } from "../stores/useAuthStore";
-import { GunAuth } from "../services/gun";
+import { ZenAuth } from "../services/zen";
 import { MessageSquare, Trash2, Send } from "lucide-react";
 import { StringUtils } from "../utils/stringUtils";
 
@@ -50,18 +50,18 @@ export const Comments = ({ trackId }: CommentsProps) => {
     if (!newComment.trim() || !trackId) return;
     setSubmitting(true);
     try {
-      // Ensure user is logged in via Gun
-      if (!user || !user.gunProfile?.pub) {
+      // Ensure user is logged in via Zen
+      if (!user || !user.zenProfile?.pub) {
         alert("Please log in to comment.");
         return;
       }
 
-      const signature = await GunAuth.sign(newComment);
+      const signature = await ZenAuth.sign(newComment);
 
       await API.postComment(trackId, {
         text: newComment,
-        pubKey: user.gunProfile?.pub,
-        username: user.username || user.gunProfile?.alias || "Anonymous",
+        pubKey: user.zenProfile?.pub,
+        username: user.username || user.zenProfile?.alias || "Anonymous",
         signature,
       });
 
@@ -78,12 +78,12 @@ export const Comments = ({ trackId }: CommentsProps) => {
   const handleDelete = async (commentId: string) => {
     if (!confirm("Delete this comment?")) return;
     try {
-      // If user is a Gun user, sign the delete request
+      // If user is a Zen user, sign the delete request
       let deleteData;
-      if (user && user.gunProfile?.pub) {
-        const signature = await GunAuth.sign(commentId);
+      if (user && user.zenProfile?.pub) {
+        const signature = await ZenAuth.sign(commentId);
         deleteData = {
-          pubKey: user.gunProfile.pub,
+          pubKey: user.zenProfile.pub,
           signature,
         };
       }
@@ -155,7 +155,7 @@ export const Comments = ({ trackId }: CommentsProps) => {
                 </div>
                 <p className="text-sm opacity-80 break-words">{c.text}</p>
               </div>
-              {(user?.isAdmin || (user?.gunProfile?.pub && user.gunProfile.pub === c.pubKey)) && (
+              {(user?.isAdmin || (user?.zenProfile?.pub && user.zenProfile.pub === c.pubKey)) && (
                 <button
                   className="btn btn-ghost btn-xs btn-circle text-error opacity-0 group-hover:opacity-100 transition-opacity self-center"
                   onClick={() => handleDelete(c.id)}

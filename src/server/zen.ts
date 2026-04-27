@@ -2,11 +2,11 @@
 import ZEN from 'zen';
 // @ts-ignore
 import 'zen/lib/yson.js'; // Fix: JSON blocking CPU warning
-import { DEFAULT_GUN_PEERS, GUN_CONFIG_DEFAULTS } from '../common/gun-config.js';
+import { DEFAULT_ZEN_PEERS, ZEN_CONFIG_DEFAULTS } from '../common/zen-config.js';
 
-let gunInstance: any = null;
+let zenInstance: any = null;
 
-interface GunOptions {
+interface ZenOptions {
     peers?: string[];
     web?: any;
     radisk?: boolean;
@@ -20,13 +20,13 @@ interface GunOptions {
  * Uses ZEN's stateless External Authenticator pattern under the hood.
  */
 class ServerZenUser {
-    private _gun: any;
+    private _zen: any;
     private _pair: any = null;
     public is: { pub?: string; epub?: string } | null = null;
     public _: any = { sea: null }; // Legacy internal state accessor for compatibility
 
-    constructor(gun: any) {
-        this._gun = gun;
+    constructor(zen: any) {
+        this._zen = zen;
     }
 
     /**
@@ -67,10 +67,10 @@ class ServerZenUser {
     get(path: string) {
         if (!this.is || !this._pair) {
             // If not logged in, return a regular graph chain (read-only for user-space)
-            return this._gun.get(path);
+            return this._zen.get(path);
         }
 
-        const userRoot = this._gun.get('~' + this.is.pub);
+        const userRoot = this._zen.get('~' + this.is.pub);
         const chain = userRoot.get(path);
         return this._wrapChain(chain);
     }
@@ -108,12 +108,12 @@ class ServerZenUser {
 }
 
 /**
- * Shared Gun instance for the server
+ * Shared Zen instance for the server
  */
-export function getGun(options?: GunOptions): any {
-    if (!gunInstance) {
+export function getZen(options?: ZenOptions): any {
+    if (!zenInstance) {
         // Filter out self-peer to avoid loopback non-101 errors (proxy limitation)
-        let filteredPeers = options?.peers || DEFAULT_GUN_PEERS;
+        let filteredPeers = options?.peers || DEFAULT_ZEN_PEERS;
         if (options?.publicUrl) {
             const selfHost = new URL(options.publicUrl).hostname;
             filteredPeers = filteredPeers.filter(p => !p.includes(selfHost));
@@ -125,22 +125,22 @@ export function getGun(options?: GunOptions): any {
             web: options?.web,
             port: 1970, // Explicitly use port 1970 for ZEN relay as requested
             ws: { path: '/zen' }, // Explicit path for ZEN wire to match shogun-relay pattern
-            radisk: options?.radisk !== undefined ? options.radisk : GUN_CONFIG_DEFAULTS.radisk,
+            radisk: options?.radisk !== undefined ? options.radisk : ZEN_CONFIG_DEFAULTS.radisk,
             localStorage: false, // Ensure localStorage is always disabled on server
-            file: options?.file || GUN_CONFIG_DEFAULTS.file,
+            file: options?.file || ZEN_CONFIG_DEFAULTS.file,
             axe: false, // Explicitly disable legacy AXE mesh
             super: true // Identify as a ZEN Relay node
         };
 
         console.log(`📡 [ZEN] Initializing shared singleton with ${initializationOptions.peers.length} peers...`);
-        gunInstance = new ZEN(initializationOptions);
+        zenInstance = new ZEN(initializationOptions);
         
         // Compatibility Layer: Add .user() method to the instance
         // We use a property definition to ensure it survives and is easily accessible
-        const userShim = new ServerZenUser(gunInstance);
-        Object.defineProperty(gunInstance, 'user', {
+        const userShim = new ServerZenUser(zenInstance);
+        Object.defineProperty(zenInstance, 'user', {
             value: function(pub?: string) {
-                if (pub) return gunInstance.get('~' + pub);
+                if (pub) return zenInstance.get('~' + pub);
                 return userShim;
             },
             writable: true,
@@ -148,7 +148,7 @@ export function getGun(options?: GunOptions): any {
         });
 
         console.log(`✅ [ZEN] Instance created (Port 1970) and .user() shim attached.`);
-        gunInstance._graph; // Force relay initialization as per examples
+        zenInstance._graph; // Force relay initialization as per examples
     } else if (options?.peers || options?.web) {
         // Update existing instance if new options provided (peers/server)
         if (options.peers) {
@@ -158,25 +158,25 @@ export function getGun(options?: GunOptions): any {
                 filteredPeers = filteredPeers.filter(p => !p.includes(selfHost));
             }
             console.log(`📡 [ZEN] Shared singleton adding ${filteredPeers.length} peers...`);
-            gunInstance.opt({ peers: filteredPeers });
+            zenInstance.opt({ peers: filteredPeers });
         }
         if (options.web) {
-            gunInstance.opt({ web: options.web });
+            zenInstance.opt({ web: options.web });
         }
     }
 
     // DIAGNOSTIC: Ensure .user is a function before returning
-    if (typeof gunInstance.user !== 'function') {
-        console.error("🚨 [ZEN] FATAL: gunInstance.user is STILL not a function after initialization!");
+    if (typeof zenInstance.user !== 'function') {
+        console.error("🚨 [ZEN] FATAL: zenInstance.user is STILL not a function after initialization!");
     } else {
-        console.log("🔍 [ZEN] Diagnostic: gunInstance.user verified as function.");
+        console.log("🔍 [ZEN] Diagnostic: zenInstance.user verified as function.");
     }
     
-    return gunInstance;
+    return zenInstance;
 }
 
 /**
  * Re-exports from ZEN for convenience
  */
-export const Gun = ZEN;
-export default gunInstance;
+export const Zen = ZEN;
+export default zenInstance;

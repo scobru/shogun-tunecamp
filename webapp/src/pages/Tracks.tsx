@@ -15,7 +15,7 @@ import { useAuthStore } from "../stores/useAuthStore";
 import { usePurchases } from "../hooks/usePurchases";
 import { useWalletStore } from "../stores/useWalletStore";
 import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
-import { GunSocial } from "../services/gun";
+import { ZenSocial } from "../services/zen";
 import type { Track } from "../types";
 import clsx from "clsx";
 
@@ -47,7 +47,7 @@ export const Tracks = () => {
       });
 
     if (isAuthenticated) {
-      GunSocial.getLikedTracks().then((liked) => {
+      ZenSocial.getLikedTracks().then((liked) => {
         setLikedTrackIds(prev => new Set([...Array.from(prev), ...liked.filter((t: any) => t && t.id).map((t: any) => String(t.id))]));
       });
     } else if (!isAdminAuthenticated) {
@@ -77,12 +77,12 @@ export const Tracks = () => {
     const isCurrentlyLiked = likedTrackIds.has(trackIdStr);
 
     try {
-      // Toggle in GunDB if user is fully authenticated with GunDB
-      if (isAuthenticated && user?.gunProfile) {
+      // Toggle in Zen if user is fully authenticated with Zen
+      if (isAuthenticated && user?.zenProfile) {
         try {
-          await GunSocial.toggleLikeTrack(track);
-        } catch (gunErr) {
-          console.warn("GunDB like sync failed:", gunErr);
+          await ZenSocial.toggleLikeTrack(track);
+        } catch (zenErr) {
+          console.warn("Zen like sync failed:", zenErr);
         }
       }
 

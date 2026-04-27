@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs-extra";
 import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
-import type { GunDBService } from "../gundb.js";
+import type { ZenDBService } from "../zendb.js";
 import type { ServerConfig } from "../config.js";
 import type { AuthService } from "../auth.js";
 import { validatePassword } from "../validators.js";
@@ -15,7 +15,7 @@ export function createAdminRoutes(
     database: DatabaseService,
     scanner: ScannerService,
     musicDir: string,
-    gundbService: GunDBService,
+    zendbService: ZenDBService,
     config: ServerConfig,
     authService: AuthService,
     publishingService: PublishingService,
@@ -160,7 +160,7 @@ export function createAdminRoutes(
 
             const { 
                 siteName, siteDescription, publicUrl, artistName, coverImage, mode, 
-                gunPeers, web3_checkout_address, web3_nft_address,
+                zenPeers, web3_checkout_address, web3_nft_address,
                 coinbase_cdp_api_key_name, coinbase_cdp_api_key_secret
             } = req.body;
             let settingsChanged = false;
@@ -192,8 +192,8 @@ export function createAdminRoutes(
             if (req.body.backgroundImage !== undefined) {
                 database.setSetting("backgroundImage", req.body.backgroundImage);
             }
-            if (gunPeers !== undefined) {
-                database.setSetting("gunPeers", gunPeers);
+            if (zenPeers !== undefined) {
+                database.setSetting("zenPeers", zenPeers);
                 settingsChanged = true;
             }
             if (web3_checkout_address !== undefined) {
@@ -225,8 +225,8 @@ export function createAdminRoutes(
                     coverImage: coverImage !== undefined ? coverImage : database.getSetting("coverImage") || ""
                 };
 
-                await gundbService.registerSite(siteInfo);
-                console.log(`🌐 Re-registered site on GunDB with updated settings: ${currentPublicUrl}`);
+                await zendbService.registerSite(siteInfo);
+                console.log(`🌐 Re-registered site on Zen with updated settings: ${currentPublicUrl}`);
             }
 
             res.json({ message: "Settings updated" });
@@ -268,7 +268,7 @@ export function createAdminRoutes(
             if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only root admin can access system identity" });
             }
-            const pair = await gundbService.getIdentityKeyPair();
+            const pair = await zendbService.getIdentityKeyPair();
             res.json(pair);
         } catch (error) {
             console.error("Error getting identity:", error);
@@ -306,7 +306,7 @@ export function createAdminRoutes(
                 return res.status(403).json({ error: "Only root admin can import system identity" });
             }
             const pair = req.body;
-            const success = await gundbService.setIdentityKeyPair(pair);
+            const success = await zendbService.setIdentityKeyPair(pair);
             if (success) {
                 res.json({ message: "Identity imported successfully" });
             } else {
@@ -344,7 +344,7 @@ export function createAdminRoutes(
 
     /**
      * POST /api/admin/system/sync
-     * Force sync with GunDB network (Any Admin)
+     * Force sync with Zen network (Any Admin)
      */
     router.post("/system/sync", async (req: AuthenticatedRequest, res: any) => {
         try {
@@ -352,7 +352,7 @@ export function createAdminRoutes(
             if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only super root admin can force sync" });
             }
-            await gundbService.syncNetwork();
+            await zendbService.syncNetwork();
             res.json({ message: "Network sync completed" });
         } catch (error) {
             console.error("Error syncing network:", error);
@@ -384,7 +384,7 @@ export function createAdminRoutes(
 
     /**
      * POST /api/admin/network/cleanup
-     * Force global cleanup of unreachable sites in GunDB network (Any Admin)
+     * Force global cleanup of unreachable sites in Zen network (Any Admin)
      */
     router.post("/network/cleanup", async (req: AuthenticatedRequest, res: any) => {
         try {
@@ -396,7 +396,7 @@ export function createAdminRoutes(
             // This can take a while, so we don't await it here if we want to return immediately,
             // but for a cleanup triggered by a button, it's probably better to await or return status.
             // Awaiting for now to provide better feedback to the admin.
-            await gundbService.cleanupGlobalNetwork();
+            await zendbService.cleanupGlobalNetwork();
 
             res.json({ message: "Global network cleanup completed" });
         } catch (error) {
@@ -484,7 +484,9 @@ export function createAdminRoutes(
                 updates.genre = genreStr;
             }
             if (body.externalLinks) updates.external_links = JSON.stringify(body.externalLinks);
-            if (body.publishedToGunDB !== undefined) {
+            if (body.publishedToZen !== undefined) {
+                updates.published_to_gundb = body.publishedToZen;
+            } else if (body.publishedToGunDB !== undefined) {
                 updates.published_to_gundb = body.publishedToGunDB;
             } else if (updates.visibility === 'public' || updates.visibility === 'unlisted') {
                 updates.published_to_gundb = true;
@@ -696,7 +698,7 @@ export function createAdminRoutes(
                 // Handle unpublishing for formal releases
                 try {
                     await (publishingService as any).unpublishReleaseFromAP(release);
-                    await gundbService.unpublishRelease(id);
+                    await zendbService.unpublishRelease(id);
                 } catch (e) {
                     console.error("Failed to unpublish formal release:", e);
                 }

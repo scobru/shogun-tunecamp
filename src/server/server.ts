@@ -11,9 +11,9 @@ import { fileURLToPath } from "url";
 // Global crash protection for async modules
 process.on('uncaughtException', (err) => {
     console.error('🌊 SEVERE: Uncaught Exception:', err);
-    // Certain errors like those from GunDB or network timeouts are not fatal
+    // Certain errors like those from Zen or network timeouts are not fatal
     if (err.message && (
-        err.message.includes('GunDB') ||
+        err.message.includes('Zen') ||
         err.message.includes('ECONNREFUSED') ||
         err.message.includes('ETIMEDOUT') ||
         err.message.includes('socket hang up') ||
@@ -57,7 +57,7 @@ import { createStatsRoutes } from "./routes/stats.js";
 import { createUsersRoutes } from "./routes/users.js";
 import { createCommentsRoutes } from "./routes/comments.js";
 import { Scanner } from "./scanner.js";
-import { createGunDBService } from "./gundb.js";
+import { createZenDBService } from "./zendb.js";
 import { createLibraryStatsRoutes } from "./routes/library-stats.js";
 import { createBrowserRoutes } from "./routes/browser.js";
 import { createMetadataRoutes } from "./routes/metadata.js";
@@ -116,9 +116,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // Initialize Waveform Service
     const waveformService = new WaveformService(path.dirname(config.dbPath));
 
-    // Initialize GunDB service (with HTTP server for WebSockets)
-    const gundbService = createGunDBService(database, server, config.gunPeers, config.publicUrl);
-    await gundbService.init();
+    // Initialize Zen service (with HTTP server for WebSockets)
+    const zendbService = createZenDBService(database, server, config.zenPeers, config.publicUrl);
+    await zendbService.init();
 
     // Initialize Fedify (Must be before AP Service)
     const federation = createFedify(database, config);
@@ -128,7 +128,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     await apService.generateKeysForAllArtists();
 
     // Initialize Publishing Service
-    const publishingService = createPublishingService(database, gundbService, apService, config);
+    const publishingService = createPublishingService(database, zendbService, apService, config);
 
     // Initialize Content Search Services
     const soulseekService = new SoulseekService(config.musicDir, config.downloadDir || path.join(config.musicDir, "downloads"));
@@ -212,7 +212,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
                 }
             }
 
-            // For remote tracks (ActivityPub or GunDB), return a generic flat line SVG 
+            // For remote tracks (ActivityPub or Zen), return a generic flat line SVG 
             // so the Player doesn't throw 404
             res.setHeader("Content-Type", "image/svg+xml");
             res.setHeader("Cache-Control", "public, max-age=31536000");
@@ -223,7 +223,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
         }
     });
 
-    app.use("/rest", createSubsonicRouter({ db: database, auth: authService, musicDir: config.musicDir, gundbService }));
+    app.use("/rest", createSubsonicRouter({ db: database, auth: authService, musicDir: config.musicDir, zendbService }));
 
     // Lightweight healthcheck endpoint for Docker/CapRover
     app.get("/health", (req, res) => {
@@ -231,25 +231,25 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService, authMiddleware));
-    app.use("/api/admin", authMiddleware.requireUser, createAdminRoutes(database, scanner, config.musicDir, gundbService, config, authService, publishingService, apService));
+    app.use("/api/admin", authMiddleware.requireUser, createAdminRoutes(database, scanner, config.musicDir, zendbService, config, authService, publishingService, apService));
     // Backup routes moved earlier
     app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(database));
     app.use("/api/artists", authMiddleware.optionalAuth, createArtistsRoutes(database, config.musicDir));
     app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database, config.musicDir));
     app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database, publishingService, config.musicDir, authService));
-    app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database, gundbService));
+    app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database, zendbService));
 
     app.use("/api/import", authMiddleware.requireUser, createImportRoutes());
 
     const releaseRouter = createReleaseRouter(database, scanner, publishingService, authService, config.musicDir);
     app.use("/api/releases", authMiddleware.optionalAuth, releaseRouter);
     app.use("/api/admin/releases", authMiddleware.requireUser, releaseRouter);
-    app.use("/api/stats", createStatsRoutes(gundbService, database, config));
+    app.use("/api/stats", createStatsRoutes(zendbService, database, config));
     app.use("/api/stats/library", createLibraryStatsRoutes(database));
     app.use("/api/browser", authMiddleware.requireAdmin, createBrowserRoutes(config.musicDir, database));
     app.use("/api/metadata", authMiddleware.requireAdmin, createMetadataRoutes(database, config.musicDir));
-    app.use("/api/users", createUsersRoutes(gundbService, database, authService, apService));
-    app.use("/api/comments", createCommentsRoutes(gundbService));
+    app.use("/api/users", createUsersRoutes(zendbService, database, authService, apService));
+    app.use("/api/comments", createCommentsRoutes(zendbService));
     app.use("/api/unlock", createUnlockRoutes(database, authMiddleware));
     app.use("/api/payments", createPaymentsRoutes(database, config.musicDir, config));
     app.use("/api/ap", createActivityPubRoutes(apService, database, authMiddleware));
@@ -472,9 +472,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
             html = html.replace('<head>', '<head>' + ogTags);
 
             // Inject the same config as the main index route
-            const dbGunPeers = database.getSetting("gunPeers");
+            const dbZenPeers = database.getSetting("zenPeers");
             const rpcUrl = process.env.TUNECAMP_RPC_URL || process.env.VITE_TUNECAMP_RPC_URL || '';
-            const gunPeersStr = dbGunPeers || process.env.TUNECAMP_GUN_PEERS || process.env.VITE_GUN_PEERS || '';
+            const zenPeersStr = dbZenPeers || process.env.TUNECAMP_ZEN_PEERS || process.env.VITE_ZEN_PEERS || '';
             const web3CheckoutAddr = database.getSetting("web3_checkout_address") || "";
             const web3NftAddr = database.getSetting("web3_nft_address") || "";
             const ownerAddress = process.env.TUNECAMP_OWNER_ADDRESS || "";
@@ -482,7 +482,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
             const configInject = `<script>window.TUNECAMP_CONFIG = { 
                 apiUrl: "/api", 
                 rpcUrl: ${JSON.stringify(rpcUrl)},
-                gunPeers: ${JSON.stringify(gunPeersStr)},
+                zenPeers: ${JSON.stringify(zenPeersStr)},
                 web3_checkout_address: ${JSON.stringify(web3CheckoutAddr)},
                 web3_nft_address: ${JSON.stringify(web3NftAddr)},
                 ownerAddress: ${JSON.stringify(ownerAddress)}
@@ -502,9 +502,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
         }
         try {
             let html = getCachedHtml();
-            const dbGunPeers = database.getSetting("gunPeers");
+            const dbZenPeers = database.getSetting("zenPeers");
             const rpcUrl = process.env.TUNECAMP_RPC_URL || process.env.VITE_TUNECAMP_RPC_URL || '';
-            const gunPeersStr = dbGunPeers || process.env.TUNECAMP_GUN_PEERS || process.env.VITE_GUN_PEERS || '';
+            const zenPeersStr = dbZenPeers || process.env.TUNECAMP_ZEN_PEERS || process.env.VITE_ZEN_PEERS || '';
             const web3CheckoutAddr = database.getSetting("web3_checkout_address") || "";
             const web3NftAddr = database.getSetting("web3_nft_address") || "";
             const ownerAddress = process.env.TUNECAMP_OWNER_ADDRESS || "";
@@ -512,7 +512,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
             const configInject = `<script>window.TUNECAMP_CONFIG = { 
                 apiUrl: "/api", 
                 rpcUrl: ${JSON.stringify(rpcUrl)},
-                gunPeers: ${JSON.stringify(gunPeersStr)},
+                zenPeers: ${JSON.stringify(zenPeersStr)},
                 web3_checkout_address: ${JSON.stringify(web3CheckoutAddr)},
                 web3_nft_address: ${JSON.stringify(web3NftAddr)},
                 ownerAddress: ${JSON.stringify(ownerAddress)}
@@ -544,7 +544,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
         server.keepAliveTimeout = 300000;
         server.headersTimeout = 301000;   // Must be slightly larger than keepAliveTimeout
 
-        // Register server on GunDB community if publicUrl is set (either in config or db)
+        // Register server on Zen community if publicUrl is set (either in config or db)
         const dbPublicUrl = database.getSetting("publicUrl");
         const publicUrl = dbPublicUrl || config.publicUrl;
 
@@ -566,9 +566,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
                 coverImage: dbCoverImage || ""
             };
 
-            const registered = await gundbService.registerSite(siteInfo);
+            const registered = await zendbService.registerSite(siteInfo);
             if (registered) {
-                console.log(`🌐 Registered on GunDB community: ${publicUrl}`);
+                console.log(`🌐 Registered on Zen community: ${publicUrl}`);
             }
 
             // --- Decentralized Mesh: Auto-Follow other instances ---
@@ -604,17 +604,8 @@ export async function startServer(config: ServerConfig): Promise<void> {
             const rssMB = Math.round(mem.rss / 1024 / 1024);
 
             // Fetch current peer status
-            const gun = (gundbService as any).gun;
-            let peerCount = 0;
-            let activePeers: string[] = [];
-            if (gun && gun._ && gun._.opt && gun._.opt.peers) {
-                activePeers = Object.keys(gun._.opt.peers).filter(url => {
-                   const p = gun._.opt.peers[url];
-                   return p && (p.wire || p.active);
-                });
-                peerCount = activePeers.length;
-            }
-
+            let peerCount = zendbService.getPeerCount();
+            
             // Warning at 80% of limit
             if (heapUsedMB > MEM_LIMIT * 0.8) {
                 console.warn(`[Monitor] ⚠️ CRITICAL Memory Usage: Heap ${heapUsedMB}MB / ${heapTotalMB}MB | RSS ${rssMB}MB. Limit: ${MEM_LIMIT}MB`);
@@ -629,8 +620,8 @@ export async function startServer(config: ServerConfig): Promise<void> {
             } else if (heapUsedMB > 1500 || peerCount === 0) {
                 // Regular status log
                 console.log(`[Diag] Heap: ${heapUsedMB}MB | RSS: ${rssMB}MB | ZEN Peers: ${peerCount}`);
-                if (peerCount === 0 && (config.gunPeers?.length || 0) > 0) {
-                    console.warn(`[Diag] ⚠️  0 connected peers. Targets: ${config.gunPeers?.join(', ')}`);
+                if (peerCount === 0 && (config.zenPeers?.length || 0) > 0) {
+                    console.warn(`[Diag] ⚠️  0 connected peers. Targets: ${config.zenPeers?.join(', ')}`);
                     console.log(`[Diag] TIP: Connection failure (non-101) usually means the /zen path isn't proxied yet.`);
                 }
             }

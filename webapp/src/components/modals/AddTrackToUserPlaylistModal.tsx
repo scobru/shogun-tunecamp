@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "../../stores/useAuthStore";
-import { GunPlaylists } from "../../services/gun";
+import { ZenPlaylists } from "../../services/zen";
 import API from "../../services/api";
 import { Plus, Search, Music, Check } from "lucide-react";
 import type { Track, UserPlaylistTrack, NetworkTrack } from "../../types";
@@ -146,7 +146,7 @@ export const AddTrackToUserPlaylistModal = ({
       }
 
       if (options?.source === "network") {
-        // For network tracks, we still use GunDB for metadata flexibility 
+        // For network tracks, we still use Zen for metadata flexibility 
         // or we could mirror them to local DB later.
         const playlistTrack: UserPlaylistTrack = {
           id: crypto.randomUUID
@@ -164,7 +164,7 @@ export const AddTrackToUserPlaylistModal = ({
           duration: track.duration,
           addedAt: Date.now(),
         };
-        await GunPlaylists.addTrackToPlaylist(playlistId, playlistTrack);
+        await ZenPlaylists.addTrackToPlaylist(playlistId, playlistTrack);
       } else {
         // For local tracks, use the reliable SQL API
         await API.addTrackToPlaylist(playlistId, String(track.id));

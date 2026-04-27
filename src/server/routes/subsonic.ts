@@ -8,14 +8,14 @@ import { getPlaceholderSVG } from '../../utils/audioUtils.js';
 import { transcode } from '../ffmpeg.js';
 import type { DatabaseService, Track } from '../database';
 import type { AuthService } from '../auth';
-import type { GunDBService } from '../gundb';
+import type { ZenDBService } from '../zendb';
 
 // Types for Subsonic
 interface SubsonicContext {
     db: DatabaseService;
     auth: AuthService;
     musicDir: string;
-    gundbService?: GunDBService;
+    zendbService?: ZenDBService;
 }
 
 // In-memory cache for "Now Playing" to support Subsonic clients

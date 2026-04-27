@@ -7,7 +7,7 @@ import { useAuthStore } from "../stores/useAuthStore";
 import { usePurchases } from "../hooks/usePurchases";
 import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
 import { useWalletStore } from "../stores/useWalletStore";
-import { GunSocial } from "../services/gun";
+import { ZenSocial } from "../services/zen";
 import type { Track } from "../types";
 import clsx from "clsx";
 
@@ -74,7 +74,7 @@ export const AlbumDetails = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      GunSocial.getLikedTracks().then((liked) => {
+      ZenSocial.getLikedTracks().then((liked) => {
         setLikedTrackIds((prev) => new Set([...Array.from(prev), ...liked.filter((t: any) => t && t.id).map((t: any) => String(t.id))]));
       });
     }
@@ -90,11 +90,11 @@ export const AlbumDetails = () => {
     const isCurrentlyLiked = likedTrackIds.has(trackIdStr);
 
     try {
-      if (isAuthenticated && user?.gunProfile) {
+      if (isAuthenticated && user?.zenProfile) {
         try {
-          await GunSocial.toggleLikeTrack(track);
-        } catch (gunErr) {
-          console.warn("GunDB like sync failed:", gunErr);
+          await ZenSocial.toggleLikeTrack(track);
+        } catch (zenErr) {
+          console.warn("Zen like sync failed:", zenErr);
         }
       }
       if (API.getToken()) {

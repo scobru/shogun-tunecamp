@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { ethers } from 'ethers';
 import { deriveTunecampWallet, WalletService } from '../services/wallet';
-import { GunAuth } from '../services/gun';
+import { ZenAuth } from '../services/zen';
 
 interface WalletState {
     wallet: ethers.Wallet | null;
@@ -56,24 +56,24 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         set({ isWalletLoading: true, error: null });
         try {
             // Need to get the authenticated user's SEA 'priv' key to derive the wallet.
-            // GunAuth doesn't expose SEA directly in the profile, but we can access `GunAuth.user._.sea.priv`.
+            // ZenAuth doesn't expose SEA directly in the profile, but we can access `ZenAuth.user._.sea.priv`.
             
             // @ts-ignore
-            const gunUser = GunAuth.user;
-            if (!gunUser || !gunUser._) {
-                console.log("GunDB user session not fully initialized. Skipping wallet derivation.");
+            const zenUser = ZenAuth.user;
+            if (!zenUser || !zenUser._) {
+                console.log("Zen user session not fully initialized. Skipping wallet derivation.");
                 set({ isWalletLoading: false, isWalletReady: false });
                 return;
             }
 
-            const sea = gunUser._.sea;
+            const sea = zenUser._.sea;
             if (!sea || !sea.priv) {
-                console.log("No SEA credentials found in Gun session. Wallet cannot be derived yet.");
+                console.log("No SEA credentials found in Zen session. Wallet cannot be derived yet.");
                 set({ isWalletLoading: false, isWalletReady: false });
                 return;
             }
 
-            console.log("🔐 Deriving wallet from Gun SEA credentials...");
+            console.log("🔐 Deriving wallet from Zen SEA credentials...");
             const wallet = await deriveTunecampWallet(sea);
 
             set({

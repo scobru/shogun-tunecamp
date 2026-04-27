@@ -226,8 +226,8 @@ export function createBackupRoutes(database: DatabaseService, config: ServerConf
                 });
                 archive.append(JSON.stringify(artistsKeys, null, 2), { name: "keys/artists_keys.json" });
 
-                // System Identity (GunDB)
-                const systemKeys = database.getSetting("gunPair");
+                // System Identity (Zen)
+                const systemKeys = database.getSetting("zenPair") || database.getSetting("gunPair");
                 if (systemKeys) {
                     archive.append(systemKeys, { name: "keys/system_identity.json" });
                 }

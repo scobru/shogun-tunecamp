@@ -1,9 +1,9 @@
 import { Router } from "express";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
-import type { GunDBService } from "../gundb.js";
+import type { ZenDBService } from "../zendb.js";
 
-export function createPlaylistsRoutes(database: DatabaseService, gunDb?: GunDBService): Router {
+export function createPlaylistsRoutes(database: DatabaseService, zendbService?: ZenDBService): Router {
     const router = Router();
 
     /**

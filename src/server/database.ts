@@ -475,9 +475,9 @@ export interface DatabaseService {
     getApNote(noteId: string): ApNote | undefined;
     markApNoteDeleted(noteId: string): void;
     deleteApNote(noteId: string): void;
-    // Gun Users
-    syncGunUser(pub: string, epub: string, alias: string, avatar?: string): void;
-    getGunUser(pub: string): { pub: string; epub: string; alias: string } | undefined;
+    // Zen Users
+    syncZenUser(pub: string, epub: string, alias: string, avatar?: string): void;
+    getZenUser(pub: string): { pub: string; epub: string; alias: string } | undefined;
 
     // Remote Federation (ActivityPub)
     upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen" | "is_followed" | "public_key"> & { is_followed?: boolean, public_key?: string | null }): void;
@@ -3451,13 +3451,13 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.prepare("DELETE FROM ap_notes WHERE note_id = ?").run(noteId);
         },
 
-        // Gun Users
-        syncGunUser(pub: string, epub: string, alias: string, avatar?: string): void {
+        // Zen Users
+        syncZenUser(pub: string, epub: string, alias: string, avatar?: string): void {
             // Prevent syncing public keys as aliases
             let cleanAlias = alias;
             if (alias && (alias === pub || alias.length > 64)) {
                 // If it looks like a pubkey, try to find the existing alias or keep as is if no better idea
-                const existing = this.getGunUser(pub);
+                const existing = this.getZenUser(pub);
                 if (existing && existing.alias && existing.alias !== pub) {
                     cleanAlias = existing.alias;
                 }
@@ -3468,7 +3468,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             ).run(pub, epub, cleanAlias, avatar || null);
         },
 
-        getGunUser(pub: string): { pub: string; epub: string; alias: string, avatar?: string } | undefined {
+        getZenUser(pub: string): { pub: string; epub: string; alias: string, avatar?: string } | undefined {
             return db.prepare("SELECT pub, epub, alias, avatar FROM gun_users WHERE pub = ?").get(pub) as any;
         },
 

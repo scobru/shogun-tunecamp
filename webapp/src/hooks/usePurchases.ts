@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { GunAuth } from "../services/gun";
+import { ZenAuth } from "../services/zen";
 
 export interface PurchaseRecord {
     txid: string;
@@ -17,7 +17,7 @@ export function usePurchases() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const user = GunAuth.user;
+        const user = ZenAuth.user;
         if (!user.is) {
             setLoading(false);
             return;
@@ -109,8 +109,8 @@ export function usePurchases() {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.code) {
-                        // Optionally update local gun node so next time it's there
-                        const user = GunAuth.user;
+                        // Optionally update local zen node so next time it's there
+                        const user = ZenAuth.user;
                         if (user.is) {
                             // @ts-ignore
                             user.get("purchases").get(id).put({ ...purchase, code: data.code });

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { validateUsername } from "../../utils/audioUtils.js";
-import type { GunDBService } from "../gundb.js";
+import type { ZenDBService } from "../zendb.js";
 import type { DatabaseService } from "../database.js";
 import type { AuthService } from "../auth.js";
 import type { ActivityPubService } from "../activitypub.js";
@@ -9,7 +9,7 @@ import { rateLimit } from "../middleware/rateLimit.js";
 import { createAuthMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
 
 export function createUsersRoutes(
-    gundbService: GunDBService,
+    zendbService: ZenDBService,
     database: DatabaseService,
     authService: AuthService,
     apService: ActivityPubService
@@ -55,19 +55,19 @@ export function createUsersRoutes(
                 return res.status(409).json({ error: "Username already taken" });
             }
 
-            // 1. Verify GunDB signature if provided (GunDB-first proof)
+            // 1. Verify ZEN signature if provided (ZEN-first proof)
             if (pubKey && signature) {
                 console.log(`🔐 [AUTH] Verifying registration signature for ${username}...`);
-                const isValid = await authService.verifyGunSignature(username, pubKey, signature);
+                const isValid = await authService.verifyZenSignature(username, pubKey, signature);
                 if (isValid) {
-                    console.log(`✅ [AUTH] GunDB signature verified for registration of ${username}`);
-                    // Also ensure GunDB metadata is populated
-                    const existingUser = await gundbService.getUser(pubKey);
+                    console.log(`✅ [AUTH] ZEN signature verified for registration of ${username}`);
+                    // Also ensure ZEN metadata is populated
+                    const existingUser = await zendbService.getUser(pubKey);
                     if (!existingUser || !existingUser.username) {
-                        await gundbService.registerUser(pubKey, username);
+                        await zendbService.registerUser(pubKey, username);
                     }
                 } else {
-                    console.warn(`⚠️ [AUTH] GunDB signature invalid for registration of ${username}. Proceeding with password-only auth.`);
+                    console.warn(`⚠️ [AUTH] ZEN signature invalid for registration of ${username}. Proceeding with password-only auth.`);
                 }
             }
 
@@ -130,7 +130,7 @@ export function createUsersRoutes(
     router.get("/:pubKey", async (req, res) => {
         try {
             const { pubKey } = req.params;
-            const user = await gundbService.getUser(pubKey);
+            const user = await zendbService.getUser(pubKey);
 
             if (!user) {
                 return res.status(404).json({ error: "User not found" });
@@ -156,7 +156,7 @@ export function createUsersRoutes(
             }
 
             const finalAlias = alias || "Anonymous";
-            database.syncGunUser(pub, epub, finalAlias, avatar);
+            database.syncZenUser(pub, epub, finalAlias, avatar);
             res.json({ success: true });
         } catch (error) {
             console.error("User sync error:", error);
@@ -175,14 +175,14 @@ export function createUsersRoutes(
             }
             const { pair } = req.body;
             if (!pair || !pair.pub || !pair.priv || !pair.epub || !pair.epriv) {
-                return res.status(400).json({ error: "Complete GunDB pair required" });
+                return res.status(400).json({ error: "Complete ZEN pair required" });
             }
 
             if (!req.username) {
                 return res.status(401).json({ error: "Unauthorized" });
             }
 
-            authService.updateGunPair(req.username, pair);
+            authService.updateZenPair(req.username, pair);
             res.json({ success: true });
         } catch (error) {
             console.error("User pair sync error:", error);

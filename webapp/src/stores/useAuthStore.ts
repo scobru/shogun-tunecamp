@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import API, { ApiError } from '../services/api';
-import { GunAuth, type GunProfile } from '../services/gun';
+import { ZenAuth, type ZenProfile } from '../services/zen';
 import type { User } from '../types';
 import { useWalletStore } from './useWalletStore';
 
 type UserRole = 'admin' | 'user' | null;
 
 interface AuthState {
-    user: (User & { gunProfile?: GunProfile | null }) | null;
+    user: (User & { zenProfile?: ZenProfile | null }) | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     isFirstRun: boolean;
@@ -64,40 +64,40 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const status = await API.getAuthStatus();
             const isAdmin = status.authenticated && status.role === 'admin';
 
-            let gunProfile: GunProfile | null = null;
+            let zenProfile: ZenProfile | null = null;
             if (status.pair) {
                 try {
-                    gunProfile = await GunAuth.loginWithPair(status.pair);
+                    zenProfile = await ZenAuth.loginWithPair(status.pair);
                 } catch (e) {
-                    console.error("GunDB re-auth failed:", e);
+                    console.error("Zen re-auth failed:", e);
                 }
             } else if (status.authenticated) {
                 // Try session storage or init
                 try {
-                    await GunAuth.init();
-                    gunProfile = GunAuth.getProfile();
+                    await ZenAuth.init();
+                    zenProfile = ZenAuth.getProfile();
                 } catch (e) { }
             }
 
-            if (gunProfile) {
+            if (zenProfile) {
                 try {
                     // Subscribe to profile changes
-                    GunAuth.subscribeProfile((profileData) => {
+                    ZenAuth.subscribeProfile((profileData) => {
                         set((state) => ({
-                            user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, profile: profileData } } : null
+                            user: state.user ? { ...state.user, zenProfile: { ...state.user.zenProfile!, profile: profileData } } : null
                         }));
                     });
 
                     // Subscribe to mutable alias changes
-                    GunAuth.subscribeAlias((aliasData) => {
+                    ZenAuth.subscribeAlias((aliasData) => {
                         if (aliasData) {
                             set((state) => ({
-                                user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, alias: aliasData } } : null
+                                user: state.user ? { ...state.user, zenProfile: { ...state.user.zenProfile!, alias: aliasData } } : null
                             }));
                         }
                     });
                 } catch (subErr) {
-                    console.error("Failed to subscribe to GunDB info:", subErr);
+                    console.error("Failed to subscribe to Zen info:", subErr);
                 }
             }
 
@@ -113,7 +113,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({
                 isAuthenticated: status.authenticated,
                 isAdminAuthenticated: isAdmin, // compat
-                user: transformedUser ? { ...transformedUser, gunProfile } : null,
+                user: transformedUser ? { ...transformedUser, zenProfile } : null,
                 adminUser: transformedUser, // compat
                 isFirstRun: !!status.firstRun,
                 mustChangePassword: !!status.mustChangePassword,
@@ -163,17 +163,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             if (password) {
                 try {
-                    console.log(`🔐 GunDB-First Login: Verifying identity for ${username}...`);
-                    const gunProfile = await GunAuth.login(username, password);
-                    pubKey = gunProfile.pub;
+                    console.log(`🔐 Zen-First Login: Verifying identity for ${username}...`);
+                    const zenProfile = await ZenAuth.login(username, password);
+                    pubKey = zenProfile.pub;
 
                     // Generate proof-of-possession for the backend
                     // We sign the username to prove we own the pubKey
                     console.log("Generating proof of identity...");
-                    proof = await GunAuth.sign(username);
+                    proof = await ZenAuth.sign(username);
                     console.log("✨ Proof of identity generated:", typeof proof === 'object' ? 'object' : 'string');
-                } catch (gunErr) {
-                    console.warn("⚠️ GunDB authentication failed (maybe offline or wrong pass), falling back to local-only proof:", gunErr);
+                } catch (zenErr) {
+                    console.warn("⚠️ Zen authentication failed (maybe offline or wrong pass), falling back to local-only proof:", zenErr);
                 }
             }
 
@@ -193,41 +193,41 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 }
 
                 if (!proof && !password) {
-                    throw new Error("Login failed: GunDB identity not found and no password provided.");
+                    throw new Error("Login failed: Zen identity not found and no password provided.");
                 }
                 throw apiErr;
             }
 
             API.setToken(result.token);
 
-            let gunProfile: GunProfile | null = null;
+            let zenProfile: ZenProfile | null = null;
             if (result.pair) {
                 try {
-                    gunProfile = await GunAuth.loginWithPair(result.pair, username);
-                } catch (gunErr) {
-                    console.error("Failed to auto-login to GunDB with pair:", gunErr);
+                    zenProfile = await ZenAuth.loginWithPair(result.pair, username);
+                } catch (zenErr) {
+                    console.error("Failed to auto-login to Zen with pair:", zenErr);
                 }
             }
 
-            if (gunProfile) {
+            if (zenProfile) {
                 try {
                     // Subscribe to profile changes
-                    GunAuth.subscribeProfile((profileData) => {
+                    ZenAuth.subscribeProfile((profileData) => {
                         set((state) => ({
-                            user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, profile: profileData } } : null
+                            user: state.user ? { ...state.user, zenProfile: { ...state.user.zenProfile!, profile: profileData } } : null
                         }));
                     });
 
                     // Subscribe to mutable alias changes
-                    GunAuth.subscribeAlias((aliasData) => {
+                    ZenAuth.subscribeAlias((aliasData) => {
                         if (aliasData) {
                             set((state) => ({
-                                user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, alias: aliasData } } : null
+                                user: state.user ? { ...state.user, zenProfile: { ...state.user.zenProfile!, alias: aliasData } } : null
                             }));
                         }
                     });
                 } catch (subErr) {
-                    console.error("Failed to subscribe to GunDB info:", subErr);
+                    console.error("Failed to subscribe to Zen info:", subErr);
                 }
             }
 
@@ -244,7 +244,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({
                 isAuthenticated: true,
                 isAdminAuthenticated: userRole === 'admin', // compat
-                user: { ...transformedUser, gunProfile },
+                user: { ...transformedUser, zenProfile },
                 adminUser: transformedUser, // compat
                 mustChangePassword: !!result.mustChangePassword,
                 role: userRole,
@@ -269,22 +269,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (get().isAuthenticating) return;
         set({ error: null, isLoading: true, isAdminLoading: true, isInitializing: true, isAuthenticating: true });
         try {
-            console.log("🔐 GunDB-First Login: Verifying identity on peer network using Gun Pair...");
-            const gunProfile = await GunAuth.loginWithPair(pair);
+            console.log("🔐 Zen-First Login: Verifying identity on peer network using Zen Pair...");
+            const zenProfile = await ZenAuth.loginWithPair(pair);
 
             let proof: string | undefined;
             try {
                 // Generate proof-of-possession for the backend
                 // The username (alias) acts as the payload to sign
-                const username = gunProfile.alias;
-                proof = await GunAuth.sign(username);
+                const username = zenProfile.alias;
+                proof = await ZenAuth.sign(username);
                 console.log("✨ Proof of identity generated from Pair.");
 
                 // Now authenticate with backend API using the proof
                 // The backend API login expects a username + password OR a valid pubKey + proof.
                 // Depending on the backend implementation, sending the alias + pubKey + proof might be enough
                 // to authenticate without the actual password. Let's try sending alias and empty password, plus PubKey/Proof.
-                const result = await API.login(username, '', gunProfile.pub, proof);
+                const result = await API.login(username, '', zenProfile.pub, proof);
                 API.setToken(result.token);
 
                 // Update the user structure with the result from the backend
@@ -300,28 +300,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
                 // Subscribe to profile changes
                 try {
-                    GunAuth.subscribeProfile((profileData) => {
+                    ZenAuth.subscribeProfile((profileData) => {
                         set((state) => ({
-                            user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, profile: profileData } } : null
+                            user: state.user ? { ...state.user, zenProfile: { ...state.user.zenProfile!, profile: profileData } } : null
                         }));
                     });
 
                     // Subscribe to mutable alias changes
-                    GunAuth.subscribeAlias((aliasData) => {
+                    ZenAuth.subscribeAlias((aliasData) => {
                         if (aliasData) {
                             set((state) => ({
-                                user: state.user ? { ...state.user, gunProfile: { ...state.user.gunProfile!, alias: aliasData } } : null
+                                user: state.user ? { ...state.user, zenProfile: { ...state.user.zenProfile!, alias: aliasData } } : null
                             }));
                         }
                     });
                 } catch (subErr) {
-                    console.error("Failed to subscribe to GunDB profile:", subErr);
+                    console.error("Failed to subscribe to Zen profile:", subErr);
                 }
 
                 set({
                     isAuthenticated: true,
                     isAdminAuthenticated: userRole === 'admin',
-                    user: { ...transformedUser, gunProfile },
+                    user: { ...transformedUser, zenProfile },
                     adminUser: transformedUser,
                     mustChangePassword: !!result.mustChangePassword,
                     role: userRole,
@@ -331,10 +331,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 });
 
             } catch (backendError) {
-                console.warn("Backend authentication failed after Pair login. Proceeding with local GunDB session only.", backendError);
+                console.warn("Backend authentication failed after Pair login. Proceeding with local Zen session only.", backendError);
                 // Fallback to local session if backend integration fails
                 set((state) => ({
-                    user: state.user ? { ...state.user, gunProfile } : { gunProfile } as any,
+                    user: state.user ? { ...state.user, zenProfile } : { zenProfile } as any,
                     isAuthenticated: true,
                     isLoading: false,
                     isAdminLoading: false,
@@ -362,30 +362,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (get().isAuthenticating) return;
         set({ error: null, isLoading: true, isAuthenticating: true });
         try {
-            // 1. Register on GunDB first (Decentralized Identity)
-            // GunAuth.register falls back to login if the user already exists in the peer network
-            console.log("🆕 GunDB-First Registration: Creating identity on peer network...");
-            await GunAuth.register(username, password);
-            const gunProfile = GunAuth.getProfile();
+            // 1. Register on Zen first (Decentralized Identity)
+            // ZenAuth.register falls back to login if the user already exists in the peer network
+            console.log("🆕 Zen-First Registration: Creating identity on peer network...");
+            await ZenAuth.register(username, password);
+            const zenProfile = ZenAuth.getProfile();
 
-            if (!gunProfile) throw new Error("Failed to create GunDB identity");
+            if (!zenProfile) throw new Error("Failed to create Zen identity");
 
             // 2. Generate proof for backend
-            const proof = await GunAuth.sign(username);
+            const proof = await ZenAuth.sign(username);
             console.log("✨ Proof of identity generated for registration:", typeof proof === 'object' ? 'object' : 'string');
 
             let token: string;
             try {
                 // 3. Register on backend with proof
                 console.log(`🔐 Registering ${username} on backend...`);
-                const result = await API.registerUser(username, password, gunProfile.pub, proof);
+                const result = await API.registerUser(username, password, zenProfile.pub, proof);
                 token = result.token;
             } catch (regErr: any) {
                 // 409 = username already in DB (prior partial registration succeeded on server)
-                // Fall through to login flow using the GunDB proof
+                // Fall through to login flow using the Zen proof
                 if ((regErr instanceof ApiError && regErr.status === 409) || regErr?.message?.includes('already taken')) {
                     console.warn("⚠️ Username already registered on server, falling back to login...");
-                    const loginResult = await API.login(username, password, gunProfile.pub, proof);
+                    const loginResult = await API.login(username, password, zenProfile.pub, proof);
                     token = loginResult.token;
                 } else {
                     throw regErr;
@@ -408,7 +408,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     logout: () => {
-        GunAuth.logout();
+        ZenAuth.logout();
         useWalletStore.getState().clearWallet();
         API.setToken(null);
         set({

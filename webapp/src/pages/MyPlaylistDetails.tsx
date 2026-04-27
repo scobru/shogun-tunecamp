@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/useAuthStore";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { API } from "../services/api";
-import { GunPlaylists } from "../services/gun";
+import { ZenPlaylists } from "../services/zen";
 import {
   Music,
   Play,
@@ -47,7 +47,7 @@ export const MyPlaylistDetails = () => {
   const { playTrack } = usePlayerStore();
 
   useEffect(() => {
-    // Wait for auth to finish loading so Gun session is recalled if available
+    // Wait for auth to finish loading so Zen session is recalled if available
     if (id && !authLoading) {
       loadPlaylist(id);
     }
@@ -63,8 +63,8 @@ export const MyPlaylistDetails = () => {
         const data = await API.getPlaylist(playlistId);
         setPlaylist(data);
       } else {
-        // Fallback to GunDB for legacy/decentralized UUIDs
-        const data = await GunPlaylists.getPlaylist(playlistId);
+        // Fallback to Zen for legacy/decentralized UUIDs
+        const data = await ZenPlaylists.getPlaylist(playlistId);
         if (!data) {
           console.warn(`[Playlist] Not found: ${playlistId}`);
           navigate("/my-playlists");
@@ -74,15 +74,15 @@ export const MyPlaylistDetails = () => {
       }
     } catch (e) {
       console.error("[Playlist] Load error:", e);
-      // If SQL fails, try GunDB as a last resort
+      // If SQL fails, try Zen as a last resort
       try {
-          const data = await GunPlaylists.getPlaylist(playlistId);
+          const data = await ZenPlaylists.getPlaylist(playlistId);
           if (data) {
               setPlaylist(data);
               return;
           }
       } catch (inner) {
-          console.error("[Playlist] GunDB fallback fail:", inner);
+          console.error("[Playlist] Zen fallback fail:", inner);
       }
       navigate("/my-playlists");
     } finally {
@@ -102,7 +102,7 @@ export const MyPlaylistDetails = () => {
       if (/^\d+$/.test(playlist.id)) {
         await API.deletePlaylist(playlist.id);
       } else {
-        await GunPlaylists.deletePlaylist(playlist.id);
+        await ZenPlaylists.deletePlaylist(playlist.id);
       }
       navigate("/my-playlists");
     } catch (e) {
@@ -118,7 +118,7 @@ export const MyPlaylistDetails = () => {
       if (/^\d+$/.test(playlist.id)) {
         await API.removeTrackFromPlaylist(playlist.id, String(trackId));
       } else {
-        await GunPlaylists.removeTrackFromPlaylist(playlist.id, String(trackId));
+        await ZenPlaylists.removeTrackFromPlaylist(playlist.id, String(trackId));
       }
       loadPlaylist(playlist.id);
     } catch (e) {
@@ -132,7 +132,7 @@ export const MyPlaylistDetails = () => {
       if (/^\d+$/.test(playlist.id)) {
           await API.updatePlaylist(playlist.id, { isPublic: !playlist.isPublic });
       } else {
-          await (GunPlaylists as any).updatePlaylist(playlist.id, {
+          await (ZenPlaylists as any).updatePlaylist(playlist.id, {
             isPublic: !playlist.isPublic,
           });
       }
@@ -155,7 +155,7 @@ export const MyPlaylistDetails = () => {
       if (/^\d+$/.test(playlist.id)) {
           await API.updatePlaylist(playlist.id, { coverPath: url });
       } else {
-          await (GunPlaylists as any).updatePlaylist(playlist.id, { coverUrl: url });
+          await (ZenPlaylists as any).updatePlaylist(playlist.id, { coverUrl: url });
       }
       setPlaylist({ ...playlist, coverUrl: url, coverPath: url } as any);
     } catch (e) {

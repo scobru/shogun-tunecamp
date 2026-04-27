@@ -10,7 +10,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { GunAuth } from "../services/gun";
+import { ZenAuth } from "../services/zen";
 import clsx from "clsx";
 import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
 import { TokenRole } from "shogun-contracts-sdk";
@@ -383,7 +383,7 @@ export const Wallet = () => {
                 <div className="text-xs uppercase tracking-wider opacity-50 mb-2 flex justify-between items-center">
                   <span>Integrated Wallet Private Key</span>
                   <span className="text-[10px] opacity-40">
-                    Derived from Gun SEA
+                    Derived from Zen SEA
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
@@ -408,20 +408,20 @@ export const Wallet = () => {
                 </div>
               </div>
 
-              {/* GunDB SEA Pair */}
+              {/* Zen SEA Pair */}
               <div className="bg-black/30 p-4 rounded-xl border border-white/5">
                 <div className="text-xs uppercase tracking-wider opacity-50 mb-2 flex justify-between items-center">
-                  <span>GunDB SEA Pair (Account Export)</span>
+                  <span>Zen SEA Pair (Account Export)</span>
                   <span className="text-[10px] opacity-40">JSON Format</span>
                 </div>
                 <div className="flex items-start justify-between gap-4">
                   <pre className="font-mono text-[10px] break-all opacity-80 whitespace-pre-wrap flex-1 max-h-32 overflow-y-auto select-all">
-                    {JSON.stringify((GunAuth.user as any)._?.sea, null, 2)}
+                    {JSON.stringify((ZenAuth.user as any)._?.sea, null, 2)}
                   </pre>
                   <button
                     className="btn btn-sm btn-ghost btn-circle shrink-0"
                     onClick={() => {
-                      const sea = (GunAuth.user as any)._?.sea;
+                      const sea = (ZenAuth.user as any)._?.sea;
                       if (!sea) return;
                       navigator.clipboard.writeText(JSON.stringify(sea));
                       setCopiedSEA(true);

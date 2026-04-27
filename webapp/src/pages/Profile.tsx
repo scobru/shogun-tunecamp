@@ -3,7 +3,7 @@ import { useAuthStore } from "../stores/useAuthStore";
 import { useWalletStore } from "../stores/useWalletStore";
 import { usePurchases } from "../hooks/usePurchases";
 import { useOwnedNFTs } from "../hooks/useOwnedNFTs";
-import { GunAuth } from "../services/gun";
+import { ZenAuth } from "../services/zen";
 import {
   User,
   Settings,
@@ -42,8 +42,8 @@ export const Profile = () => {
   }, [user?.artistId, isAdmin, activeTab]);
   const [artistData, setArtistData] = useState<any>(null);
   const [artistLoading, setArtistLoading] = useState(false);
-  const [alias, setAlias] = useState(user?.gunProfile?.alias || "");
-  const [avatar, setAvatar] = useState<string | null>(user?.gunProfile?.profile?.avatar || null);
+  const [alias, setAlias] = useState(user?.zenProfile?.alias || "");
+  const [avatar, setAvatar] = useState<string | null>(user?.zenProfile?.profile?.avatar || null);
   const [isSaving, setIsSaving] = useState(false);
   const [starredTracks, setStarredTracks] = useState<Track[]>([]);
   const [allTracks, setAllTracks] = useState<Track[]>([]);
@@ -51,8 +51,8 @@ export const Profile = () => {
 
   useEffect(() => {
     if (user) {
-      setAlias(user.gunProfile?.alias || "");
-      setAvatar(user.gunProfile?.profile?.avatar || null);
+      setAlias(user.zenProfile?.alias || "");
+      setAvatar(user.zenProfile?.profile?.avatar || null);
     }
   }, [user]);
 
@@ -93,7 +93,7 @@ export const Profile = () => {
     if (!alias.trim()) return;
     setIsSaving(true);
     try {
-      await GunAuth.updateAlias(alias);
+      await ZenAuth.updateAlias(alias);
       // Force local store update or reload if necessary
       window.location.reload();
     } catch (err) {
@@ -113,7 +113,7 @@ export const Profile = () => {
       setAvatar(base64);
       setIsSaving(true);
       try {
-        await GunAuth.updateProfile({ avatar: base64 });
+        await ZenAuth.updateProfile({ avatar: base64 });
       } catch (err) {
         console.error("Failed to update avatar:", err);
       } finally {
@@ -156,11 +156,11 @@ export const Profile = () => {
             {avatar ? (
               <img
                 src={avatar}
-                alt={user?.gunProfile?.alias}
+                alt={user?.zenProfile?.alias}
                 className="w-full h-full object-cover"
               />
             ) : (
-              user?.gunProfile?.alias?.charAt(0).toUpperCase()
+              user?.zenProfile?.alias?.charAt(0).toUpperCase()
             )}
           </div>
           <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-full">
@@ -176,9 +176,9 @@ export const Profile = () => {
 
         <div className="text-center md:text-left flex-1">
           <h1 className="text-4xl font-black tracking-tight mb-2">
-            {user?.gunProfile?.alias || user?.username}
+            {user?.zenProfile?.alias || user?.username}
             <span className="text-lg font-normal opacity-40 ml-3">
-              @{user?.gunProfile?.pub?.substring(0, 8)}
+              @{user?.zenProfile?.pub?.substring(0, 8)}
             </span>
           </h1>
           <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-4">
@@ -286,25 +286,25 @@ export const Profile = () => {
               
               <div className="form-control w-full">
                   <label className="label">
-                      <span className="label-text opacity-60">Backup Account Pair (GunDB)</span>
+                      <span className="label-text opacity-60">Backup Account Pair (Zen)</span>
                   </label>
                   <p className="text-xs opacity-50 mb-2">
                        This JSON contains your decentralized cryptographic keys. Save it somewhere safe. 
                        You can use it to log into TuneCamp from another device if you forget your password.
                   </p>
                   
-                  {/* Since Gun.user()._.sea might not be typed easily, we access it dynamically */}
-                  { GunAuth.user?.is && (GunAuth.user as any)._?.sea ? (
+                  {/* Since Zen.user()._.sea might not be typed easily, we access it dynamically */}
+                  { ZenAuth.user?.is && (ZenAuth.user as any)._?.sea ? (
                       <div className="flex flex-col gap-2">
                           <textarea 
                               readOnly 
                               className="textarea textarea-bordered font-mono text-xs h-24 w-full bg-base-200"
-                              value={JSON.stringify((GunAuth.user as any)._?.sea, null, 2)}
+                              value={JSON.stringify((ZenAuth.user as any)._?.sea, null, 2)}
                           />
                           <button 
                               className="btn btn-sm btn-outline btn-secondary self-start gap-2"
                               onClick={() => {
-                                  navigator.clipboard.writeText(JSON.stringify((GunAuth.user as any)._?.sea));
+                                  navigator.clipboard.writeText(JSON.stringify((ZenAuth.user as any)._?.sea));
                                   alert('Pair copied to clipboard!');
                               }}
                           >
@@ -323,7 +323,7 @@ export const Profile = () => {
               <div className="alert alert-info bg-primary/10 border-primary/20 text-sm">
                 <Settings size={18} />
                 <span>
-                  Your account is decentralized. Updates are stored in GunDB and
+                  Your account is decentralized. Updates are stored in Zen and
                   synced across peers.
                 </span>
               </div>
@@ -335,7 +335,7 @@ export const Profile = () => {
               </h3>
               <p className="text-sm opacity-60">
                 Your profile picture is stored locally on your device and shared
-                via GunDB. Larger images may take longer to sync.
+                via Zen. Larger images may take longer to sync.
               </p>
 
               <div className="flex flex-col items-center gap-4 py-4">

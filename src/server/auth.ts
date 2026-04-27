@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import type { Database } from "better-sqlite3";
 import fetch from "node-fetch";
 import crypto from "crypto";
-import { Gun } from "./gun.js";
+import { Zen } from "./zen.js";
 // ZEN handles its own crypto natively
 import { isSafeUrl } from "../utils/networkUtils.js";
 
@@ -44,7 +44,7 @@ export interface AuthService {
     verifyToken(token: string): TokenPayload | null;
     // Multi-user management
     authenticateUser(username: string, password: string, pubKey?: string, proof?: string): Promise<{ success: boolean; artistId: number | null; isAdmin: boolean; id: number; role: UserRole; isActive: boolean; pair?: any } | false>;
-    verifyGunSignature(message: any, pubKey: string, proof: string): Promise<boolean>;
+    verifyZenSignature(message: any, pubKey: string, proof: string): Promise<boolean>;
     verifySubsonicToken(username: string, token: string, salt: string): Promise<boolean>;
     createAdmin(username: string, password: string, artistId?: number | null): Promise<{ id: number }>;
     createUser(username: string, password: string, artistId: number | null, storageQuota?: number, pubKey?: string): Promise<{ id: number }>;
@@ -62,8 +62,8 @@ export interface AuthService {
     isRootAdmin(username: string): boolean;
     /** Returns the GunDB pair for a user if they have one. */
     getUserPair(username: string): any | null;
-    /** Updates or sets the GunDB pair for a user. */
-    updateGunPair(username: string, pair: any): void;
+    /** Updates or sets the ZEN pair for a user. */
+    updateZenPair(username: string, pair: any): void;
 
     // Mastodon
     registerMastodonApp(instanceUrl: string, redirectUri: string): Promise<{ clientId: string; clientSecret: string; redirectUri: string }>;
@@ -73,9 +73,9 @@ export interface AuthService {
     // Low-Level Mastodon Login (Sotto Banco)
     loginWithMastodon(instanceUrl: string, redirectUri: string, code: string): Promise<{ pair: any; alias: string }>;
 
-    // GunDB Key Management
-    encryptGunPriv(priv: any): string;
-    decryptGunPriv(encrypted: string): any;
+    // ZEN Key Management
+    encryptZenPriv(priv: any): string;
+    decryptZenPriv(encrypted: string): any;
 
     /** Derives an Ethereum-compatible private key from a ZEN pair. */
     deriveZenWallet(pair: any, id?: string): Promise<string>;
@@ -255,16 +255,16 @@ export function createAuthService(
             
             let gunVerified = false;
 
-            // 1. Verify GunDB identity if provided
+            // 1. Verify ZEN identity if provided
             if (pubKey && proof) {
-                console.log(`🔐 [AUTH] Verifying GunDB proof for ${username}...`);
-                const isValid = await this.verifyGunSignature(username, pubKey, proof);
+                console.log(`🔐 [AUTH] Verifying ZEN proof for ${username}...`);
+                const isValid = await this.verifyZenSignature(username, pubKey, proof);
                 if (isValid) {
-                    console.log(`✨ [AUTH] GunDB proof verified for ${username} (pub: ${pubKey.slice(0, 8)}...)`);
+                    console.log(`✨ [AUTH] ZEN proof verified for ${username} (pub: ${pubKey.slice(0, 8)}...)`);
                     
                     // If user doesn't exist locally, lazy-create (Roaming)
                     if (!user) {
-                        console.log(`📡 [AUTH] Roaming: Lazily creating local account for GunDB user ${username}`);
+                        console.log(`📡 [AUTH] Roaming: Lazily creating local account for ZEN user ${username}`);
                         const tempPass = crypto.randomBytes(32).toString('hex');
                         const { id } = await this.createUser(username, tempPass, null as any); // artist creation below
                         
@@ -274,21 +274,21 @@ export function createAuthService(
                         // Reload user record
                         user = db.prepare("SELECT id, password_hash, artist_id, role, gun_pub, gun_priv, is_active FROM admin WHERE id = ?").get(id) as any;
                     } else if (!user.gun_pub) {
-                        // User exists but has no GunDB link yet - link it now
-                        console.log(`🔗 [AUTH] Linking existing local user ${username} to GunDB identity`);
+                        // User exists but has no ZEN link yet - link it now
+                        console.log(`🔗 [AUTH] Linking existing local user ${username} to ZEN identity`);
                         db.prepare("UPDATE admin SET gun_pub = ? WHERE id = ?").run(pubKey, user.id);
                         user.gun_pub = pubKey;
                     }
 
                     // Only allow proof to bypass password if it matches the linked pubKey (if any)
                     if (user && (!user.gun_pub || user.gun_pub === pubKey)) {
-                        console.log(`✅ [AUTH] GunDB verified and pubKey matches for ${username}`);
+                        console.log(`✅ [AUTH] ZEN verified and pubKey matches for ${username}`);
                         gunVerified = true;
                     } else {
-                        console.warn(`⚠️ [AUTH] GunDB pubKey mismatch for ${username}. Database: ${user?.gun_pub?.slice(0, 8)}, Provided: ${pubKey.slice(0, 8)}`);
+                        console.warn(`⚠️ [AUTH] ZEN pubKey mismatch for ${username}. Database: ${user?.gun_pub?.slice(0, 8)}, Provided: ${pubKey.slice(0, 8)}`);
                     }
                 } else {
-                    console.warn(`❌ [AUTH] GunDB signature invalid for ${username}`);
+                    console.warn(`❌ [AUTH] ZEN signature invalid for ${username}`);
                 }
             }
 
@@ -297,11 +297,11 @@ export function createAuthService(
                 return false;
             }
 
-            // 2. Verification check: Either GunDB proof was verified OR local password must match
+            // 2. Verification check: Either ZEN proof was verified OR local password must match
             if (!gunVerified) {
-                console.log(`🔍 [AUTH] GunDB verification failed or skipped for ${username}, checking password...`);
+                console.log(`🔍 [AUTH] ZEN verification failed or skipped for ${username}, checking password...`);
                 if (!password) {
-                    console.log(`❌ [AUTH] No password provided and GunDB verification failed for: ${username}`);
+                    console.log(`❌ [AUTH] No password provided and ZEN verification failed for: ${username}`);
                     return false;
                 }
                 const valid = await this.verifyPassword(password, user.password_hash);
@@ -311,10 +311,10 @@ export function createAuthService(
                 }
                 console.log(`✅ [AUTH] Password verified for ${username}`);
 
-                // Check if the linked GunDB identity is LEGACY (P-256)
+                // Check if the linked ZEN identity is LEGACY (P-256)
                 if (user.gun_pub && user.gun_priv) {
                     try {
-                        const existingPair = this.decryptGunPriv(user.gun_priv);
+                        const existingPair = this.decryptZenPriv(user.gun_priv);
                         if (existingPair.curve !== 'secp256k1' || existingPair.pub.length < 80) {
                             console.warn(`🚨 [AUTH] User ${username} has a LEGACY (SEA/P-256) identity. Flagging for regeneration.`);
                             user.gun_priv = null; // Force regeneration
@@ -325,18 +325,18 @@ export function createAuthService(
                     }
                 }
             } else {
-                console.log(`✅ [AUTH] GunDB verification succeeded for ${username}, skipping password check`);
+                console.log(`✅ [AUTH] ZEN verification succeeded for ${username}, skipping password check`);
             }
 
             const userRole: UserRole = user.role || 'admin';
 
-            // Handle GunDB Key Management for all users
+            // Handle ZEN Key Management for all users
             let gunPair: any = undefined;
             if (user.gun_pub && user.gun_priv) {
                 try {
-                    gunPair = this.decryptGunPriv(user.gun_priv);
+                    gunPair = this.decryptZenPriv(user.gun_priv);
                 } catch (e) {
-                    console.error(`⚠️ Failed to decrypt GunDB keys for ${username}. This likely means the server's encryption secret changed.`);
+                    console.error(`⚠️ Failed to decrypt ZEN keys for ${username}. This likely means the server's encryption secret changed.`);
                     console.log(`🔄 Attempting auto-recovery for ${username}...`);
                 }
             }
@@ -348,14 +348,14 @@ export function createAuthService(
                     if (systemPairRow) {
                         const systemPair = JSON.parse(systemPairRow.value); // Fetch identity from settings
                         if (systemPair && systemPair.pub && (!gunPair || gunPair.pub !== systemPair.pub)) {
-                            console.log(`🔗 Syncing Root Admin ${username} with instance GunDB Identity...`);
+                            console.log(`🔗 Syncing Root Admin ${username} with instance ZEN Identity...`);
                             gunPair = systemPair;
-                            const encryptedPriv = this.encryptGunPriv(gunPair);
+                            const encryptedPriv = this.encryptZenPriv(gunPair);
                             db.prepare("UPDATE admin SET gun_pub = ?, gun_priv = ? WHERE id = ?").run(gunPair.pub, encryptedPriv, user.id);
                         }
                     }
                 } catch (e) {
-                    console.error("❌ Failed to sync root admin with system GunDB pair:", e);
+                    console.error("❌ Failed to sync root admin with system ZEN pair:", e);
                 }
             }
 
@@ -364,14 +364,14 @@ export function createAuthService(
             if (!gunPair && (user.id === 1 || !isDefault)) {
                 // Lazy-generate or RE-generate ZEN identity (secp256k1)
                 console.log(`🔐 Generating new ZEN Identity for ${userRole} ${username}...`);
-                gunPair = await (Gun as any).pair();
-                const encryptedPriv = this.encryptGunPriv(gunPair);
+                gunPair = await (Zen as any).pair();
+                const encryptedPriv = this.encryptZenPriv(gunPair);
                 db.prepare("UPDATE admin SET gun_pub = ?, gun_priv = ? WHERE id = ?").run(gunPair.pub, encryptedPriv, user.id);
             }
 
             // Also store encrypted cleartext password for Subsonic token+salt auth
             if (password) {
-                const encryptedPass = encryptGunPrivHelper(password, jwtSecret);
+                const encryptedPass = encryptZenPrivHelper(password, jwtSecret);
                 try {
                     db.prepare("UPDATE admin SET subsonic_password = ? WHERE id = ?").run(encryptedPass, user.id);
                 } catch (e) {
@@ -416,7 +416,7 @@ export function createAuthService(
             // Standard: token = md5(password + salt)
             if (user.subsonic_password) {
                 try {
-                    const clearPassword = decryptGunPrivHelper(user.subsonic_password, jwtSecret);
+                    const clearPassword = decryptZenPrivHelper(user.subsonic_password, jwtSecret);
                     const expectedToken = crypto.createHash('md5').update(clearPassword + salt).digest('hex');
                     if (token.length === expectedToken.length && crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expectedToken))) return true;
                 } catch (e) {
@@ -427,7 +427,7 @@ export function createAuthService(
             return false;
         },
 
-        async verifyGunSignature(message: any, pubKey: string, proof: any): Promise<boolean> {
+        async verifyZenSignature(message: any, pubKey: string, proof: any): Promise<boolean> {
             try {
                 if (!proof || !pubKey) return false;
 
@@ -440,11 +440,11 @@ export function createAuthService(
                 }
 
                 // Diagnostic logs
-                console.log(`[DEBUG] verifyGunSignature - Expected Message: "${message}"`);
-                console.log(`[DEBUG] verifyGunSignature - PubKey: "${pubKey}"`);
+                console.log(`[DEBUG] verifyZenSignature - Expected Message: "${message}"`);
+                console.log(`[DEBUG] verifyZenSignature - PubKey: "${pubKey}"`);
                 
                 // Use ZEN verify (secp256k1)
-                const verified = await (Gun as any).verify(parsedProof, pubKey);
+                const verified = await (Zen as any).verify(parsedProof, pubKey);
                 const isValid = !!verified;
                 
                 if (!isValid) {
@@ -455,7 +455,7 @@ export function createAuthService(
                 
                 return isValid;
             } catch (e) {
-                console.error("❌ GunDB signature verification error:", e);
+                console.error("❌ Zen signature verification error:", e);
                 return false;
             }
         },
@@ -570,12 +570,12 @@ export function createAuthService(
             const hash = await this.hashPassword(newPassword);
             db.prepare("UPDATE admin SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?").run(hash, username);
 
-            // Generate GunDB identity if missing (First Login / Password Change flow)
+            // Generate ZEN identity if missing (First Login / Password Change flow)
             const user = db.prepare("SELECT id, gun_pub FROM admin WHERE username = ?").get(username) as { id: number, gun_pub: string | null } | undefined;
             if (user && !user.gun_pub) {
-                console.log(`🔐 [AUTH] Generating new GunDB Identity for ${username} during password change...`);
-                const gunPair = await (Gun as any).pair();
-                this.updateGunPair(username, gunPair);
+                console.log(`🔐 [AUTH] Generating new ZEN Identity for ${username} during password change...`);
+                const gunPair = await (Zen as any).pair();
+                this.updateZenPair(username, gunPair);
             }
         },
 
@@ -593,15 +593,15 @@ export function createAuthService(
             const user = db.prepare("SELECT gun_priv FROM admin WHERE username = ?").get(username) as { gun_priv: string | null } | undefined;
             if (!user || !user.gun_priv) return null;
             try {
-                return this.decryptGunPriv(user.gun_priv);
+                return this.decryptZenPriv(user.gun_priv);
             } catch (e) {
-                console.error(`⚠️ Failed to decrypt GunDB keys for ${username}. (Secret mismatch?)`);
+                console.error(`⚠️ Failed to decrypt ZEN keys for ${username}. (Secret mismatch?)`);
                 return null;
             }
         },
 
-        updateGunPair(username: string, pair: any): void {
-            const encryptedPriv = this.encryptGunPriv(pair);
+        updateZenPair(username: string, pair: any): void {
+            const encryptedPriv = this.encryptZenPriv(pair);
             db.prepare("UPDATE admin SET gun_pub = ?, gun_priv = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?").run(pair.pub, encryptedPriv, username);
             
             // Also ensure it's in gun_users for profile lookups
@@ -734,15 +734,15 @@ export function createAuthService(
 
             if (link) {
                 // Decrypt and return
-                const pair = this.decryptGunPriv(link.gun_priv);
+                const pair = this.decryptZenPriv(link.gun_priv);
                 console.log(`🔓 Mastodon Login: Found existing user ${subject} -> ${pair.pub.slice(0, 8)}...`);
                 return { pair, alias: user.display_name || user.acct };
             }
 
             // 4. Create new library identity (ZEN / secp256k1)
             console.log(`🆕 Mastodon Login: Creating NEW ZEN identity for ${subject}`);
-            const pair = await (Gun as any).pair();
-            const encryptedPriv = this.encryptGunPriv(pair);
+            const pair = await (Zen as any).pair();
+            const encryptedPriv = this.encryptZenPriv(pair);
 
             db.prepare("INSERT INTO oauth_links (provider, subject, gun_pub, gun_priv) VALUES (?, ?, ?, ?)").run(provider, subject, pair.pub, encryptedPriv);
 
@@ -753,12 +753,12 @@ export function createAuthService(
         },
 
         // Encryption helpers
-        encryptGunPriv(priv: any): string {
-            return encryptGunPrivHelper(priv, jwtSecret);
+        encryptZenPriv(priv: any): string {
+            return encryptZenPrivHelper(priv, jwtSecret);
         },
 
-        decryptGunPriv(encrypted: string): any {
-            return decryptGunPrivHelper(encrypted, jwtSecret);
+        decryptZenPriv(encrypted: string): any {
+            return decryptZenPrivHelper(encrypted, jwtSecret);
         },
 
         async deriveZenWallet(pair: any, id?: string): Promise<string> {
@@ -776,7 +776,7 @@ export function createAuthService(
 /**
  * Encrypts a private key using AES-256-GCM (Authenticated Encryption)
  */
-export function encryptGunPrivHelper(priv: any, secret: string): string {
+export function encryptZenPrivHelper(priv: any, secret: string): string {
     const json = JSON.stringify(priv);
     // GCM standard IV is 12 bytes
     const iv = crypto.randomBytes(12);
@@ -793,7 +793,7 @@ export function encryptGunPrivHelper(priv: any, secret: string): string {
 /**
  * Decrypts a private key using AES-256-GCM (or AES-256-CBC for legacy data)
  */
-export function decryptGunPrivHelper(encrypted: string, secret: string): any {
+export function decryptZenPrivHelper(encrypted: string, secret: string): any {
     const parts = encrypted.split(":");
     const key = crypto.createHash('sha256').update(secret).digest();
 

@@ -1,7 +1,6 @@
-import { getGun, Gun } from "./gun.js";
+import { getZen, Zen } from "./zen.js";
 import fetch from "node-fetch";
 import { drainResponse } from "./utils.js";
-// ZEN handles its own crypto, no need for gun/sea.js or gun/lib/yson.js separately if bundled
 
 import type { DatabaseService } from "./database.js";
 import { normalizeUrl, slugify } from "../utils/audioUtils.js";
@@ -9,14 +8,14 @@ import { isSafeUrl } from "../utils/networkUtils.js";
 import fs from "fs-extra";
 import path from "path";
 
-// Public GunDB peers for the community registry
+// Public Zen peers for the community registry
 const REGISTRY_PEERS = [
     "https://shogun-relay.scobrudot.dev/zen"
 ];
 
 const REGISTRY_ROOT = "shogun";
 const REGISTRY_NAMESPACE = "tunecamp-community";
-const REGISTRY_VERSION = "2.0"; // Bumped version for secure nodes
+const REGISTRY_VERSION = "2.0"; 
 
 export interface SiteInfo {
     url: string;
@@ -43,7 +42,7 @@ export interface Comment {
     createdAt: number;
 }
 
-export interface GunDBService {
+export interface ZenDBService {
     init(): Promise<boolean>;
     // Instance signaling (discovery)
     registerSite(siteInfo: SiteInfo): Promise<boolean>;
@@ -67,7 +66,7 @@ export interface GunDBService {
     addComment(trackId: number, data: { pubKey: string; username: string; text: string; signature?: string }): Promise<Comment | null>;
     getComments(trackId: number): Promise<Comment[]>;
     deleteComment(commentId: string, pubKey: string, signature?: string): Promise<boolean>;
-    // Releases
+    // Releases (No-op: managed via ActivityPub)
     publishRelease(id: number): Promise<boolean>;
     unpublishRelease(id: number): Promise<boolean>;
     // Key Management
@@ -79,8 +78,8 @@ export interface GunDBService {
     getPeerCount(): number;
 }
 
-export function createGunDBService(database: DatabaseService, server?: any, peers?: string[], publicUrl?: string): GunDBService {
-    let gun: any = null;
+export function createZenDBService(database: DatabaseService, server?: any, peers?: string[], publicUrl?: string): ZenDBService {
+    let zen: any = null;
     let initialized = false;
     let serverPair: any = null;
 
@@ -98,149 +97,106 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
     function invalidateCache() {
         cache.sites = { data: [], timestamp: 0 };
-        console.log("🧹 GunDB Community Cache invalidated.");
+        console.log("🧹 Zen Community Cache invalidated.");
     }
 
     async function init(): Promise<boolean> {
         try {
             // Load peers from settings if not provided in constructor
             let initializationPeers = activePeers;
-            const storedPeers = database.getSetting("gunPeers");
+            const storedPeers = database.getSetting("zenPeers") || database.getSetting("gunPeers");
             if (storedPeers && Array.isArray(storedPeers)) {
                 initializationPeers.push(...storedPeers);
             }
 
-            console.log(`📡 [GunDB] Initializing with peers: ${initializationPeers.join(', ')}`);
+            console.log(`📡 [ZenDB] Initializing with peers: ${initializationPeers.join(', ')}`);
             
-            // All ZEN peers must use the /zen WebSocket path - ZEN uses its own wire protocol
-            // and is NOT compatible with classic GunDB /gun endpoints.
             const nonZenPeers = initializationPeers.filter(p => !p.includes('/zen'));
             if (nonZenPeers.length > 0) {
-                console.warn(`⚠️  [ZEN] Some peers do NOT use /zen path (will likely fail):`, nonZenPeers);
-                console.warn(`⚠️  [ZEN] Make sure TUNECAMP_GUN_PEERS only contains /zen endpoints.`);
+                console.warn(`⚠️  [ZEN] Some peers do NOT use /zen path:`, nonZenPeers);
             }
 
-            if (!peers || peers.length === 0) {
-                if (storedPeers && typeof storedPeers === 'string') {
-                    try {
-                        initializationPeers = storedPeers.split(",").map(p => p.trim()).filter(p => p.length > 0);
-                        console.log(`🌐 [ZEN] Using ${initializationPeers.length} peers from database settings:`, initializationPeers);
-                    } catch (e) {
-                        console.warn("⚠️ [ZEN] Invalid peers in settings, falling back to defaults");
-                    }
-                } else {
-                    console.log(`🌐 [ZEN] Using ${initializationPeers.length} default peers:`, initializationPeers);
-                }
-            }
-
-            gun = getGun({
+            zen = getZen({
                 peers: initializationPeers,
                 web: server,
                 publicUrl: publicUrl
             });
 
-            console.log(`📡 [GunDB] Shared instance acquired. Type: ${typeof gun}. .user type: ${typeof gun?.user}`);
+            console.log(`📡 [ZenDB] Shared instance acquired.`);
 
-            // Diagnostic: warn if no peers connected after 15s (no auto-fallback to /gun - incompatible)
+            // Diagnostic: warn if no peers connected after 15s
             setTimeout(() => {
                 const connectedCount = getPeerCount();
                 if (connectedCount === 0) {
                     console.warn(`🕒 [ZEN] No peers connected after 15s. Targets:`, initializationPeers);
-                    console.warn(`🕒 [ZEN] Check that the /zen WebSocket path is correctly proxied on the relay server.`);
-                    console.warn(`🕒 [ZEN] TIP: CapRover/Nginx must proxy WebSocket upgrades at exactly the /zen path.`);
                 }
             }, 15000);
 
-            if (typeof gun.user !== 'function') {
-                console.error("🚨 [GunDB] ERROR: gun.user is not a function! This usually means the TS/JS build is corrupted or out of sync.");
-                console.log("🛠️  [GunDB] Attempting manual recovery of .user() shim...");
-                try {
-                    // If it's missing, maybe we can re-initialize or log the actual object keys
-                    console.log(`🛠️  [GunDB] Gun instance keys: ${Object.keys(gun).join(', ')}`);
-                } catch (e) {}
+            if (typeof zen.user !== 'function') {
+                console.error("🚨 [ZenDB] ERROR: zen.user is not a function!");
             }
 
-            // Initialize User Auth (SEA)
-            // Check if we have a stored pair
-            const storedPairStr = database.getSetting("gunPair");
+            // Initialize User Auth
+            const storedPairStr = database.getSetting("zenPair") || database.getSetting("gunPair");
             if (storedPairStr) {
                 try {
                     serverPair = JSON.parse(storedPairStr);
                 } catch (e) {
-                    console.error("Invalid stored GunDB pair, generating new one");
+                    console.error("Invalid stored Zen identity pair, generating new one");
                 }
             }
 
             if (!serverPair) {
-                // Generate new pair
                 console.log("🔐 Generating new ZEN Identity for this server...");
-                serverPair = await (Gun as any).pair();
-                database.setSetting("gunPair", JSON.stringify(serverPair));
+                serverPair = await (Zen as any).pair();
+                database.setSetting("zenPair", JSON.stringify(serverPair));
             }
 
-            // Authenticate
-            const user = gun.user();
+            const user = zen.user();
 
-            // DIAGNOSTIC: Validate serverPair before auth to prevent "0 length key!"
             if (serverPair) {
-                // ZEN/secp256k1 uses pub, priv, epub, epriv but avoids SEA prefixes
                 const missing = ['pub', 'priv', 'epub', 'epriv'].filter(k => !serverPair[k] || serverPair[k].length === 0);
-                
-                // Check if it's an old SEA pair (SEA pairs often have shorter base64 strings or different properties)
-                // ZEN pairs have 88-char pub and 44-char priv in base62
                 const isLegacy = serverPair.pub && serverPair.pub.length < 80; 
 
                 if (missing.length > 0 || isLegacy || serverPair.curve !== 'secp256k1') {
-                    console.warn(`🚨 [GunDB] Server Identity is LEGACY or CORRUPTED! Error: ${missing.length > 0 ? 'Missing fields' : 'Legacy curve'}. Generating new ZEN pair...`);
-                    serverPair = await (Gun as any).pair();
-                    database.setSetting("gunPair", JSON.stringify(serverPair));
+                    console.warn(`🚨 [ZenDB] Server Identity is LEGACY or CORRUPTED! Generating new ZEN pair...`);
+                    serverPair = await (Zen as any).pair();
+                    database.setSetting("zenPair", JSON.stringify(serverPair));
                 }
-            } else {
-                console.error("🚨 [GunDB] NO Server Identity (serverPair) found before authentication!");
             }
 
-            // Authenticate with a promise to wait for result
             const authPromise = new Promise<void>((resolve, reject) => {
                 user.auth(serverPair, (ack: any) => {
                     if (ack.err) {
-                        console.error("❌ Failed to authenticate GunDB user:", ack.err);
-                        if (ack.err === '0 length key!') {
-                            console.error("🚨 [GunDB] CONFIRMED: 0 length key error during authentication.");
-                        }
+                        console.error("❌ Failed to authenticate Zen user:", ack.err);
                         reject(new Error(ack.err));
                     } else {
-                        console.log(`🔐 GunDB Authenticated as pubKey: ${serverPair.pub.slice(0, 8)}...`);
+                        console.log(`🔐 Zen Authenticated as pubKey: ${serverPair.pub.slice(0, 8)}...`);
                         resolve();
                     }
                 });
-                // Max timeout for auth
                 setTimeout(() => resolve(), 10000);
             });
 
             try {
                 await authPromise;
             } catch (e) {
-                console.warn("⚠️ GunDB Authentication had errors, but continuing initialization.");
+                console.warn("⚠️ Zen Authentication had errors, but continuing initialization.");
             }
 
             initialized = true;
             console.log("🌐 ZEN Relay initialized (signaling + identity + stats)");
 
-            // Manteniamo traccia della memoria e del grafo GunDB ogni 30s per i leak
             setInterval(() => {
                 if (global.gc) global.gc();
                 const used = process.memoryUsage();
                 const peerCount = getPeerCount();
-                console.log(`[Diag] Heap: ${Math.round(used.heapUsed / 1e6)} MB | ZEN Peers: ${peerCount} | nodes:`, gun?._?.graph ? Object.keys(gun._.graph).length : 0);
-                
-                if (peerCount === 0 && initializationPeers.length > 0) {
-                    console.warn(`[Diag] ⚠️  ZEN is reporting 0 connected peers. Target peers:`, initializationPeers);
-                }
+                console.log(`[Diag] Heap: ${Math.round(used.heapUsed / 1e6)} MB | ZEN Peers: ${peerCount} | nodes:`, zen?._?.graph ? Object.keys(zen._.graph).length : 0);
             }, 60_000);
 
             return true;
         } catch (error) {
-            console.error("Failed to initialize GunDB:", error);
+            console.error("Failed to initialize ZenDB:", error);
             return false;
         }
     }
@@ -254,18 +210,14 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             if (!pair || !pair.pub || !pair.priv || !pair.epub || !pair.epriv) {
                 return false;
             }
-
-            // Basic validation
             if (typeof pair.pub !== 'string' || typeof pair.priv !== 'string') return false;
 
-            // Save
             serverPair = pair;
-            database.setSetting("gunPair", JSON.stringify(serverPair));
+            database.setSetting("zenPair", JSON.stringify(serverPair));
 
-            // Re-authenticate if running
-            if (gun) {
-                gun.user().leave();
-                gun.user().auth(serverPair, (ack: any) => {
+            if (zen) {
+                zen.user().leave();
+                zen.user().auth(serverPair, (ack: any) => {
                     if (!ack.err) console.log(`🔐 Identity Imported & Re-Authenticated: ${serverPair.pub.slice(0, 8)}...`);
                 });
             }
@@ -279,23 +231,22 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     async function clearRadata() {
         const radataPath = path.join(process.cwd(), 'radata');
         try {
-            console.warn(`⚠️ Attempting to clear GunDB radata directory at ${radataPath}...`);
+            console.warn(`⚠️ Attempting to clear Zen radata directory at ${radataPath}...`);
             await fs.emptyDir(radataPath);
-            console.log("✅ GunDB radata cleared successfully.");
+            console.log("✅ Zen radata cleared successfully.");
         } catch (error) {
-            console.error("❌ Failed to clear GunDB radata:", error);
+            console.error("❌ Failed to clear Zen radata:", error);
         }
     }
 
     // ─── Instance Signaling ─────────────────────────────────────────────────────
 
     async function registerSite(siteInfo: SiteInfo): Promise<boolean> {
-        if (!initialized || !gun || !serverPair) {
-            console.warn("GunDB not initialized or no keys");
+        if (!initialized || !zen || !serverPair) {
+            console.warn("ZenDB not initialized or no keys");
             return false;
         }
 
-        // Skip non-HTTPS URLs in production
         if (siteInfo.url && !siteInfo.url.startsWith("https://")) {
             console.log("📍 Skipping community registration (not HTTPS - local/dev mode)");
             return false;
@@ -320,11 +271,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
         const attemptRegistration = async (retryCount = 0): Promise<boolean> => {
             return new Promise(async (resolve) => {
-                // 1. Sign data manually to avoid "Unverified data" errors in public graph
-                const signedSite = await (Gun as any).sign(siteRecord, serverPair);
+                const signedSite = await (Zen as any).sign(siteRecord, serverPair);
 
-                // 2. Write to Public Content Node (Identified by PubKey)
-                const contentRef = gun
+                const contentRef = zen
                     .get(REGISTRY_ROOT)
                     .get(REGISTRY_NAMESPACE)
                     .get("content")
@@ -334,26 +283,12 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                 contentRef.put(signedSite, async (ack: any) => {
                     if (ack.err) {
                         console.warn("Failed to write to public content node:", ack.err);
-
-                        const isJsonError = (typeof ack.err === 'string' && ack.err.includes("JSON error")) ||
-                            (ack.err && ack.err.err === "JSON error!");
-
-                        if (isJsonError && retryCount < 1) {
-                            console.error("❌ GunDB Corruption detected! Attempting auto-recovery...");
-                            await clearRadata();
-                            console.log("🔄 Retrying registration after recovery...");
-                            const result = await attemptRegistration(retryCount + 1);
-                            resolve(result);
-                            return;
-                        }
-
                         resolve(false);
                         return;
                     }
 
-                    // 2. Write Reference to Public Directory
-                    console.log(`📝 Registering public reference for Site ID: ${siteId} with PubKey: ${serverPair.pub.slice(0, 8)}...`);
-                    gun
+                    console.log(`📝 Registering public reference for Site ID: ${siteId}`);
+                    zen
                         .get(REGISTRY_ROOT)
                         .get(REGISTRY_NAMESPACE)
                         .get("sites")
@@ -368,29 +303,15 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                         }, async (pubAck: any) => {
                             if (pubAck.err) {
                                 console.warn("Failed to register site in directory:", pubAck.err);
-
-                                const isJsonError = (typeof pubAck.err === 'string' && pubAck.err.includes("JSON error")) ||
-                                    (pubAck.err && pubAck.err.err === "JSON error!");
-
-                                if (isJsonError && retryCount < 1) {
-                                    console.error("❌ GunDB Corruption detected in public directory! Attempting auto-recovery...");
-                                    await clearRadata();
-                                    console.log("🔄 Retrying registration after recovery...");
-                                    const result = await attemptRegistration(retryCount + 1);
-                                    resolve(result);
-                                    return;
-                                }
-
                                 resolve(false);
                             } else {
-                                console.log(`✅ Server registered in Tunecamp Community (Public-Verified Node) - Site ID: ${siteId}`);
+                                console.log(`✅ Server registered in Tunecamp Community - Site ID: ${siteId}`);
                                 invalidateCache();
                                 resolve(true);
                             }
                         });
                 });
 
-                // Timeout fallback
                 setTimeout(() => resolve(true), 5000);
             });
         };
@@ -401,17 +322,15 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     // ─── Community Site Discovery ────────────────────────────────────────────────
 
     async function getCommunitySites(): Promise<any[]> {
-        if (!initialized || !gun) return [];
+        if (!initialized || !zen) return [];
 
         const CACHE_KEY = "community_sites";
-        const TTL = 60 * 60; // 1 hour
+        const TTL = 60 * 60; 
 
-        // 1. Try SQLite cache first for instant response
-        const cached = database.getGunCache(CACHE_KEY);
+        const cached = database.getGunCache(CACHE_KEY); // Keep cache method name for now
         if (cached) {
             try {
                 const sites = JSON.parse(cached.value);
-                // Trigger background refresh if we haven't checked recently in this session
                 if (Date.now() - cache.sites.timestamp > cache.itemsTTL) {
                     refreshCommunitySitesInBackground();
                 }
@@ -421,10 +340,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             }
         }
 
-        // 2. If no cache or first run, do the normal scan
         if (firstStart) {
-            // Delay first discovery by 30s to allow server to stabilize
-            console.log("⏱️  GunDB Community Discovery scheduled for 30s delay...");
+            console.log("⏱️  Zen Community Discovery scheduled for 30s delay...");
             return new Promise(resolve => {
                 setTimeout(async () => {
                     firstStart = false;
@@ -441,7 +358,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         isRefreshingSites = true;
 
         const CACHE_KEY = "community_sites";
-        const TTL = 60 * 60; // 1 hour
+        const TTL = 60 * 60; 
 
         return new Promise((resolve) => {
             const sites: any[] = [];
@@ -449,17 +366,14 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             let handlerActive = true;
 
-            // Usiamo .on() in modo da poter chiudere esplicitamente la chain, 
-            // evitando che map().once() accumuli nuovi listeners senza mai rimuoverli.
-            const handler = gun
+            const handler = zen
                 .get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get("sites")
                 .map()
                 .on(async (directoryData: any, siteId: string, _msg: any, ev: any) => {
-                    if (!handlerActive) return; // Prevent late execution
+                    if (!handlerActive) return; 
 
-                    // In some GunDB versions, ev.off() works to kill this specific item's listener
                     if (ev && typeof ev.off === 'function') {
                         setTimeout(() => { try { ev.off(); } catch (e) { } }, 5000);
                     }
@@ -470,12 +384,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
                     const MAX_SITES_PER_RUN = 50;
                     if (sites.length >= MAX_SITES_PER_RUN) {
-                        return; // Stop processing more in this run
+                        return; 
                     }
 
-                    // --- STALE SITES FILTER ---
-                    // Skip sites that haven't been seen in the last 7 days to reduce memory pressure
-                    // and prevent the server from trying to resolve thousands of dead nodes.
                     if (directoryData.lastSeen && typeof directoryData.lastSeen === 'number') {
                         const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
                         if (directoryData.lastSeen < sevenDaysAgo) {
@@ -486,18 +397,16 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     if (directoryData.pub) {
                         const registerPub = directoryData.pub;
 
-                        // Small jittered delay to prevent resource storm
                         await new Promise(r => setTimeout(r, 100 + Math.random() * 400));
 
-                        // Try NEW mechanism: Directed-Path Public Verified Node
-                        gun.get(REGISTRY_ROOT)
+                        zen.get(REGISTRY_ROOT)
                             .get(REGISTRY_NAMESPACE)
                             .get("content")
                             .get(registerPub)
                             .get("profile")
                             .once(async (signedData: any) => {
                                 if (signedData) {
-                                    const profileData = await (Gun as any).verify(signedData, registerPub);
+                                    const profileData = await (Zen as any).verify(signedData, registerPub);
                                     if (profileData && profileData.type === "tunecamp-site") {
                                         sites.push({
                                             ...profileData,
@@ -511,8 +420,8 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                                     }
                                 }
 
-                                // FALLBACK: Old mechanism (User Graph)
-                                gun.user(registerPub)
+                                // FALLBACK
+                                zen.user(registerPub)
                                     .get('tunecamp')
                                     .get('profile')
                                     .once((profileData: any) => {
@@ -536,7 +445,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                                     });
                             });
                     } else {
-                        // Legacy mode
                         sites.push({
                             id: siteId,
                             ...directoryData,
@@ -546,7 +454,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     }
                 });
 
-            // Wait for data to collect
             setTimeout(() => {
                 handlerActive = false;
 
@@ -554,29 +461,24 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     if (handler && typeof (handler as any).off === 'function') {
                         (handler as any).off();
                     } else {
-                        // Fallback: Disconnetti manualmente l'ascoltatore per l'intera root 
-                        gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("sites").off();
+                        zen.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("sites").off();
                     }
                 } catch (e) { }
 
                 isRefreshingSites = false;
 
                 if (sites.length > 0) {
-                    console.log(`⏱️ Discovery: Found ${sites.length} potential community sites (Limit: 50). Updating SQLite cache.`);
+                    console.log(`⏱️ Discovery: Found ${sites.length} sites. Updating cache.`);
                     database.setGunCache(CACHE_KEY, JSON.stringify(sites), "sites", TTL);
                     cache.sites = { data: sites, timestamp: Date.now() };
                 }
 
-                // Pre-emptive GC if exposed - ALWAYS call to release GunDB graph nodes
                 if (global.gc) {
-                    const before = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
                     global.gc();
-                    const after = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
-                    console.log(`[GunDB] Cleanup: Discovery complete. Memory: ${before}MB -> ${after}MB`);
                 }
 
                 resolve(sites);
-            }, 7000); // Reduced to 7 seconds to minimize memory pressure window
+            }, 7000); 
         });
     }
 
@@ -585,29 +487,29 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     const STATS_NAMESPACE = "tunecamp-stats";
 
     async function getDownloadCount(releaseSlug: string): Promise<number> {
-        if (!initialized || !gun) return 0;
+        if (!initialized || !zen) return 0;
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug).get("downloads")
+            zen.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug).get("downloads")
                 .once((data: any) => { resolve(data ? parseInt(data, 10) || 0 : 0); });
             setTimeout(() => resolve(0), 3000);
         });
     }
 
     async function incrementDownloadCount(releaseSlug: string): Promise<number> {
-        if (!initialized || !gun) return 0;
+        if (!initialized || !zen) return 0;
         const currentCount = await getDownloadCount(releaseSlug);
         const newCount = currentCount + 1;
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug).get("downloads")
+            zen.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug).get("downloads")
                 .put(newCount, (ack: any) => { resolve(ack.err ? currentCount : newCount); });
             setTimeout(() => resolve(newCount), 2000);
         });
     }
 
     async function getTrackPlayCount(releaseSlug: string, trackId: string): Promise<number> {
-        if (!initialized || !gun) return 0;
+        if (!initialized || !zen) return 0;
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+            zen.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
                 .get("tracks").get(trackId).get("plays").once((data: any) => {
                     resolve(data ? parseInt(data, 10) || 0 : 0);
                 });
@@ -616,11 +518,11 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     }
 
     async function incrementTrackPlayCount(releaseSlug: string, trackId: string): Promise<number> {
-        if (!initialized || !gun) return 0;
+        if (!initialized || !zen) return 0;
         const currentCount = await getTrackPlayCount(releaseSlug, trackId);
         const newCount = currentCount + 1;
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+            zen.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
                 .get("tracks").get(trackId).get("plays").put(newCount, (ack: any) => {
                     resolve(ack.err ? currentCount : newCount);
                 });
@@ -629,9 +531,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     }
 
     async function getTrackDownloadCount(releaseSlug: string, trackId: string): Promise<number> {
-        if (!initialized || !gun) return 0;
+        if (!initialized || !zen) return 0;
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+            zen.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
                 .get("tracks").get(trackId).get("downloads").once((data: any) => {
                     resolve(data ? parseInt(data, 10) || 0 : 0);
                 });
@@ -640,11 +542,11 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     }
 
     async function incrementTrackDownloadCount(releaseSlug: string, trackId: string): Promise<number> {
-        if (!initialized || !gun) return 0;
+        if (!initialized || !zen) return 0;
         const currentCount = await getTrackDownloadCount(releaseSlug, trackId);
         const newCount = currentCount + 1;
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+            zen.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
                 .get("tracks").get(trackId).get("downloads").put(newCount, (ack: any) => {
                     resolve(ack.err ? currentCount : newCount);
                 });
@@ -653,9 +555,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     }
 
     async function getTrackLikeCount(releaseSlug: string, trackId: string): Promise<number> {
-        if (!initialized || !gun) return 0;
+        if (!initialized || !zen) return 0;
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+            zen.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
                 .get("tracks").get(trackId).get("likes").once((data: any) => {
                     resolve(data ? parseInt(data, 10) || 0 : 0);
                 });
@@ -664,11 +566,11 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     }
 
     async function incrementTrackLikeCount(releaseSlug: string, trackId: string): Promise<number> {
-        if (!initialized || !gun) return 0;
+        if (!initialized || !zen) return 0;
         const currentCount = await getTrackLikeCount(releaseSlug, trackId);
         const newCount = currentCount + 1;
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+            zen.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
                 .get("tracks").get(trackId).get("likes").put(newCount, (ack: any) => {
                     resolve(ack.err ? currentCount : newCount);
                 });
@@ -677,11 +579,11 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     }
 
     async function decrementTrackLikeCount(releaseSlug: string, trackId: string): Promise<number> {
-        if (!initialized || !gun) return 0;
+        if (!initialized || !zen) return 0;
         const currentCount = await getTrackLikeCount(releaseSlug, trackId);
         const newCount = Math.max(0, currentCount - 1);
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
+            zen.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("releases").get(releaseSlug)
                 .get("tracks").get(trackId).get("likes").put(newCount, (ack: any) => {
                     resolve(ack.err ? currentCount : newCount);
                 });
@@ -690,9 +592,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     }
 
     async function setTrackRating(releaseSlug: string, trackId: string, rating: number): Promise<void> {
-        if (!initialized || !gun || !serverPair) return;
+        if (!initialized || !zen || !serverPair) return;
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("ratings").get(serverPair.pub)
+            zen.get(REGISTRY_ROOT).get(STATS_NAMESPACE).get("ratings").get(serverPair.pub)
                 .get("releases").get(releaseSlug).get("tracks").get(trackId).put(rating, (ack: any) => {
                     if (ack.err) console.error("Error setting track rating:", ack.err);
                     resolve();
@@ -706,7 +608,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     const USERS_NAMESPACE = "tunecamp-users";
 
     async function registerUser(pubKey: string, username: string): Promise<boolean> {
-        if (!initialized || !gun) return false;
+        if (!initialized || !zen) return false;
 
         const now = Date.now();
         const userRecord: UserProfile = {
@@ -716,7 +618,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         };
 
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(USERS_NAMESPACE).get("byPubKey").get(pubKey)
+            zen.get(REGISTRY_ROOT).get(USERS_NAMESPACE).get("byPubKey").get(pubKey)
                 .put(userRecord, (ack: any) => {
                     if (ack.err) {
                         console.warn("Failed to register user:", ack.err);
@@ -724,7 +626,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     }
                 });
 
-            gun.get(REGISTRY_ROOT).get(USERS_NAMESPACE).get("byUsername").get(username.toLowerCase())
+            zen.get(REGISTRY_ROOT).get(USERS_NAMESPACE).get("byUsername").get(username.toLowerCase())
                 .put({ pubKey, username }, (ack: any) => {
                     if (ack.err) {
                         resolve(false);
@@ -739,9 +641,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     }
 
     async function getUser(pubKey: string): Promise<UserProfile | null> {
-        if (!initialized || !gun) return null;
+        if (!initialized || !zen) return null;
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(USERS_NAMESPACE).get("byPubKey").get(pubKey)
+            zen.get(REGISTRY_ROOT).get(USERS_NAMESPACE).get("byPubKey").get(pubKey)
                 .once((data: any) => {
                     if (data && data.username) {
                         resolve({
@@ -759,9 +661,9 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     }
 
     async function getUserByUsername(username: string): Promise<UserProfile | null> {
-        if (!initialized || !gun) return null;
+        if (!initialized || !zen) return null;
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(USERS_NAMESPACE).get("byUsername").get(username.toLowerCase())
+            zen.get(REGISTRY_ROOT).get(USERS_NAMESPACE).get("byUsername").get(username.toLowerCase())
                 .once(async (data: any) => {
                     if (data && data.pubKey) {
                         const user = await getUser(data.pubKey);
@@ -782,7 +684,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         trackId: number,
         data: { pubKey: string; username: string; text: string; signature?: string }
     ): Promise<Comment | null> {
-        if (!initialized || !gun) return null;
+        if (!initialized || !zen) return null;
 
         const commentId = `${trackId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const now = Date.now();
@@ -799,7 +701,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
         return new Promise((resolve) => {
             let handled = false;
-            gun.get(REGISTRY_ROOT).get(COMMENTS_NAMESPACE).get(`track-${trackId}`).get(commentId)
+            zen.get(REGISTRY_ROOT).get(COMMENTS_NAMESPACE).get(`track-${trackId}`).get(commentId)
                 .put(comment, (ack: any) => {
                     if (handled) return;
                     handled = true;
@@ -815,26 +717,25 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             setTimeout(() => {
                 if (handled) return;
                 handled = true;
-                console.log(`💬 Comment added on track ${trackId} (Optimistic Resolve)`);
                 resolve(comment);
             }, 5000);
         });
     }
 
     async function getComments(trackId: number): Promise<Comment[]> {
-        if (!initialized || !gun) return [];
+        if (!initialized || !zen) return [];
 
         return new Promise((resolve) => {
             const comments: Comment[] = [];
 
-            gun.get(REGISTRY_ROOT).get(COMMENTS_NAMESPACE).get(`track-${trackId}`)
+            zen.get(REGISTRY_ROOT).get(COMMENTS_NAMESPACE).get(`track-${trackId}`)
                 .map().once((data: any, id: string) => {
                     if (data && data.text && id !== "_") {
                         const pubKey = data.pubKey || "";
                         let displayUsername = data.username || "Anonymous";
 
                         if (pubKey) {
-                            const dbUser = database.getGunUser(pubKey);
+                            const dbUser = database.getZenUser(pubKey);
                             if (dbUser && dbUser.alias && dbUser.alias.trim() !== '' && dbUser.alias !== pubKey) {
                                 displayUsername = dbUser.alias;
                             }
@@ -860,12 +761,11 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     }
 
     async function deleteComment(commentId: string, pubKey: string, signature?: string): Promise<boolean> {
-        if (!initialized || !gun) return false;
+        if (!initialized || !zen) return false;
 
-        // Verify ownership proof if signature provided
         if (signature) {
             try {
-                const isValid = await (Gun as any).verify(signature, pubKey);
+                const isValid = await (Zen as any).verify(signature, pubKey);
                 if (isValid !== commentId) {
                     console.warn(`❌ Invalid signature for comment deletion: ${commentId}`);
                     return false;
@@ -880,19 +780,19 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         const trackId = parts[0];
 
         return new Promise((resolve) => {
-            gun.get(REGISTRY_ROOT).get(COMMENTS_NAMESPACE).get(`track-${trackId}`).get(commentId)
+            zen.get(REGISTRY_ROOT).get(COMMENTS_NAMESPACE).get(`track-${trackId}`).get(commentId)
                 .once((data: any) => {
                     if (!data || data.pubKey !== pubKey) {
                         resolve(false);
                         return;
                     }
 
-                    gun.get(REGISTRY_ROOT).get(COMMENTS_NAMESPACE).get(`track-${trackId}`).get(commentId)
+                    zen.get(REGISTRY_ROOT).get(COMMENTS_NAMESPACE).get(`track-${trackId}`).get(commentId)
                         .put(null, (ack: any) => {
                             if (ack.err) {
                                 resolve(false);
                             } else {
-                                console.log(`🗑️ Comment deleted from GunDB: ${commentId}`);
+                                console.log(`🗑️ Comment deleted from Zen: ${commentId}`);
                                 resolve(true);
                             }
                         });
@@ -902,108 +802,22 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         });
     }
 
+    // ─── Releases (No-op) ────────────────────────────────────────────────────────
+
     async function publishRelease(id: number): Promise<boolean> {
-        if (!initialized || !gun || !serverPair) return false;
-
-        try {
-            const release = database.getRelease(id);
-            if (!release || !release.published_to_gundb) return false;
-
-            const tracks = database.getTracksByReleaseId(id);
-            const publicUrl = database.getSetting("publicUrl") || "";
-            
-            console.log(`📡 [ZEN] Publishing release: ${release.title} (${release.slug})`);
-
-            const user = (gun as any).user();
-            await new Promise<void>((resolve) => {
-                user.auth(serverPair, (ack: any) => {
-                    if (ack.err) console.error("❌ Zen auth failed for publishing:", ack.err);
-                    resolve();
-                });
-            });
-
-            // 1. Publish Release Metadata
-            const releaseData = {
-                id: release.id,
-                title: release.title,
-                slug: release.slug,
-                description: release.description || "",
-                coverUrl: release.cover_path ? `${publicUrl}${release.cover_path}` : "",
-                artistName: database.getSetting("artistName") || "Unknown Artist",
-                publishedAt: release.published_at || Date.now(),
-                updatedAt: Date.now()
-            };
-
-            await new Promise<void>((resolve) => {
-                user.get('tunecamp').get('releases').get(release.slug).put(releaseData, (ack: any) => {
-                    resolve();
-                });
-            });
-
-            // 2. Publish Tracks
-            for (const track of tracks) {
-                const trackSlug = slugify(track.title) || track.id.toString();
-                const trackData = {
-                    id: track.id,
-                    title: track.title,
-                    slug: trackSlug,
-                    releaseId: release.id,
-                    releaseTitle: release.title,
-                    artistName: track.artist_name || releaseData.artistName,
-                    audioUrl: track.file_path ? `${publicUrl}${track.file_path}` : "",
-                    coverUrl: releaseData.coverUrl,
-                    duration: track.duration || 0,
-                    addedAt: track.created_at || Date.now()
-                };
-
-                await new Promise<void>((resolve) => {
-                    user.get('tunecamp').get('tracks').get(trackSlug).put(trackData, (ack: any) => {
-                        resolve();
-                    });
-                });
-            }
-
-            console.log(`✅ [ZEN] Successfully published release and ${tracks.length} tracks.`);
-            return true;
-        } catch (error) {
-            console.error("❌ Error publishing to Zen:", error);
-            return false;
-        }
+        // No-op: managed via ActivityPub
+        return true;
     }
 
     async function unpublishRelease(id: number): Promise<boolean> {
-        if (!initialized || !gun || !serverPair) return false;
-
-        try {
-            const release = database.getRelease(id);
-            if (!release) return false;
-
-            console.log(`🗑️ [ZEN] Unpublishing release: ${release.slug}`);
-
-            const user = (gun as any).user();
-            user.auth(serverPair);
-
-            // Remove release
-            user.get('tunecamp').get('releases').get(release.slug).put(null);
-
-            // Remove tracks
-            const tracks = database.getTracksByReleaseId(id);
-            for (const track of tracks) {
-                const trackSlug = slugify(track.title) || track.id.toString();
-                user.get('tunecamp').get('tracks').get(trackSlug).put(null);
-            }
-
-            return true;
-        } catch (error) {
-            console.error("❌ Error unpublishing from Zen:", error);
-            return false;
-        }
+        // No-op: managed via ActivityPub
+        return true;
     }
 
-    // ─── Network Cleanup (sites only) ────────────────────────────────────────────
+    // ─── Network Cleanup ─────────────────────────────────────────────────────────
 
     async function cleanupNetwork() {
-        if (!initialized || !gun || !serverPair) return;
+        if (!initialized || !zen || !serverPair) return;
 
         try {
             const publicUrl = database.getSetting("publicUrl");
@@ -1016,8 +830,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             console.log(`🧹 Starting network cleanup (Site ID: ${currentSiteId})...`);
 
-            // Cleanup stale site registrations that belong to us but have a different ID
-            gun.get(REGISTRY_ROOT)
+            zen.get(REGISTRY_ROOT)
                 .get(REGISTRY_NAMESPACE)
                 .get("sites")
                 .map()
@@ -1025,7 +838,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     if (!siteData || siteId === "_") return;
                     if (siteData.pub === serverPair.pub && siteId !== currentSiteId) {
                         console.log(`🧹 Removing stale site registration: ${siteId}`);
-                        gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("sites").get(siteId).put(null);
+                        zen.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("sites").get(siteId).put(null);
                     }
                 });
 
@@ -1037,7 +850,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     }
 
     async function cleanupGlobalNetwork() {
-        if (!initialized || !gun) return;
+        if (!initialized || !zen) return;
 
         console.log("🧹 Starting GLOBAL network cleanup...");
 
@@ -1046,7 +859,7 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
             let checked = 0;
             let removed = 0;
 
-            const sitesRef = gun.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("sites");
+            const sitesRef = zen.get(REGISTRY_ROOT).get(REGISTRY_NAMESPACE).get("sites");
 
             sitesRef.once((sites: any) => {
                 if (!sites) {
@@ -1062,8 +875,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
                     return;
                 }
 
-                console.log(`🔍 Found ${total} sites to check.`);
-
                 siteIds.forEach(siteId => {
                     sitesRef.get(siteId).once(async (siteData: any) => {
                         try {
@@ -1075,7 +886,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
                             const isReachable = await checkSiteReachability(siteData.url);
                             if (!isReachable) {
-                                console.log(`🗑️ Site unreachable, removing: ${siteData.url} (${siteId})`);
                                 sitesRef.get(siteId).put(null);
                                 removed++;
                             }
@@ -1095,7 +905,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             setTimeout(() => {
                 if (checked < total) {
-                    console.log(`⚠️ Global cleanup partial timeout. Checked ${checked}/${total}.`);
                     invalidateCache();
                     resolve();
                 }
@@ -1106,7 +915,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     async function checkSiteReachability(url: string): Promise<boolean> {
         try {
             if (!(await isSafeUrl(url))) {
-                console.warn(`⚠️ Blocked unsafe community URL: ${url}`);
                 return false;
             }
 
@@ -1144,7 +952,6 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
         const newId = Math.abs(hash).toString(36) + Math.random().toString(36).substr(2, 5);
 
         database.setSetting("siteId", newId);
-        console.log(`🆔 Generated new persistent Site ID: ${newId}`);
         return newId;
     }
 
@@ -1185,18 +992,16 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
     };
 
     function getPeerCount(): number {
-        if (!gun) return 0;
+        if (!zen) return 0;
         try {
-            const peers = gun._.opt.peers;
+            const peers = zen._.opt.peers;
             if (!peers) return 0;
             
             return Object.keys(peers).filter(k => {
                 const peer = peers[k];
-                // Check for wire (standard Gun) or socket (some ZEN/Gun variants)
                 const conn = peer.wire || peer.socket || peer.conn;
                 if (!conn) return false;
                 
-                // readyState 1 is OPEN
                 return conn.readyState === 1 || conn.readyState === 'open';
             }).length;
         } catch (e) {
