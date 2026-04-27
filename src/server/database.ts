@@ -527,6 +527,7 @@ export interface DatabaseService {
     // Ratings & Bookmarks
     setItemRating(username: string, itemType: string, itemId: string, rating: number): void;
     getItemRating(username: string, itemType: string, itemId: string): number;
+    getItemRatings(username: string, itemType: string): Map<string, number>;
     createBookmark(username: string, trackId: string, positionMs: number, comment?: string): void;
     getBookmarks(username: string): any[];
     deleteBookmark(username: string, trackId: string): void;
@@ -3842,6 +3843,11 @@ export function createDatabase(dbPath: string): DatabaseService {
         getItemRating(username: string, itemType: string, itemId: string): number {
             const row = db.prepare("SELECT rating FROM item_ratings WHERE username = ? AND item_type = ? AND item_id = ?").get(username, itemType, itemId) as { rating: number } | undefined;
             return row?.rating || 0;
+        },
+
+        getItemRatings(username: string, itemType: string): Map<string, number> {
+            const rows = db.prepare("SELECT item_id, rating FROM item_ratings WHERE username = ? AND item_type = ?").all(username, itemType) as { item_id: string, rating: number }[];
+            return new Map(rows.map(r => [r.item_id, r.rating]));
         },
 
         createBookmark(username: string, trackId: string, positionMs: number, comment?: string): void {
