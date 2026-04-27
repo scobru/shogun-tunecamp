@@ -647,9 +647,25 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const artist = db.getArtist(artistId);
         if (!artist) return sendError(res, req, 70, 'Artist not found');
 
-        const albums = db.getAlbumsByArtist(artistId, false).map(a => {
-            const tracks = db.getTracks(a.id);
-            return { ...a, songCount: tracks.length, duration: tracks.reduce((acc, t) => acc + (t.duration || 0), 0) };
+        const libraryAlbums = db.getAlbumsByArtist(artistId, false);
+        const albumIds = libraryAlbums.map(album => album.id);
+        const albumStats = new Map<number, { songCount: number; duration: number }>();
+
+        if (albumIds.length > 0) {
+            const allTracks = db.getTracksByAlbumIds(albumIds);
+            for (const track of allTracks) {
+                if (track.album_id !== null) {
+                    const stats = albumStats.get(track.album_id) || { songCount: 0, duration: 0 };
+                    stats.songCount++;
+                    stats.duration += (track.duration || 0);
+                    albumStats.set(track.album_id, stats);
+                }
+            }
+        }
+
+        const albums = libraryAlbums.map(a => {
+            const stats = albumStats.get(a.id) || { songCount: 0, duration: 0 };
+            return { ...a, songCount: stats.songCount, duration: stats.duration };
         });
 
         sendResponse(res, req, {
