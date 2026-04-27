@@ -75,7 +75,6 @@ export function useOwnedNFTs(address: string | null) {
                 const allTrackIds = Object.keys(tracks).map(id => parseInt(id, 10)).filter(id => !isNaN(id));
                 const nftsFound: OwnedNFT[] = [];
 
-                // Simple loop, can be optimized to balanceOfBatch if contract supports it (ERC1155 does)
                 const accounts: string[] = [];
                 const tokenIds: bigint[] = [];
                 const lookup: { trackId: number, role: TokenRole }[] = [];
@@ -95,22 +94,29 @@ export function useOwnedNFTs(address: string | null) {
 
                 if (tokenIds.length > 0) {
                      // Since TuneCampNFT inherits ERC1155, it has balanceOfBatch
-                     // Ethers v6 calling
-                     const balances: bigint[] = await tuneCampNFT.balanceOfBatch(accounts, tokenIds);
-                     
-                     balances.forEach((bal, idx) => {
-                         if (bal > 0n) {
-                             const trackData = tracks[lookup[idx].trackId];
-                             nftsFound.push({
-                                 trackId: lookup[idx].trackId,
-                                 title: trackData?.title || `Track #${lookup[idx].trackId}`,
-                                 artistName: trackData?.artistName || "Unknown Artist",
-                                 coverUrl: trackData?.coverUrl || (trackData?.albumId ? API.getAlbumCoverUrl(trackData.albumId) : (lookup[idx].trackId ? API.getTrackCoverUrl(lookup[idx].trackId) : undefined)),
-                                 role: lookup[idx].role,
-                                 balance: Number(bal)
-                             });
-                         }
-                     });
+                     // Chunking the batch call to prevent RPC payload size limits on large catalogs
+                     const CHUNK_SIZE = 500;
+                     for (let i = 0; i < tokenIds.length; i += CHUNK_SIZE) {
+                         const chunkAccounts = accounts.slice(i, i + CHUNK_SIZE);
+                         const chunkTokenIds = tokenIds.slice(i, i + CHUNK_SIZE);
+                         const chunkLookup = lookup.slice(i, i + CHUNK_SIZE);
+
+                         const balances: bigint[] = await tuneCampNFT.balanceOfBatch(chunkAccounts, chunkTokenIds);
+
+                         balances.forEach((bal, idx) => {
+                             if (bal > 0n) {
+                                 const trackData = tracks[chunkLookup[idx].trackId];
+                                 nftsFound.push({
+                                     trackId: chunkLookup[idx].trackId,
+                                     title: trackData?.title || `Track #${chunkLookup[idx].trackId}`,
+                                     artistName: trackData?.artistName || "Unknown Artist",
+                                     coverUrl: trackData?.coverUrl || (trackData?.albumId ? API.getAlbumCoverUrl(trackData.albumId) : (chunkLookup[idx].trackId ? API.getTrackCoverUrl(chunkLookup[idx].trackId) : undefined)),
+                                     role: chunkLookup[idx].role,
+                                     balance: Number(bal)
+                                 });
+                             }
+                         });
+                     }
                 }
 
                 if (isMounted) {
