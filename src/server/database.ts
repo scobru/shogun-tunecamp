@@ -363,6 +363,7 @@ export interface DatabaseService {
 
     // Legacy/Library Albums
     getAlbums(publicOnly?: boolean): Album[];
+    getAlbumsWithStats(publicOnly?: boolean): (Album & { songCount: number; duration: number })[];
     getLibraryAlbums(): Album[]; // is_release=0
     getAlbum(id: number): Album | undefined;
     getAlbumsByIds(ids: number[]): Album[];
@@ -2219,6 +2220,23 @@ export function createDatabase(dbPath: string): DatabaseService {
            LEFT JOIN artists ar ON a.artist_id = ar.id 
            WHERE a.is_release = 0 ORDER BY a.date DESC`;
             return db.prepare(sql).all() as Album[];
+        },
+
+        getAlbumsWithStats(publicOnly = false): (Album & { songCount: number; duration: number })[] {
+            if (publicOnly) return []; // Music Library is restricted to Artists/Admins
+            const sql = `
+                SELECT
+                    a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress,
+                    COUNT(t.id) as songCount,
+                    SUM(IFNULL(t.duration, 0)) as duration
+                FROM albums a
+                LEFT JOIN artists ar ON a.artist_id = ar.id
+                LEFT JOIN tracks t ON t.album_id = a.id
+                WHERE a.is_release = 0
+                GROUP BY a.id
+                ORDER BY a.date DESC
+            `;
+            return db.prepare(sql).all() as (Album & { songCount: number; duration: number })[];
         },
 
         getLibraryAlbums(): Album[] {

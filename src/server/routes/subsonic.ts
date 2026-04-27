@@ -561,10 +561,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const offset = parseInt(ensureString(req.query.offset) || '0');
         const isV2 = req.path.includes('getAlbumList2');
 
-        const allAlbums = db.getAlbums(false).map(a => {
-            const tracks = db.getTracks(a.id);
-            return { ...a, songCount: tracks.length, duration: tracks.reduce((acc, t) => acc + (t.duration || 0), 0) };
-        });
+        const allAlbums = db.getAlbumsWithStats(false);
 
         let albums = [...allAlbums];
         if (type === 'random') albums.sort(() => Math.random() - 0.5);
