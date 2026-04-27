@@ -76,12 +76,6 @@ export const API = {
         API.setToken(null);
     },
 
-    // --- Mastodon Auth ---
-    mastodonInit: (instanceUrl: string, redirectUri: string) =>
-        handleResponse(api.post<{ authUrl: string }>('/auth/mastodon/init', { instanceUrl, redirectUri })),
-    mastodonCallback: (instanceUrl: string, code: string, redirectUri: string) =>
-        handleResponse(api.post<{ success: boolean; pair: any; alias: string }>('/auth/mastodon/callback', { instanceUrl, code, redirectUri })),
-
     // --- Catalog & Search ---
     getCatalog: () => handleResponse(api.get<any>('/catalog')),
     getSiteSettings: () => handleResponse(api.get<SiteSettings>('/catalog/settings')),

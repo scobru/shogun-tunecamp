@@ -20,7 +20,6 @@ const PlaylistDetails = lazy(() => import("./pages/PlaylistDetails").then(m => (
 const MyPlaylists = lazy(() => import("./pages/MyPlaylists").then(m => ({ default: m.MyPlaylists })));
 const MyPlaylistDetails = lazy(() => import("./pages/MyPlaylistDetails").then(m => ({ default: m.MyPlaylistDetails })));
 const Post = lazy(() => import("./pages/Post").then(m => ({ default: m.PostPage })));
-const AuthCallback = lazy(() => import("./pages/AuthCallback").then(m => ({ default: m.AuthCallback })));
 const Wallet = lazy(() => import("./pages/Wallet").then(m => ({ default: m.Wallet })));
 const Profile = lazy(() => import("./pages/Profile").then(m => ({ default: m.Profile })));
 const MyMusic = lazy(() => import("./pages/MyMusic").then(m => ({ default: m.MyMusic })));
@@ -114,9 +113,6 @@ function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/my-music" element={<MyMusic />} />
             <Route path="/share/:id" element={<SharePage />} />
-
-            {/* Auth Callback */}
-            <Route path="/auth/callback" element={<AuthCallback />} />
 
             {/* Admin - Protected: only role='admin' can access */}
             <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
