@@ -7,7 +7,7 @@ import { jest } from '@jest/globals';
 // Mock dependencies
 const mockAuthService: any = {
     isFirstRun: jest.fn().mockReturnValue(true),
-    createAdmin: jest.fn(),
+    createAdmin: jest.fn().mockImplementation(() => Promise.resolve({ id: 1 })),
     generateToken: jest.fn().mockReturnValue('mock-token'),
     authenticateUser: jest.fn().mockImplementation(() => Promise.resolve({ success: true, artistId: null, isAdmin: true, id: 1 })),
     isRootAdmin: jest.fn().mockReturnValue(true),
@@ -35,6 +35,7 @@ app.use('/api/auth', createAuthRoutes(mockAuthService, { requireAdmin: (req: any
 // Admin routes
 const adminMiddleware = (req: any, res: any, next: any) => {
     req.username = 'admin'; // Mock admin user
+    req.isRootAdmin = true;
     next();
 };
 

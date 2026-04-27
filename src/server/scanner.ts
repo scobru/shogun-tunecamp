@@ -683,7 +683,11 @@ export class Scanner implements ScannerService {
             if (g.length <= 1) continue;
             const primary = g.find(t => path.extname(t.file_path || '').toLowerCase() === '.mp3') || g[0];
             for (const other of g.filter(t => t.id !== primary.id)) {
-                if (other.lossless_path && !primary.lossless_path) this.database.updateTrackLosslessPath(primary.id, other.lossless_path);
+                const lossless = other.lossless_path || (path.extname(other.file_path || '').toLowerCase() === '.wav' ? other.file_path : null);
+                if (lossless && !primary.lossless_path) {
+                    this.database.updateTrackLosslessPath(primary.id, lossless);
+                    primary.lossless_path = lossless;
+                }
                 this.database.deleteTrack(other.id);
                 toRem.add(other.id);
             }

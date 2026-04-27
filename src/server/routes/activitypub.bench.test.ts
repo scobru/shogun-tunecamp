@@ -40,6 +40,7 @@ describe("ActivityPub Outbox Performance", () => {
                 license: null,
                 owner_id: artistId,
                 price: 0,
+                price_usdc: 0,
                 currency: "USD"
             });
 
@@ -62,6 +63,7 @@ describe("ActivityPub Outbox Performance", () => {
                     external_artwork: null,
                     owner_id: artistId,
                     price: 0,
+                    price_usdc: 0,
                     currency: "USD"
                 });
             }

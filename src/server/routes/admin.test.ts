@@ -4,7 +4,7 @@ import request from 'supertest';
 import { jest } from '@jest/globals';
 import type { DatabaseService } from '../database.js';
 import type { ScannerService } from '../scanner.js';
-import type { GunDBService } from '../gundb.js';
+import type { ZenDBService } from '../zendb.js';
 import type { ServerConfig } from '../config.js';
 import type { AuthService } from '../auth.js';
 import type { PublishingService } from '../publishing.js';
@@ -31,14 +31,14 @@ const mockScanner = {
     scanDirectory: jest.fn(),
 } as unknown as ScannerService;
 
-const mockGunDBService = {
+const mockZenDBService = {
     registerSite: jest.fn(),
     registerTracks: jest.fn(),
     unregisterTracks: jest.fn(),
     syncNetwork: jest.fn(),
     getIdentityKeyPair: jest.fn(),
     setIdentityKeyPair: jest.fn(),
-} as unknown as GunDBService;
+} as unknown as ZenDBService;
 
 const mockConfig = {
     publicUrl: 'http://localhost',
@@ -97,7 +97,7 @@ describe('Admin Routes Vulnerability Check', () => {
             mockDatabase,
             mockScanner,
             '/tmp/music',
-            mockGunDBService,
+            mockZenDBService,
             mockConfig,
             mockAuthService,
             mockPublishingService as any,

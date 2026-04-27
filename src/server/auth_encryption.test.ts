@@ -1,8 +1,8 @@
-import { encryptGunPrivHelper, decryptGunPrivHelper } from './auth.js';
+import { encryptZenPrivHelper, decryptZenPrivHelper } from './auth.js';
 import { describe, test, expect } from '@jest/globals';
 import crypto from 'crypto';
 
-describe("Auth Encryption (GunDB)", () => {
+describe("Auth Encryption (Zen)", () => {
     const TEST_SECRET = "my-secret-key";
     const TEST_DATA = { foo: "bar", secret: 123 };
 
@@ -10,20 +10,20 @@ describe("Auth Encryption (GunDB)", () => {
     const LEGACY_ENCRYPTED = "111d819066de835cf73d01690cdef1b9:6e57757922c4edf5222e534e3febdecd863f04f344cf4b75fa8131473add56f7";
 
     test("should encrypt and decrypt using new GCM format", () => {
-        const encrypted = encryptGunPrivHelper(TEST_DATA, TEST_SECRET);
+        const encrypted = encryptZenPrivHelper(TEST_DATA, TEST_SECRET);
 
         // Format check: IV:Data:AuthTag
         const parts = encrypted.split(":");
         expect(parts.length).toBe(3);
         expect(parts[0].length).toBe(24); // 12 bytes hex
 
-        const decrypted = decryptGunPrivHelper(encrypted, TEST_SECRET);
+        const decrypted = decryptZenPrivHelper(encrypted, TEST_SECRET);
         expect(decrypted).toEqual(TEST_DATA);
     });
 
     test("should generate different IVs and ciphertexts for the same data (IV randomness)", () => {
-        const encrypted1 = encryptGunPrivHelper(TEST_DATA, TEST_SECRET);
-        const encrypted2 = encryptGunPrivHelper(TEST_DATA, TEST_SECRET);
+        const encrypted1 = encryptZenPrivHelper(TEST_DATA, TEST_SECRET);
+        const encrypted2 = encryptZenPrivHelper(TEST_DATA, TEST_SECRET);
 
         const parts1 = encrypted1.split(":");
         const parts2 = encrypted2.split(":");
@@ -34,8 +34,8 @@ describe("Auth Encryption (GunDB)", () => {
         expect(parts1[1]).not.toEqual(parts2[1]);
 
         // Both should decrypt correctly
-        expect(decryptGunPrivHelper(encrypted1, TEST_SECRET)).toEqual(TEST_DATA);
-        expect(decryptGunPrivHelper(encrypted2, TEST_SECRET)).toEqual(TEST_DATA);
+        expect(decryptZenPrivHelper(encrypted1, TEST_SECRET)).toEqual(TEST_DATA);
+        expect(decryptZenPrivHelper(encrypted2, TEST_SECRET)).toEqual(TEST_DATA);
     });
 
     test("should correctly encrypt and decrypt various JSON-serializable types", () => {
@@ -50,32 +50,32 @@ describe("Auth Encryption (GunDB)", () => {
         ];
 
         for (const data of testTypes) {
-            const encrypted = encryptGunPrivHelper(data, TEST_SECRET);
-            const decrypted = decryptGunPrivHelper(encrypted, TEST_SECRET);
+            const encrypted = encryptZenPrivHelper(data, TEST_SECRET);
+            const decrypted = decryptZenPrivHelper(encrypted, TEST_SECRET);
             expect(decrypted).toEqual(data);
         }
     });
 
     test("should fail or handle invalid inputs like undefined", () => {
         expect(() => {
-            encryptGunPrivHelper(undefined, TEST_SECRET);
+            encryptZenPrivHelper(undefined, TEST_SECRET);
         }).toThrow();
     });
 
     test("should decrypt legacy CBC format", () => {
-        const decrypted = decryptGunPrivHelper(LEGACY_ENCRYPTED, TEST_SECRET);
+        const decrypted = decryptZenPrivHelper(LEGACY_ENCRYPTED, TEST_SECRET);
         expect(decrypted).toEqual(TEST_DATA);
     });
 
     test("should fail to decrypt if secret is wrong", () => {
-        const encrypted = encryptGunPrivHelper(TEST_DATA, TEST_SECRET);
+        const encrypted = encryptZenPrivHelper(TEST_DATA, TEST_SECRET);
         expect(() => {
-            decryptGunPrivHelper(encrypted, "wrong-secret");
+            decryptZenPrivHelper(encrypted, "wrong-secret");
         }).toThrow();
     });
 
     test("should fail to decrypt tampered data (GCM integrity check)", () => {
-        const encrypted = encryptGunPrivHelper(TEST_DATA, TEST_SECRET);
+        const encrypted = encryptZenPrivHelper(TEST_DATA, TEST_SECRET);
         const parts = encrypted.split(":");
 
         // 1. Tamper with the ciphertext
@@ -84,7 +84,7 @@ describe("Auth Encryption (GunDB)", () => {
         const tamperedEncryptedData = `${parts[0]}:${tamperedData}:${parts[2]}`;
 
         expect(() => {
-            decryptGunPrivHelper(tamperedEncryptedData, TEST_SECRET);
+            decryptZenPrivHelper(tamperedEncryptedData, TEST_SECRET);
         }).toThrow(/Unsupported state or unable to authenticate data/);
 
         // 2. Tamper with the IV
@@ -93,7 +93,7 @@ describe("Auth Encryption (GunDB)", () => {
         const tamperedEncryptedIv = `${tamperedIv}:${parts[1]}:${parts[2]}`;
 
         expect(() => {
-            decryptGunPrivHelper(tamperedEncryptedIv, TEST_SECRET);
+            decryptZenPrivHelper(tamperedEncryptedIv, TEST_SECRET);
         }).toThrow(/Unsupported state or unable to authenticate data/);
 
         // 3. Tamper with the AuthTag
@@ -102,17 +102,17 @@ describe("Auth Encryption (GunDB)", () => {
         const tamperedEncryptedTag = `${parts[0]}:${parts[1]}:${tamperedTag}`;
 
         expect(() => {
-            decryptGunPrivHelper(tamperedEncryptedTag, TEST_SECRET);
+            decryptZenPrivHelper(tamperedEncryptedTag, TEST_SECRET);
         }).toThrow(/Unsupported state or unable to authenticate data/);
     });
 
     test("should fail for malformed input strings", () => {
         expect(() => {
-            decryptGunPrivHelper("not-enough-parts", TEST_SECRET);
+            decryptZenPrivHelper("not-enough-parts", TEST_SECRET);
         }).toThrow();
 
         expect(() => {
-            decryptGunPrivHelper("too:many:parts:here", TEST_SECRET);
+            decryptZenPrivHelper("too:many:parts:here", TEST_SECRET);
         }).toThrow();
     });
 
@@ -126,15 +126,15 @@ describe("Auth Encryption (GunDB)", () => {
         const legacyNotJson = `${iv.toString("hex")}:${enc}`;
 
         expect(() => {
-            decryptGunPrivHelper(legacyNotJson, TEST_SECRET);
+            decryptZenPrivHelper(legacyNotJson, TEST_SECRET);
         }).toThrow(/Unexpected token/);
     });
 
     test("should fail with empty or invalid secret", () => {
-        const encrypted = encryptGunPrivHelper(TEST_DATA, TEST_SECRET);
+        const encrypted = encryptZenPrivHelper(TEST_DATA, TEST_SECRET);
 
         expect(() => {
-            decryptGunPrivHelper(encrypted, "");
+            decryptZenPrivHelper(encrypted, "");
         }).toThrow(/Unsupported state or unable to authenticate data/);
     });
 });

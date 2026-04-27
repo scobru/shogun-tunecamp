@@ -14,7 +14,7 @@ describe('Subsonic Scrobbling', () => {
     let app: any;
     let testArtistId: number;
     let testAlbumId: number;
-    let mockGundbService: any;
+    let mockZendbService: any;
     const dbPath = './test-subsonic-scrobble.db';
 
     beforeAll(async () => {
@@ -24,9 +24,10 @@ describe('Subsonic Scrobbling', () => {
             await authService.init();
 
             // Create a dummy user
-            database.db.prepare("INSERT OR IGNORE INTO admin (username, password_hash) VALUES (?, ?)").run('user', '$2b$10$vI8.Z.T1/R1S1y6G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G.G'); // 'password' in bcrypt
+            const passHash = await authService.hashPassword('password');
+            database.db.prepare("INSERT OR IGNORE INTO admin (username, password_hash) VALUES (?, ?)").run('user', passHash);
 
-            mockGundbService = {
+            mockZendbService = {
                 incrementTrackPlayCount: jest.fn().mockReturnValue(Promise.resolve(1)),
                 getTrackPlayCount: jest.fn().mockReturnValue(Promise.resolve(1))
             };
@@ -37,7 +38,7 @@ describe('Subsonic Scrobbling', () => {
                 db: database,
                 auth: authService,
                 musicDir: './music',
-                gundbService: mockGundbService
+                zendbService: mockZendbService
             }));
         } catch (e) {
             console.error('FAILED beforeAll:', e);
@@ -86,7 +87,7 @@ describe('Subsonic Scrobbling', () => {
         // SQLite stores ISO string. We compare them by creating Date objects.
         expect(Math.abs(new Date(recentPlays[0].played_at).getTime() - nowSeconds * 1000)).toBeLessThan(5000);
 
-        expect(mockGundbService.incrementTrackPlayCount).toHaveBeenCalledWith('test-album', String(trackId));
+        expect(mockZendbService.incrementTrackPlayCount).toHaveBeenCalledWith('test-album', String(trackId));
     });
 
     it('should handle multiple scrobbles in one request', async () => {
