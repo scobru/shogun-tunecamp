@@ -988,9 +988,13 @@ export function createGunDBService(database: DatabaseService, server?: any, peer
 
             // Remove tracks
             const tracks = database.getTracksByReleaseId(id);
+            const trackUpdates: Record<string, null> = {};
             for (const track of tracks) {
                 const trackSlug = slugify(track.title) || track.id.toString();
-                user.get('tunecamp').get('tracks').get(trackSlug).put(null);
+                trackUpdates[trackSlug] = null;
+            }
+            if (Object.keys(trackUpdates).length > 0) {
+                user.get('tunecamp').get('tracks').put(trackUpdates);
             }
 
             return true;
