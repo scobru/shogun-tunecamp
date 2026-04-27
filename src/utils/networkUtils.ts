@@ -5,7 +5,7 @@ import { isIP } from 'net';
  * Checks if an IP address is private or reserved.
  * Handles IPv4 and IPv6.
  */
-export function isPrivateIP(ip: string): boolean {
+function isPrivateIP(ip: string): boolean {
     if (!isIP(ip)) return false;
 
     // IPv6

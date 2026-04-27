@@ -264,8 +264,14 @@ export function createReleaseRouter(
             // Verify Track Ownership before creating the release association
             const validatedTrackIds: number[] = [];
             if (body.track_ids && body.track_ids.length > 0) {
+                const tracks = database.getTracksByIds(body.track_ids);
+                const trackMap = new Map();
+                for (const t of tracks) {
+                    trackMap.set(t.id, t);
+                }
+
                 for (const trackId of body.track_ids) {
-                    const track = database.getTrack(trackId);
+                    const track = trackMap.get(trackId);
                     if (track) {
                         // Admin can add anything, Users can only add their own tracks
                         if (isAdmin || track.owner_id === req.userId) {

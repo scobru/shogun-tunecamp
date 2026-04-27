@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { promisify } from "util";
 import fetch from "node-fetch";
 import { drainResponse, fetchJsonSafe } from "./utils.js";
+import { isSafeUrl } from "../utils/networkUtils.js";
 import type { Federation } from "@fedify/fedify";
 import { Follow, Announce } from "@fedify/fedify";
 import type { DatabaseService, Artist, Album, Track, Post } from "./database.js";
@@ -1114,7 +1115,7 @@ export class ActivityPubService {
     }
 
     private async getInboxFromActor(actorUri: string): Promise<string | null> {
-        if (!this.isSafeUrl(actorUri)) return null;
+        if (!(await isSafeUrl(actorUri))) return null;
         try {
             const res = await this.fetchWithSignature(actorUri);
             if (!res.ok) {
@@ -1124,15 +1125,6 @@ export class ActivityPubService {
             const actor = await res.json() as any;
             return actor.inbox || null;
         } catch { return null; }
-    }
-
-    private isSafeUrl(urlStr: string): boolean {
-        try {
-            const url = new URL(urlStr);
-            const hostname = url.hostname.toLowerCase();
-            const blockedPatterns = [/^localhost$/, /^127\./, /^0\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^192\.168\./, /^::1$/, /^fe80:/];
-            return !blockedPatterns.some(pattern => pattern.test(hostname));
-        } catch { return false; }
     }
 
     private getString(value: any): string | null {

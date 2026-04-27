@@ -561,10 +561,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const offset = parseInt(ensureString(req.query.offset) || '0');
         const isV2 = req.path.includes('getAlbumList2');
 
-        const allAlbums = db.getAlbums(false).map(a => {
-            const tracks = db.getTracks(a.id);
-            return { ...a, songCount: tracks.length, duration: tracks.reduce((acc, t) => acc + (t.duration || 0), 0) };
-        });
+        const allAlbums = db.getAlbumsWithStats(false);
 
         let albums = [...allAlbums];
         if (type === 'random') albums.sort(() => Math.random() - 0.5);
@@ -580,7 +577,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
     router.all('/getRandomSongs.view', (req, res) => {
         const username = (req as any).user?.username || 'admin';
         const size = parseInt(ensureString(req.query.size) || '10');
-        const tracks = db.getTracks().sort(() => Math.random() - 0.5).slice(0, size);
+        const tracks = db.getRandomTracks(size);
         sendResponse(res, req, { randomSongs: { song: tracks.map(t => formatTrack(t, username)) } });
     });
 
@@ -625,17 +622,34 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const now = Date.now();
         const fiveMinutes = 5 * 60 * 1000;
 
+        const activePlays: { user: string; trackId: number; timestamp: number }[] = [];
+        const trackIdsToFetch: number[] = [];
+
         for (const [user, data] of nowPlayingCache.entries()) {
             if (now - data.timestamp < fiveMinutes) {
-                const track = db.getTrack(data.trackId);
-                if (track) {
-                    const formatted = formatTrack(track, 'admin');
-                    entries.push({ ...formatted, '@username': user, '@minutesAgo': Math.floor((now - data.timestamp) / 60000) });
-                }
+                activePlays.push({ user, trackId: data.trackId, timestamp: data.timestamp });
+                trackIdsToFetch.push(data.trackId);
             } else {
                 nowPlayingCache.delete(user);
             }
         }
+
+        if (trackIdsToFetch.length > 0) {
+            const tracks = db.getTracksByIds(trackIdsToFetch);
+            const trackMap = new Map();
+            for (const t of tracks) {
+                trackMap.set(t.id, t);
+            }
+
+            for (const play of activePlays) {
+                const track = trackMap.get(play.trackId);
+                if (track) {
+                    const formatted = formatTrack(track, 'admin');
+                    entries.push({ ...formatted, '@username': play.user, '@minutesAgo': Math.floor((now - play.timestamp) / 60000) });
+                }
+            }
+        }
+
         sendResponse(res, req, { nowPlaying: { entry: entries } });
     });
 

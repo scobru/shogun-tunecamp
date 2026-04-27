@@ -9,40 +9,8 @@ jest.unstable_mockModule('dns', () => ({
 }));
 
 // Dynamic import after mock
-const { isPrivateIP, isSafeUrl } = await import('./networkUtils.js');
+const { isSafeUrl } = await import('./networkUtils.js');
 const dns = await import('dns');
-
-describe('isPrivateIP', () => {
-    test('identifies private IPv4', () => {
-        expect(isPrivateIP('127.0.0.1')).toBe(true);
-        expect(isPrivateIP('10.0.0.1')).toBe(true);
-        expect(isPrivateIP('192.168.1.1')).toBe(true);
-        expect(isPrivateIP('172.16.0.1')).toBe(true); // Lower bound
-        expect(isPrivateIP('172.31.255.255')).toBe(true); // Upper bound
-        expect(isPrivateIP('169.254.1.1')).toBe(true);
-        expect(isPrivateIP('0.0.0.0')).toBe(true);
-    });
-
-    test('identifies public IPv4', () => {
-        expect(isPrivateIP('8.8.8.8')).toBe(false);
-        expect(isPrivateIP('1.1.1.1')).toBe(false);
-        expect(isPrivateIP('172.15.255.255')).toBe(false); // Below range
-        expect(isPrivateIP('172.32.0.0')).toBe(false); // Above range
-    });
-
-    test('identifies private IPv6', () => {
-        expect(isPrivateIP('::1')).toBe(true);
-        expect(isPrivateIP('fe80::1')).toBe(true);
-        expect(isPrivateIP('fc00::1')).toBe(true);
-        expect(isPrivateIP('fd00::1')).toBe(true); // Unique local
-    });
-
-    test('identifies IPv4-mapped IPv6', () => {
-        expect(isPrivateIP('::ffff:192.168.1.1')).toBe(true);
-        expect(isPrivateIP('::ffff:127.0.0.1')).toBe(true);
-        expect(isPrivateIP('::ffff:8.8.8.8')).toBe(false);
-    });
-});
 
 describe('isSafeUrl', () => {
     beforeAll(() => {
@@ -90,13 +58,29 @@ describe('isSafeUrl', () => {
 
     test('blocks private IPs directly', async () => {
         expect(await isSafeUrl('http://127.0.0.1')).toBe(false);
+        expect(await isSafeUrl('http://10.0.0.1')).toBe(false);
         expect(await isSafeUrl('http://192.168.1.1')).toBe(false);
+        expect(await isSafeUrl('http://172.16.0.1')).toBe(false); // Lower bound
+        expect(await isSafeUrl('http://172.31.255.255')).toBe(false); // Upper bound
+        expect(await isSafeUrl('http://169.254.1.1')).toBe(false);
+        expect(await isSafeUrl('http://0.0.0.0')).toBe(false);
+
         expect(await isSafeUrl('http://[::1]')).toBe(false);
+        expect(await isSafeUrl('http://[fe80::1]')).toBe(false);
+        expect(await isSafeUrl('http://[fc00::1]')).toBe(false);
+        expect(await isSafeUrl('http://[fd00::1]')).toBe(false); // Unique local
+
+        expect(await isSafeUrl('http://[::ffff:192.168.1.1]')).toBe(false);
+        expect(await isSafeUrl('http://[::ffff:127.0.0.1]')).toBe(false);
     });
 
     test('allows public IPs directly', async () => {
         expect(await isSafeUrl('http://8.8.8.8')).toBe(true);
+        expect(await isSafeUrl('http://1.1.1.1')).toBe(true);
+        expect(await isSafeUrl('http://172.15.255.255')).toBe(true); // Below range
+        expect(await isSafeUrl('http://172.32.0.0')).toBe(true); // Above range
     });
+
 
     test('blocks non-http schemes', async () => {
         expect(await isSafeUrl('file:///etc/passwd')).toBe(false);

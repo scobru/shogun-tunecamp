@@ -766,9 +766,14 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             const results = { success: 0, failed: 0, errors: [] as string[] };
             const affectedAlbums = new Set<number>();
 
+            // Pre-fetch all tracks to avoid N+1 query
+            const numericTrackIds = trackIds.map(id => Number(id)).filter(id => !isNaN(id));
+            const tracksToProcess = database.getTracksByIds(numericTrackIds);
+            const trackMap = new Map(tracksToProcess.map(t => [t.id, t]));
+
             for (const id of trackIds) {
                 try {
-                    const track = database.getTrack(Number(id));
+                    const track = trackMap.get(Number(id));
                     if (!track) {
                         results.failed++;
                         results.errors.push(`Track ${id} not found`);
@@ -923,9 +928,14 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
             const affectedAlbums = new Set<number>();
             const tracksToDelete = [];
 
+            // Pre-fetch all tracks to avoid N+1 query
+            const numericTrackIds = trackIds.map(id => Number(id)).filter(id => !isNaN(id));
+            const tracksToProcess = database.getTracksByIds(numericTrackIds);
+            const trackMap = new Map(tracksToProcess.map(t => [t.id, t]));
+
             // 1. First pass: Validate permissions and gather tracks
             for (const id of trackIds) {
-                const track = database.getTrack(Number(id));
+                const track = trackMap.get(Number(id));
                 if (!track) {
                     results.failed++;
                     results.errors.push(`Track ${id} not found`);

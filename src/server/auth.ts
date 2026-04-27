@@ -752,6 +752,7 @@ export function createAuthService(
             return { pair, alias: user.display_name || user.acct };
         },
 
+
         // Encryption helpers
         encryptZenPriv(priv: any): string {
             return encryptZenPrivHelper(priv, jwtSecret);

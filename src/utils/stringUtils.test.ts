@@ -50,6 +50,39 @@ describe('StringUtils.escapeHtml', () => {
     });
 });
 
+describe('StringUtils.sanitizeFilename', () => {
+    test('should return empty string for null/undefined/empty input', () => {
+        // @ts-ignore
+        expect(StringUtils.sanitizeFilename(null)).toBe('');
+        // @ts-ignore
+        expect(StringUtils.sanitizeFilename(undefined)).toBe('');
+        expect(StringUtils.sanitizeFilename('')).toBe('');
+    });
+
+    test('should return original string if it contains only safe characters', () => {
+        const input = 'my-song_01.mp3';
+        expect(StringUtils.sanitizeFilename(input)).toBe(input);
+    });
+
+    test('should replace spaces with underscores', () => {
+        expect(StringUtils.sanitizeFilename('my song.mp3')).toBe('my_song.mp3');
+    });
+
+    test('should replace special characters with underscores', () => {
+        expect(StringUtils.sanitizeFilename('song!@#$%^&*().mp3')).toBe('song__________.mp3');
+    });
+
+    test('should replace path components with underscores', () => {
+        expect(StringUtils.sanitizeFilename('path/to/file.mp3')).toBe('path_to_file.mp3');
+        expect(StringUtils.sanitizeFilename('..\\file.mp3')).toBe('.._file.mp3');
+    });
+
+    test('should replace non-ASCII characters with underscores', () => {
+        expect(StringUtils.sanitizeFilename('música.mp3')).toBe('m_sica.mp3');
+        expect(StringUtils.sanitizeFilename('🎵.mp3')).toBe('__.mp3');
+    });
+});
+
 describe('StringUtils.generateUnlockCode', () => {
     test('should generate codes matching the format XXXX-XXXX-XXXX', () => {
         const regex = /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/;

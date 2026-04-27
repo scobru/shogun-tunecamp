@@ -363,6 +363,7 @@ export interface DatabaseService {
 
     // Legacy/Library Albums
     getAlbums(publicOnly?: boolean): Album[];
+    getAlbumsWithStats(publicOnly?: boolean): (Album & { songCount: number; duration: number })[];
     getLibraryAlbums(): Album[]; // is_release=0
     getAlbum(id: number): Album | undefined;
     getAlbumsByIds(ids: number[]): Album[];
@@ -392,6 +393,7 @@ export interface DatabaseService {
     repairArtistLinks(artistId: number, artistName: string): { tracks: number, albums: number };
     getTracksByOwner(ownerId: number, publicOnly?: boolean): Track[];
     getTracksByAlbumIds(albumIds: number[]): Track[];
+    getRandomTracks(limit: number): Track[];
     getTracksByReleaseId(releaseId: number): Track[];
     getTrack(id: number): Track | undefined;
     getTracksByIds(ids: number[]): Track[];
@@ -1393,7 +1395,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                 // 1. Create new table with correct schema
                 const tableDef = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tracks'").get() as { sql: string };
                 let newSql = tableDef.sql.replace(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?['"`]?tracks['"`]?/i, "CREATE TABLE tracks_new");
-                newSql = newSql.replace(/(file_path\s+TEXT)\s+NOT\s+NULL/i, "$1");
+                newSql = newSql.replace(/(['"`\[]?file_path['"`\]]?\s+TEXT)\s+NOT\s+NULL/i, "$1");
                 db.exec(newSql);
 
                 // 2. Copy data
@@ -1712,6 +1714,18 @@ export function createDatabase(dbPath: string): DatabaseService {
             WHERE (a.is_release = 1 AND a.visibility IN ('public', 'unlisted'))
                OR EXISTS (SELECT 1 FROM release_tracks rt JOIN releases r ON rt.release_id = r.id WHERE rt.track_id = t.id AND r.visibility IN ('public', 'unlisted'))
             ORDER BY artist_name, a.title, t.track_num`);
+    const getRandomTracksStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price,
+            COALESCE(ar_t.id, ar_a.id) as artist_id,
+            COALESCE(ar_t.name, ar_a.name, t.artist_name) as artist_name,
+            COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
+            COALESCE(t.owner_id, a.owner_id) as owner_id,
+            COALESCE(NULLIF(own.username, 'admin'), ar_t.name, ar_a.name, t.artist_name, own.username) as owner_name
+            FROM tracks t
+            LEFT JOIN albums a ON t.album_id = a.id
+            LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
+            LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
+            LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
+            ORDER BY RANDOM() LIMIT ?`);
     const getTracksByArtistStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price, 
             COALESCE(ar_t.id, ar_a.id) as artist_id,
             COALESCE(ar_t.name, ar_a.name, t.artist_name) as artist_name, 
@@ -2221,6 +2235,23 @@ export function createDatabase(dbPath: string): DatabaseService {
             return db.prepare(sql).all() as Album[];
         },
 
+        getAlbumsWithStats(publicOnly = false): (Album & { songCount: number; duration: number })[] {
+            if (publicOnly) return []; // Music Library is restricted to Artists/Admins
+            const sql = `
+                SELECT
+                    a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress,
+                    COUNT(t.id) as songCount,
+                    SUM(IFNULL(t.duration, 0)) as duration
+                FROM albums a
+                LEFT JOIN artists ar ON a.artist_id = ar.id
+                LEFT JOIN tracks t ON t.album_id = a.id
+                WHERE a.is_release = 0
+                GROUP BY a.id
+                ORDER BY a.date DESC
+            `;
+            return db.prepare(sql).all() as (Album & { songCount: number; duration: number })[];
+        },
+
         getLibraryAlbums(): Album[] {
             const rows = db.prepare(
                 `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
@@ -2643,6 +2674,10 @@ export function createDatabase(dbPath: string): DatabaseService {
             return publicOnly 
                 ? db.prepare(sql).all(ownerId, ownerId, ownerId, ownerId) as Track[] 
                 : db.prepare(sql).all(ownerId, ownerId, ownerId, ownerId) as Track[];
+        },
+
+        getRandomTracks(limit: number): Track[] {
+            return getRandomTracksStmt.all(limit) as Track[];
         },
 
         getTracksByAlbumIds(albumIds: number[]): Track[] {

@@ -325,7 +325,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
         }
     });
 
-    // Fix for legacy/short ActivityPub URLs linking to frontend
+    // Workaround for legacy/short ActivityPub URLs linking to frontend
     app.get("/note/release/:slug", (req, res) => {
         const { slug } = req.params;
         const album = database.getAlbumBySlug(slug);
