@@ -28,6 +28,10 @@ const JWT_EXPIRES_IN = "7d";
 
 export type UserRole = 'admin' | 'user';
 
+export enum AuthProvider {
+    MASTODON = "mastodon"
+}
+
 export interface TokenPayload {
     isAdmin: boolean;
     username: string;
@@ -727,7 +731,7 @@ export function createAuthService(
             const { accessToken, user } = await this.exchangeMastodonCode(instanceUrl, client.clientId, client.clientSecret, redirectUri, code);
 
             const subject = user.acct;
-            const provider = "mastodon";
+            const provider = AuthProvider.MASTODON;
 
             // 3. Check for existing link
             const link = db.prepare("SELECT * FROM oauth_links WHERE provider = ? AND subject = ?").get(provider, subject) as { gun_pub: string; gun_priv: string } | undefined;

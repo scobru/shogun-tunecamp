@@ -4,6 +4,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import sqlite3 from 'better-sqlite3';
 import { loadConfig } from '../server/config.js';
+import { StringUtils } from '../utils/stringUtils.js';
 
 interface TrackRow {
     id: number;
@@ -47,18 +48,8 @@ async function main() {
         let newPath = track.file_path;
         let newLossless = track.lossless_path;
 
-        // Function to clean path: remove leading ../ and normalize slashes
-        const cleanPath = (p: string | null) => {
-            if (!p) return null;
-            let cleaned = p.replace(/\\/g, "/");
-            while (cleaned.startsWith("../")) {
-                cleaned = cleaned.substring(3);
-            }
-            return cleaned;
-        };
-
-        const cleanedPath = cleanPath(track.file_path);
-        const cleanedLossless = cleanPath(track.lossless_path);
+        const cleanedPath = StringUtils.cleanPath(track.file_path);
+        const cleanedLossless = StringUtils.cleanPath(track.lossless_path);
 
         if (cleanedPath !== track.file_path || cleanedLossless !== track.lossless_path) {
             newPath = cleanedPath;

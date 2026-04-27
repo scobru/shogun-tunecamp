@@ -139,7 +139,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
     // --- Formatters ---
 
-    const formatTrack = (track: Track, username: string) => {
+    const formatTrack = (track: Track, username: string, starredSet?: Set<string>, ratingsMap?: Map<string, number>) => {
         const id = `tr_${track.id}`;
         return {
             '@id': id,
@@ -162,13 +162,21 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             '@artistId': track.artist_id ? `ar_${track.artist_id}` : undefined,
             '@type': 'music',
             '@created': track.created_at,
-            '@starred': db.isStarred(username, 'track', id) ? track.created_at || new Date().toISOString() : undefined,
-            '@userRating': db.getItemRating(username, 'track', id) || undefined,
-            '@averageRating': db.getItemRating(username, 'track', id) || undefined,
+            '@starred': (starredSet ? starredSet.has(id) : db.isStarred(username, 'track', id)) ? track.created_at || new Date().toISOString() : undefined,
+            '@userRating': (ratingsMap ? ratingsMap.get(id) : db.getItemRating(username, 'track', id)) || undefined,
+            '@averageRating': (ratingsMap ? ratingsMap.get(id) : db.getItemRating(username, 'track', id)) || undefined,
             '@discNumber': (track as any).disc_number || 1,
             '@samplingRate': track.sample_rate || 44100,
             '@bitDepth': (track as any).bit_depth || 16
         };
+    };
+
+    const formatTracksBulk = (tracks: Track[], username: string) => {
+        if (tracks.length === 0) return [];
+        const starredItems = db.getStarredItems(username, 'track');
+        const starredSet = new Set(starredItems.map((s: any) => s.item_id));
+        const ratingsMap = db.getItemRatings(username, 'track');
+        return tracks.map(t => formatTrack(t, username, starredSet, ratingsMap));
     };
 
     const formatAlbum = (album: any, username: string) => {
@@ -374,7 +382,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                     '@id': id,
                     '@name': album.title,
                     '@parent': album.artist_id ? `ar_${album.artist_id}` : '1',
-                    child: tracks.map((track: any) => formatTrack(track, username))
+                    child: formatTracksBulk(tracks, username)
                 }
             });
         }
@@ -578,7 +586,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const username = (req as any).user?.username || 'admin';
         const size = parseInt(ensureString(req.query.size) || '10');
         const tracks = db.getRandomTracks(size);
-        sendResponse(res, req, { randomSongs: { song: tracks.map(t => formatTrack(t, username)) } });
+        sendResponse(res, req, { randomSongs: { song: formatTracksBulk(tracks, username) } });
     });
 
     router.all(['/search.view', '/search2.view', '/search3.view'], (req, res) => {
@@ -592,7 +600,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
             const tracks = db.getTracks(a.id);
             return formatAlbum({ ...a, songCount: tracks.length, duration: tracks.reduce((acc, t) => acc + (t.duration || 0), 0) }, username);
         });
-        const song = results.tracks.map(t => formatTrack(t, username));
+        const song = formatTracksBulk(results.tracks, username);
 
         const resName = req.path.includes('search3') ? 'searchResult3' : (req.path.includes('search2') ? 'searchResult2' : 'searchResult');
         sendResponse(res, req, { [resName]: { artist, album, song } });
@@ -661,9 +669,25 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const artist = db.getArtist(artistId);
         if (!artist) return sendError(res, req, 70, 'Artist not found');
 
-        const albums = db.getAlbumsByArtist(artistId, false).map(a => {
-            const tracks = db.getTracks(a.id);
-            return { ...a, songCount: tracks.length, duration: tracks.reduce((acc, t) => acc + (t.duration || 0), 0) };
+        const libraryAlbums = db.getAlbumsByArtist(artistId, false);
+        const albumIds = libraryAlbums.map(album => album.id);
+        const albumStats = new Map<number, { songCount: number; duration: number }>();
+
+        if (albumIds.length > 0) {
+            const allTracks = db.getTracksByAlbumIds(albumIds);
+            for (const track of allTracks) {
+                if (track.album_id !== null) {
+                    const stats = albumStats.get(track.album_id) || { songCount: 0, duration: 0 };
+                    stats.songCount++;
+                    stats.duration += (track.duration || 0);
+                    albumStats.set(track.album_id, stats);
+                }
+            }
+        }
+
+        const albums = libraryAlbums.map(a => {
+            const stats = albumStats.get(a.id) || { songCount: 0, duration: 0 };
+            return { ...a, songCount: stats.songCount, duration: stats.duration };
         });
 
         sendResponse(res, req, {
@@ -686,7 +710,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         sendResponse(res, req, {
             album: {
                 ...formatAlbum({ ...album, songCount: tracks.length, duration: tracks.reduce((acc, t) => acc + (t.duration || 0), 0) }, username),
-                song: tracks.map((track: any) => formatTrack(track, username))
+                song: formatTracksBulk(tracks, username)
             }
         });
     });
@@ -744,13 +768,24 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const albums = db.getAlbums(false);
         const genreMap = new Map<string, { count: number, songCount: number }>();
 
+        const albumIds = albums.map(a => a.id);
+        const allTracks = db.getTracksByAlbumIds(albumIds);
+
+        const trackCounts = new Map<number, number>();
+        allTracks.forEach(t => {
+            if (t.album_id) {
+                trackCounts.set(t.album_id, (trackCounts.get(t.album_id) || 0) + 1);
+            }
+        });
+
         albums.forEach(album => {
             if (!album.genre) return;
+            const songCount = trackCounts.get(album.id) || 0;
             album.genre.split(',').forEach(g => {
                 const name = g.trim();
                 const data = genreMap.get(name) || { count: 0, songCount: 0 };
                 data.count++;
-                data.songCount += db.getTracks(album.id).length;
+                data.songCount += songCount;
                 genreMap.set(name, data);
             });
         });
@@ -769,6 +804,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const starred = db.getStarredItems(username);
         
         const response: any = { artist: [], album: [], song: [] };
+        const tracksToFormat: Track[] = [];
         starred.forEach(item => {
             const idParts = item.item_id.split('_');
             const id = parseInt(idParts[1] || idParts[0]);
@@ -780,9 +816,11 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
                 if (a) response.album.push(formatAlbum(a, username));
             } else if (item.item_type === 'track') {
                 const t = db.getTrack(id);
-                if (t) response.song.push(formatTrack(t, username));
+                if (t) tracksToFormat.push(t);
             }
         });
+
+        response.song = formatTracksBulk(tracksToFormat, username);
 
         const wrapper = req.path.includes('Starred2') ? 'starred2' : 'starred';
         sendResponse(res, req, { [wrapper]: response });
@@ -812,7 +850,7 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         sendResponse(res, req, {
             playlist: {
                 '@id': `pl_${playlist.id}`, '@name': playlist.name, '@owner': playlist.username,
-                '@songCount': tracks.length, entry: tracks.map(t => formatTrack(t, username))
+                '@songCount': tracks.length, entry: formatTracksBulk(tracks, username)
             }
         });
     });

@@ -37,24 +37,37 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 );
             }
 
-            // Map to frontend expected format and EXCLUDE private_key for EVERYONE
-            const mappedArtists = filteredArtists.map(a => {
-                const { private_key, ...safeArtist } = a;
-                // Check if artist has ANY formal releases (across ANY of their albums)
-                const releases = database.getReleasesByArtist(a.id, false);
-                const hasReleases = releases.length > 0;
+            const allReleases = database.getReleases(false);
+            const artistIdsWithReleases = new Set(allReleases.map(r => r.artist_id).filter(id => id !== null));
 
-                return {
+            const allAlbums = database.getAlbums(false);
+            const artistIdsWithAlbums = new Set(allAlbums.map(a => a.artist_id).filter(id => id !== null));
+
+            // Map to frontend expected format and EXCLUDE private_key for EVERYONE
+            const mappedArtists = filteredArtists.reduce((acc, a) => {
+                const { private_key, ...safeArtist } = a;
+
+                const hasReleases = artistIdsWithReleases.has(a.id);
+                const hasAlbums = artistIdsWithAlbums.has(a.id);
+                const isLibraryArtist = !!a.isLibraryArtist;
+
+                // Do not show library artists if they have no albums and no releases
+                if (isLibraryArtist && !hasAlbums && !hasReleases) {
+                    return acc;
+                }
+
+                acc.push({
                     ...safeArtist,
                     walletAddress: a.wallet_address,
-                    isLibraryArtist: !!a.isLibraryArtist,
+                    isLibraryArtist,
                     isReleasing: hasReleases,
                     // Use the canonical cover API URL so the frontend benefits from backend fallbacks
                     coverImage: `/api/artists/${a.id}/cover`,
                     starred: username ? database.isStarred(username, 'artist', String(a.id)) : false,
                     rating: username ? database.getItemRating(username, 'artist', String(a.id)) : 0
-                };
-            });
+                });
+                return acc;
+            }, [] as any[]);
 
             res.json(mappedArtists);
         } catch (error) {
@@ -501,17 +514,13 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 }
             }
 
-            // Fallback to first formal release or album cover
-            const libraryAlbums = database.getAlbumsByArtist(artist.id, false);
-            const formalReleases = database.getReleasesByArtist(artist.id, false);
-            const allAlbums = [...formalReleases, ...libraryAlbums]; // check formal releases first
+            // Fallback to formal release or album cover
+            const coverPaths = database.getArtistCovers(artist.id);
             
-            for (const album of allAlbums) {
-                if (album.cover_path) {
-                    const coverPath = path.join(musicDir, album.cover_path);
-                    if (await fs.pathExists(coverPath)) {
-                        return res.sendFile(path.resolve(coverPath), { maxAge: 86400000 });
-                    }
+            for (const relPath of coverPaths) {
+                const coverPath = path.join(musicDir, relPath);
+                if (await fs.pathExists(coverPath)) {
+                    return res.sendFile(path.resolve(coverPath), { maxAge: 86400000 });
                 }
             }
 

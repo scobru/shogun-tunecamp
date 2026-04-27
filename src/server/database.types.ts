@@ -323,7 +323,7 @@ export interface DatabaseService {
     removeFollower(artistId: number, actorUri: string): void;
     getFollowers(artistId: number): Follower[];
     getFollower(artistId: number, actorUri: string): Follower | undefined;
-    // Releases
+    // Releases (New watertight compartment)
     getReleases(publicOnly?: boolean): Release[];
     getRelease(id: number): Release | undefined;
     getReleaseBySlug(slug: string): Release | undefined;
@@ -340,22 +340,23 @@ export interface DatabaseService {
     addTrackToRelease(releaseId: number, trackId: number, metadata?: Partial<ReleaseTrack>): number;
     updateReleaseTrack(id: number, metadata: Partial<ReleaseTrack>): void;
     updateReleaseTrackMetadata(releaseId: number, trackId: number, metadata: Partial<ReleaseTrack>): void;
-    removeTrackFromRelease(releaseId: number, trackId: number): void;
+    removeTrackFromRelease(releaseId: number, trackId: number): void; // Old version by IDs
     removeTracksFromRelease(releaseId: number, trackIds: number[]): void;
-    deleteReleaseTrack(id: number): void;
+    deleteReleaseTrack(id: number): void; // New version by record ID
     updateReleaseTracksOrder(releaseId: number, trackIds: number[]): void;
     cleanUpGhostTracks(releaseId: number): void;
 
     // Legacy/Library Albums
     getAlbums(publicOnly?: boolean): Album[];
     getAlbumsWithStats(publicOnly?: boolean): (Album & { songCount: number; duration: number })[];
-    getLibraryAlbums(): Album[];
+    getLibraryAlbums(): Album[]; // is_release=0
     getAlbum(id: number): Album | undefined;
     getAlbumsByIds(ids: number[]): Album[];
     getAlbumBySlug(slug: string): Album | undefined;
     getAlbumByTitle(title: string, artistId?: number): Album | undefined;
     getArtistAlbumCounts(): { artist_id: number, count: number }[];
     getAlbumsByArtist(artistId: number, publicOnly?: boolean, artistName?: string): Album[];
+    getArtistCovers(artistId: number): string[];
     getAlbumsByOwner(ownerId: number, publicOnly?: boolean): Album[];
     createAlbum(album: Omit<Album, "id" | "created_at" | "artist_name" | "artist_slug">): number;
     updateAlbumVisibility(id: number, visibility: 'public' | 'private' | 'unlisted'): void;
@@ -368,7 +369,7 @@ export interface DatabaseService {
     updateAlbumDownload(id: number, download: string | null): void;
     updateAlbumPrice(id: number, price: number | null, price_usdc: number | null, currency?: 'ETH' | 'USD'): void;
     updateAlbumLinks(id: number, links: string | null): void;
-    promoteToRelease(id: number): void;
+    promoteToRelease(id: number): void; // Mark library album as release
     deleteAlbum(id: number, keepTracks?: boolean): void;
     searchAlbums(query: string, limit: number, publicOnly?: boolean): Album[];
     // Tracks
@@ -468,7 +469,7 @@ export interface DatabaseService {
 
     // Remote Federation (ActivityPub)
     upsertRemoteActor(actor: Omit<RemoteActor, "id" | "last_seen" | "is_followed" | "public_key"> & { is_followed?: boolean, public_key?: string | null }): void;
-    saveRemoteActor(actor: any): void;
+    saveRemoteActor(actor: any): void; // More flexible version
     getRemoteActor(uri: string): RemoteActor | undefined;
     getRemoteActors(): RemoteActor[];
     getFollowedActors(): RemoteActor[];
@@ -511,6 +512,7 @@ export interface DatabaseService {
     // Ratings & Bookmarks
     setItemRating(username: string, itemType: string, itemId: string, rating: number): void;
     getItemRating(username: string, itemType: string, itemId: string): number;
+    getItemRatings(username: string, itemType: string): Map<string, number>;
     createBookmark(username: string, trackId: string, positionMs: number, comment?: string): void;
     getBookmarks(username: string): any[];
     deleteBookmark(username: string, trackId: string): void;

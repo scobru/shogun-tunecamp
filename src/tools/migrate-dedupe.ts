@@ -225,15 +225,18 @@ Options:
 
     // Now execute DB updates in a sync transaction
     const executeDbUpdates = db.transaction((actions: typeof migrationActions) => {
+        const updateTracksStmt = db.prepare("UPDATE tracks SET file_path = ? WHERE file_path = ? OR file_path = ?");
+        const updateReleaseTracksStmt = db.prepare("UPDATE release_tracks SET file_path = ? WHERE file_path = ? OR file_path = ?");
+
         for (const action of actions) {
             const normalizedOldPath = action.oldPath.replace(/\\/g, '/');
             
             // Update tracks table
-            const trackResult = db.prepare("UPDATE tracks SET file_path = ? WHERE file_path = ? OR file_path = ?").run(action.newPath, normalizedOldPath, action.oldPath);
+            const trackResult = updateTracksStmt.run(action.newPath, normalizedOldPath, action.oldPath);
             updatedTracks += trackResult.changes;
 
             // Update release_tracks table
-            const rtResult = db.prepare("UPDATE release_tracks SET file_path = ? WHERE file_path = ? OR file_path = ?").run(action.newPath, normalizedOldPath, action.oldPath);
+            const rtResult = updateReleaseTracksStmt.run(action.newPath, normalizedOldPath, action.oldPath);
             updatedReleaseTracks += rtResult.changes;
 
             // Delete redundant physical files
@@ -258,11 +261,20 @@ Options:
             executeDbUpdates(migrationActions);
         } else {
             // Just simulate for counts
-            for (const action of migrationActions) {
-                 const tr = db.prepare("SELECT COUNT(*) as count FROM tracks WHERE file_path = ?").get(action.oldPath) as any;
-                 updatedTracks += (tr?.count || 0);
-                 const rtr = db.prepare("SELECT COUNT(*) as count FROM release_tracks WHERE file_path = ?").get(action.oldPath) as any;
-                 updatedReleaseTracks += (rtr?.count || 0);
+            const CHUNK_SIZE = 900;
+            for (let i = 0; i < migrationActions.length; i += CHUNK_SIZE) {
+                const chunk = migrationActions.slice(i, i + CHUNK_SIZE);
+                const paths = chunk.map(action => action.oldPath);
+
+                if (paths.length > 0) {
+                    const placeholders = paths.map(() => '?').join(',');
+
+                    const tr = db.prepare(`SELECT COUNT(*) as count FROM tracks WHERE file_path IN (${placeholders})`).get(...paths) as any;
+                    updatedTracks += (tr?.count || 0);
+
+                    const rtr = db.prepare(`SELECT COUNT(*) as count FROM release_tracks WHERE file_path IN (${placeholders})`).get(...paths) as any;
+                    updatedReleaseTracks += (rtr?.count || 0);
+                }
             }
         }
 

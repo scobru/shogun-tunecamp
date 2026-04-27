@@ -1825,6 +1825,18 @@ export function createDatabase(dbPath: string): DatabaseService {
             return db.prepare(sql).all() as { artist_id: number, count: number }[];
         },
 
+        getArtistCovers(artistId: number): string[] {
+            const rows = db.prepare(`
+                SELECT cover_path FROM (
+                    SELECT cover_path, date, 1 as is_release FROM releases WHERE artist_id = ? AND cover_path IS NOT NULL
+                    UNION ALL
+                    SELECT cover_path, date, 0 as is_release FROM albums WHERE artist_id = ? AND is_release = 0 AND cover_path IS NOT NULL
+                ) ORDER BY is_release DESC, date DESC
+            `).all(artistId, artistId) as { cover_path: string }[];
+
+            return rows.map(r => r.cover_path);
+        },
+
         getAlbumsByArtist(artistId: number, publicOnly = false, artistName?: string): Album[] {
             const sql = publicOnly
                 ? `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug FROM albums a 
@@ -3310,6 +3322,11 @@ export function createDatabase(dbPath: string): DatabaseService {
         getItemRating(username: string, itemType: string, itemId: string): number {
             const row = db.prepare("SELECT rating FROM item_ratings WHERE username = ? AND item_type = ? AND item_id = ?").get(username, itemType, itemId) as { rating: number } | undefined;
             return row?.rating || 0;
+        },
+
+        getItemRatings(username: string, itemType: string): Map<string, number> {
+            const rows = db.prepare("SELECT item_id, rating FROM item_ratings WHERE username = ? AND item_type = ?").all(username, itemType) as { item_id: string, rating: number }[];
+            return new Map(rows.map(r => [r.item_id, r.rating]));
         },
 
         createBookmark(username: string, trackId: string, positionMs: number, comment?: string): void {

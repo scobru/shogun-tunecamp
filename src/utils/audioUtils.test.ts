@@ -1,6 +1,43 @@
 
 import { describe, expect, test, beforeAll, afterAll, jest } from '@jest/globals';
-import { getPlaceholderSVG, formatDuration, slugify, formatTimeAgo } from './audioUtils.js';
+import { getPlaceholderSVG, formatDuration, slugify, formatTimeAgo, formatAudioFilename } from './audioUtils.js';
+
+describe('formatAudioFilename', () => {
+    test('should format standard input correctly', () => {
+        expect(formatAudioFilename(1, 'Test Title', 'flac')).toBe('01-test-title.flac');
+        expect(formatAudioFilename(10, 'Another Title', 'mp3')).toBe('10-another-title.mp3');
+    });
+
+    test('should fallback to 0 for falsy trackNum and omit prefix', () => {
+        // @ts-ignore
+        expect(formatAudioFilename(null, 'Test Title', 'flac')).toBe('test-title.flac');
+        // @ts-ignore
+        expect(formatAudioFilename(undefined, 'Test Title', 'flac')).toBe('test-title.flac');
+        expect(formatAudioFilename(0, 'Test Title', 'flac')).toBe('test-title.flac');
+    });
+
+    test('should fallback to "Unknown" for falsy title', () => {
+        // @ts-ignore
+        expect(formatAudioFilename(1, null, 'flac')).toBe('01-unknown.flac');
+        // @ts-ignore
+        expect(formatAudioFilename(1, undefined, 'flac')).toBe('01-unknown.flac');
+        expect(formatAudioFilename(1, '', 'flac')).toBe('01-unknown.flac');
+    });
+
+    test('should fallback to "mp3" for falsy extension', () => {
+        // @ts-ignore
+        expect(formatAudioFilename(1, 'Test Title', null)).toBe('01-test-title.mp3');
+        // @ts-ignore
+        expect(formatAudioFilename(1, 'Test Title', undefined)).toBe('01-test-title.mp3');
+        expect(formatAudioFilename(1, 'Test Title', '')).toBe('01-test-title.mp3');
+    });
+
+    test('should combine all fallbacks correctly', () => {
+        // @ts-ignore
+        expect(formatAudioFilename(null, null, null)).toBe('unknown.mp3');
+        expect(formatAudioFilename(0, '', '')).toBe('unknown.mp3');
+    });
+});
 
 describe('slugify', () => {
     test('should return empty string for null/undefined/empty input', () => {

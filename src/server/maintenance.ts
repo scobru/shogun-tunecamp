@@ -5,6 +5,7 @@ import * as mm from 'music-metadata';
 import { glob } from 'glob';
 import type { DatabaseService } from './database.js';
 import type { ServerConfig } from './config.js';
+import { StringUtils } from '../utils/stringUtils.js';
 
 /**
  * 🛠️ TuneCamp Startup Maintenance
@@ -28,15 +29,6 @@ async function getFastFileHash(filePath: string): Promise<string> {
     } catch (e) {
         return "";
     }
-}
-
-function cleanPath(p: string | null): string | null {
-    if (!p) return null;
-    let cleaned = p.replace(/\\/g, "/");
-    while (cleaned.startsWith("../")) {
-        cleaned = cleaned.substring(3);
-    }
-    return cleaned;
 }
 
 export async function runStartupMaintenance(database: DatabaseService, config: ServerConfig) {
@@ -69,8 +61,8 @@ export async function runStartupMaintenance(database: DatabaseService, config: S
         const repairs: {id: number, path: string, lossless: string}[] = [];
 
         for (const track of tracks) {
-            const newPath = cleanPath(track.file_path);
-            const newLossless = cleanPath(track.lossless_path);
+            const newPath = StringUtils.cleanPath(track.file_path);
+            const newLossless = StringUtils.cleanPath(track.lossless_path);
             if (newPath !== track.file_path || newLossless !== track.lossless_path) {
                 repairs.push({ id: track.id, path: newPath!, lossless: newLossless! });
             }
