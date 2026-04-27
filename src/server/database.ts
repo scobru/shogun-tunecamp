@@ -10,7 +10,7 @@ export interface OAuthClient {
 }
 
 export interface OAuthLink {
-    provider: string; // 'mastodon'
+    provider: string; // AuthProvider.MASTODON
     subject: string;  // @user@instance.social
     gun_pub: string;
     gun_priv: string; // Encrypted SEA pair
