@@ -113,7 +113,7 @@ export const AuthModal = () => {
                                         
                                         setIsLoading(true);
                                         try {
-                                            const redirectUri = window.location.origin + '/auth/callback';
+                                            const redirectUri = new URL('/auth/callback', window.location.origin).toString();
                                             // Save instance for callback verification
                                             localStorage.setItem('mastodon_instance', instance);
                                             

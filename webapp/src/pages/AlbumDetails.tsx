@@ -134,7 +134,7 @@ export const AlbumDetails = () => {
   const [downloadFormat, setDownloadFormat] = useState("mp3");
 
   const handleShareAlbum = () => {
-    const url = `${window.location.origin}/share/al_${album.id}`;
+    const url = new URL(`/share/al_${album.id}`, window.location.origin).toString();
     if (navigator.share) {
       navigator.share({ title: album.title, url }).catch(console.error);
     } else {
@@ -144,7 +144,7 @@ export const AlbumDetails = () => {
   };
 
   const handleShareTrack = (track: any) => {
-    const url = `${window.location.origin}/share/tr_${track.id}`;
+    const url = new URL(`/share/tr_${track.id}`, window.location.origin).toString();
     if (navigator.share) {
       navigator.share({ title: track.title, url }).catch(console.error);
     } else {

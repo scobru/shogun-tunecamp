@@ -20,7 +20,7 @@ export const AuthCallback = () => {
             }
 
             const instanceUrl = localStorage.getItem('mastodon_instance');
-            const redirectUri = window.location.origin + '/auth/callback';
+            const redirectUri = new URL('/auth/callback', window.location.origin).toString();
 
             if (!instanceUrl) {
                 setError('Session expired or invalid state. Please try again.');

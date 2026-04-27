@@ -107,7 +107,7 @@ export const Tracks = () => {
   };
 
   const handleShare = (track: Track) => {
-    const url = `${window.location.origin}/share/tr_${track.id}`;
+    const url = new URL(`/share/tr_${track.id}`, window.location.origin).toString();
     if (navigator.share) {
       navigator.share({ title: track.title, url }).catch(console.error);
     } else {
