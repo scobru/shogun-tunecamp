@@ -141,9 +141,9 @@ export const Sidebar = () => {
                 className="avatar placeholder"
               >
                 <div className="bg-neutral text-neutral-content rounded-lg w-10 ring-1 ring-white/10 cursor-pointer hover:ring-primary/50 transition-all overflow-hidden">
-                  {user?.gunProfile?.profile?.avatar ? (
+                  {user?.zenProfile?.profile?.avatar ? (
                     <img
-                      src={user.gunProfile.profile.avatar}
+                      src={user.zenProfile.profile.avatar}
                       alt={user.username || ""}
                       className="w-full h-full object-cover"
                     />

@@ -178,7 +178,7 @@ export const MyPlaylistDetails = () => {
   };
 
   const isOwner = isAuthenticated && (
-    (playlist && 'ownerPub' in playlist && user?.gunProfile?.pub === playlist.ownerPub) ||
+    (playlist && 'ownerPub' in playlist && user?.zenProfile?.pub === playlist.ownerPub) ||
     (playlist && 'username' in playlist && user?.username === playlist.username)
   );
 

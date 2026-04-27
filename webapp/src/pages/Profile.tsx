@@ -270,14 +270,14 @@ export const Profile = () => {
                       isSaving && "loading",
                     )}
                     onClick={handleUpdateAlias}
-                    disabled={alias === user?.gunProfile?.alias || isSaving}
+                    disabled={alias === user?.zenProfile?.alias || isSaving}
                   >
                     {!isSaving && <Check size={20} />}
                   </button>
                 </div>
                 <label className="label">
                   <span className="label-text-alt opacity-40 italic">
-                    This name is used across TuneCamp and GunDB.
+                    This name is used across TuneCamp and Zen.
                   </span>
                 </label>
               </div>

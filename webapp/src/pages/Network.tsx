@@ -510,13 +510,13 @@ export const Network = () => {
         {/* Network Status */}
         <div className="flex items-center gap-4 text-xs">
           <div
-            className={`px-3 py-1 rounded-full border font-bold flex items-center gap-2 ${status?.gundb?.connected ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-red-500/10 border-red-500/30 text-red-400"}`}
+            className={`px-3 py-1 rounded-full border font-bold flex items-center gap-2 ${status?.zen?.connected ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-red-500/10 border-red-500/30 text-red-400"}`}
           >
             <div
-              className={`w-1.5 h-1.5 rounded-full ${status?.gundb?.connected ? "bg-green-400 animate-pulse" : "bg-red-400"}`}
+              className={`w-1.5 h-1.5 rounded-full ${status?.zen?.connected ? "bg-green-400 animate-pulse" : "bg-red-400"}`}
             ></div>
-            ZEN: {status?.gundb?.connected
-              ? `${status.gundb.peers} PEERS`
+            ZEN: {status?.zen?.connected
+              ? `${status.zen.peers} PEERS`
               : "DISCONNECTED"}
           </div>
           <div
