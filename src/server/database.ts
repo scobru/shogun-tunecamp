@@ -392,6 +392,7 @@ export interface DatabaseService {
     repairArtistLinks(artistId: number, artistName: string): { tracks: number, albums: number };
     getTracksByOwner(ownerId: number, publicOnly?: boolean): Track[];
     getTracksByAlbumIds(albumIds: number[]): Track[];
+    getAlbumStats(albumIds: number[]): Map<number, { songCount: number; duration: number }>;
     getTracksByReleaseId(releaseId: number): Track[];
     getTrack(id: number): Track | undefined;
     getTracksByIds(ids: number[]): Track[];
@@ -2643,6 +2644,32 @@ export function createDatabase(dbPath: string): DatabaseService {
             return publicOnly 
                 ? db.prepare(sql).all(ownerId, ownerId, ownerId, ownerId) as Track[] 
                 : db.prepare(sql).all(ownerId, ownerId, ownerId, ownerId) as Track[];
+        },
+
+        getAlbumStats(albumIds: number[]): Map<number, { songCount: number; duration: number }> {
+            if (albumIds.length === 0) return new Map();
+            const statsMap = new Map<number, { songCount: number; duration: number }>();
+            const CHUNK_SIZE = 900;
+
+            for (let i = 0; i < albumIds.length; i += CHUNK_SIZE) {
+                const chunk = albumIds.slice(i, i + CHUNK_SIZE);
+                const placeholders = chunk.map(() => '?').join(',');
+
+                const rows = db.prepare(`
+                    SELECT album_id, COUNT(id) as songCount, SUM(duration) as duration
+                    FROM tracks
+                    WHERE album_id IN (${placeholders})
+                    GROUP BY album_id
+                `).all(...chunk) as { album_id: number, songCount: number, duration: number | null }[];
+
+                for (const row of rows) {
+                    statsMap.set(row.album_id, {
+                        songCount: Number(row.songCount) || 0,
+                        duration: Number(row.duration) || 0
+                    });
+                }
+            }
+            return statsMap;
         },
 
         getTracksByAlbumIds(albumIds: number[]): Track[] {

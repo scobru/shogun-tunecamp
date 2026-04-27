@@ -561,9 +561,11 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const offset = parseInt(ensureString(req.query.offset) || '0');
         const isV2 = req.path.includes('getAlbumList2');
 
-        const allAlbums = db.getAlbums(false).map(a => {
-            const tracks = db.getTracks(a.id);
-            return { ...a, songCount: tracks.length, duration: tracks.reduce((acc, t) => acc + (t.duration || 0), 0) };
+        const rawAlbums = db.getAlbums(false);
+        const albumStats = db.getAlbumStats(rawAlbums.map(a => a.id));
+        const allAlbums = rawAlbums.map(a => {
+            const stats = albumStats.get(a.id) || { songCount: 0, duration: 0 };
+            return { ...a, songCount: stats.songCount, duration: stats.duration };
         });
 
         let albums = [...allAlbums];
@@ -591,9 +593,10 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
 
         const results = db.search(query, false);
         const artist = results.artists.map(a => formatArtist(a, username));
+        const albumStats = db.getAlbumStats(results.albums.map(a => a.id));
         const album = results.albums.map(a => {
-            const tracks = db.getTracks(a.id);
-            return formatAlbum({ ...a, songCount: tracks.length, duration: tracks.reduce((acc, t) => acc + (t.duration || 0), 0) }, username);
+            const stats = albumStats.get(a.id) || { songCount: 0, duration: 0 };
+            return formatAlbum({ ...a, songCount: stats.songCount, duration: stats.duration }, username);
         });
         const song = results.tracks.map(t => formatTrack(t, username));
 
@@ -647,9 +650,11 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         const artist = db.getArtist(artistId);
         if (!artist) return sendError(res, req, 70, 'Artist not found');
 
-        const albums = db.getAlbumsByArtist(artistId, false).map(a => {
-            const tracks = db.getTracks(a.id);
-            return { ...a, songCount: tracks.length, duration: tracks.reduce((acc, t) => acc + (t.duration || 0), 0) };
+        const rawAlbums = db.getAlbumsByArtist(artistId, false);
+        const albumStats = db.getAlbumStats(rawAlbums.map(a => a.id));
+        const albums = rawAlbums.map(a => {
+            const stats = albumStats.get(a.id) || { songCount: 0, duration: 0 };
+            return { ...a, songCount: stats.songCount, duration: stats.duration };
         });
 
         sendResponse(res, req, {
