@@ -1394,7 +1394,7 @@ export function createDatabase(dbPath: string): DatabaseService {
                 // 1. Create new table with correct schema
                 const tableDef = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tracks'").get() as { sql: string };
                 let newSql = tableDef.sql.replace(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?['"`]?tracks['"`]?/i, "CREATE TABLE tracks_new");
-                newSql = newSql.replace(/(file_path\s+TEXT)\s+NOT\s+NULL/i, "$1");
+                newSql = newSql.replace(/(['"`\[]?file_path['"`\]]?\s+TEXT)\s+NOT\s+NULL/i, "$1");
                 db.exec(newSql);
 
                 // 2. Copy data
