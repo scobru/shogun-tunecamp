@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { Link } from 'react-router-dom';
-import { User, Trash2, Edit } from 'lucide-react';
+import { User, Trash2, Edit, LayoutGrid, List } from 'lucide-react';
 import type { Artist, User as AppUser } from '../types';
+import clsx from 'clsx';
 
 export const Artists = () => {
     const [artists, setArtists] = useState<Artist[]>([]);
     const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
     const [loading, setLoading] = useState(true);
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
     useEffect(() => {
         API.getCurrentUser()
@@ -43,18 +45,48 @@ export const Artists = () => {
 
     return (
         <div className="space-y-6 animate-fade-in">
-             <div className="flex items-center justify-between">
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h1 className="text-3xl font-bold flex items-center gap-3">
                     <User size={32} className="text-primary"/> Artists
                 </h1>
-                <span className="opacity-50 font-mono text-sm">{artists.length} items</span>
+
+                <div className="flex items-center gap-4">
+                    <span className="opacity-50 font-mono text-sm">{artists.length} items</span>
+                    <div className="join bg-base-200">
+                        <button
+                            className={clsx("btn btn-sm join-item", viewMode === 'grid' && "btn-active")}
+                            onClick={() => setViewMode('grid')}
+                            title="Grid View"
+                        >
+                            <LayoutGrid size={16} />
+                        </button>
+                        <button
+                            className={clsx("btn btn-sm join-item", viewMode === 'list' && "btn-active")}
+                            onClick={() => setViewMode('list')}
+                            title="List View"
+                        >
+                            <List size={16} />
+                        </button>
+                    </div>
+                </div>
              </div>
 
-             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+             <div className={clsx(
+                "grid gap-4",
+                viewMode === 'grid'
+                    ? "grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+                    : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+             )}>
                 {artists.map(artist => (
-                    <div key={artist.id} className="group text-center relative block">
+                    <div key={artist.id} className={clsx(
+                        "group relative",
+                        viewMode === 'grid' ? "text-center block" : "flex items-center gap-4 bg-base-200 p-4 rounded-xl hover:bg-base-300 transition-colors shadow-sm border border-white/5"
+                    )}>
                         {currentUser?.isAdmin && (
-                            <div className="absolute top-2 right-2 z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                            <div className={clsx(
+                                "absolute z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200",
+                                viewMode === 'grid' ? "top-2 right-2" : "right-4 top-1/2 -translate-y-1/2"
+                            )}>
                                 {currentUser?.isRootAdmin && (
                                     <button
                                         onClick={(e) => handleEdit(e, artist)}
@@ -75,21 +107,35 @@ export const Artists = () => {
                                 )}
                             </div>
                         )}
-                        <Link to={`/artists/${artist.slug || artist.id}`} className="block">
-                            <figure className="aspect-square relative overflow-hidden rounded-xl shadow-xl mb-4 border-4 border-transparent group-hover:border-primary/20 transition-all mx-auto w-full max-w-[200px]">
-                                {artist.coverImage ? (
-                                    <img 
-                                        src={API.getArtistCoverUrl(artist.id)} 
-                                        alt={artist.name} 
-                                        className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" 
-                                        loading="lazy"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full bg-neutral flex items-center justify-center opacity-30 text-5xl font-bold">{artist.name[0]}</div>
-                                )}
-                            </figure>
-                            <h3 className="font-bold truncate text-lg group-hover:text-primary transition-colors">{artist.name}</h3>
-                            <p className="text-sm opacity-50">Artist</p>
+                        <Link to={`/artists/${artist.slug || artist.id}`} className={clsx("block w-full", viewMode === 'list' && "flex items-center gap-4")}>
+                            {viewMode === 'grid' && (
+                                <figure className="aspect-square relative overflow-hidden rounded-xl shadow-xl mb-4 border-4 border-transparent group-hover:border-primary/20 transition-all mx-auto w-full max-w-[200px]">
+                                    {artist.coverImage ? (
+                                        <img
+                                            src={API.getArtistCoverUrl(artist.id)}
+                                            alt={artist.name}
+                                            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.style.display = 'none';
+                                                if (target.nextElementSibling) {
+                                                    (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                                                }
+                                            }}
+                                        />
+                                    ) : null}
+                                    <div className={clsx("w-full h-full bg-neutral flex items-center justify-center opacity-30 text-5xl font-bold", artist.coverImage && "hidden")}>
+                                        {artist.name[0]}
+                                    </div>
+                                </figure>
+                            )}
+
+                            <div className={clsx(viewMode === 'list' && "flex-1 min-w-0 pr-20")}>
+                                <h3 className={clsx("font-bold truncate group-hover:text-primary transition-colors", viewMode === 'grid' ? "text-lg" : "text-base")}>
+                                    {artist.name}
+                                </h3>
+                                <p className="text-sm opacity-50 truncate">Artist</p>
+                            </div>
                         </Link>
                     </div>
                 ))}
