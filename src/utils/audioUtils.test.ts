@@ -1,6 +1,33 @@
 
 import { describe, expect, test, beforeAll, afterAll, jest } from '@jest/globals';
-import { getPlaceholderSVG, formatDuration, slugify, formatTimeAgo } from './audioUtils.js';
+import { getPlaceholderSVG, formatDuration, slugify, formatTimeAgo, getAudioFormat } from './audioUtils.js';
+
+describe('getAudioFormat', () => {
+    test('should return correct format for known extensions', () => {
+        expect(getAudioFormat('song.mp3')).toBe('MP3');
+        expect(getAudioFormat('song.flac')).toBe('FLAC');
+        expect(getAudioFormat('song.ogg')).toBe('OGG Vorbis');
+        expect(getAudioFormat('song.wav')).toBe('WAV');
+        expect(getAudioFormat('song.m4a')).toBe('M4A/AAC');
+        expect(getAudioFormat('song.aac')).toBe('AAC');
+        expect(getAudioFormat('song.opus')).toBe('OPUS');
+    });
+
+    test('should be case-insensitive for extensions', () => {
+        expect(getAudioFormat('song.MP3')).toBe('MP3');
+        expect(getAudioFormat('song.FlAc')).toBe('FLAC');
+    });
+
+    test('should return uppercase extension for unknown formats', () => {
+        expect(getAudioFormat('song.xyz')).toBe('XYZ');
+        expect(getAudioFormat('song.unknown')).toBe('UNKNOWN');
+    });
+
+    test('should handle missing extensions and empty inputs gracefully', () => {
+        expect(getAudioFormat('song')).toBe('');
+        expect(getAudioFormat('')).toBe('');
+    });
+});
 
 describe('slugify', () => {
     test('should return empty string for null/undefined/empty input', () => {
