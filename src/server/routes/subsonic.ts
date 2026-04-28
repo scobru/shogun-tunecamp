@@ -6,7 +6,7 @@ import fs from 'fs-extra';
 import { resolveSafePath } from '../../utils/fileUtils.js';
 import { getPlaceholderSVG } from '../../utils/audioUtils.js';
 import { transcode } from '../ffmpeg.js';
-import type { DatabaseService, Track } from '../database';
+import type { DatabaseService, Track, Artist, Album } from '../database';
 import type { AuthService } from '../auth';
 import type { ZenDBService } from '../zendb';
 
@@ -805,17 +805,52 @@ export const createSubsonicRouter = (context: SubsonicContext): Router => {
         
         const response: any = { artist: [], album: [], song: [] };
         const tracksToFormat: Track[] = [];
+
+        const artistIds: number[] = [];
+        const albumIds: number[] = [];
+        const trackIds: number[] = [];
+
         starred.forEach(item => {
             const idParts = item.item_id.split('_');
             const id = parseInt(idParts[1] || idParts[0]);
             if (item.item_type === 'artist') {
-                const a = db.getArtist(id);
+                artistIds.push(id);
+            } else if (item.item_type === 'album') {
+                albumIds.push(id);
+            } else if (item.item_type === 'track') {
+                trackIds.push(id);
+            }
+        });
+
+        const artistMap = new Map<number, Artist>();
+        if (artistIds.length > 0) {
+            const uniqueArtistIds = [...new Set(artistIds)];
+            db.getArtistsByIds(uniqueArtistIds).forEach(a => artistMap.set(a.id, a));
+        }
+
+        const albumMap = new Map<number, Album>();
+        if (albumIds.length > 0) {
+            const uniqueAlbumIds = [...new Set(albumIds)];
+            db.getAlbumsByIds(uniqueAlbumIds).forEach(a => albumMap.set(a.id, a));
+        }
+
+        const trackMap = new Map<number, Track>();
+        if (trackIds.length > 0) {
+            const uniqueTrackIds = [...new Set(trackIds)];
+            db.getTracksByIds(uniqueTrackIds).forEach(t => trackMap.set(t.id, t));
+        }
+
+        starred.forEach(item => {
+            const idParts = item.item_id.split('_');
+            const id = parseInt(idParts[1] || idParts[0]);
+            if (item.item_type === 'artist') {
+                const a = artistMap.get(id);
                 if (a) response.artist.push(formatArtist(a, username));
             } else if (item.item_type === 'album') {
-                const a = db.getAlbum(id);
+                const a = albumMap.get(id);
                 if (a) response.album.push(formatAlbum(a, username));
             } else if (item.item_type === 'track') {
-                const t = db.getTrack(id);
+                const t = trackMap.get(id);
                 if (t) tracksToFormat.push(t);
             }
         });
