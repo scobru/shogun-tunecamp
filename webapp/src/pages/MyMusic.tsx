@@ -109,6 +109,7 @@ export const MyMusic = () => {
           onClick={() => setActiveTab("tracks")}
         >
           Tracks
+        </a>
       </div>
 
       <div className="bg-base-100 p-6 rounded-b-box border-x border-b border-base-300 min-h-[400px]">
