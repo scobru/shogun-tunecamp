@@ -1,5 +1,4 @@
 import path from "path";
-import fs from "fs-extra";
 import chokidar, { type FSWatcher } from "chokidar";
 import { parseFile } from "music-metadata";
 import { parse } from "yaml";
@@ -9,6 +8,7 @@ import { WaveformPeakService } from "./waveform.js";
 import { slugify } from "../utils/audioUtils.js";
 import { convertWavToMp3, getDurationFromFfmpeg } from "./ffmpeg.js";
 import { getFastFileHash } from "../utils/fileUtils.js";
+import type { StorageEngine } from "./modules/storage/storage.engine.js";
 
 /**
  * Simple sequential processing queue to avoid over-parallelizing heavy tasks (ffmpeg, conversion)
@@ -147,7 +147,10 @@ export class Scanner implements ScannerService {
     private readonly WATCHER_STARTUP_DELAY = 60000;
     private primaryAdminId: number | null = null;
 
-    constructor(private database: DatabaseService) { 
+    constructor(
+        private database: DatabaseService,
+        private storage: StorageEngine
+    ) {
         this.lookupPrimaryAdmin();
     }
 
@@ -195,7 +198,7 @@ export class Scanner implements ScannerService {
                     const coverNames = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png", "artwork.jpg", "artwork.png"];
                     for (const name of coverNames) {
                         const p = path.resolve(dir, name);
-                        if (await fs.pathExists(p)) {
+                        if (await this.storage.pathExists(p)) {
                             coverPath = this.normalizePath(p, musicDir);
                             break;
                         }
@@ -214,7 +217,7 @@ export class Scanner implements ScannerService {
             const coverNames = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png", "artwork.jpg", "artwork.png"];
             for (const name of coverNames) {
                 const p = path.resolve(dir, name);
-                if (await fs.pathExists(p)) {
+                if (await this.storage.pathExists(p)) {
                     coverPath = this.normalizePath(p, musicDir);
                     break;
                 }
@@ -267,9 +270,9 @@ export class Scanner implements ScannerService {
 
     private async processGlobalConfigs(rootDir: string, musicDir: string): Promise<void> {
         const artistPath = path.join(rootDir, "artist.yaml");
-        if (await fs.pathExists(artistPath)) {
+        if (await this.storage.pathExists(artistPath)) {
             try {
-                const content = await fs.readFile(artistPath, "utf-8");
+                const content = await this.storage.readFile(artistPath, "utf-8");
                 const config = parse(content) as ArtistConfig;
                 if (config.name) {
                     const existingArtist = this.database.getArtistByName(config.name);
@@ -290,9 +293,9 @@ export class Scanner implements ScannerService {
         }
 
         const catalogPath = path.join(rootDir, "catalog.yaml");
-        if (await fs.pathExists(catalogPath)) {
+        if (await this.storage.pathExists(catalogPath)) {
             try {
-                const content = await fs.readFile(catalogPath, "utf-8");
+                const content = await this.storage.readFile(catalogPath, "utf-8");
                 const config = parse(content);
                 if (config.title) this.database.setSetting("siteName", config.title);
                 if (config.description) this.database.setSetting("siteDescription", config.description);
@@ -307,7 +310,7 @@ export class Scanner implements ScannerService {
     private async processReleaseConfig(filePath: string, musicDir: string): Promise<void> {
         try {
             const dir = path.dirname(filePath);
-            const content = await fs.readFile(filePath, "utf-8");
+            const content = await this.storage.readFile(filePath, "utf-8");
             const config = parse(content) as ReleaseConfig;
             if (!config.title) return;
 
@@ -331,14 +334,14 @@ export class Scanner implements ScannerService {
             let coverPath: string | null = null;
             if (config.cover) {
                 const absoluteCoverPath = path.resolve(dir, config.cover);
-                if (await fs.pathExists(absoluteCoverPath)) {
+                if (await this.storage.pathExists(absoluteCoverPath)) {
                     coverPath = this.normalizePath(absoluteCoverPath, musicDir);
                 }
             } else {
                 const coverNames = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork/cover.jpg", "artwork/cover.png"];
                 for (const name of coverNames) {
                     const p = path.resolve(dir, name);
-                    if (await fs.pathExists(p)) {
+                    if (await this.storage.pathExists(p)) {
                         coverPath = this.normalizePath(p, musicDir);
                         break;
                     }
@@ -422,9 +425,9 @@ export class Scanner implements ScannerService {
 
     public async processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number, suggestedCoverPath?: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
         let currentFilePath = filePath.replace(/^@@[a-z0-9]+\\?/, "").replace(/\\/g, "/").replace(/\/+/g, "/");
-        if (!path.isAbsolute(currentFilePath) && !await fs.pathExists(currentFilePath)) {
+        if (!path.isAbsolute(currentFilePath) && !await this.storage.pathExists(currentFilePath)) {
             const resolved = path.join(musicDir, currentFilePath);
-            if (await fs.pathExists(resolved)) currentFilePath = resolved;
+            if (await this.storage.pathExists(resolved)) currentFilePath = resolved;
         }
 
         const ext = path.extname(currentFilePath).toLowerCase();
@@ -456,7 +459,7 @@ export class Scanner implements ScannerService {
                         this.database.addAlbumOwner(existingByHash.album_id, ownerId);
                     }
                     if (currentFilePath.includes(path.sep + 'tmp' + path.sep) || currentFilePath.includes('/tmp/')) {
-                        await fs.remove(currentFilePath);
+                        await this.storage.remove(currentFilePath);
                     }
                     return { originalPath: filePath, success: true, message: "Duplicate hash matched.", trackId: existingByHash.id };
                 }
@@ -606,11 +609,11 @@ export class Scanner implements ScannerService {
     }
 
     private async doScan(dir: string): Promise<ScanResult> {
-        if (!(await fs.pathExists(dir))) return { successful: [], failed: [] };
+        if (!(await this.storage.pathExists(dir))) return { successful: [], failed: [] };
         await this.mapFoldersToExistingAlbums();
         const audioFiles: string[] = [], yamlFiles: string[] = [];
         const walkDir = async (currentDir: string) => {
-            const entries = await fs.readdir(currentDir, { withFileTypes: true });
+            const entries = await this.storage.readdir(currentDir, { withFileTypes: true });
             for (const entry of entries) {
                 const full = path.join(currentDir, entry.name);
                 if (entry.isDirectory()) await walkDir(full);
@@ -730,7 +733,7 @@ export class Scanner implements ScannerService {
                     
                     const oldP = t.file_path;
                     const fOld = path.join(musicDir, oldP);
-                    const existsOld = await fs.pathExists(fOld);
+                    const existsOld = await this.storage.pathExists(fOld);
                     
                     let art = t.artist_id ? (cache.get(t.artist_id) || this.database.getArtist(t.artist_id)) : null;
                     if (t.artist_id && art) cache.set(t.artist_id, art);
@@ -746,10 +749,10 @@ export class Scanner implements ScannerService {
 
                     // If original file is missing
                     if (!existsOld) {
-                        const existsNew = await fs.pathExists(fNew);
+                        const existsNew = await this.storage.pathExists(fNew);
                         if (!existsNew) {
                             // Check lossless path as well if available
-                            const existsLossless = t.lossless_path ? await fs.pathExists(path.join(musicDir, t.lossless_path)) : false;
+                            const existsLossless = t.lossless_path ? await this.storage.pathExists(path.join(musicDir, t.lossless_path)) : false;
                             
                             if (!existsLossless && !t.url) {
                                 console.log(`🗑️ [Consolidate] File missing for track ${t.id} (${oldP}), deleting from DB`);
@@ -769,8 +772,8 @@ export class Scanner implements ScannerService {
 
                     if (oldP === newP) { skipped++; count++; continue; }
 
-                    if (await fs.pathExists(fOld)) {
-                        await fs.move(fOld, fNew, { overwrite: true });
+                    if (await this.storage.pathExists(fOld)) {
+                        await this.storage.move(fOld, fNew, { overwrite: true });
                         this.database.updateTrackPath(t.id, newP, t.album_id);
                         success++;
                     } else skipped++;

@@ -46,6 +46,8 @@ import { createAuthMiddleware } from "./middleware/auth.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createAdminRoutes } from "./routes/admin.js";
 import { createCatalogRoutes } from "./routes/catalog.js";
+import { CatalogService } from "./modules/catalog/catalog.service.js";
+import { LocalDiskStorage } from "./modules/storage/storage.engine.js";
 import { createAlbumsRoutes } from "./routes/albums.js";
 import { createTracksRoutes } from "./routes/tracks.js";
 import { createArtistsRoutes } from "./routes/artists.js";
@@ -98,6 +100,12 @@ export async function startServer(config: ServerConfig): Promise<void> {
     console.log(`📦 Initializing database: ${config.dbPath}`);
     const database = createDatabase(config.dbPath);
 
+    // Initialize Storage Engine
+    const storage = new LocalDiskStorage();
+
+    // Initialize Catalog Service
+    const catalogService = new CatalogService(database);
+
     // Run Startup Maintenance (Repair paths + Restore Orphans)
     if (process.env.SKIP_STARTUP_MAINTENANCE === 'true') {
         console.log(`📦 [Maintenance] Skipping startup maintenance as requested (SKIP_STARTUP_MAINTENANCE=true)`);
@@ -111,7 +119,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const authMiddleware = createAuthMiddleware(authService);
 
     // Initialize scanner
-    const scanner = new Scanner(database);
+    const scanner = new Scanner(database, storage);
 
     // Initialize Waveform Service
     const waveformService = new WaveformService(path.dirname(config.dbPath));
@@ -136,7 +144,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     soulseekService.connect().catch(err => console.error("Soulseek initial connection failed:", err));
 
     // Upload routes - MOVED BEFORE FEDIFY/BODY PARSERS to avoid stream consumption issues
-    app.use("/api/admin/upload", authMiddleware.requireUser, createUploadRoutes(database, scanner, config.musicDir, publishingService, authService));
+    app.use("/api/admin/upload", authMiddleware.requireUser, createUploadRoutes(database, scanner, config.musicDir, publishingService, storage, authService));
     app.use("/api/admin/backup", authMiddleware.requireAdmin, createBackupRoutes(database, config, () => {
         console.log("🔄 Restarting server...");
         process.exit(0); // Docker/PM2 should handle restart
@@ -233,7 +241,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService, authMiddleware));
     app.use("/api/admin", authMiddleware.requireUser, createAdminRoutes(database, scanner, config.musicDir, zendbService, config, authService, publishingService, apService));
     // Backup routes moved earlier
-    app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(database));
+    app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(catalogService));
     app.use("/api/artists", authMiddleware.optionalAuth, createArtistsRoutes(database, config.musicDir));
     app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database, config.musicDir));
     app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database, publishingService, config.musicDir, authService));

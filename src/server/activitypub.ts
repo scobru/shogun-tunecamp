@@ -8,12 +8,29 @@ import { Follow, Announce } from "@fedify/fedify";
 import type { DatabaseService, Artist, Album, Track, Post } from "./database.js";
 import type { ServerConfig } from "./config.js";
 
+import { ActivityPubRenderer } from "./modules/activitypub/activitypub.renderer.js";
+import { ActivityPubTransport } from "./modules/activitypub/activitypub.transport.js";
+
 export class ActivityPubService {
+    private renderer: ActivityPubRenderer;
+    private transport: ActivityPubTransport;
+
     constructor(
         private db: DatabaseService,
         private config: ServerConfig,
         private federation: Federation<void>
-    ) { }
+    ) {
+        const baseUrl = this.getBaseUrl();
+        this.renderer = new ActivityPubRenderer(baseUrl);
+        this.transport = new ActivityPubTransport(
+            this.federation, 
+            baseUrl,
+            () => ({
+                privateKey: this.db.getSetting("site_private_key") || null,
+                publicKey: this.db.getSetting("site_public_key") || null
+            })
+        );
+    }
 
     public getDomain(): string {
         const publicUrl = this.db.getSetting("publicUrl") || this.config.publicUrl;
@@ -470,217 +487,30 @@ export class ActivityPubService {
 
     // JSON-LD Generators
     public generateWebFinger(resource: string): any {
-        console.log(`🔍 WebFinger request for: ${resource}`);
+        const username = resource.startsWith("acct:") 
+            ? resource.replace("acct:", "").split("@")[0] 
+            : resource;
+            
+        const artist = this.db.getArtistBySlug(username);
+        if (!artist && username !== "site") return null;
 
-        let username;
-        if (resource.startsWith("acct:")) {
-            const parts = resource.replace("acct:", "").split("@");
-            username = parts[0];
-        } else {
-            username = resource;
-        }
-
-        console.log(`👤 Extracted username: ${username}`);
-        let artist = this.db.getArtistBySlug(username);
-        
-        if (!artist && username !== "site") {
-            console.log(`❌ Artist not found for slug: ${username}`);
-            return null;
-        }
-
-        const baseUrl = this.getBaseUrl();
-        const profileUrl = username === "site" ? `${baseUrl}/` : `${baseUrl}/@${username}`;
-        const actorUrl = `${baseUrl}/users/${username}`;
-
-        return {
-            subject: resource,
-            links: [
-                {
-                    rel: "self",
-                    type: "application/activity+json",
-                    href: actorUrl
-                },
-                {
-                    rel: "http://webfinger.net/rel/profile-page",
-                    type: "text/html",
-                    href: profileUrl
-                }
-            ]
-        };
+        return this.renderer.renderWebFinger(resource, artist || { slug: "site", name: "Site" } as any);
     }
 
     public generateActor(artist: Artist | { slug: string, name: string, bio?: string, photo_path?: string }): any {
-        const baseUrl = this.getBaseUrl();
-        const slug = artist.slug;
-        const isSite = slug === "site";
-        
-        const userUrl = `${baseUrl}/users/${slug}`;
-        const apiUrl = `${baseUrl}/api/ap/users/${slug}`;
-
-        let iconMediaType = "image/jpeg";
-        let iconUrl = `${baseUrl}/api/artists/${slug}/cover`;
-        
-        if (isSite) {
-            iconMediaType = "image/svg+xml";
-            iconUrl = `${baseUrl}/vite.svg`;
-        } else if (artist.photo_path) {
-            const ext = artist.photo_path.split('.').pop()?.toLowerCase();
-            if (ext === 'png') iconMediaType = "image/png";
-            else if (ext === 'webp') iconMediaType = "image/webp";
-            else if (ext === 'gif') iconMediaType = "image/gif";
+        const artistWithKeys = { ...artist } as any;
+        if (artist.slug === "site" && !artistWithKeys.public_key) {
+            artistWithKeys.public_key = this.db.getSetting("site_public_key");
         }
-
-        const name = artist.name;
-        const summary = (artist as any).bio || artist.bio || (isSite ? "Tunecamp Federation Actor" : `Artist on ${this.getDomain()}`);
-
-        return {
-            "@context": [
-                "https://www.w3.org/ns/activitystreams",
-                "https://w3id.org/security/v1",
-                {
-                    "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
-                    "Artist": "https://funkwhale.audio/ns#Artist",
-                    "MusicArtist": "https://schema.org/MusicArtist",
-                    "MusicAlbum": "https://schema.org/MusicAlbum",
-                    "MusicRecording": "https://schema.org/MusicRecording",
-                    "library": "https://funkwhale.audio/ns#library"
-                }
-            ],
-            id: userUrl,
-            type: isSite ? "Service" : ["Person", "Artist", "MusicArtist"],
-            preferredUsername: slug,
-            name: name,
-            summary: summary,
-            url: isSite ? `${baseUrl}/` : `${baseUrl}/@${slug}`,
-            icon: {
-                type: "Image",
-                mediaType: iconMediaType,
-                url: iconUrl
-            },
-            image: {
-                type: "Image",
-                mediaType: iconMediaType,
-                url: iconUrl
-            },
-            inbox: `${userUrl}/inbox`,
-            outbox: `${apiUrl}/outbox`,
-            followers: `${apiUrl}/followers`,
-            following: `${apiUrl}/following`,
-            publicKey: {
-                id: `${userUrl}#main-key`,
-                owner: userUrl,
-                publicKeyPem: (artist as any).public_key || (isSite ? this.db.getSetting("site_public_key") : undefined)
-            },
-            endpoints: {
-                sharedInbox: `${baseUrl}/inbox`
-            }
-        };
+        return this.renderer.renderActor(artistWithKeys);
     }
 
     public generateNote(album: Album, artist: Artist, tracks: Track[]): any {
-        const baseUrl = this.getBaseUrl();
-        const userUrl = `${baseUrl}/users/${artist.slug}`;
-        const apiUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
-        const isRelease = true; // generateNote exclusively used for releases
-        const albumUrl = `${baseUrl}/releases/${album.slug}`;
-
-        const published = album.published_at || album.created_at;
-
-        const attachments: any[] = [];
-
-        if (album.cover_path) {
-            const ext = album.cover_path.split('.').pop()?.toLowerCase();
-            let mediaType = "image/jpeg";
-            if (ext === 'png') mediaType = "image/png";
-            else if (ext === 'webp') mediaType = "image/webp";
-            else if (ext === 'gif') mediaType = "image/gif";
-
-            attachments.push({
-                type: "Image",
-                mediaType: mediaType,
-                url: `${baseUrl}/api/releases/${album.slug}/cover`,
-
-                name: "Cover Art"
-            });
-        }
-
-        const trackObjects = tracks.map(track => {
-            if (!track.file_path && !track.url) return null;
-            
-            let mediaType = "audio/mpeg";
-            if (track.file_path) {
-                const ext = track.file_path.split('.').pop()?.toLowerCase();
-                const contentTypes: Record<string, string> = {
-                    "mp3": "audio/mpeg",
-                    "flac": "audio/flac",
-                    "ogg": "audio/ogg",
-                    "wav": "audio/wav",
-                    "m4a": "audio/mp4",
-                    "aac": "audio/aac",
-                    "opus": "audio/opus",
-                };
-                mediaType = contentTypes[ext || ""] || "audio/mpeg";
-            }
-
-            return {
-                type: "Audio",
-                mediaType: mediaType,
-                url: track.file_path ? `${baseUrl}/api/tracks/${track.id}/stream` : track.url,
-                name: track.title,
-                duration: track.duration ? new Date(track.duration * 1000).toISOString().substr(11, 8) : undefined,
-                "https://funkwhale.audio/ns#bitrate": track.bitrate,
-                "https://funkwhale.audio/ns#duration": track.duration
-            };
-        }).filter(t => t !== null);
-
-        if (trackObjects.length > 0) {
-            attachments.push(trackObjects[0]);
-        }
-
-        const sentTime = published ? new Date(published).getTime() : 0;
-        const noteId = `${baseUrl}/api/ap/note/release/${album.slug}/${sentTime}`;
-
-        return {
-            "@context": [
-                "https://www.w3.org/ns/activitystreams",
-                {
-                    "MusicAlbum": "https://schema.org/MusicAlbum",
-                    "MusicRecording": "https://schema.org/MusicRecording"
-                }
-            ],
-            type: "Note",
-            id: noteId,
-            attributedTo: userUrl,
-            content: `<p>New release available: <a href="${albumUrl}">${album.title}</a></p>`,
-            url: albumUrl,
-            published: published,
-            to: ["https://www.w3.org/ns/activitystreams#Public"],
-            cc: [`${apiUrl}/followers`],
-            attachment: attachments,
-            tag: []
-        };
+        return this.renderer.renderNote(album, artist, tracks);
     }
 
     public generatePostNote(post: Post, artist: Artist): any {
-        const baseUrl = this.getBaseUrl();
-        const userUrl = `${baseUrl}/users/${artist.slug}`;
-        const apiUrl = `${baseUrl}/api/ap/users/${artist.slug}`;
-        const postUrl = `${baseUrl}/artists/${artist.slug}?post=${post.slug}`;
-
-        const published = post.published_at || post.created_at;
-        const sentTime = published ? new Date(published).getTime() : 0;
-
-        return {
-            type: "Note",
-            id: `${baseUrl}/api/ap/note/post/${post.slug}/${sentTime}`,
-            attributedTo: userUrl,
-            content: `<p>${post.content}</p>`,
-            url: postUrl,
-            published: published,
-            to: ["https://www.w3.org/ns/activitystreams#Public"],
-            cc: [`${apiUrl}/followers`],
-            tag: []
-        };
+        return this.renderer.renderPostNote(post, artist);
     }
 
     public async acceptFollow(artist: Artist, activity: any): Promise<void> {
@@ -961,110 +791,11 @@ export class ActivityPubService {
     }
 
     public async sendActivity(actor: Artist | { slug: string, private_key?: string, public_key?: string }, inboxUri: string, activity: any): Promise<void> {
-        try {
-            const handle = actor.slug;
-            const recipient = {
-                id: new URL(inboxUri),
-                inboxId: new URL(inboxUri),
-            };
-
-            console.log(`📤 Sending activity ${activity.type || 'unknown'} from ${handle} to ${inboxUri} via Fedify`);
-            
-            const ctx = this.federation.createContext(new URL(this.getBaseUrl()), undefined);
-            await ctx.sendActivity(
-                { identifier: handle },
-                recipient,
-                activity
-            );
-            
-            console.log(`✅ Activity queued/sent to ${inboxUri} via Fedify`);
-        } catch (e) {
-            console.error(`❌ Fedify failed to send activity to ${inboxUri}, falling back to manual:`, e);
-            await this.manualSendActivity(actor, inboxUri, activity);
-        }
-    }
-
-    private async manualSendActivity(actor: Artist | { slug: string, private_key?: string, public_key?: string }, inboxUri: string, activity: any): Promise<void> {
-        let activityJson: any;
-        if (activity && typeof activity.toJsonLd === 'function') {
-            activityJson = await activity.toJsonLd();
-        } else {
-            activityJson = { ...activity };
-        }
-        if (!activityJson["@context"]) activityJson["@context"] = "https://www.w3.org/ns/activitystreams";
-        if (!activityJson.id) activityJson.id = `${this.getBaseUrl()}/activity/${crypto.randomUUID()}`;
-
-        try {
-            const res = await this.fetchWithSignature(inboxUri, "post", activityJson, actor as Artist);
-            if (!res.ok) {
-                const errText = await res.text().catch(() => "Unknown error");
-                console.error(`❌ Manual fallback failed to send activity to ${inboxUri}: ${res.status} ${errText}`);
-            } else {
-                await drainResponse(res);
-                console.log(`✅ Manually sent activity to ${inboxUri}`);
-            }
-        } catch (e) {
-            console.error(`❌ Error in manual fallback sending activity to ${inboxUri}:`, e);
-        }
+        return this.transport.send(actor, inboxUri, activity);
     }
 
     private async fetchWithSignature(uri: string, method: "get" | "post" = "get", body: any = null, signingArtist?: Artist): Promise<any> {
-        const url = new URL(uri);
-        const date = new Date().toUTCString();
-        let bodyStr = "";
-        let digest = "";
-        if (body) {
-            bodyStr = JSON.stringify(body);
-            digest = `SHA-256=${crypto.createHash("sha256").update(bodyStr).digest("base64")}`;
-        }
-        const headers: any = { "Host": url.host, "Date": date, "Accept": "application/activity+json" };
-        if (digest) {
-            headers["Digest"] = digest;
-            headers["Content-Type"] = "application/activity+json";
-        }
-        let actor = signingArtist;
-        // If no actor provided OR it's the site actor lacking keys, try to load site keys
-        if (!actor || (actor.slug === "site" && !actor.private_key)) {
-            const sitePriv = this.db.getSetting("site_private_key");
-            const sitePub = this.db.getSetting("site_public_key");
-            
-            if (!actor) {
-                actor = {
-                    slug: "site",
-                    private_key: sitePriv,
-                    public_key: sitePub
-                } as any;
-            } else {
-                // Fill missing keys for site actor
-                (actor as any).private_key = sitePriv;
-                (actor as any).public_key = sitePub;
-            }
-        }
-        if (actor?.private_key) {
-            try {
-                const signature = this.signRequest(actor, url, method, date, digest || undefined);
-                headers["Signature"] = signature;
-            } catch (sigErr) {
-                console.warn(`⚠️ Could not sign request to ${uri} (Actor: ${actor.slug}):`, sigErr);
-            }
-        }
-        return fetch(uri, { method: method.toUpperCase(), headers, body: body ? bodyStr : undefined });
-    }
-
-    private signRequest(artist: Artist, url: URL, method: string, date: string, digest?: string): string {
-        if (!artist.private_key) throw new Error(`Actor ${artist.slug} has no private key`);
-        let headersList = "(request-target) host date";
-        const targetPath = url.pathname + (url.search || "");
-        let stringToSign = `(request-target): ${method.toLowerCase()} ${targetPath}\nhost: ${url.host}\ndate: ${date}`;
-        if (digest) {
-            headersList += " digest";
-            stringToSign += `\ndigest: ${digest}`;
-        }
-        const signer = crypto.createSign("sha256");
-        signer.update(stringToSign);
-        const signature = signer.sign(artist.private_key, "base64");
-        const keyId = `${this.getBaseUrl()}/users/${artist.slug}#main-key`;
-        return `keyId="${keyId}",algorithm="rsa-sha256",headers="${headersList}",signature="${signature}"`;
+        return this.transport.fetchWithSignature(uri, method, body, signingArtist);
     }
 
     private async discoverSiteActor(origin: string): Promise<string | null> {
@@ -1135,17 +866,12 @@ export class ActivityPubService {
             return this.getString(value[0]);
         }
         if (typeof value === 'object') {
-            // Handle Link/Object with href
             if (value.href) return String(value.href);
             if (value.url) return this.getString(value.url);
-            // Handle Language Map (common in ActivityPub)
             if (value.name) return this.getString(value.name);
             if (value.content) return this.getString(value.content);
             const keys = Object.keys(value);
-            if (keys.length > 0) {
-                // Return first language entry if it looks like a language map
-                return String(value[keys[0]]);
-            }
+            if (keys.length > 0) return String(value[keys[0]]);
         }
         return String(value);
     }
@@ -1158,7 +884,6 @@ export class ActivityPubService {
         }
 
         try {
-            // Correctly parse signature header parts (handles keyId="...", etc.)
             const parts: any = {};
             const regex = /([a-zA-Z]+)="([^"]+)"/g;
             let match;
@@ -1171,20 +896,17 @@ export class ActivityPubService {
                 return false;
             }
 
-            // 1. Get Public Key (with caching)
             const publicKey = await this.getRemotePublicKey(parts.keyId);
             if (!publicKey) {
                 console.warn(`⚠️ Could not retrieve public key for ${parts.keyId}`);
                 return false;
             }
 
-            // 2. Reconstruct String to Sign
             const headersList = parts.headers ? parts.headers.split(' ') : ['date'];
             const signingLines: string[] = [];
             
             for (const headerName of headersList) {
                 if (headerName === '(request-target)') {
-                    // Use req.originalUrl for Express to get the full path
                     signingLines.push(`(request-target): ${req.method.toLowerCase()} ${req.originalUrl || req.url}`);
                 } else {
                     const val = req.headers[headerName.toLowerCase()];
@@ -1192,18 +914,11 @@ export class ActivityPubService {
                         console.warn(`⚠️ Header ${headerName} missing from request but required by signature`);
                         return false;
                     }
-                    if (headerName.toLowerCase() === 'host') {
-                        // Some servers might include the port in the host header
-                        signingLines.push(`host: ${val}`);
-                    } else {
-                        signingLines.push(`${headerName.toLowerCase()}: ${val}`);
-                    }
+                    signingLines.push(`${headerName.toLowerCase()}: ${val}`);
                 }
             }
             const signingString = signingLines.join('\n');
 
-            // 3. Verify
-            // Identify hashing algorithm (usually rsa-sha256 or sha256)
             let algorithm = "sha256";
             if (parts.algorithm?.toLowerCase().includes("sha512")) algorithm = "sha512";
             
@@ -1215,8 +930,6 @@ export class ActivityPubService {
                 console.log(`✅ ActivityPub Signature verified for ${parts.keyId}`);
             } else {
                 console.warn(`❌ ActivityPub Signature verification FAILED for ${parts.keyId}`);
-                // Debug signing string
-                // console.log("DEBUG: Signing String used:\n" + signingString);
             }
             
             return isValid;
@@ -1227,22 +940,14 @@ export class ActivityPubService {
     }
 
     private async getRemotePublicKey(keyId: string): Promise<string | null> {
-        // keyId is usually http://actor-uri#main-key or just the actor-uri
         const actorUri = keyId.split('#')[0];
-        
-        // Check DB Cache
         const cachedActor = this.db.getRemoteActor(actorUri);
-        if (cachedActor?.public_key) {
-            return cachedActor.public_key;
-        }
+        if (cachedActor?.public_key) return cachedActor.public_key;
 
-        // Fetch Actor JSON
         try {
             console.log(`📡 Fetching remote actor to retrieve public key: ${actorUri}`);
             const res = await this.fetchWithSignature(actorUri);
-            
             if (!res.ok) {
-                console.warn(`⚠️ Failed to fetch remote actor ${actorUri}: ${res.status}`);
                 await drainResponse(res);
                 return null;
             }
@@ -1251,8 +956,6 @@ export class ActivityPubService {
             const publicKeyPem = actor.publicKey?.publicKeyPem;
             
             if (publicKeyPem) {
-                // Cache it so we don't fetch every time
-                console.log(`💾 Caching public key for ${actorUri}`);
                 this.db.upsertRemoteActor({
                     uri: actorUri,
                     type: actor.type || 'Person',
@@ -1265,8 +968,6 @@ export class ActivityPubService {
                     public_key: publicKeyPem
                 });
                 return publicKeyPem;
-            } else {
-                console.warn(`⚠️ Actor JSON for ${actorUri} does not contain a public key`);
             }
         } catch (e) {
             console.error(`❌ Error fetching remote public key for ${actorUri}:`, e);

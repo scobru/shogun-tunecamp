@@ -3,12 +3,15 @@ import { Scanner } from "../server/scanner.js";
 import path from "path";
 import fs from "fs-extra";
 
+import { LocalDiskStorage } from "../server/modules/storage/storage.engine.js";
+
 async function test() {
     const dbPath = "tunecamp.db"; 
     const musicDir = path.resolve("music");
     
     const db = createDatabase(dbPath);
-    const scanner = new Scanner(db);
+    const storage = new LocalDiskStorage();
+    const scanner = new Scanner(db, storage);
     
     console.log("Creating dummy track with missing file...");
     const trackId = db.createTrack({

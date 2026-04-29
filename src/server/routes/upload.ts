@@ -2,7 +2,6 @@ import express, { Router } from "express";
 import multer from "multer";
 import crypto from "crypto";
 import path from "path";
-import fs from "fs-extra";
 import os from "os";
 import axios from "axios";
 import type { DatabaseService } from "../database.js";
@@ -10,6 +9,7 @@ import type { ScannerService } from "../scanner.js";
 import type { AuthService } from "../auth.js";
 import type { PublishingService } from "../publishing.js";
 import { sanitizeFilename } from "../../utils/audioUtils.js";
+import type { StorageEngine } from "../modules/storage/storage.engine.js";
 
 const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
@@ -79,6 +79,7 @@ export function createUploadRoutes(
     scanner: ScannerService,
     musicDir: string,
     publishingService: PublishingService,
+    storage: StorageEngine,
     authService?: AuthService
 ): Router {
     const router = Router();
@@ -117,7 +118,7 @@ export function createUploadRoutes(
     ) {
         try {
             if (!req.isAdmin) {
-                if (req.file) await fs.remove(req.file.path);
+                if (req.file) await storage.remove(req.file.path);
                 return res.status(403).json({ error: `Restricted admins cannot change ${options.errorLabel}` });
             }
             const file = req.file;
@@ -128,13 +129,13 @@ export function createUploadRoutes(
 
             // Move to assets
             const assetsDir = path.join(musicDir, "assets");
-            await fs.ensureDir(assetsDir);
+            await storage.ensureDir(assetsDir);
 
             const ext = path.extname(file.originalname).toLowerCase() || ".png";
             const targetFilename = options.type + (IMAGE_EXTENSIONS.includes(ext) ? ext : ".png");
             const targetPath = path.join(assetsDir, targetFilename);
 
-            await fs.move(file.path, targetPath, { overwrite: true });
+            await storage.move(file.path, targetPath, { overwrite: true });
 
             database.setSetting(options.settingKey, options.apiUrl);
             res.json({
@@ -144,7 +145,7 @@ export function createUploadRoutes(
             });
         } catch (error) {
             console.error(`${options.errorLabel} upload error:`, error);
-            if (req.file) await fs.remove(req.file.path).catch(() => { });
+            if (req.file) await storage.remove(req.file.path).catch(() => { });
             res.status(500).json({ error: `${options.errorLabel.charAt(0).toUpperCase() + options.errorLabel.slice(1)} upload failed` });
         }
     }
@@ -226,7 +227,7 @@ export function createUploadRoutes(
 
             if (!req.isAdmin && !req.isActive) {
                 if (files) {
-                    await Promise.all(files.map(file => fs.remove(file.path).catch(() => {})));
+                    await Promise.all(files.map(file => storage.remove(file.path).catch(() => {})));
                 }
                 return res.status(403).json({ error: "Access denied: Account must be activated by admin to upload tracks" });
             }
@@ -260,7 +261,7 @@ export function createUploadRoutes(
 
                 if (totalUploadSize > remaining) {
                     // Cleanup temp files
-                    await Promise.all(files.map(file => fs.remove(file.path).catch(() => {})));
+                    await Promise.all(files.map(file => storage.remove(file.path).catch(() => {})));
                     const quotaMB = (currentUser.storage_quota / 1024 / 1024).toFixed(1);
                     const usedMB = (currentUsed / 1024 / 1024).toFixed(1);
                     const remainingMB = (remaining / 1024 / 1024).toFixed(1);
@@ -282,7 +283,7 @@ export function createUploadRoutes(
             if (release && !isAuthorized) {
                 console.warn(`⛔ Access Denied: User ${(req as any).username} (User ID ${req.userId}) tried to upload to release ${release.slug} (Owner ${release.owner_id})`);
                 // Cleanup temp files
-                await Promise.all(files.map(file => fs.remove(file.path).catch(() => {})));
+                await Promise.all(files.map(file => storage.remove(file.path).catch(() => {})));
                 return res.status(403).json({ error: "Access denied: Cannot upload tracks to another artist's release" });
             }
 
@@ -300,7 +301,7 @@ export function createUploadRoutes(
                 destDir = path.join(musicDir, "tracks");
             }
 
-            await fs.ensureDir(destDir);
+            await storage.ensureDir(destDir);
 
             let movedCount = 0;
             let processedCount = 0;
@@ -314,13 +315,13 @@ export function createUploadRoutes(
                 const ext = path.extname(sanitizedName);
                 const nameBase = path.basename(sanitizedName, ext);
                 let counter = 1;
-                while (await fs.pathExists(destPath)) {
+                while (await storage.pathExists(destPath)) {
                     destPath = path.join(destDir, `${nameBase}_${counter}${ext}`);
                     counter++;
                 }
 
                 try {
-                    await fs.move(file.path, destPath, { overwrite: false });
+                    await storage.move(file.path, destPath, { overwrite: false });
                     movedCount++;
 
                     // Process immediately to get Track ID, pass uploader's user ID as ownerId
@@ -345,7 +346,7 @@ export function createUploadRoutes(
 
                 } catch (err) {
                     console.error(`❌ Failed to move or process uploaded file ${file.path}:`, err);
-                    await fs.remove(file.path).catch(() => { });
+                    await storage.remove(file.path).catch(() => { });
                 }
             }
 
@@ -400,7 +401,7 @@ export function createUploadRoutes(
             }
 
             if (!req.isAdmin && !req.isActive) {
-                if (file) await fs.remove(file.path).catch(() => {});
+                if (file) await storage.remove(file.path).catch(() => {});
                 return res.status(403).json({ error: "Access denied: Account must be activated by admin to upload covers" });
             }
 
@@ -414,7 +415,7 @@ export function createUploadRoutes(
                 const targetItem = release || album;
 
                 if (!targetItem) {
-                    await fs.remove(file.path);
+                    await storage.remove(file.path);
                     return res.status(404).json({ error: "Release not found" });
                 }
 
@@ -423,7 +424,7 @@ export function createUploadRoutes(
                     (req.artistId !== undefined && req.artistId !== null && targetItem.artist_id !== undefined && targetItem.artist_id !== null && Number(targetItem.artist_id) === Number(req.artistId));
 
                 if (!isAuthorized) {
-                    await fs.remove(file.path);
+                    await storage.remove(file.path);
                     return res.status(403).json({ error: "Access denied: Cannot upload cover for another artist's release" });
                 }
 
@@ -432,7 +433,7 @@ export function createUploadRoutes(
                 const safeSlug = targetItem.slug;
                 const releaseDir = path.join(musicDir, "releases", safeSlug);
                 const artworkDir = path.join(releaseDir, "artwork");
-                await fs.ensureDir(artworkDir);
+                await storage.ensureDir(artworkDir);
 
                 // 2. Move file to artwork dir with UNIQUE name to avoid locking
                 const ext = path.extname(file.originalname).toLowerCase();
@@ -440,18 +441,18 @@ export function createUploadRoutes(
                 const targetFilename = `cover-${uniqueId}${ext}`;
                 const targetPath = path.join(artworkDir, targetFilename);
 
-                await fs.move(file.path, targetPath, { overwrite: true });
+                await storage.move(file.path, targetPath, { overwrite: true });
                 console.log(`   Moved cover to: ${targetPath}`);
 
                 // 3. Update release.yaml (relative to release dir)
                 const releaseYamlPath = path.join(releaseDir, "release.yaml");
-                if (await fs.pathExists(releaseYamlPath)) {
+                if (await storage.pathExists(releaseYamlPath)) {
                     try {
                         const yaml = await import("yaml");
-                        const content = await fs.readFile(releaseYamlPath, "utf-8");
+                        const content = await storage.readFile(releaseYamlPath, "utf-8");
                         const config = yaml.parse(content);
                         config.cover = `artwork/${targetFilename}`; // Relative to release.yaml
-                        await fs.writeFile(releaseYamlPath, yaml.stringify(config));
+                        await storage.writeFile(releaseYamlPath, yaml.stringify(config));
                     } catch (err) {
                         console.error("Error updating release.yaml:", err);
                     }
@@ -469,11 +470,11 @@ export function createUploadRoutes(
 
                 // 5. Cleanup old covers (Best effort)
                 try {
-                    const files = await fs.readdir(artworkDir);
+                    const files = await storage.readdir(artworkDir);
                     for (const f of files) {
                         if (f !== targetFilename && (f.startsWith("cover") || f.startsWith("folder") || f.startsWith("artwork"))) {
                             try {
-                                await fs.remove(path.join(artworkDir, f));
+                                await storage.remove(path.join(artworkDir, f));
                             } catch (e) {
                                 console.warn(`   [Cleanup] Could not delete old cover ${f} (likely locked):`, e);
                             }
@@ -487,7 +488,7 @@ export function createUploadRoutes(
                 publishingService.syncRelease(targetItem.id).catch(e => console.error("Failed to sync cover upload:", e));
             } else {
                 // Orphan upload? Just clean up
-                await fs.remove(file.path);
+                await storage.remove(file.path);
             }
 
             res.json({
@@ -501,7 +502,7 @@ export function createUploadRoutes(
         } catch (error) {
             console.error("❌ Cover upload error:", error);
             // Try cleanup
-            if (req.file) await fs.remove(req.file.path).catch(() => { });
+            if (req.file) await storage.remove(req.file.path).catch(() => { });
             res.status(500).json({ error: "Cover upload failed" });
         }
     });
@@ -521,7 +522,7 @@ export function createUploadRoutes(
             }
 
             if (!req.isAdmin && !req.isActive) {
-                if (file) await fs.remove(file.path).catch(() => {});
+                if (file) await storage.remove(file.path).catch(() => {});
                 return res.status(403).json({ error: "Access denied: Account must be activated by admin to upload avatars" });
             }
 
@@ -533,7 +534,7 @@ export function createUploadRoutes(
             const isAuthorizedAvatar = req.isRootAdmin ||
                 (req.artistId !== undefined && req.artistId !== null && artistId !== undefined && artistId !== null && Number(req.artistId) === Number(artistId));
             if (!isAuthorizedAvatar) {
-                await fs.remove(file.path);
+                await storage.remove(file.path);
                 return res.status(403).json({ error: "Access denied: You can only upload avatars for your own artist" });
             }
 
@@ -543,14 +544,14 @@ export function createUploadRoutes(
 
             // Move avatar to assets folder
             const assetsDir = path.join(musicDir, "assets");
-            await fs.ensureDir(assetsDir);
+            await storage.ensureDir(assetsDir);
 
             const avatarFilename = `avatar-${artistId}${ext}`;
             const avatarPath = path.join(assetsDir, avatarFilename);
 
             // Remove old file if in different location, or overwrite
             if (file.path !== avatarPath) {
-                await fs.move(file.path, avatarPath, { overwrite: true });
+                await storage.move(file.path, avatarPath, { overwrite: true });
             }
 
             // Update artist in database (relative path)
@@ -574,7 +575,7 @@ export function createUploadRoutes(
             console.log(`✅ Avatar upload completed for artist ${artistId}`);
         } catch (error) {
             console.error("❌ Avatar upload error:", error);
-            if (req.file) await fs.remove(req.file.path).catch(() => { });
+            if (req.file) await storage.remove(req.file.path).catch(() => { });
             res.status(500).json({ error: "Avatar upload failed" });
         }
     });
@@ -595,31 +596,31 @@ export function createUploadRoutes(
             if (!trackId) return res.status(400).json({ error: "Track ID required" });
 
             if (!req.isAdmin && !req.isActive) {
-                if (file) await fs.remove(file.path).catch(() => {});
+                if (file) await storage.remove(file.path).catch(() => {});
                 return res.status(403).json({ error: "Access denied: Account must be activated by admin to upload track artwork" });
             }
 
             const track = database.getTrack(trackId);
             if (!track) {
-                await fs.remove(file.path);
+                await storage.remove(file.path);
                 return res.status(404).json({ error: "Track not found" });
             }
 
             // Permission Check
             const isOwner = req.userId !== undefined && req.userId !== null && track.owner_id !== undefined && track.owner_id !== null && Number(track.owner_id) === Number(req.userId);
             if (!req.isRootAdmin && !isOwner) {
-                await fs.remove(file.path);
+                await storage.remove(file.path);
                 return res.status(403).json({ error: "Access denied: Cannot upload artwork for this track" });
             }
 
             const ext = path.extname(file.originalname).toLowerCase();
             const assetsDir = path.join(musicDir, "assets", "tracks");
-            await fs.ensureDir(assetsDir);
+            await storage.ensureDir(assetsDir);
 
             const targetFilename = `track-${trackId}-${Date.now()}${ext}`;
             const targetPath = path.join(assetsDir, targetFilename);
 
-            await fs.move(file.path, targetPath, { overwrite: true });
+            await storage.move(file.path, targetPath, { overwrite: true });
 
             const dbPath = path.relative(musicDir, targetPath).replace(/\\/g, "/");
             database.updateTrackExternalArtwork(trackId, dbPath);
@@ -632,7 +633,7 @@ export function createUploadRoutes(
             console.log(`✅ Track artwork upload completed for track ${trackId}`);
         } catch (error) {
             console.error("❌ Track artwork upload error:", error);
-            if (req.file) await fs.remove(req.file.path).catch(() => { });
+            if (req.file) await storage.remove(req.file.path).catch(() => { });
             res.status(500).json({ error: "Track artwork upload failed" });
         }
     });
@@ -694,12 +695,12 @@ export function createUploadRoutes(
             else if (contentTypeStr.includes('gif')) ext = '.gif';
 
             const assetsDir = path.join(musicDir, "assets");
-            await fs.ensureDir(assetsDir);
+            await storage.ensureDir(assetsDir);
 
             const avatarFilename = `avatar-${id}${ext}`;
             const avatarPath = path.join(assetsDir, avatarFilename);
 
-            await fs.writeFile(avatarPath, response.data);
+            await storage.writeFile(avatarPath, response.data);
 
             // Update artist in database (relative path)
             const artist = database.getArtist(id);

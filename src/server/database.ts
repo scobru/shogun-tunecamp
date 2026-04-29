@@ -1,5 +1,8 @@
 import Database from "better-sqlite3";
 import type { Database as DatabaseType } from "better-sqlite3";
+import { TrackRepository } from "./repositories/track.repository.js";
+import { AlbumRepository } from "./repositories/album.repository.js";
+import { ArtistRepository } from "./repositories/artist.repository.js";
 
 // All types are defined in database.types.ts and re-exported here for backward compatibility
 export type {
@@ -36,6 +39,10 @@ const _insertQueueTrackStmts = new Map<number, any>();
 
 export function createDatabase(dbPath: string): DatabaseService {
     const db = new Database(dbPath);
+    
+    const trackRepository = new TrackRepository(db);
+    const albumRepository = new AlbumRepository(db);
+    const artistRepository = new ArtistRepository(db);
 
     // Disable foreign key constraints to allow manual relationship management
     // and prevent 'FOREIGN KEY constraint failed' errors during updates/migrations.
@@ -1551,60 +1558,23 @@ export function createDatabase(dbPath: string): DatabaseService {
 
         // Artists
         getArtists(): Artist[] {
-            return db.prepare(`
-                SELECT a.*, a.wallet_address as walletAddress,
-                (CASE WHEN EXISTS (SELECT 1 FROM admin WHERE artist_id = a.id) 
-                      OR EXISTS (SELECT 1 FROM releases WHERE artist_id = a.id) 
-                      OR EXISTS (SELECT 1 FROM albums WHERE artist_id = a.id AND is_release = 1)
-                      THEN 0 ELSE 1 END) as isLibraryArtist
-                FROM artists a ORDER BY a.name
-            `).all() as Artist[];
+            return artistRepository.getAll();
         },
 
         getArtist(id: number): Artist | undefined {
-            return getArtistStmt.get(id) as Artist | undefined;
+            return artistRepository.getById(id);
         },
 
         getArtistsByIds(ids: number[]): Artist[] {
-            if (ids.length === 0) return [];
-            const CHUNK_SIZE = 900;
-            const results: Artist[] = [];
-            for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
-                const chunk = ids.slice(i, i + CHUNK_SIZE);
-                const placeholders = chunk.map(() => "?").join(",");
-                const rows = db.prepare(`
-                    SELECT a.*, a.wallet_address as walletAddress,
-                    (CASE WHEN EXISTS (SELECT 1 FROM admin WHERE artist_id = a.id) 
-                          OR EXISTS (SELECT 1 FROM releases WHERE artist_id = a.id) 
-                          OR EXISTS (SELECT 1 FROM albums WHERE artist_id = a.id AND is_release = 1)
-                          THEN 0 ELSE 1 END) as isLibraryArtist
-                    FROM artists a WHERE a.id IN (${placeholders})
-                `).all(...chunk) as Artist[];
-                results.push(...rows);
-            }
-            return results;
+            return artistRepository.getByIds(ids);
         },
 
         getArtistByName(name: string): Artist | undefined {
-            return db.prepare(`
-                SELECT a.*, a.wallet_address as walletAddress,
-                (CASE WHEN EXISTS (SELECT 1 FROM admin WHERE artist_id = a.id) 
-                      OR EXISTS (SELECT 1 FROM releases WHERE artist_id = a.id) 
-                      OR EXISTS (SELECT 1 FROM albums WHERE artist_id = a.id AND is_release = 1)
-                      THEN 0 ELSE 1 END) as isLibraryArtist
-                FROM artists a WHERE a.name = ? COLLATE NOCASE
-            `).get(name) as Artist | undefined;
+            return artistRepository.getByName(name);
         },
 
         getArtistBySlug(slug: string): Artist | undefined {
-            return db.prepare(`
-                SELECT a.*, a.wallet_address as walletAddress,
-                (CASE WHEN EXISTS (SELECT 1 FROM admin WHERE artist_id = a.id) 
-                      OR EXISTS (SELECT 1 FROM releases WHERE artist_id = a.id) 
-                      OR EXISTS (SELECT 1 FROM albums WHERE artist_id = a.id AND is_release = 1)
-                      THEN 0 ELSE 1 END) as isLibraryArtist
-                FROM artists a WHERE a.slug = ?
-            `).get(slug) as Artist | undefined;
+            return artistRepository.getBySlug(slug);
         },
 
         createArtist(name: string, bio?: string, photoPath?: string, links?: any, postParams?: any, walletAddress?: string): number {
@@ -1734,29 +1704,11 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         getLibraryAlbums(): Album[] {
-            const rows = db.prepare(
-                `SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a 
-           LEFT JOIN artists ar ON a.artist_id = ar.id 
-           WHERE a.is_release = 0 ORDER BY a.title`
-            ).all();
-            return mapAlbums(rows);
+            return albumRepository.getLibraryAlbums();
         },
 
         getAlbum(id: number): Album | undefined {
-            let row = db.prepare(`SELECT a.*, ar.name as artistName, ar.name as artist_name, ar.slug as artistSlug, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM albums a
-                   LEFT JOIN artists ar ON a.artist_id = ar.id
-                   WHERE a.id = ?`).get(id) as any;
-            
-            if (!row) {
-                // Fallback to releases table
-                row = db.prepare(`SELECT r.*, ar.name as artistName, ar.name as artist_name, ar.slug as artist_slug, ar.wallet_address as walletAddress FROM releases r
-                       LEFT JOIN artists ar ON r.artist_id = ar.id
-                       WHERE r.id = ?`).get(id) as any;
-                if (row) row.is_release = 1;
-            }
-
-            if (!row) return undefined; 
-            return mapAlbum(row);
+            return albumRepository.getById(id);
         },
 
         getAlbumsByIds(ids: number[]): Album[] {
@@ -2228,55 +2180,11 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
 
         getTrack(id: number): Track | undefined {
-            return getTrackStmt.get(id) as Track | undefined;
+            return trackRepository.getById(id);
         },
 
         getTracksByIds(ids: number[]): Track[] {
-            if (ids.length === 0) return [];
-            const CHUNK_SIZE = 900;
-            const results: Track[] = [];
-
-            let fullChunkStmt: ReturnType<typeof db.prepare> | undefined;
-
-            for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
-                const chunk = ids.slice(i, i + CHUNK_SIZE);
-                let rows;
-
-                if (chunk.length === CHUNK_SIZE) {
-                    if (!fullChunkStmt) {
-                        const fullChunkPlaceholders = Array(CHUNK_SIZE).fill('?').join(',');
-                        fullChunkStmt = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price,
-                                COALESCE(ar_t.id, ar_a.id) as artist_id,
-                                COALESCE(ar_t.name, ar_a.name) as artist_name,
-                                COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
-                                COALESCE(t.owner_id, a.owner_id) as owner_id,
-                                own.username as owner_name
-                               FROM tracks t
-                               LEFT JOIN albums a ON t.album_id = a.id
-                               LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
-                               LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-                               LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
-                               WHERE t.id IN (${fullChunkPlaceholders})`);
-                    }
-                    rows = fullChunkStmt.all(chunk) as Track[];
-                } else {
-                    const placeholders = chunk.map(() => "?").join(",");
-                    rows = db.prepare(`SELECT t.*, a.title as album_title, a.download as album_download, a.visibility as album_visibility, a.price as album_price,
-                        COALESCE(ar_t.id, ar_a.id) as artist_id,
-                        COALESCE(ar_t.name, ar_a.name) as artist_name,
-                        COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
-                        COALESCE(t.owner_id, a.owner_id) as owner_id,
-                        own.username as owner_name
-                       FROM tracks t
-                       LEFT JOIN albums a ON t.album_id = a.id
-                       LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
-                       LEFT JOIN artists ar_a ON a.artist_id = ar_a.id
-                       LEFT JOIN admin own ON COALESCE(t.owner_id, a.owner_id) = own.id
-                       WHERE t.id IN (${placeholders})`).all(chunk) as Track[];
-                }
-                results.push(...rows);
-            }
-            return results;
+            return trackRepository.getByIds(ids);
         },
 
         getTrackByPath(filePath: string): Track | undefined {
