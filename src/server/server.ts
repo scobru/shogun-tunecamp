@@ -68,6 +68,7 @@ import { createPaymentsRoutes } from "./routes/payments.js";
 import { createActivityPubService } from "./activitypub.js";
 import { createActivityPubRoutes } from "./routes/activitypub.js";
 import { createPublishingService } from "./publishing.js";
+import { LibraryService } from "./services/library.service.js";
 import { integrateFederation } from "@fedify/express";
 import { createFedify } from "./fedify.js";
 import { createBackupRoutes } from "./routes/backup.js";
@@ -79,6 +80,7 @@ import { rateLimit } from "./middleware/rateLimit.js";
 import { SoulseekService } from "./soulseek.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { runStartupMaintenance } from "./maintenance.js";
+import { errorHandler } from "./middleware/error-handling.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -137,6 +139,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     // Initialize Publishing Service
     const publishingService = createPublishingService(database, zendbService, apService, config);
+
+    // Initialize Library Service
+    const libraryService = new LibraryService(database, publishingService, zendbService, storage, config.musicDir);
 
     // Initialize Content Search Services
     const soulseekService = new SoulseekService(config.musicDir, config.downloadDir || path.join(config.musicDir, "downloads"));
@@ -243,8 +248,8 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // Backup routes moved earlier
     app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(catalogService));
     app.use("/api/artists", authMiddleware.optionalAuth, createArtistsRoutes(database, config.musicDir));
-    app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database, config.musicDir));
-    app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database, publishingService, config.musicDir, authService));
+    app.use("/api/albums", authMiddleware.optionalAuth, createAlbumsRoutes(database, libraryService, config.musicDir));
+    app.use("/api/tracks", authMiddleware.optionalAuth, createTracksRoutes(database, publishingService, libraryService, config.musicDir, authService));
     app.use("/api/playlists", authMiddleware.optionalAuth, createPlaylistsRoutes(database, zendbService));
 
     app.use("/api/import", authMiddleware.requireUser, createImportRoutes());
@@ -534,7 +539,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 
     // Global error handler
-    app.use(globalErrorHandler);
+    app.use(errorHandler);
 
     // Start server
     server.listen(config.port, async () => {
@@ -644,16 +649,6 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 }
 
-export const globalErrorHandler = (err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error("🔥 Global error:", err);
-    if (res.headersSent) {
-        return next(err);
-    }
-
-    // In production, don't leak error details
-    const isProduction = process.env.NODE_ENV === 'production';
-    const message = isProduction ? "Internal Server Error" : (err.message || "Internal Server Error");
-
-    res.status(500).json({ error: message });
-};
+export async function stopServer(): Promise<void> {
+}
 

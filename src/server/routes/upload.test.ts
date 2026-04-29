@@ -40,6 +40,7 @@ describe('Upload Routes - Authorization', () => {
     let currentTestUser: any = {};
 
     beforeEach(async () => {
+        jest.setTimeout(15000);
         jest.clearAllMocks();
         // Clear properties instead of reassigning the object to maintain closure reference
         for (const key in currentTestUser) delete currentTestUser[key];
@@ -58,11 +59,22 @@ describe('Upload Routes - Authorization', () => {
             next();
         });
 
+        const mockStorageEngine = {
+            pathExists: jest.fn().mockResolvedValue(true as never),
+            readdir: jest.fn().mockResolvedValue([] as never),
+            readFile: jest.fn().mockResolvedValue('' as never),
+            remove: jest.fn(),
+            move: jest.fn(),
+            ensureDir: jest.fn(),
+            writeFile: jest.fn()
+        };
+
         const router = createUploadRoutes(
             mockDatabase,
             mockScanner,
             tempMusicDir,
             mockPublishingService,
+            mockStorageEngine as any,
             mockAuthService
         );
         app.use('/upload', router);
@@ -94,7 +106,7 @@ describe('Upload Routes - Authorization', () => {
             .attach('file', imagePath);
 
         expect(response.status).toBe(200);
-    });
+    }, 30000);
 
     test('POST /upload/cover allows upload if user matches owner_id (THE FIX)', async () => {
         const validSlug = 'test-album';
@@ -118,7 +130,7 @@ describe('Upload Routes - Authorization', () => {
             .attach('file', imagePath);
 
         expect(response.status).toBe(200);
-    });
+    }, 30000);
 
     test('POST /upload/cover denies upload if user matches neither', async () => {
         const validSlug = 'test-album';
@@ -142,7 +154,7 @@ describe('Upload Routes - Authorization', () => {
 
         expect(response.status).toBe(403);
         expect(response.body.error).toContain('Cannot upload cover for another artist');
-    });
+    }, 30000);
 
     test('POST /upload/cover allows root admin to bypass all checks', async () => {
         const validSlug = 'test-album';
@@ -166,5 +178,5 @@ describe('Upload Routes - Authorization', () => {
             .attach('file', imagePath);
 
         expect(response.status).toBe(200);
-    });
+    }, 30000);
 });

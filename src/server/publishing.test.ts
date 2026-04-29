@@ -54,14 +54,12 @@ describe('PublishingService', () => {
 
     test('should call zendb.registerSite and ap.broadcastRelease when album is public and published_to_ap', async () => {
         // 1. Create an album (initially public)
-        const albumId = db.createAlbum({
+        const albumId = db.createRelease({
             title: 'Test Album',
             slug: 'test-album',
             artist_id: 1,
             date: '2023-01-01',
-            is_public: true,
             visibility: 'public',
-            is_release: true,
             published_to_gundb: true,
             published_to_ap: true,
             cover_path: null,
@@ -112,14 +110,12 @@ describe('PublishingService', () => {
     });
 
     test('should call ap.broadcastDelete when album visibility changes to private', async () => {
-        const albumId = db.createAlbum({
+        const albumId = db.createRelease({
             title: 'Test Album',
             slug: 'test-album',
             artist_id: 1,
             date: '2023-01-01',
-            is_public: true,
             visibility: 'private',
-            is_release: true,
             published_to_gundb: true,
             published_to_ap: true,
             cover_path: null,

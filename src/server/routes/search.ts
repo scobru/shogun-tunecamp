@@ -52,20 +52,19 @@ export function createSearchRoutes(
         }
 
         try {
-            const decodedFilePath = decodeURIComponent(result.file);
+            const filePath = result.file;
             const downloadId = database.createSoulseekDownload({
                 user_id: req.userId!,
-                file_path: decodedFilePath,
-                filename: decodedFilePath.split(/[/\\]/).pop() || "unknown",
+                file_path: filePath,
+                filename: filePath.split(/[/\\]/).pop() || "unknown",
                 status: 'pending'
             });
 
             // Start download in background
             soulseek.download(result).then(async (dest) => {
-                const decodedDest = decodeURIComponent(dest);
-                database.updateSoulseekDownloadProgress(downloadId, 1, 'completed', decodedDest);
+                database.updateSoulseekDownloadProgress(downloadId, 1, 'completed', dest);
                 // Trigger scanner on the new file
-                console.log(`📡 Soulseek download finished: ${decodedDest}`);
+                console.log(`📡 Soulseek download finished: ${dest}`);
             }).catch(err => {
                 console.error(`❌ Soulseek background download failed:`, err);
                 database.updateSoulseekDownloadProgress(downloadId, 0, 'failed');
@@ -128,8 +127,8 @@ export function createSearchRoutes(
             const settings = database.getAllSettings();
             const musicDir = settings.musicDir || process.env.TUNECAMP_MUSIC_DIR || "music";
             
-            const decodedPath = decodeURIComponent(download.file_path);
-            const result = await scanner.processAudioFile(decodedPath, musicDir, undefined, req.userId);
+            const filePath = download.file_path;
+            const result = await scanner.processAudioFile(filePath, musicDir, undefined, req.userId);
             res.json({ success: true, result });
         } catch (error: any) {
             console.error("❌ Soulseek Sync Error:", error);

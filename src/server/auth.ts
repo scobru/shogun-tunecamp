@@ -9,18 +9,10 @@ import { isSafeUrl } from "../utils/networkUtils.js";
 
 // Polyfill WebCrypto for Gun.SEA in Node.js ESM
 if (typeof global !== 'undefined' && !global.crypto) {
-    try {
-        // @ts-ignore
-        const { Crypto } = await import("@peculiar/webcrypto");
-        // @ts-ignore
-        global.crypto = new Crypto();
-        console.log("🔐 [AUTH] WebCrypto polyfilled via @peculiar/webcrypto");
-    } catch (e) {
-        // Fallback to standard Node crypto if available (Node 18+)
-        // @ts-ignore
-        global.crypto = crypto.webcrypto || crypto;
-        console.log("🔐 [AUTH] WebCrypto linked to standard Node crypto");
-    }
+    // Fallback to standard Node crypto if available (Node 18+)
+    // @ts-ignore
+    global.crypto = crypto.webcrypto || crypto;
+    console.log("🔐 [AUTH] WebCrypto linked to standard Node crypto");
 }
 
 const SALT_ROUNDS = 10;

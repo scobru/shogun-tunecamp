@@ -11,7 +11,14 @@ describe("AuthService", () => {
 
     beforeEach(async () => {
         db = new Database(":memory:");
-        authService = createAuthService(db, "secret");
+        db.exec(`
+            CREATE TABLE IF NOT EXISTS gun_users (
+                pub TEXT PRIMARY KEY,
+                epub TEXT NOT NULL,
+                alias TEXT UNIQUE NOT NULL
+            );
+        `);
+        authService = createAuthService(db, "secret", "admin", "tunecamp");
         await authService.init();
     });
 
@@ -27,13 +34,11 @@ describe("AuthService", () => {
     });
 
     test("isDefaultPassword returns true for default password tunecamp", async () => {
-        await authService.createAdmin("admin", "tunecamp");
         const isDefault = await authService.isDefaultPassword("admin");
         expect(isDefault).toBe(true);
     });
 
     test("isDefaultPassword returns false for changed password", async () => {
-        await authService.createAdmin("admin", "newpassword");
         await authService.changePassword("admin", "newpassword");
         const isDefault = await authService.isDefaultPassword("admin");
         expect(isDefault).toBe(false);

@@ -56,8 +56,12 @@ describe('Release Routes - Creation and Publishing', () => {
         app = express();
         app.use(express.json());
 
-        // Middleware to mock permissions if needed (releases routes check req.artistId for updates/deletes but create seems open or admin only?)
-        // In this test environment, we assume the router is mounted and authenticated.
+        // Middleware to mock permissions if needed
+        app.use((req: any, res, next) => {
+            req.isAdmin = true;
+            req.isActive = true;
+            next();
+        });
 
         const router = createReleaseRouter(
             mockDatabase,

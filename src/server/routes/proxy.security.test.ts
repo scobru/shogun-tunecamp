@@ -20,7 +20,7 @@ jest.unstable_mockModule('node-fetch', () => ({
             get: jest.fn()
         },
         body: {
-            pipe: jest.fn(),
+            pipe: jest.fn((res: any) => res.end()),
             on: jest.fn()
         }
     })

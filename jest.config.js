@@ -4,6 +4,8 @@ export default {
   testEnvironment: 'node',
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^music-metadata$': '<rootDir>/__mocks__/music-metadata.ts',
+    '^chokidar$': '<rootDir>/__mocks__/chokidar.ts'
   },
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {

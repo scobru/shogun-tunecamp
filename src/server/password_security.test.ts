@@ -8,6 +8,7 @@ import { jest } from '@jest/globals';
 const mockAuthService: any = {
     isFirstRun: jest.fn().mockReturnValue(true),
     createAdmin: jest.fn().mockImplementation(() => Promise.resolve({ id: 1 })),
+    createUser: jest.fn().mockImplementation(() => Promise.resolve({ id: 2 })),
     generateToken: jest.fn().mockReturnValue('mock-token'),
     authenticateUser: jest.fn().mockImplementation(() => Promise.resolve({ success: true, artistId: null, isAdmin: true, id: 1 })),
     isRootAdmin: jest.fn().mockReturnValue(true),

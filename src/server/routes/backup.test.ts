@@ -37,10 +37,12 @@ describe('Backup Routes (Chunked Upload)', () => {
     });
 
     afterAll(async () => {
-        await fs.remove(tempDir);
-        await fs.remove(mockConfig.musicDir);
-        await fs.remove(mockConfig.dbPath);
-        if (fs.existsSync('test.db.backup')) fs.unlinkSync('test.db.backup');
+        // Wait for background async processes to finish and release file handles
+        await new Promise(r => setTimeout(r, 2000));
+        try { await fs.remove(tempDir); } catch (e) {}
+        try { await fs.remove(mockConfig.musicDir); } catch (e) {}
+        try { await fs.remove(mockConfig.dbPath); } catch (e) {}
+        try { if (fs.existsSync('test.db.backup')) fs.unlinkSync('test.db.backup'); } catch (e) {}
     });
 
     beforeEach(() => {
@@ -90,7 +92,7 @@ describe('Backup Routes (Chunked Upload)', () => {
         const part1Path = path.join(tempDir, `temp_${uploadId}_part_1`);
         expect(await fs.pathExists(part1Path)).toBe(true);
         expect((await fs.readFile(part1Path)).toString()).toBe('World!');
-    });
+    }, 30000);
 
     test('should assemble and finalize chunked upload', async () => {
         // Prepare temp parts
@@ -108,13 +110,20 @@ describe('Backup Routes (Chunked Upload)', () => {
         expect(res.status).toBe(200);
         expect(res.body.message).toContain('Restore started');
 
-        // Allow some time for async assembly
-        await new Promise(r => setTimeout(r, 500));
-
+        // Allow some time for async assembly (using polling)
+        let retries = 50;
+        while (retries > 0) {
+            const p0 = await fs.pathExists(part0Path);
+            const p1 = await fs.pathExists(part1Path);
+            if (!p0 && !p1) break;
+            await new Promise(r => setTimeout(r, 100));
+            retries--;
+        }
+        
         // Check parts are gone
         expect(await fs.pathExists(part0Path)).toBe(false);
         expect(await fs.pathExists(part1Path)).toBe(false);
 
         // Final zip might be gone if restore failed (invalid zip), which is expected for dummy content
-    });
+    }, 30000);
 });

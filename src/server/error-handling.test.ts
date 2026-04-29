@@ -1,6 +1,6 @@
 import express from 'express';
 import request from 'supertest';
-import { globalErrorHandler } from './server.js';
+import { errorHandler } from './middleware/error-handling.js';
 import { jest } from '@jest/globals';
 
 // Mock other dependencies of server.ts if necessary,
@@ -28,7 +28,7 @@ describe('Global Error Handler', () => {
         });
 
         // Use the actual handler
-        app.use(globalErrorHandler);
+        app.use(errorHandler);
     });
 
     afterAll(() => {

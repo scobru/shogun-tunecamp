@@ -41,11 +41,18 @@ describe('Upload Routes - Security Check', () => {
             next();
         });
 
+        const mockStorageEngine = {
+            remove: jest.fn().mockResolvedValue(undefined as never),
+            pathExists: jest.fn().mockResolvedValue(true as never),
+            writeFile: jest.fn().mockResolvedValue(undefined as never),
+        };
+
         const router = createUploadRoutes(
             mockDatabase,
             mockScanner,
             tempMusicDir,
             {} as any, // mock publishingService
+            mockStorageEngine as any, // mock storageEngine
             {} as any  // mock authService
         );
         app.use('/upload', router);

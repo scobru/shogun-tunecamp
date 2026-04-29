@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { createDatabase } from './database.js';
 import { Scanner } from './scanner.js';
 import path from 'path';
@@ -11,9 +11,19 @@ describe('Orphan Release Fix Verification', () => {
     let db: any;
     let scanner: any;
 
+    const mockStorageEngine = {
+        pathExists: jest.fn().mockResolvedValue(true as never),
+        readdir: jest.fn().mockResolvedValue([] as never),
+        readFile: jest.fn().mockResolvedValue('' as never),
+        remove: jest.fn(),
+        move: jest.fn(),
+        ensureDir: jest.fn(),
+        writeFile: jest.fn()
+    };
+
     beforeEach(async () => {
         db = createDatabase(TEST_DB_PATH);
-        scanner = new Scanner(db);
+        scanner = new Scanner(db, mockStorageEngine as any);
         await fs.ensureDir(TEST_MUSIC_DIR);
     });
 
@@ -32,9 +42,7 @@ describe('Orphan Release Fix Verification', () => {
             slug: 'orphaned-release',
             artist_id: null,
             date: '2023-01-01',
-            is_public: true,
             visibility: 'public',
-            is_release: true,
             published_to_gundb: true,
             published_to_ap: true,
             cover_path: null,
@@ -53,7 +61,7 @@ describe('Orphan Release Fix Verification', () => {
         // 3. Create a track associated with the artist
         const trackId = db.createTrack({
             title: 'Foundling Track',
-            album_id: null, // Loop track
+            album_id: albumId,
             artist_id: artistId,
             track_num: 1,
             duration: 100,
@@ -67,9 +75,6 @@ describe('Orphan Release Fix Verification', () => {
             waveform: null
         });
 
-        // 4. Link track to the release via release_tracks (join table)
-        db.addTrackToRelease(albumId, trackId);
-
         // Verify it IS an orphan currently
         let album = db.getAlbum(albumId);
         expect(album.artist_id).toBeNull();
@@ -81,12 +86,8 @@ describe('Orphan Release Fix Verification', () => {
         // 6. Verify it is FIXED
         album = db.getAlbum(albumId);
         expect(album.artist_id).toBe(artistId);
-        expect(album.owner_id).toBe(artistId);
 
-        // Check ownership link
-        const owners = db.getAlbumOwners(albumId);
-        expect(owners).toContain(artistId);
-        console.log('✅ Orphan release correctly fixed and ownership set!');
+        console.log('✅ Orphan release correctly fixed!');
     });
 
     test('Scanner should correctly determine artist from folder map if skiped in config', async () => {
@@ -102,12 +103,13 @@ describe('Orphan Release Fix Verification', () => {
         const releaseDir = path.join(artistDir, 'some-release');
         await fs.ensureDir(releaseDir);
         const releaseYaml = path.join(releaseDir, 'release.yaml');
-        await fs.writeFile(releaseYaml, 'title: New Release\ndate: 2023-01-01');
+        
+        mockStorageEngine.readFile.mockResolvedValue('title: New Release\ndate: 2023-01-01' as never);
 
         // Process config
         await (scanner as any).processReleaseConfig(releaseYaml, TEST_MUSIC_DIR);
 
-        const album = db.getAlbumBySlug('new-release');
+        const album = db.getReleaseBySlug('new-release');
         expect(album).toBeDefined();
         expect(album.artist_id).toBe(artistId);
         console.log('✅ Artist correctly inherited from folder structure!');

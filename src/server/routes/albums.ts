@@ -2,274 +2,174 @@ import { Router } from "express";
 import fs from "fs-extra";
 import path from "path";
 import type { DatabaseService, Album, Track } from "../database.js";
+import type { LibraryService } from "../services/library.service.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { getPlaceholderSVG } from "../../utils/audioUtils.js";
+import { wrapAsync } from "../middleware/error-handling.js";
+import { NotFoundError, ForbiddenError, BadRequestError } from "../common/errors.js";
 
-export function createAlbumsRoutes(database: DatabaseService, musicDir: string): Router {
+export function createAlbumsRoutes(database: DatabaseService, libraryService: LibraryService, musicDir: string): Router {
     const router = Router();
 
     /**
      * GET /api/albums
-     * List all albums (ADMIN ONLY)
+     * List all albums
      */
-    router.get("/", (req: AuthenticatedRequest, res) => {
-        try {
-            if (!req.isAdmin) {
-                return res.status(403).json({ error: "Access denied: Admin only" });
-            }
-            res.json(database.getAlbums());
-        } catch (error) {
-            console.error("Error getting albums:", error);
-            res.status(500).json({ error: "Failed to get albums" });
-        }
-    });
+    router.get("/", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        if (!req.isAdmin) throw new ForbiddenError("Access denied: Admin only");
+        res.json(database.getAlbums());
+    }));
 
     /**
      * GET /api/albums/search
      */
-    router.get("/search", (req: AuthenticatedRequest, res) => {
-        try {
-            const query = req.query.q as string;
-            const limit = parseInt(req.query.limit as string) || 50;
-            if (!query) return res.json([]);
-            
-            // Search only public/unlisted albums for non-admins
-            const albums = database.searchAlbums(query, limit, !req.isAdmin);
-            res.json(albums.map((a: Album) => ({
-                ...a,
-                coverImage: a.cover_path
-            })));
-        } catch (error) {
-            console.error("Search error:", error);
-            res.status(500).json({ error: "Search failed" });
-        }
-    });
+    router.get("/search", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        const query = req.query.q as string;
+        const limit = parseInt(req.query.limit as string) || 50;
+        if (!query) return res.json([]);
+        
+        const albums = database.searchAlbums(query, limit, !req.isAdmin);
+        res.json(albums.map((a: Album) => ({ ...a, coverImage: a.cover_path })));
+    }));
 
     /**
      * POST /api/albums/:id/star
      */
-    router.post("/:id/star", (req: AuthenticatedRequest, res) => {
-        if (!req.username) return res.status(401).json({ error: "Unauthorized" });
-        if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
-        try {
-            const id = req.params.id;
-            database.starItem(req.username, 'album', id);
-            res.json({ success: true, starred: true });
-        } catch (error) {
-            console.error("Error starring album:", error);
-            res.status(500).json({ error: "Failed to star album" });
-        }
-    });
+    router.post("/:id/star", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        if (!req.username) throw new ForbiddenError("Unauthorized");
+        const id = parseInt(req.params.id as string, 10);
+        await libraryService.starAlbum(req.username, id);
+        res.json({ success: true, starred: true });
+    }));
 
     /**
      * DELETE /api/albums/:id/star
      */
-    router.delete("/:id/star", (req: AuthenticatedRequest, res) => {
-        if (!req.username) return res.status(401).json({ error: "Unauthorized" });
-        try {
-            const id = req.params.id;
-            database.unstarItem(req.username, 'album', id);
-            res.json({ success: true, starred: false });
-        } catch (error) {
-            console.error("Error unstarring album:", error);
-            res.status(500).json({ error: "Failed to unstar album" });
-        }
-    });
+    router.delete("/:id/star", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        if (!req.username) throw new ForbiddenError("Unauthorized");
+        const id = parseInt(req.params.id as string, 10);
+        await libraryService.unstarAlbum(req.username, id);
+        res.json({ success: true, starred: false });
+    }));
 
     /**
      * POST /api/albums/:id/rating
      */
-    router.post("/:id/rating", (req: AuthenticatedRequest, res) => {
-        if (!req.username) return res.status(401).json({ error: "Unauthorized" });
-        if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
-        try {
-            const id = req.params.id;
-            const { rating } = req.body;
-            const r = parseInt(rating);
-            if (isNaN(r) || r < 0 || r > 5) return res.status(400).json({ error: "Invalid rating" });
-            database.setItemRating(req.username, 'album', id, r);
-            res.json({ success: true, rating: r });
-        } catch (error) {
-            console.error("Error setting album rating:", error);
-            res.status(500).json({ error: "Failed to set rating" });
-        }
-    });
+    router.post("/:id/rating", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        if (!req.username) throw new ForbiddenError("Unauthorized");
+        const id = parseInt(req.params.id as string, 10);
+        const { rating } = req.body;
+        const r = parseInt(rating);
+        if (isNaN(r) || r < 0 || r > 5) throw new BadRequestError("Invalid rating");
+        await libraryService.setAlbumRating(req.username, id, r);
+        res.json({ success: true, rating: r });
+    }));
 
     /**
      * POST /api/albums/:id/promote
-     * Promote a library album to a release (admin/owner only)
      */
-    router.post("/:id/promote", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) {
-            return res.status(401).json({ error: "Unauthorized" });
-        }
-        if (!req.isAdmin && !req.isActive) {
-            return res.status(403).json({ error: "Account not active" });
-        }
-        try {
-            const id = parseInt(req.params.id as string, 10);
-            const album = database.getAlbum(id);
-            if (!album) return res.status(404).json({ error: "Album not found" });
+    router.post("/:id/promote", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        if (!req.isAdmin && !req.artistId) throw new ForbiddenError("Unauthorized");
+        
+        const id = parseInt(req.params.id as string, 10);
+        const album = database.getAlbum(id);
+        if (!album) throw new NotFoundError("Album not found");
 
-            // Security: Artist can only promote their own library albums
-            if (!req.isAdmin && album.owner_id !== req.userId) {
-                return res.status(403).json({ error: "Access denied" });
-            }
+        if (!req.isAdmin && album.owner_id !== req.userId) throw new ForbiddenError("Access denied");
 
-            // Promote via database service to ensure all tables (releases, release_tracks) are synced
-            database.promoteToRelease(id);
-            
-            res.json({ success: true, message: "Album promoted to release" });
-        } catch (error) {
-            console.error("Error promoting album:", error);
-            res.status(500).json({ error: "Failed to promote album" });
-        }
-    });
+        await libraryService.promoteToRelease(id);
+        res.json({ success: true, message: "Album promoted to release" });
+    }));
 
     /**
      * GET /api/albums/:id
-     * Get album details with tracks
      */
-    router.get("/:id", (req: AuthenticatedRequest, res) => {
-        try {
-            const param = req.params.id as string;
-            let album: Album | undefined;
+    router.get("/:id", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        const param = req.params.id as string;
+        let album: Album | undefined;
 
-            if (/^\d+$/.test(param)) {
-                album = database.getAlbum(parseInt(param, 10));
-            } else {
-                album = database.getAlbumBySlug(param);
-            }
-
-            if (!album) {
-                return res.status(404).json({ error: "Album not found" });
-            }
-
-            // SECURITY: Access Level Enforcement
-            // - Root Admins and Artists/Admins (req.isAdmin) have full access to library and releases.
-            // - Base Users (Normal Users) have access ONLY to formal releases (is_release: true).
-            const isArtistOrAdmin = !!req.isAdmin;
-            const isOwner = req.userId !== undefined && album.owner_id === req.userId;
-
-            if (!isArtistOrAdmin && !isOwner) {
-                // Base User check
-                if (!album.is_release) {
-                    console.log(`⛔ [Security] Access denied: Base user ${req.username || 'guest'} attempted to access library album ${album.id}`);
-                    return res.status(403).json({ error: "Access denied: Music Library is restricted to artists" });
-                }
-                
-                // Visibility check for releases
-                if (album.visibility === 'private') {
-                    return res.status(404).json({ error: "Release not found" });
-                }
-            }
-
-            const tracks = database.getTracksByAlbum(album.id);
-            const username = req.username;
-
-            res.json({
-                ...album,
-                coverImage: album.cover_path,
-                tracks: tracks.map((t: Track) => ({
-                    ...t,
-                    albumId: t.album_id,
-                    artistId: t.artist_id,
-                    coverUrl: t.external_artwork ? `/api/tracks/${t.id}/cover` : (t.album_id ? `/api/albums/${t.album_id}/cover` : null),
-                    starred: username ? database.isStarred(username, 'track', String(t.id)) : false,
-                    rating: username ? database.getItemRating(username, 'track', String(t.id)) : 0
-                })),
-                starred: username ? database.isStarred(username, 'album', String(album.id)) : false,
-                rating: username ? database.getItemRating(username, 'album', String(album.id)) : 0
-            });
-        } catch (error) {
-            console.error("Error getting album:", error);
-            res.status(500).json({ error: "Failed to get album" });
+        if (/^\d+$/.test(param)) {
+            album = database.getAlbum(parseInt(param, 10));
+        } else {
+            album = database.getAlbumBySlug(param);
         }
-    });
+
+        if (!album) throw new NotFoundError("Album not found");
+
+        if (!req.isAdmin && album.owner_id !== req.userId) {
+            if (!album.is_release) throw new ForbiddenError("Access denied");
+            if (album.visibility === 'private') throw new NotFoundError("Release not found");
+        }
+
+        const tracks = database.getTracksByAlbum(album.id);
+        const username = req.username;
+
+        res.json({
+            ...album,
+            coverImage: album.cover_path,
+            tracks: tracks.map((t: Track) => ({
+                ...t,
+                albumId: t.album_id,
+                artistId: t.artist_id,
+                coverUrl: t.external_artwork ? `/api/tracks/${t.id}/cover` : (t.album_id ? `/api/albums/${t.album_id}/cover` : null),
+                starred: username ? database.isStarred(username, 'track', String(t.id)) : false,
+                rating: username ? database.getItemRating(username, 'track', String(t.id)) : 0
+            })),
+            starred: username ? database.isStarred(username, 'album', String(album.id)) : false,
+            rating: username ? database.getItemRating(username, 'album', String(album.id)) : 0
+        });
+    }));
 
     /**
      * GET /api/albums/:id/cover
-     * Get album cover image
      */
-    router.get("/:id/cover", async (req, res) => {
-        try {
-            const param = req.params.id as string;
-            const album = /^\d+$/.test(param)
-                ? database.getAlbum(parseInt(param, 10))
-                : database.getAlbumBySlug(param);
+    router.get("/:id/cover", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        const param = req.params.id as string;
+        const album = /^\d+$/.test(param)
+            ? database.getAlbum(parseInt(param, 10))
+            : database.getAlbumBySlug(param);
 
-            if (!album) {
-                return res.status(404).json({ error: "Album not found" });
+        if (!album) throw new NotFoundError("Album not found");
+
+        if (album.cover_path) {
+            const coverPath = path.join(musicDir, album.cover_path);
+            if (await fs.pathExists(coverPath)) {
+                return res.sendFile(path.resolve(coverPath), { maxAge: 86400000 });
             }
-
-            if (album.cover_path) {
-                const coverPath = path.join(musicDir, album.cover_path);
-                if (await fs.pathExists(coverPath)) {
-                    return res.sendFile(path.resolve(coverPath), { maxAge: 86400000 });
-                }
-            }
-
-            // Fallback: Try to find a track in this album that has external artwork
-            const tracks = database.getTracksByAlbum(album.id);
-            const trackWithCover = tracks.find(t => t.external_artwork);
-
-            if (trackWithCover && trackWithCover.external_artwork) {
-                if (trackWithCover.external_artwork.startsWith("http")) {
-                    return res.redirect(trackWithCover.external_artwork);
-                }
-
-                const trackArtworkPath = path.join(musicDir, trackWithCover.external_artwork);
-                if (await fs.pathExists(trackArtworkPath)) {
-                    return res.sendFile(path.resolve(trackArtworkPath), { maxAge: 86400000 });
-                }
-            }
-
-            // Fallback: Return SVG placeholder based on title
-            const svg = getPlaceholderSVG(album.title || "Album");
-            res.setHeader("Content-Type", "image/svg+xml");
-            res.setHeader("Cache-Control", "public, max-age=3600");
-            res.send(svg);
-        } catch (error) {
-            console.error("Error getting album cover:", error);
-            res.status(500).json({ error: "Failed to get album cover" });
         }
-    });
+
+        const tracks = database.getTracksByAlbum(album.id);
+        const trackWithCover = tracks.find(t => t.external_artwork);
+
+        if (trackWithCover && trackWithCover.external_artwork) {
+            if (trackWithCover.external_artwork.startsWith("http")) return res.redirect(trackWithCover.external_artwork);
+            const trackArtworkPath = path.join(musicDir, trackWithCover.external_artwork);
+            if (await fs.pathExists(trackArtworkPath)) return res.sendFile(path.resolve(trackArtworkPath), { maxAge: 86400000 });
+        }
+
+        const svg = getPlaceholderSVG(album.title || "Album");
+        res.setHeader("Content-Type", "image/svg+xml").setHeader("Cache-Control", "public, max-age=3600");
+        res.send(svg);
+    }));
 
     /**
      * POST /api/albums/:id/cover
-     * Upload or set cover for an album
      */
-    router.post("/:id/cover", (req: AuthenticatedRequest, res) => {
-        if (!req.isAdmin && !req.artistId) {
-            return res.status(401).json({ error: "Unauthorized" });
-        }
-        if (!req.isAdmin && !req.isActive) {
-            return res.status(403).json({ error: "Account not active" });
-        }
-        let id: number | undefined;
-        try {
-            id = parseInt(req.params.id as string, 10);
-            const { relPath } = req.body;
+    router.post("/:id/cover", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        if (!req.isAdmin && !req.artistId) throw new ForbiddenError("Unauthorized");
+        
+        const id = parseInt(req.params.id as string, 10);
+        const { relPath } = req.body;
+        if (!relPath) throw new BadRequestError("Missing relPath");
 
-            if (!relPath) {
-                return res.status(400).json({ error: "Missing relPath" });
-            }
+        const album = database.getAlbum(id);
+        if (!album) throw new NotFoundError("Album not found");
 
-            const album = database.getAlbum(id);
-            if (!album) return res.status(404).json({ error: "Album not found" });
+        if (!req.isAdmin && album.owner_id !== req.userId) throw new ForbiddenError("Access denied");
 
-            // Security: Artist can only update their own albums
-            if (!req.isAdmin && album.owner_id !== req.userId) {
-                return res.status(403).json({ error: "Access denied" });
-            }
-
-            database.updateAlbumCover(id, relPath);
-            res.json({ success: true, coverPath: relPath });
-        } catch (error) {
-            console.error(`❌ [Albums] ERROR during cover upload for album ID: ${id}:`, error);
-            res.status(500).json({ error: "Upload failed" });
-        }
-    });
+        database.updateAlbumCover(id, relPath);
+        res.json({ success: true, coverPath: relPath });
+    }));
 
     return router;
 }

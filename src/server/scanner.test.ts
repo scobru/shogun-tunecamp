@@ -41,12 +41,22 @@ jest.mock('./database.js', () => ({
     createDatabase: jest.fn(() => mockDbService),
 }));
 
+const mockStorageEngine = {
+    pathExists: jest.fn().mockResolvedValue(true as never),
+    readdir: jest.fn().mockResolvedValue([] as never),
+    readFile: jest.fn().mockResolvedValue('' as never),
+    remove: jest.fn(),
+    move: jest.fn(),
+    ensureDir: jest.fn(),
+    writeFile: jest.fn()
+};
+
 describe('Scanner Deduplication and Cleanup Verification', () => {
     let scanner: any;
 
     beforeEach(() => {
         jest.clearAllMocks();
-        scanner = new Scanner(mockDbService as any);
+        scanner = new Scanner(mockDbService as any, mockStorageEngine as any);
     });
 
     test('deduplicateTracks should merge duplicates and update in-memory objects', async () => {
