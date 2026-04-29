@@ -20,6 +20,7 @@ import {
   Download,
   Link as LinkIcon,
   AlignLeft,
+  Disc,
 } from "lucide-react";
 
 interface LocalTrack {
@@ -1082,6 +1083,21 @@ export default function AdminReleaseEditor() {
                 )}
               </div>
 
+               {/* Description & Credits - Full Width */}
+               <div className="card bg-base-100 shadow-xl border border-white/5 p-6 mt-8">
+                 <h3 className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4 flex items-center gap-2">
+                     <Disc className="w-4 h-4" /> Description & Credits
+                 </h3>
+                 <div className="form-control">
+                   <textarea
+                     className="textarea textarea-bordered min-h-[16rem] w-full text-sm leading-relaxed"
+                     placeholder="Album bio, credits, and story..."
+                     value={metadata.description || ""}
+                     onChange={(e) => setMetadata((prev) => ({ ...prev, description: e.target.value }))}
+                   />
+                 </div>
+               </div>
+
               {/* Web3 & Advanced Actions Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
                 {/* Payment & Web3 */}
@@ -1120,17 +1136,7 @@ export default function AdminReleaseEditor() {
                     )}
                   </div>
 
-                  <div className="card bg-base-100 shadow-xl border border-white/5 p-6">
-                    <h3 className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4">Description & Credits</h3>
-                    <div className="form-control">
-                      <textarea
-                        className="textarea textarea-bordered h-32 w-full text-sm leading-relaxed"
-                        placeholder="Album bio, credits, and story..."
-                        value={metadata.description || ""}
-                        onChange={(e) => setMetadata((prev) => ({ ...prev, description: e.target.value }))}
-                      />
-                    </div>
-                  </div>
+
                 </div>
 
                 {/* Downloads & Advanced */}

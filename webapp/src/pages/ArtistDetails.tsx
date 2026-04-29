@@ -1,10 +1,21 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useParams, Link } from 'react-router-dom';
-import { Play, Disc, Globe, Trash2, Shield } from 'lucide-react';
+import { Play, Disc, Globe, Trash2, Shield, Wallet, Copy, Twitter, Instagram, Youtube, Facebook, Github, Mail } from 'lucide-react';
 import { usePlayerStore } from '../stores/usePlayerStore';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Artist, Album, Post, Track } from '../types';
+
+const PlatformIcon = ({ platform }: { platform: string }) => {
+    const p = platform.toLowerCase();
+    if (p.includes('twitter') || p.includes('x.com')) return <Twitter size={16} />;
+    if (p.includes('instagram')) return <Instagram size={16} />;
+    if (p.includes('youtube')) return <Youtube size={16} />;
+    if (p.includes('facebook')) return <Facebook size={16} />;
+    if (p.includes('github')) return <Github size={16} />;
+    if (p.includes('mail')) return <Mail size={16} />;
+    return <Globe size={16} />;
+};
 
 export const ArtistDetails = () => {
     const { idOrSlug } = useParams();
@@ -50,9 +61,6 @@ export const ArtistDetails = () => {
     if (!artist) return <div className="p-12 text-center opacity-50">Artist not found.</div>;
 
     const handlePlay = () => {
-        // Play strategy: 
-        // 1. First album track if available
-        // 2. First loose track if available
         const albumsToUse = formalReleases.length > 0 ? formalReleases : libraryAlbums;
         if (albumsToUse.length > 0 && albumsToUse[0].tracks && albumsToUse[0].tracks.length > 0) {
             playTrack(albumsToUse[0].tracks[0], albumsToUse[0].tracks);
@@ -89,12 +97,11 @@ export const ArtistDetails = () => {
         <div className="space-y-12 animate-fade-in">
              {/* Header */}
              <div className="relative h-80 rounded-2xl overflow-hidden flex items-end p-8 border border-white/5">
-                {/* Background Image ideally from artist cover or generic */}
                  <div className="absolute inset-0 z-0">
                      {artist.coverImage ? (
                         <img src={API.getArtistCoverUrl(artist.id, coverVersion)} className="w-full h-full object-cover opacity-30 blur-sm scale-105" />
                      ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 h-full w-full"/>
+                          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20"/>
                      )}
                      <div className="absolute inset-0 bg-gradient-to-t from-base-100 via-base-100/50 to-transparent"></div>
                 </div>
@@ -151,16 +158,40 @@ export const ArtistDetails = () => {
 
                           </div>
                      </div>
-                     <div className="flex gap-2">
-                        {artist.links?.map((link, i) => (
-                            <a href={link.url} key={i} target="_blank" rel="noopener noreferrer" className="btn btn-circle btn-ghost bg-white/5">
-                                <Globe size={20}/>
-                            </a>
-                        ))}
-                         <button className="btn btn-primary btn-circle btn-lg text-white shadow-xl hover:scale-105 transition-transform" onClick={handlePlay}>
-                             <Play fill="currentColor" size={28}/>
-                         </button>
-                     </div>
+                      <div className="flex flex-col gap-4 mt-6">
+                          {artist.walletAddress && (
+                              <div className="flex items-center gap-2 self-start text-xs font-mono bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-xl border border-emerald-500/20 backdrop-blur-sm">
+                                  <Wallet size={14} />
+                                  <span title={artist.walletAddress}>
+                                      {artist.walletAddress.substring(0, 6)}...{artist.walletAddress.substring(artist.walletAddress.length - 4)}
+                                  </span>
+                                  <button 
+                                      className="btn btn-xs btn-ghost btn-circle text-emerald-400 hover:bg-emerald-500/20" 
+                                      onClick={() => {
+                                          navigator.clipboard.writeText(artist.walletAddress || '');
+                                          alert('Wallet address copied!');
+                                      }}
+                                      title="Copy Wallet"
+                                  >
+                                      <Copy size={12} />
+                                  </button>
+                              </div>
+                          )}
+
+                          <div className="flex gap-4 items-center flex-wrap">
+                              <div className="flex gap-2 flex-wrap flex-1">
+                                 {artist.links?.map((link, i) => (
+                                     <a href={link.url} key={i} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline gap-2 bg-white/5 border-white/10 hover:bg-white/10 text-white rounded-xl">
+                                         <PlatformIcon platform={link.platform || link.url} />
+                                         <span className="capitalize">{link.platform || 'Link'}</span>
+                                     </a>
+                                 ))}
+                              </div>
+                              <button className="btn btn-primary btn-circle btn-lg text-white shadow-xl hover:scale-105 transition-transform shrink-0" onClick={handlePlay}>
+                                  <Play fill="currentColor" size={28}/>
+                              </button>
+                          </div>
+                      </div>
                 </div>
              </div>
 
