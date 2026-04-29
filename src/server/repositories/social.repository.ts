@@ -59,25 +59,25 @@ export class SocialRepository extends BaseRepository {
     // --- Local User Social (Stars/Ratings) ---
 
     starItem(username: string, type: 'album' | 'track' | 'artist', targetId: string): void {
-        this.db.prepare("INSERT OR IGNORE INTO stars (username, type, target_id) VALUES (?, ?, ?)").run(username, type, targetId);
+        this.db.prepare("INSERT OR IGNORE INTO starred_items (username, item_type, item_id) VALUES (?, ?, ?)").run(username, type, targetId);
     }
 
     unstarItem(username: string, type: 'album' | 'track' | 'artist', targetId: string): void {
-        this.db.prepare("DELETE FROM stars WHERE username = ? AND type = ? AND target_id = ?").run(username, type, targetId);
+        this.db.prepare("DELETE FROM starred_items WHERE username = ? AND item_type = ? AND item_id = ?").run(username, type, targetId);
     }
 
     isStarred(username: string, type: 'album' | 'track' | 'artist', targetId: string): boolean {
-        const row = this.db.prepare("SELECT 1 FROM stars WHERE username = ? AND type = ? AND target_id = ?").get(username, type, targetId);
+        const row = this.db.prepare("SELECT 1 FROM starred_items WHERE username = ? AND item_type = ? AND item_id = ?").get(username, type, targetId);
         return !!row;
     }
 
     setItemRating(username: string, type: 'album' | 'track' | 'artist', targetId: string, rating: number): void {
-        this.db.prepare("INSERT OR REPLACE INTO ratings (username, type, target_id, rating) VALUES (?, ?, ?, ?)")
+        this.db.prepare("INSERT OR REPLACE INTO item_ratings (username, item_type, item_id, rating) VALUES (?, ?, ?, ?)")
             .run(username, type, targetId, rating);
     }
 
     getItemRating(username: string, type: 'album' | 'track' | 'artist', targetId: string): number {
-        const row = this.db.prepare("SELECT rating FROM ratings WHERE username = ? AND type = ? AND target_id = ?").get(username, type, targetId) as { rating: number };
+        const row = this.db.prepare("SELECT rating FROM item_ratings WHERE username = ? AND item_type = ? AND item_id = ?").get(username, type, targetId) as { rating: number };
         return row ? row.rating : 0;
     }
 }

@@ -1507,7 +1507,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             const publicAlbums = (db.prepare(`SELECT COUNT(*) as count FROM albums ${filter ? filter+' AND' : 'WHERE'} is_release = 1 AND visibility IN ('public', 'unlisted')`).get() as any).count;
             const totalUsers = (artistId || ownerId) ? 0 : (db.prepare("SELECT COUNT(*) as count FROM admin").get() as any)?.count || 0;
             const storage = db.prepare(`SELECT SUM(duration) as total FROM tracks ${filter}`).get() as any;
-            const allGenres = db.prepare(`SELECT genre FROM albums ${filter} AND genre IS NOT NULL AND genre != ''`).all() as { genre: string }[];
+            const allGenres = db.prepare(`SELECT genre FROM albums ${filter ? filter + ' AND' : 'WHERE'} genre IS NOT NULL AND genre != ''`).all() as { genre: string }[];
             const genreSet = new Set<string>(); allGenres.forEach(r => r.genre.split(',').forEach(g => genreSet.add(g.trim().toLowerCase())));
             return { artists, albums, tracks, totalTracks: tracks, publicAlbums, totalUsers, storageUsed: (storage.total || 0) * 40 * 1024, networkSites: (artistId || ownerId) ? 0 : (db.prepare("SELECT COUNT(*) as count FROM remote_actors WHERE type = 'Service'").get() as any).count, genresCount: genreSet.size };
         },
