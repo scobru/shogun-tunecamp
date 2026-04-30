@@ -151,6 +151,47 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
     }));
 
     /**
+     * GET /api/tracks/search-metadata
+     */
+    router.get("/search-metadata", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        if (!req.isAdmin && !req.artistId) throw new ForbiddenError("Unauthorized");
+        const query = req.query.q as string;
+        if (!query) throw new BadRequestError("Query required");
+        res.json(await metadataService.searchRecording(query));
+    }));
+
+    /**
+     * PUT /api/tracks/batch
+     */
+    router.put("/batch", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        if (!req.isAdmin && !req.artistId) throw new ForbiddenError("Unauthorized");
+        const { trackIds, data } = req.body;
+        if (!Array.isArray(trackIds) || trackIds.length === 0) throw new BadRequestError("trackIds required");
+        const results = await libraryService.batchUpdateTracks(trackIds, data, {
+            userId: req.userId ?? undefined,
+            artistId: req.artistId ?? undefined,
+            isAdmin: !!req.isAdmin,
+            username: req.username
+        });
+        res.json({ message: "Batch update completed", ...results });
+    }));
+
+    /**
+     * DELETE /api/tracks/batch
+     */
+    router.delete("/batch", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        if (!req.isAdmin && !req.artistId) throw new ForbiddenError("Unauthorized");
+        const { trackIds, deleteFiles } = req.body;
+        if (!Array.isArray(trackIds) || trackIds.length === 0) throw new BadRequestError("trackIds required");
+        const results = await libraryService.batchDeleteTracks(trackIds, deleteFiles === true, {
+            userId: req.userId ?? undefined,
+            artistId: req.artistId ?? undefined,
+            isAdmin: !!req.isAdmin
+        });
+        res.json({ message: "Batch deletion completed", ...results });
+    }));
+
+    /**
      * GET /api/tracks/:id
      * Get track details
      */
@@ -319,15 +360,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         });
     }));
 
-    /**
-     * GET /api/tracks/search-metadata
-     */
-    router.get("/search-metadata", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
-        if (!req.isAdmin && !req.artistId) throw new ForbiddenError("Unauthorized");
-        const query = req.query.q as string;
-        if (!query) throw new BadRequestError("Query required");
-        res.json(await metadataService.searchRecording(query));
-    }));
+
 
     /**
      * POST /api/tracks/:id/match-metadata
@@ -433,36 +466,6 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         }
     }));
 
-    /**
-     * PUT /api/tracks/batch
-     */
-    router.put("/batch", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
-        if (!req.isAdmin && !req.artistId) throw new ForbiddenError("Unauthorized");
-        const { trackIds, data } = req.body;
-        if (!Array.isArray(trackIds) || trackIds.length === 0) throw new BadRequestError("trackIds required");
-        const results = await libraryService.batchUpdateTracks(trackIds, data, {
-            userId: req.userId ?? undefined,
-            artistId: req.artistId ?? undefined,
-            isAdmin: !!req.isAdmin,
-            username: req.username
-        });
-        res.json({ message: "Batch update completed", ...results });
-    }));
-
-    /**
-     * DELETE /api/tracks/batch
-     */
-    router.delete("/batch", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
-        if (!req.isAdmin && !req.artistId) throw new ForbiddenError("Unauthorized");
-        const { trackIds, deleteFiles } = req.body;
-        if (!Array.isArray(trackIds) || trackIds.length === 0) throw new BadRequestError("trackIds required");
-        const results = await libraryService.batchDeleteTracks(trackIds, deleteFiles === true, {
-            userId: req.userId ?? undefined,
-            artistId: req.artistId ?? undefined,
-            isAdmin: !!req.isAdmin
-        });
-        res.json({ message: "Batch deletion completed", ...results });
-    }));
 
     return router;
 }

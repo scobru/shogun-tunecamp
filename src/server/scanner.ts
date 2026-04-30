@@ -726,7 +726,7 @@ export class Scanner implements ScannerService {
         try {
             let success = 0, failed = 0, skipped = 0, deleted = 0, count = 0;
             const cache = new Map<number, any>();
-            const iter = this.database.iterateTracks("file_path IS NOT NULL");
+            const iter = Array.from(this.database.iterateTracks("file_path IS NOT NULL"));
             for (const t of iter) {
                 try {
                     if (!t.file_path) { count++; continue; }
