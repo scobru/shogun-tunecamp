@@ -1,6 +1,7 @@
 import { getZen, Zen } from "./zen.js";
 import fetch from "node-fetch";
 import { drainResponse } from "./utils.js";
+import { discoverNetworkIdentity, getHardwarePeerId, setupPeerExchange } from "./zen-network.js";
 
 import type { DatabaseService } from "./database.js";
 import { normalizeUrl, slugify } from "../utils/audioUtils.js";
@@ -116,11 +117,33 @@ export function createZenDBService(database: DatabaseService, server?: any, peer
                 console.warn(`⚠️  [ZEN] Some peers do NOT use /zen path:`, nonZenPeers);
             }
 
+            // Discover network identity and Hardware ID
+            const networkIdentity = await discoverNetworkIdentity(1970);
+            console.log(`🌐 Network Identity Discovered: ${JSON.stringify(networkIdentity)}`);
+
+            const hwidRaw = getHardwarePeerId();
+            let ppid = null;
+            if (hwidRaw) {
+                try {
+                    const seed = await (Zen as any).hash(hwidRaw, null, null, { encode: "base62" });
+                    const ppair = await (Zen as any).pair(null, { seed });
+                    ppid = ppair.pub;
+                    console.log(`🔑 ZEN Peer ID (stable): ${ppid.slice(0, 9)}...`);
+                } catch (e: any) {
+                    console.warn(`⚠️ ZEN pid derivation failed: ${e.message}`);
+                }
+            }
+
             zen = getZen({
                 peers: initializationPeers,
                 web: server,
-                publicUrl: publicUrl
+                publicUrl: publicUrl,
+                pid: ppid || undefined
             });
+
+            const activeDomain = networkIdentity.domain || networkIdentity.ip;
+            const serverUrlToShare = activeDomain ? `wss://${activeDomain}:1970/zen` : null;
+            setupPeerExchange(zen, serverUrlToShare);
 
             console.log(`📡 [ZenDB] Shared instance acquired.`);
 

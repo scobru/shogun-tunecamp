@@ -81,6 +81,8 @@ import { SoulseekService } from "./soulseek.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { runStartupMaintenance } from "./maintenance.js";
 import { errorHandler } from "./middleware/error-handling.js";
+import { latchDomain, kprs } from "./zen-network.js";
+import { getZen } from "./zen.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -129,6 +131,20 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // Initialize Zen service (with HTTP server for WebSockets)
     const zendbService = createZenDBService(database, server, config.zenPeers, config.publicUrl);
     await zendbService.init();
+
+    // Latch domain from first incoming request Host header if still unknown
+    app.use((req, res, next) => {
+        const zen = getZen();
+        if (zen) {
+            latchDomain(req, zen);
+        }
+        next();
+    });
+
+    // --- ZEN Peers Endpoint ---
+    app.get("/api/peers", (req, res) => {
+        res.status(200).json(Array.from(kprs));
+    });
 
     // Initialize Fedify (Must be before AP Service)
     const federation = createFedify(database, config);

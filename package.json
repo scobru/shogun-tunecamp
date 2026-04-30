@@ -71,7 +71,7 @@
     "waveform-data": "^4.5.2",
     "xmlbuilder2": "^4.0.3",
     "yaml": "^2.3.4",
-    "zen": "https://github.com/akaoio/zen"
+    "zen": "github:akaoio/zen"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

@@ -13,6 +13,7 @@ interface ZenOptions {
     localStorage?: boolean;
     file?: string;
     publicUrl?: string; // New: to filter out self from peers
+    pid?: string;
 }
 
 /**
@@ -129,7 +130,8 @@ export function getZen(options?: ZenOptions): any {
             localStorage: false, // Ensure localStorage is always disabled on server
             file: options?.file || ZEN_CONFIG_DEFAULTS.file,
             axe: false, // Explicitly disable legacy AXE mesh
-            super: true // Identify as a ZEN Relay node
+            super: true, // Identify as a ZEN Relay node
+            pid: options?.pid
         };
 
         console.log(`📡 [ZEN] Initializing shared singleton with ${initializationOptions.peers.length} peers...`);
