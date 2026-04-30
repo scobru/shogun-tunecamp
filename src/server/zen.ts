@@ -131,7 +131,8 @@ export function getZen(options?: ZenOptions): any {
             file: options?.file || ZEN_CONFIG_DEFAULTS.file,
             axe: false, // Explicitly disable legacy AXE mesh
             super: true, // Identify as a ZEN Relay node
-            pid: options?.pid
+            pid: options?.pid,
+            stats: false // Prevent writing to /root/.local/state/zen/
         };
 
         console.log(`📡 [ZEN] Initializing shared singleton with ${initializationOptions.peers.length} peers...`);
