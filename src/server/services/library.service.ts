@@ -196,7 +196,28 @@ export class LibraryService {
         const track = this.db.getTrack(trackId);
         if (!track) throw new Error("Track not found");
 
-        const { title, artistId, albumId, trackNumber, genre, price, priceUsdc, currency, lyrics, externalArtwork, fileName, duration } = data;
+        const { title, artistId, artist, albumId, album, ownerId, trackNumber, genre, price, priceUsdc, currency, lyrics, externalArtwork, fileName, duration } = data;
+
+        let finalArtistId = artistId !== undefined ? artistId : undefined;
+        if (finalArtistId === null && typeof artist === 'string' && artist.trim() !== "") {
+            const artistName = artist.trim();
+            const existingArtist = this.db.getArtistByName(artistName);
+            finalArtistId = existingArtist ? existingArtist.id : this.db.createArtist(artistName);
+        }
+
+        let finalAlbumId = albumId !== undefined ? albumId : undefined;
+        if (finalAlbumId === null && typeof album === 'string' && album.trim() !== "") {
+            const albumName = album.trim();
+            const slug = "lib-" + albumName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+            const existingAlbum = this.db.getAlbumBySlug(slug);
+            finalAlbumId = existingAlbum ? existingAlbum.id : this.db.createAlbum({
+                title: albumName, slug, artist_id: finalArtistId || track.artist_id, owner_id: ownerId !== undefined ? ownerId : track.owner_id,
+                date: null, cover_path: null, genre: "Library", description: "",
+                type: 'album', year: null, download: null, price: 0, price_usdc: 0, currency: 'ETH',
+                external_links: null, is_public: false, visibility: 'private', is_release: false,
+                published_at: null, published_to_gundb: false, published_to_ap: false, license: null
+            });
+        }
 
         // 1. Handle File Renaming
         if (track.file_path && fileName && typeof fileName === 'string') {
@@ -235,8 +256,11 @@ export class LibraryService {
 
         // 2. Database updates
         if (title !== undefined) this.db.updateTrackTitle(trackId, title);
-        if (artistId !== undefined) this.db.updateTrackArtist(trackId, artistId);
-        if (albumId !== undefined) this.db.updateTrackAlbum(trackId, albumId);
+        if (finalArtistId !== undefined) this.db.updateTrackArtist(trackId, finalArtistId);
+        if (finalAlbumId !== undefined) this.db.updateTrackAlbum(trackId, finalAlbumId);
+        if (ownerId !== undefined) {
+            (this.db as any).db.prepare("UPDATE tracks SET owner_id = ? WHERE id = ?").run(ownerId, trackId);
+        }
         if (trackNumber !== undefined) {
             (this.db as any).db.prepare("UPDATE tracks SET track_num = ? WHERE id = ?").run(trackNumber, trackId);
         }
