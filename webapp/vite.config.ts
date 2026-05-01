@@ -20,6 +20,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
+      "zen": path.resolve(__dirname, "./src/zen.js"),
       "@": path.resolve(__dirname, "./src"),
       "node:fs/promises": path.resolve(__dirname, "./src/stubs/empty.js"),
       "node:url": "url",

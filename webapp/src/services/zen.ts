@@ -1,4 +1,4 @@
-import ZEN from '../zen.js';
+import ZEN from 'zen';
 
 
 // Remove redundant imports as ZEN includes everything needed
