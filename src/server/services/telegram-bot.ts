@@ -16,6 +16,20 @@ export class TelegramBotService {
         private musicDir: string
     ) {}
 
+    private async safeReply(ctx: any, text: string, retryCount = 0): Promise<any> {
+        try {
+            return await ctx.reply(text);
+        } catch (err: any) {
+            if (err.response?.error_code === 429 && retryCount < 3) {
+                const retryAfter = (err.response?.parameters?.retry_after || 5) * 1000;
+                console.warn(`[TelegramBot] Rate limited (429). Retrying in ${retryAfter}ms...`);
+                await new Promise(r => setTimeout(r, retryAfter));
+                return this.safeReply(ctx, text, retryCount + 1);
+            }
+            console.error('[TelegramBot] Failed to send reply:', err.message);
+        }
+    }
+
     async start() {
         if (this.isRunning) return;
 
@@ -41,31 +55,35 @@ export class TelegramBotService {
 
             // Handle both messages and channel posts
             const handleUpdate = async (ctx: any) => {
-                const msg = ctx.message || ctx.channelPost;
-                if (!msg) return;
+                try {
+                    const msg = ctx.message || ctx.channelPost;
+                    if (!msg) return;
 
-                const chatId = ctx.chat.id.toString();
+                    const chatId = ctx.chat.id.toString();
 
-                // If it's a photo, store it as context for the next audio file
-                if (msg.photo) {
-                    const photoId = msg.photo[msg.photo.length - 1].file_id;
-                    this.recentContext.set(chatId, {
-                        photoId,
-                        caption: msg.caption,
-                        timestamp: Date.now()
-                    });
-                    console.log(`[TelegramBot] Photo context saved for chat ${chatId}`);
-                    return;
-                }
-
-                if (msg.audio) {
-                    await this.handleAudio(ctx, msg.audio);
-                } else if (msg.document) {
-                    const doc = msg.document;
-                    if (doc.mime_type?.startsWith('audio/') || 
-                        ['.mp3', '.flac', '.wav', '.ogg', '.m4a'].some((ext: string) => doc.file_name?.toLowerCase().endsWith(ext))) {
-                        await this.handleAudio(ctx, doc);
+                    // If it's a photo, store it as context for the next audio file
+                    if (msg.photo) {
+                        const photoId = msg.photo[msg.photo.length - 1].file_id;
+                        this.recentContext.set(chatId, {
+                            photoId,
+                            caption: msg.caption,
+                            timestamp: Date.now()
+                        });
+                        console.log(`[TelegramBot] Photo context saved for chat ${chatId}`);
+                        return;
                     }
+
+                    if (msg.audio) {
+                        await this.handleAudio(ctx, msg.audio);
+                    } else if (msg.document) {
+                        const doc = msg.document;
+                        if (doc.mime_type?.startsWith('audio/') || 
+                            ['.mp3', '.flac', '.wav', '.ogg', '.m4a'].some((ext: string) => doc.file_name?.toLowerCase().endsWith(ext))) {
+                            await this.handleAudio(ctx, doc);
+                        }
+                    }
+                } catch (err) {
+                    console.error('[TelegramBot] Error in update loop:', err);
                 }
             };
 
@@ -77,7 +95,7 @@ export class TelegramBotService {
             // Welcome/Info helper
             const handleStatus = (ctx: any) => {
                 const chatId = ctx.chat.id;
-                ctx.reply(`Tunecamp Music Ingester Bot is active!\nChat ID: ${chatId}`);
+                this.safeReply(ctx, `Tunecamp Music Ingester Bot is active!\nChat ID: ${chatId}`);
             };
 
             // Command handlers
@@ -86,23 +104,48 @@ export class TelegramBotService {
                 'status': handleStatus,
                 'artists': (ctx) => {
                     const artists = this.database.db.prepare("SELECT name FROM artists ORDER BY name ASC LIMIT 50").all() as { name: string }[];
-                    if (artists.length === 0) return ctx.reply("No artists found in library.");
+                    if (artists.length === 0) return this.safeReply(ctx, "No artists found in library.");
                     const list = artists.map(a => `• ${a.name}`).join('\n');
-                    return ctx.reply(`🎨 Artists in Library:\n\n${list}`);
+                    return this.safeReply(ctx, `🎨 Artists in Library:\n\n${list}`);
                 },
                 'albums': (ctx) => {
                     const albums = this.database.db.prepare("SELECT title FROM releases ORDER BY id DESC LIMIT 50").all() as { title: string }[];
-                    if (albums.length === 0) return ctx.reply("No albums found in library.");
+                    if (albums.length === 0) return this.safeReply(ctx, "No albums found in library.");
                     const list = albums.map(a => `• ${a.title}`).join('\n');
-                    return ctx.reply(`💿 Recent Albums:\n\n${list}`);
+                    return this.safeReply(ctx, `💿 Recent Albums:\n\n${list}`);
+                },
+                'help': (ctx) => {
+                    const helpText = `
+📖 **Tunecamp Bot Help**
+
+This bot automatically ingests music files shared in this channel.
+
+**Commands:**
+• /status - Check bot status and Chat ID
+• /artists - List artists in your library
+• /albums - List recent albums
+• /rescan - Consolidate library and repair paths
+• /help - Show this help message
+
+**How to Import with Metadata:**
+1. Send a **Photo** (Album Cover).
+2. Add a **Caption** to the photo with these hashtags:
+   #artist: Name
+   #album: Title
+   #year: 2024
+3. Send the **Audio File(s)** immediately after.
+
+The bot will automatically associate the photo as the cover and use the hashtags for the library metadata.
+                    `;
+                    return this.safeReply(ctx, helpText);
                 },
                 'rescan': async (ctx) => {
-                    await ctx.reply("🔍 Starting library consolidation and rescan...");
+                    await this.safeReply(ctx, "🔍 Starting library consolidation and rescan...");
                     try {
                         const result = await this.scanner.consolidateFiles(this.musicDir);
-                        return ctx.reply(`✅ Rescan complete!\nSuccess: ${result.success}\nFailed: ${result.failed}\nSkipped: ${result.skipped}`);
+                        return this.safeReply(ctx, `✅ Rescan complete!\nSuccess: ${result.success}\nFailed: ${result.failed}\nSkipped: ${result.skipped}`);
                     } catch (e) {
-                        return ctx.reply(`❌ Rescan failed: ${e}`);
+                        return this.safeReply(ctx, `❌ Rescan failed: ${e}`);
                     }
                 }
             };
@@ -236,7 +279,7 @@ export class TelegramBotService {
 
             const filePath = path.join(importDir, fileName);
             
-            await ctx.reply(`📥 Downloading ${fileName}...`);
+            await this.safeReply(ctx, `📥 Downloading ${fileName}...`);
             
             const response = await axios({
                 url: fileLink.href,
@@ -252,17 +295,17 @@ export class TelegramBotService {
                 writer.on('error', (err) => reject(err));
             });
 
-            await ctx.reply(`⚙️ Processing ${fileName}...`);
+            await this.safeReply(ctx, `⚙️ Processing ${fileName}...`);
             const result = await this.scanner.processAudioFile(filePath, this.musicDir, undefined, undefined, undefined, suggestedCoverPath, metadataHints);
 
             if (result?.success) {
-                await ctx.reply(`✅ UPLOADED TO TUNECAMP!\n\n${result.message}`);
+                await this.safeReply(ctx, `✅ UPLOADED TO TUNECAMP!\n\n${result.message}`);
             } else {
-                await ctx.reply(`❌ Import failed: ${result?.message || 'Unknown error'}`);
+                await this.safeReply(ctx, `❌ Import failed: ${result?.message || 'Unknown error'}`);
             }
         } catch (err) {
             console.error('[TelegramBot] Error handling audio:', err);
-            await ctx.reply('❌ Error processing audio file. Please check server logs.');
+            await this.safeReply(ctx, '❌ Error processing audio file. Please check server logs.');
         }
     }
 }
