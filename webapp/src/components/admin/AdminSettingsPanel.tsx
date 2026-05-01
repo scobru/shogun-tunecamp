@@ -407,6 +407,53 @@ export const AdminSettingsPanel = () => {
               </div>
             )}
           </div>
+          </div>
+        </div>
+
+        {/* Telegram Bot Settings */}
+        <div className="bg-base-200/40 p-6 rounded-2xl border border-white/5 space-y-4 md:col-span-2">
+          <div className="flex items-center gap-2 mb-2 text-blue-400">
+            <Shield size={18} />
+            <h4 className="font-bold uppercase text-xs tracking-wider">Telegram Music Ingester</h4>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium text-sm">Bot Token</span>
+              </label>
+              <input
+                type="password"
+                className="input input-bordered bg-base-300/50 font-mono text-xs"
+                value={settings.telegram_bot_token || ""}
+                onChange={(e) => setSettings({ ...settings, telegram_bot_token: e.target.value })}
+                placeholder="123456789:ABCDefgh..."
+              />
+              <label className="label">
+                <span className="label-text-alt opacity-40 text-[10px]">Get this from @BotFather on Telegram.</span>
+              </label>
+            </div>
+
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium text-sm">Allowed Channels / User IDs</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered bg-base-300/50 font-mono text-xs"
+                value={settings.telegram_allowed_channels || ""}
+                onChange={(e) => setSettings({ ...settings, telegram_allowed_channels: e.target.value })}
+                placeholder="-100..., 12345678"
+              />
+              <label className="label">
+                <span className="label-text-alt opacity-40 text-[10px]">Comma-separated IDs allowed to push music. Leave empty to allow everyone (not recommended).</span>
+              </label>
+            </div>
+          </div>
+          
+          <div className="bg-blue-500/5 border border-blue-500/20 p-4 rounded-xl text-xs opacity-70">
+            <p>Once configured, you can send MP3/FLAC files or documents to your bot, and they will be automatically added to your Tunecamp library.</p>
+          </div>
         </div>
       </div>
 

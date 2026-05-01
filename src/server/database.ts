@@ -95,6 +95,8 @@ export function createDatabase(dbPath: string): DatabaseService {
       gun_priv TEXT,
       gun_auth_mode TEXT NOT NULL DEFAULT 'local',
       is_active INTEGER DEFAULT 1,
+      telegram_bot_token TEXT,
+      telegram_allowed_channels TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -621,6 +623,19 @@ export function createDatabase(dbPath: string): DatabaseService {
         }
     } catch (e) {
         console.error("Migration error (unify owner_id v2):", e);
+    }
+
+    // Migration: Add telegram bot settings to admin table
+    try {
+        const tableInfo = db.pragma("table_info(admin)") as any[];
+        const hasTelegramToken = Array.isArray(tableInfo) && tableInfo.some(col => col.name === "telegram_bot_token");
+        if (!hasTelegramToken) {
+            console.log("📦 Migrating database: Adding telegram bot settings to admin table...");
+            db.exec("ALTER TABLE admin ADD COLUMN telegram_bot_token TEXT");
+            db.exec("ALTER TABLE admin ADD COLUMN telegram_allowed_channels TEXT");
+        }
+    } catch (e) {
+        console.error("Migration error (admin telegram settings):", e);
     }
 
     // Optimized: Pre-compile frequent queries

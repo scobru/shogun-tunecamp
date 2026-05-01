@@ -161,7 +161,8 @@ export function createAdminRoutes(
             const { 
                 siteName, siteDescription, publicUrl, artistName, coverImage, mode, 
                 zenPeers, web3_checkout_address, web3_nft_address,
-                coinbase_cdp_api_key_name, coinbase_cdp_api_key_secret
+                coinbase_cdp_api_key_name, coinbase_cdp_api_key_secret,
+                telegram_bot_token, telegram_allowed_channels
             } = req.body;
             let settingsChanged = false;
 
@@ -207,6 +208,14 @@ export function createAdminRoutes(
             }
             if (coinbase_cdp_api_key_secret !== undefined) {
                 database.setSetting("coinbase_cdp_api_key_secret", coinbase_cdp_api_key_secret);
+            }
+            if (telegram_bot_token !== undefined) {
+                database.setSetting("telegram_bot_token", telegram_bot_token);
+                settingsChanged = true;
+            }
+            if (telegram_allowed_channels !== undefined) {
+                database.setSetting("telegram_allowed_channels", telegram_allowed_channels);
+                settingsChanged = true;
             }
 
             // Re-register on GunDB if settings changed and publicUrl is available

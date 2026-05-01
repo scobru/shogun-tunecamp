@@ -78,6 +78,7 @@ import { WaveformService } from "./modules/waveform/waveform.service.js";
 import { securityHeaders } from "./middleware/security.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { SoulseekService } from "./soulseek.js";
+import { TelegramBotService } from "./services/telegram-bot.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { runStartupMaintenance } from "./maintenance.js";
 import { errorHandler } from "./middleware/error-handling.js";
@@ -163,6 +164,10 @@ export async function startServer(config: ServerConfig): Promise<void> {
     const soulseekService = new SoulseekService(config.musicDir, config.downloadDir || path.join(config.musicDir, "downloads"));
     // Try to connect with system credentials if available
     soulseekService.connect().catch(err => console.error("Soulseek initial connection failed:", err));
+
+    // Initialize Telegram Bot
+    const telegramBotService = new TelegramBotService(database, scanner, config.musicDir);
+    telegramBotService.start().catch(err => console.error("Telegram Bot failed to start:", err));
 
     // Upload routes - MOVED BEFORE FEDIFY/BODY PARSERS to avoid stream consumption issues
     app.use("/api/admin/upload", authMiddleware.requireUser, createUploadRoutes(database, scanner, config.musicDir, publishingService, storage, authService));
