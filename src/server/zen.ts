@@ -138,20 +138,25 @@ export function getZen(options?: ZenOptions): any {
         console.log(`📡 [ZEN] Initializing shared singleton with ${initializationOptions.peers.length} peers...`);
         zenInstance = new ZEN(initializationOptions);
         
-        // Compatibility Layer: Add .user() method to the instance
-        // We use a property definition to ensure it survives and is easily accessible
+        // --- COMPATIBILITY SHIM ---
+        // ZEN does not have a native .user() instance like GunDB. 
+        // We attach this shim to provide compatibility with Tunecamp's existing 
+        // authentication and user-space data patterns (e.g., zen.user().auth()).
         const userShim = new ServerZenUser(zenInstance);
+        
         Object.defineProperty(zenInstance, 'user', {
             value: function(pub?: string) {
-                if (pub) return zenInstance.get('~' + pub);
+                // If a pubkey is provided, return the public namespace node
+                if (pub) return (zenInstance as any).get('~' + pub);
+                // Otherwise return the authenticated user shim
                 return userShim;
             },
             writable: true,
             configurable: true
         });
 
-        console.log(`✅ [ZEN] Instance created (Port 1970) and .user() shim attached.`);
-        zenInstance._graph; // Force relay initialization as per examples
+        // Initialize internal graph state
+        (zenInstance as any)._graph; 
     } else if (options?.peers || options?.web) {
         // Update existing instance if new options provided (peers/server)
         if (options.peers) {
@@ -171,8 +176,6 @@ export function getZen(options?: ZenOptions): any {
     // DIAGNOSTIC: Ensure .user is a function before returning
     if (typeof zenInstance.user !== 'function') {
         console.error("🚨 [ZEN] FATAL: zenInstance.user is STILL not a function after initialization!");
-    } else {
-        console.log("🔍 [ZEN] Diagnostic: zenInstance.user verified as function.");
     }
     
     return zenInstance;

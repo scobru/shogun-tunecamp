@@ -124,7 +124,7 @@ export function setupPeerExchange(zenInstance: any, serverUrl: string | null) {
       msg.peers.forEach((url: string) => {
         if (
           typeof url === "string" &&
-          /^wss?:\/\//.test(url) &&
+          /^(wss?|https?):\/\//.test(url) &&
           url !== serverUrl
         ) {
           addPeer(url, zenInstance);

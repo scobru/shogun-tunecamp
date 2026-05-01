@@ -4,7 +4,7 @@
  */
 
 export const DEFAULT_ZEN_PEERS = [
-    "https://shogun-relay.scobrudot.dev/zen",
+    "wss://shogun-relay.scobrudot.dev/zen",
 ];
 
 export const ZEN_NAMESPACE = "tunecamp";

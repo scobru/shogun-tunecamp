@@ -11,7 +11,7 @@ import path from "path";
 
 // Public Zen peers for the community registry
 const REGISTRY_PEERS = [
-    "https://shogun-relay.scobrudot.dev/zen"
+    "wss://shogun-relay.scobrudot.dev/zen"
 ];
 
 const REGISTRY_ROOT = "shogun";
