@@ -1017,7 +1017,7 @@ export function createZenDBService(database: DatabaseService, server?: any, peer
     function getPeerCount(): number {
         if (!zen) return 0;
         try {
-            const peers = zen._.opt.peers;
+            const peers = zen?._?.opt?.peers;
             if (!peers) return 0;
             
             return Object.keys(peers).filter(k => {
