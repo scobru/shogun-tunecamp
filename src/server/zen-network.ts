@@ -119,72 +119,14 @@ export function setupPeerExchange(zenInstance: any, serverUrl: string | null) {
     if (!mesh) return;
     pmsh = mesh;
 
-    mesh.hear["pex"] = function (msg: any, _peer: any) {
-      if (!Array.isArray(msg.peers)) return;
-      msg.peers.forEach((url: string) => {
-        if (
-          typeof url === "string" &&
-          /^(wss?|https?):\/\//.test(url) &&
-          url !== serverUrl
-        ) {
-          addPeer(url, zenInstance);
-        }
-      });
-    };
-
-    root.on("hi", function (this: any, peer: any) {
-      this.to.next(peer);
-      const list = Array.from(kprs).filter((u) => u !== serverUrl);
-      setTimeout(() => {
-        try {
-          const bpids = Object.values(root.opt.peers || {})
-            .filter((p: any) => p && p.pid && !p.url && p.pid !== peer.pid)
-            .map((p: any) => p.pid);
-
-          const pexMsg: any = { dam: "pex", peers: list };
-          if (bpids.length) pexMsg.bpids = bpids;
-
-          mesh.say(pexMsg, peer);
-
-          if (peer.pid && !peer.url) {
-            Object.values(root.opt.peers || {}).forEach((p: any) => {
-              if (p && p.wire && p !== peer) {
-                try {
-                  mesh.say({ dam: "pex", peers: [], bpids: [peer.pid] }, p);
-                } catch {}
-              }
-            });
-          }
-        } catch {}
-      }, 600);
-
-      if (serverUrl) {
-        setTimeout(() => {
-          try {
-            mesh.say({ dam: "pex", peers: [serverUrl] }, peer);
-          } catch {}
-        }, 700);
-      }
-    });
+    // AXE handles PEX and hi/bye events internally.
+    loggers.server.info("📡 AXE taking over Peer Exchange (PEX)");
   });
 
   if (activeDomain) {
     scanNetwork(zenInstance);
     scheduleNetworkScan(zenInstance);
   }
-
-  let btmr: NodeJS.Timeout | null = null;
-  root.on("bye", function (this: any, ...args: any[]) {
-    this.to.next.apply(this.to, args);
-    if (btmr) clearTimeout(btmr);
-    btmr = setTimeout(() => {
-      siv = SIV;
-      spat.clear();
-      scanNetwork(zenInstance);
-      scheduleNetworkScan(zenInstance);
-    }, 30000);
-    if (btmr.unref) btmr.unref();
-  });
 }
 
 export function latchDomain(req: any, zenInstance: any) {

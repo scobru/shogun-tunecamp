@@ -33,7 +33,7 @@ const zen = new ZEN({
     port: 1970,
     localStorage: true,
     radisk: true,
-    axe: false
+    axe: true
 });
 
 /**

@@ -2,6 +2,7 @@
 import ZEN from 'zen';
 // @ts-ignore
 import 'zen/lib/yson.js'; // Fix: JSON blocking CPU warning
+import 'zen/lib/multicast.js';
 import { DEFAULT_ZEN_PEERS, ZEN_CONFIG_DEFAULTS } from '../common/zen-config.js';
 
 let zenInstance: any = null;
@@ -129,7 +130,7 @@ export function getZen(options?: ZenOptions): any {
             radisk: options?.radisk !== undefined ? options.radisk : ZEN_CONFIG_DEFAULTS.radisk,
             localStorage: false, // Ensure localStorage is always disabled on server
             file: options?.file || ZEN_CONFIG_DEFAULTS.file,
-            axe: false, // Explicitly disable legacy AXE mesh
+            axe: true, // Enable AXE mesh (PEX + routing)
             super: true, // Identify as a ZEN Relay node
             pid: options?.pid,
             stats: false // Prevent writing to /root/.local/state/zen/
