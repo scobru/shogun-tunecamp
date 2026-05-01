@@ -64,11 +64,21 @@ export class TelegramBotService {
     }
 
     async stop() {
-        if (this.bot) {
+        if (!this.bot) return;
+        try {
             this.bot.stop('SIGTERM');
-            this.isRunning = false;
             console.log('[TelegramBot] Stopped');
+        } catch (e) {
+            console.error('[TelegramBot] Error stopping bot:', e);
         }
+        this.isRunning = false;
+        this.bot = undefined;
+    }
+
+    async restart() {
+        console.log('[TelegramBot] Restarting with new settings...');
+        await this.stop();
+        await this.start();
     }
 
     private async handleAudio(ctx: any, audio: any) {
@@ -113,7 +123,7 @@ export class TelegramBotService {
             const result = await this.scanner.processAudioFile(filePath, this.musicDir);
 
             if (result?.success) {
-                await ctx.reply(`✅ Successfully imported to library!\nArtist: ${result.message.includes('Track updated') ? 'Updated' : 'New track added'}`);
+                await ctx.reply(`✅ UPLOADED TO TUNECAMP!\n\n${result.message}`);
             } else {
                 await ctx.reply(`❌ Import failed: ${result?.message || 'Unknown error'}`);
             }

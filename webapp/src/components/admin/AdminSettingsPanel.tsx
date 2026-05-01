@@ -78,7 +78,7 @@ export const AdminSettingsPanel = () => {
   };
 
   useEffect(() => {
-    API.getSiteSettings().then(setSettings).catch(console.error);
+    API.getAdminSettings().then(setSettings).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -146,7 +146,7 @@ export const AdminSettingsPanel = () => {
       setBgFile(null);
       setCoverFile(null);
       // Refresh settings to get new bg url if needed
-      API.getSiteSettings().then(setSettings);
+      API.getAdminSettings().then(setSettings);
     } catch (e) {
       console.error(e);
       setMessage("Failed to save settings.");

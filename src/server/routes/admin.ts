@@ -19,7 +19,8 @@ export function createAdminRoutes(
     config: ServerConfig,
     authService: AuthService,
     publishingService: PublishingService,
-    apService: ActivityPubService
+    apService: ActivityPubService,
+    telegramBotService: any
 ): Router {
     const router = Router();
 
@@ -216,6 +217,11 @@ export function createAdminRoutes(
             if (telegram_allowed_channels !== undefined) {
                 database.setSetting("telegram_allowed_channels", telegram_allowed_channels);
                 settingsChanged = true;
+            }
+
+            // Restart telegram bot if settings changed
+            if (telegram_bot_token !== undefined || telegram_allowed_channels !== undefined) {
+                telegramBotService.restart().catch((err: any) => console.error("Failed to restart Telegram bot:", err));
             }
 
             // Re-register on GunDB if settings changed and publicUrl is available
