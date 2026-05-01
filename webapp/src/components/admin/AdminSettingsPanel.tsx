@@ -407,7 +407,6 @@ export const AdminSettingsPanel = () => {
               </div>
             )}
           </div>
-          </div>
         </div>
 
         {/* Telegram Bot Settings */}
