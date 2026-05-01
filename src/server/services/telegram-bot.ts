@@ -59,8 +59,22 @@ export class TelegramBotService {
             this.bot.on('channel_post', handleUpdate);
 
             // Welcome/Info
-            this.bot.command('start', (ctx) => ctx.reply('Tunecamp Music Ingester Bot is active! Send me audio files or music links to add them to your library.'));
-            this.bot.command('status', (ctx) => ctx.reply(`Active. Chat ID: ${ctx.chat.id}`));
+            const handleStatus = (ctx: any) => {
+                const chatId = ctx.chat.id;
+                ctx.reply(`Tunecamp Music Ingester Bot is active!\nChat ID: ${chatId}`);
+            };
+
+            this.bot.command('start', handleStatus);
+            this.bot.command('status', handleStatus);
+            
+            // Explicitly handle commands in channel posts
+            this.bot.on('channel_post', async (ctx, next) => {
+                const post = ctx.channelPost as any;
+                if (post && (post.text === '/status' || post.text === '/status@' + ctx.botInfo.username)) {
+                    return handleStatus(ctx);
+                }
+                return next();
+            });
 
             await this.bot.launch();
             this.isRunning = true;
