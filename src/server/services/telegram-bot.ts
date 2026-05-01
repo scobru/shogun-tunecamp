@@ -32,19 +32,31 @@ export class TelegramBotService {
         try {
             this.bot = new Telegraf(token);
 
-            // Audio messages
-            this.bot.on('audio', async (ctx) => {
-                await this.handleAudio(ctx, ctx.message.audio);
+            // Debug logging for all updates
+            this.bot.use(async (ctx, next) => {
+                console.log(`[TelegramBot] Update received: ${ctx.updateType}`);
+                return next();
             });
 
-            // Documents that might be audio
-            this.bot.on('document', async (ctx) => {
-                const doc = ctx.message.document;
-                if (doc.mime_type?.startsWith('audio/') || 
-                    ['.mp3', '.flac', '.wav', '.ogg', '.m4a'].some(ext => doc.file_name?.toLowerCase().endsWith(ext))) {
-                    await this.handleAudio(ctx, doc);
+            // Handle both messages and channel posts
+            const handleUpdate = async (ctx: any) => {
+                const msg = ctx.message || ctx.channelPost;
+                if (!msg) return;
+
+                if (msg.audio) {
+                    await this.handleAudio(ctx, msg.audio);
+                } else if (msg.document) {
+                    const doc = msg.document;
+                    if (doc.mime_type?.startsWith('audio/') || 
+                        ['.mp3', '.flac', '.wav', '.ogg', '.m4a'].some((ext: string) => doc.file_name?.toLowerCase().endsWith(ext))) {
+                        await this.handleAudio(ctx, doc);
+                    }
                 }
-            });
+            };
+
+            this.bot.on('audio', handleUpdate);
+            this.bot.on('document', handleUpdate);
+            this.bot.on('channel_post', handleUpdate);
 
             // Welcome/Info
             this.bot.command('start', (ctx) => ctx.reply('Tunecamp Music Ingester Bot is active! Send me audio files or music links to add them to your library.'));
