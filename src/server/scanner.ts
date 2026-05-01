@@ -122,7 +122,7 @@ export interface ScannerService {
     scanDirectory(dir: string): Promise<ScanResult>;
     startWatching(dir: string): void;
     stopWatching(): void;
-    processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number, suggestedCoverPath?: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
+    processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number, suggestedCoverPath?: string, metadataHints?: { artist?: string, album?: string, year?: number, title?: string }): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
     getOrCreateLibraryAlbum(dir: string, musicDir: string, forcedCoverPath?: string): Promise<number | null>;
     consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number, deleted: number }>;
     clearCaches(): void;
@@ -423,7 +423,15 @@ export class Scanner implements ScannerService {
         } catch (e) {}
     }
 
-    public async processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number, suggestedCoverPath?: string): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
+    public async processAudioFile(
+        filePath: string, 
+        musicDir: string, 
+        overrideArtistId?: number, 
+        ownerId?: number, 
+        overrideAlbumId?: number, 
+        suggestedCoverPath?: string,
+        metadataHints?: { artist?: string, album?: string, year?: number, title?: string }
+    ): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
         let currentFilePath = filePath.replace(/^@@[a-z0-9]+\\?/, "").replace(/\\/g, "/").replace(/\/+/g, "/");
         if (!path.isAbsolute(currentFilePath) && !await this.storage.pathExists(currentFilePath)) {
             const resolved = path.join(musicDir, currentFilePath);
@@ -530,9 +538,45 @@ export class Scanner implements ScannerService {
 
             let artistId: number | null = overrideArtistId || null;
             if (!artistId) {
-                const artName = common.artist || "Unknown Artist";
+                const artName = metadataHints?.artist || common.artist || "Unknown Artist";
                 const existArt = this.database.getArtistByName(artName);
                 artistId = existArt ? existArt.id : this.database.createArtist(artName);
+            }
+
+            // Use hint for album if provided and no albumId yet
+            if (!albumId && metadataHints?.album) {
+                const albumName = metadataHints.album;
+                const albumSlug = slugify("hint-" + albumName);
+                let album = this.database.getAlbumBySlug(albumSlug);
+                if (!album) {
+                    albumId = this.database.createRelease({
+                        title: albumName,
+                        slug: albumSlug,
+                        artist_id: artistId,
+                        owner_id: ownerId || this.primaryAdminId,
+                        date: metadataHints.year ? `${metadataHints.year}-01-01` : null,
+                        year: metadataHints.year || null,
+                        cover_path: suggestedCoverPath ? this.normalizePath(suggestedCoverPath, musicDir) : null,
+                        genre: null,
+                        description: null,
+                        type: 'album',
+                        download: null,
+                        price: 0,
+                        price_usdc: 0,
+                        currency: 'ETH',
+                        external_links: null,
+                        visibility: 'public',
+                        published_at: null,
+                        published_to_gundb: false,
+                        published_to_ap: false,
+                        license: null
+                    });
+                } else {
+                    albumId = album.id;
+                    if (suggestedCoverPath && !album.cover_path) {
+                        this.database.db.prepare("UPDATE releases SET cover_path = ? WHERE id = ?").run(this.normalizePath(suggestedCoverPath, musicDir), albumId);
+                    }
+                }
             }
 
             let duration: number | null = await getDurationFromFfmpeg(currentFilePath);
@@ -540,7 +584,7 @@ export class Scanner implements ScannerService {
 
             const isLossless = LOSSLESS_EXTENSIONS.includes(ext);
             const trackId = this.database.createTrack({
-                title: common.title || path.basename(currentFilePath, ext),
+                title: metadataHints?.title || common.title || path.basename(currentFilePath, ext),
                 album_id: albumId,
                 artist_id: artistId,
                 owner_id: ownerId || this.primaryAdminId,
@@ -552,6 +596,7 @@ export class Scanner implements ScannerService {
                 sample_rate: format.sampleRate || null,
                 lossless_path: isLossless ? normalizedPath : null,
                 waveform: null,
+                year: metadataHints?.year || common.year || (common.date ? new Date(common.date).getFullYear() : null),
                 url: null,
                 service: null,
                 external_artwork: null,
