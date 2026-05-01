@@ -214,7 +214,9 @@ export function createZenDBService(database: DatabaseService, server?: any, peer
                 if (global.gc) global.gc();
                 const used = process.memoryUsage();
                 const peerCount = getPeerCount();
-                console.log(`[Diag] Heap: ${Math.round(used.heapUsed / 1e6)} MB | ZEN Peers: ${peerCount} | nodes:`, zen?._?.graph ? Object.keys(zen._.graph).length : 0);
+                const root = zen._ || (zen as any)._graph?._;
+                const nodeCount = root?.graph ? Object.keys(root.graph).length : 0;
+                console.log(`[Diag] Heap: ${Math.round(used.heapUsed / 1e6)} MB | ZEN Peers: ${peerCount} | nodes: ${nodeCount}`);
             }, 60_000);
 
             return true;
@@ -1017,17 +1019,55 @@ export function createZenDBService(database: DatabaseService, server?: any, peer
     function getPeerCount(): number {
         if (!zen) return 0;
         try {
-            const peers = zen?._?.opt?.peers;
-            if (!peers) return 0;
+            // Robustly find the root internal state object. 
+            // In Zen v1.0.8, it's often at ._ or ._graph._
+            const root = zen._ || (zen as any)._graph?._;
+            if (!root) return 0;
             
-            return Object.keys(peers).filter(k => {
-                const peer = peers[k];
-                const conn = peer.wire || peer.socket || peer.conn;
+            const opt = root.opt || {};
+            const peers = opt.peers || {};
+            const axePeers = root.axe?.up || {};
+            const meshPeers = opt.mesh?.peers || {};
+            
+            // Collect all unique active peer objects/URLs
+            const activePeers = new Set<any>();
+            
+            // Helper to check if a peer connection is active
+            const isActive = (p: any) => {
+                if (!p) return false;
+                const conn = p.wire || p.socket || p.conn;
                 if (!conn) return false;
-                
                 return conn.readyState === 1 || conn.readyState === 'open';
-            }).length;
+            };
+            
+            // 1. Check root.opt.peers (standard Gun/Zen peer tracking)
+            if (peers && typeof peers === 'object') {
+                if (Array.isArray(peers)) {
+                    // If it's still an array of strings, it's not connected yet
+                } else {
+                    Object.values(peers).forEach(p => {
+                        if (isActive(p)) activePeers.add(p);
+                    });
+                }
+            }
+            
+            // 2. Check root.axe.up (AXE mesh upstream connections - critical for Zen v1.0.8+)
+            if (axePeers && typeof axePeers === 'object') {
+                Object.values(axePeers).forEach(p => {
+                    if (isActive(p)) activePeers.add(p);
+                });
+            }
+            
+            // 3. Check root.opt.mesh.peers (lower-level DAM connections)
+            if (meshPeers && typeof meshPeers === 'object') {
+                Object.values(meshPeers).forEach(p => {
+                    if (isActive(p)) activePeers.add(p);
+                });
+            }
+            
+            return activePeers.size;
         } catch (e) {
+            console.error("🚨 [ZenDB] Error in getPeerCount:", e);
             return 0;
         }
     }
