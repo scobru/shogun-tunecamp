@@ -389,8 +389,10 @@ export interface DatabaseService {
     updateTrackAlbum(id: number, albumId: number | null): void;
     updateTracksAlbum(trackIds: number[], albumId: number | null): void;
     updateTrackOrder(id: number, trackNum: number): void;
+    updateTrackNumber(id: number, trackNum: number): void;
     updateTracksOrder(trackOrders: { id: number, trackNum: number }[]): void;
     updateTrackArtist(id: number, artistId: number | null): void;
+    updateTrackOwner(id: number, ownerId: number | null): void;
     getTrackByMetadata(title: string, artistId: number | null, albumId: number | null): Track | undefined;
     updateTrackTitle(id: number, title: string): void;
     updateTrackPath(id: number, filePath: string, albumId: number | null): void;
