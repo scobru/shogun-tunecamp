@@ -122,7 +122,7 @@ export interface ScannerService {
     scanDirectory(dir: string): Promise<ScanResult>;
     startWatching(dir: string): void;
     stopWatching(): void;
-    processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number, suggestedCoverPath?: string, metadataHints?: { artist?: string, album?: string, year?: number, title?: string }): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
+    processAudioFile(filePath: string, musicDir: string, overrideArtistId?: number, ownerId?: number, overrideAlbumId?: number, suggestedCoverPath?: string, metadataHints?: { artist?: string, album?: string, year?: number, title?: string, genre?: string }): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null>;
     getOrCreateLibraryAlbum(dir: string, musicDir: string, forcedCoverPath?: string): Promise<number | null>;
     consolidateFiles(musicDir: string): Promise<{ success: number, failed: number, skipped: number, deleted: number }>;
     clearCaches(): void;
@@ -430,7 +430,7 @@ export class Scanner implements ScannerService {
         ownerId?: number, 
         overrideAlbumId?: number, 
         suggestedCoverPath?: string,
-        metadataHints?: { artist?: string, album?: string, year?: number, title?: string }
+        metadataHints?: { artist?: string, album?: string, year?: number, title?: string, genre?: string }
     ): Promise<{ originalPath: string, success: boolean, message: string, convertedPath?: string, trackId?: number, queuedConversion?: boolean } | null> {
         let currentFilePath = filePath.replace(/^@@[a-z0-9]+\\?/, "").replace(/\\/g, "/").replace(/\/+/g, "/");
         if (!path.isAbsolute(currentFilePath) && !await this.storage.pathExists(currentFilePath)) {
@@ -506,7 +506,7 @@ export class Scanner implements ScannerService {
                         date: metadataHints.year ? `${metadataHints.year}-01-01` : null,
                         year: metadataHints.year || null,
                         cover_path: suggestedCoverPath ? this.normalizePath(suggestedCoverPath, musicDir) : null,
-                        genre: "Imported",
+                        genre: metadataHints.genre || "Imported",
                         description: `Imported via Telegram`,
                         type: 'album',
                         download: null,
@@ -602,6 +602,7 @@ export class Scanner implements ScannerService {
                 lossless_path: isLossless ? normalizedPath : null,
                 waveform: null,
                 year: metadataHints?.year || common.year || (common.date ? new Date(common.date).getFullYear() : null),
+                genre: metadataHints?.genre || (common.genre ? common.genre.join(", ") : null),
                 url: null,
                 service: null,
                 external_artwork: null,

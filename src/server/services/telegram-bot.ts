@@ -280,15 +280,17 @@ The bot will automatically associate the photo as the cover and use the hashtags
                     
                     // Improved regex for metadata tags
                     // Matches #tag: value, #tag - value, #tag = value, or #tag value
-                    const artistMatch = caption.match(/#artist[:\s\-=]+([^\n#]+)/i);
-                    const albumMatch = caption.match(/#album[:\s\-=]+([^\n#]+)/i);
+                    const artistMatch = caption.match(/#artist[:\s\-=]+([^\n#\r]+)/i);
+                    const albumMatch = caption.match(/#album[:\s\-=]+([^\n#\r]+)/i);
                     const yearMatch = caption.match(/#year[:\s\-=]+(\d{4})/i);
-                    const titleMatch = caption.match(/#title[:\s\-=]+([^\n#]+)/i);
+                    const titleMatch = caption.match(/#title[:\s\-=]+([^\n#\r]+)/i);
+                    const genreMatch = caption.match(/#genre[:\s\-=]+([^\n#\r]+)/i);
 
                     if (artistMatch) metadataHints.artist = artistMatch[1].trim();
                     if (albumMatch) metadataHints.album = albumMatch[1].trim();
                     if (yearMatch) metadataHints.year = parseInt(yearMatch[1]);
                     if (titleMatch) metadataHints.title = titleMatch[1].trim();
+                    if (genreMatch) metadataHints.genre = genreMatch[1].trim();
 
                     // Fallback to line-based parsing if no hashtags were found
                     if (!metadataHints.artist && !metadataHints.album) {
@@ -297,7 +299,7 @@ The bot will automatically associate the photo as the cover and use the hashtags
                         if (lines.length >= 2) metadataHints.album = lines[1];
                     }
 
-                    console.log(`[TelegramBot] Extracted hints:`, metadataHints);
+                    console.log(`[TelegramBot] Extracted metadata hints from caption:`, metadataHints);
                 }
 
                 // 2. Download Photo as Cover
