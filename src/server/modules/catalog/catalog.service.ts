@@ -96,4 +96,12 @@ export class CatalogService {
     getRemotePosts() {
         return this.database.getRemotePosts();
     }
+
+    getRandomTracks(limit: number, isAdmin: boolean) {
+        const tracks = this.database.getRandomTracks(limit);
+        return tracks.map(t => ({
+            ...t,
+            coverImage: t.album_id ? `/api/albums/${t.album_id}/cover` : undefined
+        }));
+    }
 }

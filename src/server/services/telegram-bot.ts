@@ -106,6 +106,7 @@ This bot automatically ingests music files shared in this channel and allows you
 • /artists - List artists in your library
 • /albums - List recent library albums
 • /releases - List recent published releases
+• /radio - Start random radio mode
 • /debug_db - Admin: Debug database paths and stats
 • /rescan - Consolidate library and repair paths
 • /help - Show this help message
@@ -251,6 +252,10 @@ ${(this.database.db.prepare("SELECT title, artist_name FROM tracks ORDER BY id D
                         return this.safeReply(ctx, `❌ Rescan failed: ${e}`);
                     }
                 },
+                'radio': async (ctx) => {
+                    if (!this.isAuthorized(ctx)) return this.safeReply(ctx, "⚠️ Unauthorized.");
+                    await this.sendRandomTrack(ctx);
+                },
                 'debug': async (ctx) => {
                     if (!this.isAuthorized(ctx)) {
                         return this.safeReply(ctx, "⚠️ Unauthorized.");
@@ -340,6 +345,15 @@ ${(this.database.db.prepare("SELECT title, artist_name FROM tracks ORDER BY id D
             // 3. Register handlers
             this.bot.on('message', handleUpdate);
             this.bot.on('channel_post', handleUpdate);
+
+            this.bot.action('next_radio', async (ctx) => {
+                try {
+                    await ctx.answerCbQuery();
+                    await this.sendRandomTrack(ctx);
+                } catch (err) {
+                    console.error('[TelegramBot] Radio action error:', err);
+                }
+            });
 
             await this.bot.launch();
             this.isRunning = true;
@@ -509,6 +523,46 @@ ${(this.database.db.prepare("SELECT title, artist_name FROM tracks ORDER BY id D
         } catch (err) {
             console.error('[TelegramBot] Error handling audio:', err);
             await this.safeReply(ctx, '❌ Error processing audio file. Please check server logs.');
+        }
+    }
+
+    private async sendRandomTrack(ctx: any) {
+        try {
+            const tracks = this.database.getRandomTracks(1);
+            if (tracks.length === 0) return this.safeReply(ctx, "📭 Library is empty.");
+
+            const track = tracks[0];
+            let fullPath = track.file_path;
+            if (fullPath && !path.isAbsolute(fullPath)) {
+                fullPath = path.join(this.musicDir, fullPath);
+            }
+
+            if (!fullPath || !fs.existsSync(fullPath)) {
+                return this.safeReply(ctx, "⚠️ File not found. Try another one.");
+            }
+
+            const extra: any = {
+                title: track.title,
+                performer: track.artist_name || 'Unknown Artist',
+                caption: `📻 Radio Mode: ${track.artist_name || 'Unknown'} - ${track.title}`,
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '⏭ Prossimo / Next', callback_data: 'next_radio' }]
+                    ]
+                }
+            };
+
+            if (track.album_id) {
+                const album = this.database.getAlbum(track.album_id);
+                if (album?.cover_path && fs.existsSync(album.cover_path)) {
+                    extra.thumb = { source: album.cover_path };
+                }
+            }
+
+            await ctx.replyWithAudio({ source: fullPath }, extra);
+        } catch (err: any) {
+            console.error(`[TelegramBot] Failed to send radio track: ${err.message}`);
+            await this.safeReply(ctx, "❌ Error fetching radio track.");
         }
     }
 }

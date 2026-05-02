@@ -12,6 +12,7 @@ import {
   Shuffle,
   Repeat,
   Music,
+  Radio,
 } from "lucide-react";
 import clsx from "clsx";
 import * as ColorThiefReactModule from "color-thief-react";
@@ -60,8 +61,10 @@ export const PlayerBar = () => {
     setVolume,
     isShuffled,
     repeatMode,
+    isRadioMode,
     toggleShuffle,
     toggleRepeat,
+    toggleRadio,
     toggleLyrics,
     toggleQueue,
     progress,
@@ -277,6 +280,14 @@ export const PlayerBar = () => {
               onClick={toggleShuffle}
             >
               <Shuffle size={14} />
+            </button>
+
+            <button
+              aria-label="Toggle radio mode"
+              className={clsx("btn btn-ghost btn-xs btn-circle transition-all", isRadioMode ? "text-primary scale-110" : "opacity-40 hover:opacity-100")}
+              onClick={toggleRadio}
+            >
+              <Radio size={14} />
             </button>
 
             <button

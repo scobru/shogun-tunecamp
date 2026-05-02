@@ -16,6 +16,7 @@ export interface PlayerState {
     // Modes
     isShuffled: boolean;
     repeatMode: 'none' | 'all' | 'one';
+    isRadioMode: boolean;
 
     // UI State
     isQueueOpen: boolean;
@@ -35,6 +36,7 @@ export interface PlayerState {
     removeFromQueue: (index: number) => void;
     toggleShuffle: () => void;
     toggleRepeat: () => void;
+    toggleRadio: () => void;
     toggleQueue: () => void;
     toggleLyrics: () => void;
     setDominantColor: (color: string | null) => void;
@@ -52,6 +54,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     currentTime: 0,
     isShuffled: false,
     repeatMode: 'none',
+    isRadioMode: false,
     isQueueOpen: false,
     isLyricsOpen: false,
     dominantColor: null,
@@ -106,6 +109,23 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
                 isPlaying: true
             });
             API.recordPlay(queue[0].id).catch(console.error);
+        } else if (get().isRadioMode) {
+            // Fetch next random track
+            API.getRandomTracks(1).then(tracks => {
+                if (tracks && tracks.length > 0) {
+                    const nextTrack = tracks[0];
+                    set((state) => ({
+                        queue: [...state.queue, nextTrack],
+                        queueIndex: state.queueIndex + 1,
+                        currentTrack: nextTrack,
+                        isPlaying: true
+                    }));
+                    API.recordPlay(nextTrack.id).catch(console.error);
+                }
+            }).catch(err => {
+                console.error("Failed to fetch next radio track:", err);
+                set({ isPlaying: false });
+            });
         } else {
             set({ isPlaying: false, progress: 0, currentTime: 0 }); // End of queue
         }
@@ -203,6 +223,26 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         const modes: PlayerState['repeatMode'][] = ['none', 'all', 'one'];
         const nextIndex = (modes.indexOf(state.repeatMode) + 1) % modes.length;
         return { repeatMode: modes[nextIndex] };
+    }),
+    
+    toggleRadio: () => set((state) => {
+        const isRadioMode = !state.isRadioMode;
+        if (isRadioMode && state.queue.length === 0) {
+            // If empty, start with a random track
+            API.getRandomTracks(1).then(tracks => {
+                if (tracks && tracks.length > 0) {
+                    const nextTrack = tracks[0];
+                    set({
+                        queue: [nextTrack],
+                        queueIndex: 0,
+                        currentTrack: nextTrack,
+                        isPlaying: true
+                    });
+                    API.recordPlay(nextTrack.id).catch(console.error);
+                }
+            });
+        }
+        return { isRadioMode };
     }),
 
     toggleQueue: () => set((state) => ({ isQueueOpen: !state.isQueueOpen, isLyricsOpen: false })),

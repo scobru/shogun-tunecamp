@@ -83,6 +83,7 @@ export const API = {
     search: (query: string) => handleResponse(api.get<any>(`/catalog/search?q=${encodeURIComponent(query)}`)),
     searchMetadata: (query: string) => handleResponse(api.get<any>(`/metadata/search?q=${encodeURIComponent(query)}`)),
     searchArtistMetadata: (query: string) => handleResponse(api.get<any[]>(`/metadata/artist-search?q=${encodeURIComponent(query)}`)),
+    getRandomTracks: (limit = 1) => handleResponse(api.get<any[]>(`/catalog/random?limit=${limit}`)),
 
     // --- Library (Browsing) ---
     getAlbums: () => handleResponse(api.get<Album[]>('/albums')),

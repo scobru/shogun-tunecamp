@@ -33,6 +33,21 @@ export function createCatalogRoutes(catalogService: CatalogService): Router {
 
 
     /**
+     * GET /api/catalog/random
+     * Get random tracks for radio mode
+     */
+    router.get("/random", async (req: any, res) => {
+        try {
+            const limit = parseInt(req.query.limit as string) || 1;
+            const tracks = catalogService.getRandomTracks(limit, req.isAdmin);
+            res.json(tracks);
+        } catch (error) {
+            console.error("Error getting random tracks:", error);
+            res.status(500).json({ error: "Failed to get random tracks" });
+        }
+    });
+
+    /**
      * GET /api/catalog/search
      * Global search for artists, albums, tracks
      */
