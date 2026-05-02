@@ -305,6 +305,52 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
             </div>
           </div>
 
+          {/* Genre Field */}
+          <div className="flex items-start gap-4 p-3 rounded-lg bg-base-200/50">
+            <input 
+              type="checkbox" 
+              className="checkbox checkbox-primary mt-3" 
+              checked={applyGenre} 
+              onChange={e => setApplyGenre(e.target.checked)} 
+            />
+            <div className="form-control flex-1">
+              <label className="label">
+                <span className="label-text">Genre</span>
+              </label>
+              <input
+                type="text"
+                className={`input input-bordered w-full ${!applyGenre && 'opacity-50'}`}
+                placeholder="Change genre for all selected tracks"
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+                disabled={!applyGenre}
+              />
+            </div>
+          </div>
+
+          {/* Year Field */}
+          <div className="flex items-start gap-4 p-3 rounded-lg bg-base-200/50">
+            <input 
+              type="checkbox" 
+              className="checkbox checkbox-primary mt-3" 
+              checked={applyYear} 
+              onChange={e => setApplyYear(e.target.checked)} 
+            />
+            <div className="form-control flex-1">
+              <label className="label">
+                <span className="label-text">Year</span>
+              </label>
+              <input
+                type="number"
+                className={`input input-bordered w-full ${!applyYear && 'opacity-50'}`}
+                placeholder="Change year for all selected tracks"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                disabled={!applyYear}
+              />
+            </div>
+          </div>
+
           {error && (
             <div className="alert alert-error text-sm flex items-start gap-2">
               <OctagonAlert size={16} className="shrink-0 mt-0.5" />
