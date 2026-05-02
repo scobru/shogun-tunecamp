@@ -63,13 +63,16 @@ export class TelegramBotService {
 
                     // If it's a photo, store it as context for the next audio file
                     if (msg.photo) {
-                        const photoId = msg.photo[msg.photo.length - 1].file_id;
-                        this.recentContext.set(chatId, {
-                            photoId,
-                            caption: msg.caption,
-                            timestamp: Date.now()
-                        });
-                        console.log(`[TelegramBot] Photo context saved for chat ${chatId}`);
+                        // Only store photo context if it's from an authorized source/admin
+                        if (this.isAuthorized(ctx)) {
+                            const photoId = msg.photo[msg.photo.length - 1].file_id;
+                            this.recentContext.set(chatId, {
+                                photoId,
+                                caption: msg.caption,
+                                timestamp: Date.now()
+                            });
+                            console.log(`[TelegramBot] Photo context saved for chat ${chatId}`);
+                        }
                         return;
                     }
 
@@ -160,6 +163,9 @@ The bot will automatically associate the photo as the cover and use the hashtags
                     return this.safeReply(ctx, helpText);
                 },
                 'rescan': async (ctx) => {
+                    if (!this.isAuthorized(ctx)) {
+                        return this.safeReply(ctx, "⚠️ Unauthorized. Only admins can trigger a rescan.");
+                    }
                     await this.safeReply(ctx, "🔍 Starting library consolidation and rescan...");
                     try {
                         const result = await this.scanner.consolidateFiles(this.musicDir);
@@ -221,18 +227,35 @@ The bot will automatically associate the photo as the cover and use the hashtags
         await this.start();
     }
 
-    private async handleAudio(ctx: any, audio: any) {
-        const chatId = ctx.chat.id.toString();
-        const allowedChannels = this.database.getSetting('telegram_allowed_channels');
+    private isAuthorized(ctx: any): boolean {
+        const chatId = ctx.chat?.id?.toString();
+        const chatType = ctx.chat?.type; // 'private', 'group', 'supergroup', 'channel'
+        const senderId = ctx.from?.id?.toString();
         
-        if (allowedChannels) {
-            const allowed = allowedChannels.split(',').map(s => s.trim());
-            const senderId = ctx.from?.id?.toString();
-            
-            if (!allowed.includes(chatId) && (!senderId || !allowed.includes(senderId))) {
-                console.warn(`[TelegramBot] Unauthorized message from chat ${chatId} (sender ${senderId})`);
-                return;
+        const allowedChannelsSetting = this.database.getSetting('telegram_allowed_channels');
+        if (!allowedChannelsSetting) return true; // If no whitelist configured, allow all
+        
+        const allowed = allowedChannelsSetting.split(',').map(s => s.trim());
+        
+        if (chatType === 'channel') {
+            return allowed.includes(chatId);
+        } else if (chatType === 'private') {
+            return !!(senderId && allowed.includes(senderId));
+        } else if (chatType === 'group' || chatType === 'supergroup') {
+            // Only admins are authorized to trigger ingestion or sensitive commands in groups
+            return !!(senderId && allowed.includes(senderId));
+        }
+        
+        return false;
+    }
+
+    private async handleAudio(ctx: any, audio: any) {
+        if (!this.isAuthorized(ctx)) {
+            const chatType = ctx.chat?.type;
+            if (chatType !== 'group' && chatType !== 'supergroup') {
+                console.warn(`[TelegramBot] Unauthorized ${chatType} message from chat ${ctx.chat.id}`);
             }
+            return;
         }
 
         // Check for file size limit (20MB for standard Bot API)
