@@ -74,7 +74,7 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
       if (applyArtist) {
         const matchedArtist = artists.find(a => a.name.toLowerCase() === artistName.trim().toLowerCase());
         if (matchedArtist) {
-          payload.artistId = String(matchedArtist.id);
+          payload.artistId = Number(matchedArtist.id);
         } else {
           payload.artist = artistName.trim();
           payload.artistId = null;
@@ -84,7 +84,7 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
       if (applyAlbum) {
         const matchedAlbum = albums.find(a => a.title.toLowerCase() === albumTitle.trim().toLowerCase());
         if (matchedAlbum) {
-          payload.albumId = String(matchedAlbum.id);
+          payload.albumId = Number(matchedAlbum.id);
         } else {
           payload.album = albumTitle.trim();
           payload.albumId = null;
@@ -94,7 +94,7 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
       if (applyOwner) {
         const matchedOwner = admins.find(a => a.username.toLowerCase() === ownerName.trim().toLowerCase());
         if (matchedOwner) {
-          payload.ownerId = String(matchedOwner.id);
+          payload.ownerId = Number(matchedOwner.id);
         } else if (!ownerName.trim()) {
           payload.ownerId = null;
         }

@@ -188,6 +188,8 @@ export function createDatabase(dbPath: string): DatabaseService {
       external_artwork TEXT,
       lyrics TEXT,
       hash TEXT,
+      genre TEXT,
+      year INTEGER,
       external_id TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -592,6 +594,24 @@ export function createDatabase(dbPath: string): DatabaseService {
         }
     } catch (e) {
         console.warn("⚠️  Migration warning (tracks.file_path):", e);
+    }
+
+    // Migration: Add genre and year to tracks table
+    try {
+        const tableInfo = db.pragma("table_info(tracks)") as any[];
+        const hasGenre = Array.isArray(tableInfo) && tableInfo.some(col => col.name === "genre");
+        const hasYear = Array.isArray(tableInfo) && tableInfo.some(col => col.name === "year");
+        
+        if (!hasGenre) {
+            console.log("📦 Migrating database: Adding genre to tracks table...");
+            db.exec("ALTER TABLE tracks ADD COLUMN genre TEXT");
+        }
+        if (!hasYear) {
+            console.log("📦 Migrating database: Adding year to tracks table...");
+            db.exec("ALTER TABLE tracks ADD COLUMN year INTEGER");
+        }
+    } catch (e) {
+        console.error("Migration error (tracks metadata):", e);
     }
 
     // Unify owner_id to use User IDs (admin.id)
@@ -1419,6 +1439,8 @@ export function createDatabase(dbPath: string): DatabaseService {
             db.transaction(() => trackOrders.forEach(o => stmt.run(o.trackNum, o.id)))();
         },
         updateTrackArtist(id: number, artistId: number | null): void { db.prepare("UPDATE tracks SET artist_id = ? WHERE id = ?").run(artistId, id); },
+        updateTrackOwner(id: number, ownerId: number | null): void { db.prepare("UPDATE tracks SET owner_id = ? WHERE id = ?").run(ownerId, id); },
+        updateTrackNumber(id: number, trackNum: number): void { this.updateTrackOrder(id, trackNum); },
         getTrackByMetadata(title: string, artistId: number | null, albumId: number | null): Track | undefined {
             return db.prepare("SELECT * FROM tracks WHERE LOWER(title) = LOWER(?) AND (artist_id = ? OR (artist_id IS NULL AND ? IS NULL)) AND (album_id = ? OR (album_id IS NULL AND ? IS NULL))").get(title, artistId, artistId, albumId, albumId) as Track | undefined;
         },

@@ -192,7 +192,7 @@ export class LibraryService {
     /**
      * Updates track metadata in DB and writes ID3 tags to disk if applicable.
      */
-    async updateTrack(trackId: number, data: any): Promise<Track | undefined> {
+    async updateTrack(trackId: number, data: any, options?: { skipSync?: boolean, skipTagWrite?: boolean }): Promise<Track | undefined> {
         const track = this.db.getTrack(trackId);
         if (!track) throw new Error("Track not found");
 
@@ -259,10 +259,10 @@ export class LibraryService {
         if (finalArtistId !== undefined) this.db.updateTrackArtist(trackId, finalArtistId);
         if (finalAlbumId !== undefined) this.db.updateTrackAlbum(trackId, finalAlbumId);
         if (ownerId !== undefined) {
-            (this.db as any).db.prepare("UPDATE tracks SET owner_id = ? WHERE id = ?").run(ownerId, trackId);
+            this.db.updateTrackOwner(trackId, ownerId);
         }
         if (trackNumber !== undefined) {
-            (this.db as any).db.prepare("UPDATE tracks SET track_num = ? WHERE id = ?").run(trackNumber, trackId);
+            this.db.updateTrackNumber(trackId, trackNumber);
         }
         if (duration !== undefined) {
             this.db.updateTrackDuration(trackId, parseFloat(duration));
@@ -278,12 +278,12 @@ export class LibraryService {
         const updatedTrack = this.db.getTrack(trackId);
 
         // 3. Write Tags to disk
-        if (updatedTrack && updatedTrack.file_path) {
+        if (!options?.skipTagWrite && updatedTrack && updatedTrack.file_path) {
             await this.writeTrackTags(updatedTrack);
         }
 
         // 4. Federation sync
-        if (updatedTrack && updatedTrack.album_id) {
+        if (!options?.skipSync && updatedTrack && updatedTrack.album_id) {
             await this.publishing.syncRelease(updatedTrack.album_id).catch(e => 
                 console.error(`[LibraryService] Sync failed for track update:`, e)
             );
@@ -298,6 +298,7 @@ export class LibraryService {
     async batchUpdateTracks(trackIds: number[], data: any, user: { userId?: number, artistId?: number, isAdmin: boolean, username?: string }): Promise<any> {
         const results = { success: 0, failed: 0, errors: [] as string[] };
         const affectedAlbums = new Set<number>();
+        const updatedTracks: Track[] = [];
 
         const tracks = this.db.getTracksByIds(trackIds);
         const trackMap = new Map(tracks.map(t => [t.id, t]));
@@ -319,12 +320,30 @@ export class LibraryService {
                     continue;
                 }
 
-                await this.updateTrack(id, data);
-                results.success++;
-                if (track.album_id) affectedAlbums.add(track.album_id);
+                const updated = await this.updateTrack(id, data, { skipSync: true, skipTagWrite: true });
+                if (updated) {
+                    results.success++;
+                    updatedTracks.push(updated);
+                    if (updated.album_id) affectedAlbums.add(updated.album_id);
+                }
             } catch (err: any) {
                 results.failed++;
                 results.errors.push(`Track ${id}: ${err.message}`);
+            }
+        }
+
+        // Batch Sync and Tag Write
+        if (updatedTracks.length > 0) {
+            console.log(`[LibraryService] Performing batch post-processing for ${updatedTracks.length} tracks across ${affectedAlbums.size} albums...`);
+            
+            // 1. Write tags in parallel (writeTrackTags uses acquireTaskSlot internal queue)
+            await Promise.all(updatedTracks.map(t => this.writeTrackTags(t)));
+
+            // 2. Sync albums
+            for (const albumId of affectedAlbums) {
+                await this.publishing.syncRelease(albumId).catch(e => 
+                    console.error(`[LibraryService] Batch sync failed for album ${albumId}:`, e)
+                );
             }
         }
 
@@ -399,7 +418,9 @@ export class LibraryService {
             title: track.title,
             artist: track.artist_name || undefined,
             album: track.album_title || undefined,
-            trackNumber: track.track_num?.toString() || undefined
+            trackNumber: track.track_num?.toString() || undefined,
+            genre: track.genre || undefined,
+            year: track.year?.toString() || undefined
         };
 
         try {
@@ -410,7 +431,9 @@ export class LibraryService {
                     title: tags.title,
                     artist: tags.artist,
                     album: tags.album,
-                    track: tags.trackNumber
+                    track: tags.trackNumber,
+                    genre: tags.genre,
+                    year: tags.year
                 });
             }
         } catch (err) {

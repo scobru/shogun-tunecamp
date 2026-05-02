@@ -188,7 +188,7 @@ export function transcode(inputPath: string, format: string = 'mp3', bitrate?: n
  * Update metadata for audio files (FLAC, OGG, M4A, etc.) using ffmpeg
  * Copies audio stream without re-encoding
  */
-export async function writeMetadata(filePath: string, metadata: { title?: string, artist?: string, album?: string, track?: string }): Promise<void> {
+export async function writeMetadata(filePath: string, metadata: { title?: string, artist?: string, album?: string, track?: string, genre?: string, year?: string | number }): Promise<void> {
     await acquireTaskSlot();
     return new Promise((resolve, reject) => {
         const ext = path.extname(filePath);
@@ -204,6 +204,8 @@ export async function writeMetadata(filePath: string, metadata: { title?: string
         if (metadata.artist) command.outputOptions('-metadata', `artist=${metadata.artist}`);
         if (metadata.album) command.outputOptions('-metadata', `album=${metadata.album}`);
         if (metadata.track) command.outputOptions('-metadata', `track=${metadata.track}`);
+        if (metadata.genre) command.outputOptions('-metadata', `genre=${metadata.genre}`);
+        if (metadata.year) command.outputOptions('-metadata', `date=${metadata.year}`);
 
         command
             .save(tempPath)
