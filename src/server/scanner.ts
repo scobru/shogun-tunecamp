@@ -182,7 +182,7 @@ export class Scanner implements ScannerService {
         }
     }
 
-    public async getOrCreateLibraryAlbum(dir: string, musicDir: string, forcedCoverPath?: string): Promise<number | null> {
+    public async getOrCreateLibraryAlbum(dir: string, musicDir: string, forcedCoverPath?: string, ownerId?: number | null): Promise<number | null> {
         const relativeDir = this.normalizePath(dir, musicDir);
         if (relativeDir === "." || relativeDir === "") return null;
         if (this.folderToAlbumMap.has(dir)) return this.folderToAlbumMap.get(dir)!;
@@ -228,7 +228,7 @@ export class Scanner implements ScannerService {
             title: folderName,
             slug: slug,
             artist_id: null,
-            owner_id: this.primaryAdminId,
+            owner_id: ownerId || this.primaryAdminId,
             date: null,
             cover_path: coverPath,
             genre: "Library",
@@ -537,7 +537,7 @@ export class Scanner implements ScannerService {
 
             // Fallback to folder-based album
             if (albumId === null && dir.startsWith(musicDir)) {
-                albumId = await this.getOrCreateLibraryAlbum(dir, musicDir, suggestedCoverPath);
+                albumId = await this.getOrCreateLibraryAlbum(dir, musicDir, suggestedCoverPath, ownerId);
             }
 
             // 4. Handle Existing Track by Path or Metadata

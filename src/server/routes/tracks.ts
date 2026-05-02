@@ -48,7 +48,8 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         const showMine = req.query.mine === 'true';
         const username = req.username;
 
-        if (req.isRootAdmin && !showMine) {
+        if (req.isRootAdmin) {
+            // Root admin bypass: always show all tracks in admin views
             return res.json(database.getTracks().map(t => mapTrack(t, username)));
         }
         
@@ -167,9 +168,11 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         if (!req.isAdmin && !req.artistId) throw new ForbiddenError("Unauthorized");
         const { trackIds, data } = req.body;
         if (!Array.isArray(trackIds) || trackIds.length === 0) throw new BadRequestError("trackIds required");
+        
+        const isRoot = req.username && authService && authService.isRootAdmin(req.username);
         const results = await libraryService.batchUpdateTracks(trackIds, data, {
-            userId: req.userId ?? undefined,
-            artistId: req.artistId ?? undefined,
+            userId: isRoot ? undefined : (req.userId ?? undefined),
+            artistId: isRoot ? undefined : (req.artistId ?? undefined),
             isAdmin: !!req.isAdmin,
             username: req.username
         });
@@ -183,9 +186,11 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         if (!req.isAdmin && !req.artistId) throw new ForbiddenError("Unauthorized");
         const { trackIds, deleteFiles } = req.body;
         if (!Array.isArray(trackIds) || trackIds.length === 0) throw new BadRequestError("trackIds required");
+        
+        const isRoot = req.username && authService && authService.isRootAdmin(req.username);
         const results = await libraryService.batchDeleteTracks(trackIds, deleteFiles === true, {
-            userId: req.userId ?? undefined,
-            artistId: req.artistId ?? undefined,
+            userId: isRoot ? undefined : (req.userId ?? undefined),
+            artistId: isRoot ? undefined : (req.artistId ?? undefined),
             isAdmin: !!req.isAdmin
         });
         res.json({ message: "Batch deletion completed", ...results });
@@ -202,7 +207,8 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         const track = database.getTrack(id);
         if (!track) throw new NotFoundError("Track not found");
 
-        if (!req.isAdmin && track.album_id) {
+        const isRoot = req.username && authService && authService.isRootAdmin(req.username);
+        if (!isRoot && !req.isAdmin && track.album_id) {
             const album = database.getAlbum(track.album_id);
             if (album && album.visibility === 'private' && track.owner_id !== req.userId) {
                 if (!database.isTrackInPublicPlaylist(id)) throw new ForbiddenError("Access denied");
@@ -225,7 +231,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         if (!track) throw new NotFoundError("Track not found");
 
         const isRoot = req.username && authService && authService.isRootAdmin(req.username);
-        const isOwner = track.owner_id === req.userId || (track.owner_id === null && track.artist_id === req.artistId);
+        const isOwner = isRoot || track.owner_id === req.userId || (track.owner_id === null && track.artist_id === req.artistId);
         if (!isRoot && !isOwner) throw new ForbiddenError("Access denied: You can only edit your own tracks");
 
         const updated = await libraryService.updateTrack(id, req.body);
@@ -245,7 +251,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         if (!track) throw new NotFoundError("Track not found");
 
         const isRoot = req.username && authService && authService.isRootAdmin(req.username);
-        const isOwner = track.owner_id === req.userId || (track.owner_id === null && track.artist_id === req.artistId);
+        const isOwner = isRoot || track.owner_id === req.userId || (track.owner_id === null && track.artist_id === req.artistId);
         if (!isRoot && !isOwner) throw new ForbiddenError("Access denied: You can only delete your own tracks");
 
         const deleteFile = req.query.deleteFile === "true";
@@ -370,7 +376,9 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         const id = parseInt(req.params.id, 10);
         const track = database.getTrack(id);
         if (!track) throw new NotFoundError("Track not found");
-        if (!req.isAdmin && track.owner_id !== req.artistId) throw new ForbiddenError("Access denied");
+        
+        const isRoot = req.username && authService && authService.isRootAdmin(req.username);
+        if (!isRoot && !req.isAdmin && track.owner_id !== req.artistId) throw new ForbiddenError("Access denied");
 
         const { title, artist, albumTitle, coverUrl } = req.body;
 

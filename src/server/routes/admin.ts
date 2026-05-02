@@ -49,7 +49,8 @@ export function createAdminRoutes(
             const isRoot = req.isRootAdmin;
             let releases: any[] = [];
             
-            if (isRoot && !showMine) {
+            if (isRoot) {
+                // Root admin sees all releases
                 releases = database.getReleases(false).map(r => ({ ...r, is_formal_release: true }));
             } else if (req.userId) {
                 releases = database.getReleasesByOwner(req.userId, false).map(r => ({ ...r, is_formal_release: true }));
@@ -136,8 +137,8 @@ export function createAdminRoutes(
             const showMine = req.query.mine === 'true';
             const isAdmin = req.isAdmin;
             const isRoot = req.isRootAdmin;
-            const artistId = (isRoot && !showMine) ? undefined : (req.artistId || undefined);
-            const ownerId = (isRoot && !showMine) ? undefined : req.userId;
+            const artistId = isRoot ? undefined : (req.artistId || undefined);
+            const ownerId = isRoot ? undefined : req.userId;
             
             const stats = await database.getStats(artistId, ownerId);
             res.json(stats);

@@ -451,6 +451,7 @@ export interface DatabaseService {
     getRecentPlays(limit?: number): PlayHistoryEntry[];
     getTopTracks(limit?: number, days?: number, filter?: 'all' | 'library' | 'releases'): TrackWithPlayCount[];
     getTopArtists(limit?: number, days?: number, filter?: 'all' | 'library' | 'releases'): ArtistWithPlayCount[];
+    getPrimaryAdminId(): number | null;
     getListeningStats(): ListeningStats;
     // Search
     search(query: string, publicOnly?: boolean): { artists: Artist[]; albums: Album[]; tracks: Track[] };

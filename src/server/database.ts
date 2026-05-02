@@ -688,7 +688,7 @@ export function createDatabase(dbPath: string): DatabaseService {
               COALESCE(ar_t.name, ar_a.name, t.artist_name) as artist_name, 
               COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
               COALESCE(t.owner_id, a.owner_id) as owner_id,
-              COALESCE(NULLIF(own.username, 'admin'), ar_t.name, ar_a.name, t.artist_name, own.username) as owner_name
+              COALESCE(own.username, ar_t.name, ar_a.name, t.artist_name) as owner_name
               FROM tracks t
               LEFT JOIN albums a ON t.album_id = a.id
               LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -700,7 +700,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(ar_t.name, ar_a.name, t.artist_name) as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
-            COALESCE(NULLIF(own.username, 'admin'), ar_t.name, ar_a.name, t.artist_name, own.username) as owner_name
+            COALESCE(own.username, ar_t.name, ar_a.name, t.artist_name) as owner_name
             FROM tracks t
             JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -716,7 +716,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(ar_t.name, ar_a.name, t.artist_name) as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
-            COALESCE(NULLIF(own.username, 'admin'), ar_t.name, ar_a.name, t.artist_name, own.username) as owner_name
+            COALESCE(own.username, ar_t.name, ar_a.name, t.artist_name) as owner_name
            FROM tracks t
            LEFT JOIN albums a ON t.album_id = a.id
            LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -728,7 +728,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(ar_t.name, ar_a.name, t.artist_name) as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
-            COALESCE(NULLIF(own.username, 'admin'), ar_t.name, ar_a.name, t.artist_name, own.username) as owner_name
+            COALESCE(own.username, ar_t.name, ar_a.name, t.artist_name) as owner_name
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -742,7 +742,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(ar_t.name, ar_a.name, t.artist_name) as artist_name,
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
-            COALESCE(NULLIF(own.username, 'admin'), ar_t.name, ar_a.name, t.artist_name, own.username) as owner_name
+            COALESCE(own.username, ar_t.name, ar_a.name, t.artist_name) as owner_name
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -754,7 +754,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(ar_t.name, ar_a.name, t.artist_name) as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
-            COALESCE(NULLIF(own.username, 'admin'), ar_t.name, ar_a.name, t.artist_name, own.username) as owner_name
+            COALESCE(own.username, ar_t.name, ar_a.name, t.artist_name) as owner_name
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -769,7 +769,7 @@ export function createDatabase(dbPath: string): DatabaseService {
             COALESCE(ar_t.name, ar_a.name, t.artist_name) as artist_name, 
             COALESCE(ar_t.wallet_address, ar_a.wallet_address) as walletAddress,
             COALESCE(t.owner_id, a.owner_id) as owner_id,
-            COALESCE(NULLIF(own.username, 'admin'), ar_t.name, ar_a.name, t.artist_name, own.username) as owner_name
+            COALESCE(own.username, ar_t.name, ar_a.name, t.artist_name) as owner_name
             FROM tracks t
             LEFT JOIN albums a ON t.album_id = a.id
             LEFT JOIN artists ar_t ON t.artist_id = ar_t.id
@@ -1616,6 +1616,10 @@ export function createDatabase(dbPath: string): DatabaseService {
             const dateStr = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
             let fc = ''; if (filter === 'releases') fc = 'AND al.is_release = 1'; else if (filter === 'library') fc = 'AND (al.is_release = 0 OR al.id IS NULL)';
             return db.prepare(`WITH RP AS (SELECT COALESCE(t.artist_id, al.artist_id) as aid, COUNT(*) as play_count FROM play_history ph JOIN tracks t ON ph.track_id = t.id LEFT JOIN albums al ON t.album_id = al.id WHERE ph.played_at >= ? ${fc} GROUP BY aid) SELECT ar.*, SUM(rp.play_count) as play_count FROM RP rp JOIN artists ar ON ar.id = rp.aid GROUP BY ar.id ORDER BY play_count DESC LIMIT ?`).all(dateStr, limit) as any[];
+        },
+        getPrimaryAdminId(): number | null {
+            const admin = db.prepare("SELECT id FROM admin WHERE role = 'admin' ORDER BY id ASC LIMIT 1").get() as { id: number } | undefined;
+            return admin ? admin.id : null;
         },
         getListeningStats(): ListeningStats {
             const now = new Date(); const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();

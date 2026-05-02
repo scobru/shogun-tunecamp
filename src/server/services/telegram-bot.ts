@@ -513,7 +513,8 @@ ${(this.database.db.prepare("SELECT title, artist_name FROM tracks ORDER BY id D
             if (isVerbose) {
                 await this.safeReply(ctx, `⚙️ Processing ${fileName}...`);
             }
-            const result = await this.scanner.processAudioFile(filePath, this.musicDir, undefined, undefined, undefined, suggestedCoverPath, metadataHints);
+            const primaryAdminId = this.database.getPrimaryAdminId();
+            const result = await this.scanner.processAudioFile(filePath, this.musicDir, undefined, primaryAdminId || undefined, undefined, suggestedCoverPath, metadataHints);
 
             if (result?.success) {
                 await this.safeReply(ctx, `✅ UPLOADED TO TUNECAMP!\n\n${result.message}`);
