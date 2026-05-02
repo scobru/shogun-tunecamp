@@ -40,6 +40,8 @@ interface LocalTrack {
   format?: string;
   isDirty?: boolean; // Track if metadata changed
   lyrics?: string;
+  genre?: string;
+  year?: number | string;
   showLyrics?: boolean; // Toggle visibility of lyrics editor
   registrationStatus?: 'unknown' | 'registered' | 'unregistered';
   isRegistering?: boolean;
@@ -55,7 +57,7 @@ interface LocalRelease {
   slug: string;
   description?: string;
   credits?: string;
-  tags?: string;
+  genre?: string;
   visibility: "public" | "private" | "unlisted";
   is_public: boolean;
   published_to_gundb?: boolean;
@@ -95,7 +97,7 @@ export default function AdminReleaseEditor() {
     visibility: "private",
     description: "",
     credits: "",
-    tags: "",
+    genre: "",
     price: 0,
     priceUsdc: 0,
     currency: "ETH",
@@ -269,8 +271,8 @@ export default function AdminReleaseEditor() {
         // Map frontend state to API expected keys
         publishedToGunDB: metadata.published_to_gundb,
         publishedToAP: metadata.published_to_ap,
-        genres: metadata.tags
-          ? metadata.tags.split(",").map((s: string) => s.trim())
+        genres: metadata.genre
+          ? metadata.genre.split(",").map((s: string) => s.trim())
           : [],
         track_ids, // Send full list of IDs to sync associations
         tracks_data: tracks.map((t) => ({ 
@@ -332,6 +334,8 @@ export default function AdminReleaseEditor() {
             priceUsdc: t.priceUsdc,
             currency: t.currency || "ETH",
             lyrics: t.lyrics,
+            genre: t.genre,
+            year: t.year,
           };
 
           if (t.file_path) {
@@ -773,13 +777,13 @@ export default function AdminReleaseEditor() {
                 </div>
 
                 <div className="form-control">
-                  <label className="label text-xs font-bold uppercase tracking-widest opacity-50">Tags</label>
+                  <label className="label text-xs font-bold uppercase tracking-widest opacity-50">Genre / Tags</label>
                   <input
                     type="text"
                     className="input input-bordered w-full text-sm"
                     placeholder="techno, ambient..."
-                    value={metadata.tags || ""}
-                    onChange={(e) => setMetadata((prev) => ({ ...prev, tags: e.target.value }))}
+                    value={metadata.genre || ""}
+                    onChange={(e) => setMetadata((prev) => ({ ...prev, genre: e.target.value }))}
                   />
                 </div>
               </div>
@@ -920,6 +924,34 @@ export default function AdminReleaseEditor() {
                                       setTracks(newTracks);
                                     }}
                                     className="input input-ghost input-xs w-full font-mono text-[9px] opacity-40 focus:opacity-100 p-0 h-auto"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-[9px] font-mono opacity-40 uppercase shrink-0">Genre:</span>
+                                  <input
+                                    type="text"
+                                    value={track.genre || ""}
+                                    onChange={(e) => {
+                                      const newTracks = [...tracks];
+                                      newTracks[idx].genre = e.target.value;
+                                      newTracks[idx].isDirty = true;
+                                      setTracks(newTracks);
+                                    }}
+                                    className="input input-ghost input-xs w-24 font-mono text-[9px] opacity-40 focus:opacity-100 p-0 h-auto"
+                                    placeholder="Techno..."
+                                  />
+                                  <span className="text-[9px] font-mono opacity-40 uppercase shrink-0">Year:</span>
+                                  <input
+                                    type="number"
+                                    value={track.year || ""}
+                                    onChange={(e) => {
+                                      const newTracks = [...tracks];
+                                      newTracks[idx].year = e.target.value;
+                                      newTracks[idx].isDirty = true;
+                                      setTracks(newTracks);
+                                    }}
+                                    className="input input-ghost input-xs w-16 font-mono text-[9px] opacity-40 focus:opacity-100 p-0 h-auto"
+                                    placeholder="2024"
                                   />
                                 </div>
                               </div>

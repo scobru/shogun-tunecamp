@@ -18,6 +18,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
     const [currency, setCurrency] = useState<'ETH' | 'USD' | 'USDC'>('ETH');
     
     const [visibility, setVisibility] = useState<'public' | 'private' | 'unlisted'>('private');
+    const [genre, setGenre] = useState('');
     
     // For simplicity, just text fields. In a real app, this would be more complex.
     const [error, setError] = useState('');
@@ -42,6 +43,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                 setArtistId(e.detail.artist_id || ''); // Fixed property name
                 setType(e.detail.type || 'album');
                 setYear(e.detail.year ? parseInt(e.detail.year) : new Date().getFullYear()); // Ensure year is a number
+                setGenre(e.detail.genre || '');
                 // Handle visibility: check new field, then fallback to is_public (boolean)
                 setVisibility(e.detail.visibility || (e.detail.is_public ? 'public' : 'private'));
                 setLicense(e.detail.license || 'copyright');
@@ -65,6 +67,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                 setArtistId(''); 
                 setType('album');
                 setYear(new Date().getFullYear());
+                setGenre('');
                 setVisibility('private');
                 setVisibility('private');
                 setLicense('copyright');
@@ -145,6 +148,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                     artistId: artistId || undefined,
                     type,
                     year,
+                    genre,
                     visibility,
                     license,
                     track_ids: selectedTrackIds,
@@ -158,6 +162,7 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                     artistId: artistId || undefined, 
                     type, 
                     year,
+                    genre,
                     visibility,
                     license,
                     track_ids: selectedTrackIds,
@@ -257,6 +262,19 @@ export const AdminReleaseModal = ({ onReleaseUpdated }: AdminReleaseModalProps) 
                                 onChange={e => setYear(parseInt(e.target.value))}
                             />
                         </div>
+                    </div>
+
+                    <div className="form-control">
+                        <label className="label">
+                            <span className="label-text">Genre</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            className="input input-bordered w-full" 
+                            value={genre}
+                            onChange={e => setGenre(e.target.value)}
+                            placeholder="e.g. Rock, Electronic"
+                        />
                     </div>
 
                     <div className="form-control">

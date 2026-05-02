@@ -399,6 +399,8 @@ export interface DatabaseService {
     updateTrackLosslessPath(id: number, losslessPath: string | null): void;
     updateTrackExternalArtwork(id: number, artworkPath: string | null): void;
     updateTrackLyrics(id: number, lyrics: string | null): void;
+    updateTrackGenre(id: number, genre: string | null): void;
+    updateTrackYear(id: number, year: number | null): void;
     updateTrackPathsPrefix(oldPrefix: string, newPrefix: string): void;
     deleteTrack(id: number, owner_id?: number): void;
     mergeTracks(fromId: number, toId: number): void;

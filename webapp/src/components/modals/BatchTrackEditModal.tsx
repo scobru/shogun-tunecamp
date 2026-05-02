@@ -18,6 +18,8 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
   const [price, setPrice] = useState("");
   const [priceUsdc, setPriceUsdc] = useState("");
   const [externalArtwork, setExternalArtwork] = useState("");
+  const [genre, setGenre] = useState("");
+  const [year, setYear] = useState("");
   const currency = "ETH";
 
   // Control which fields are actually applied
@@ -26,6 +28,8 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
   const [applyOwner, setApplyOwner] = useState(false);
   const [applyPricing, setApplyPricing] = useState(false);
   const [applyArtwork, setApplyArtwork] = useState(false);
+  const [applyGenre, setApplyGenre] = useState(false);
+  const [applyYear, setApplyYear] = useState(false);
 
   // Dropdown data
   const [artists, setArtists] = useState<any[]>([]);
@@ -104,6 +108,14 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
 
       if (applyArtwork) {
         payload.externalArtwork = externalArtwork.trim();
+      }
+
+      if (applyGenre) {
+        payload.genre = genre.trim();
+      }
+
+      if (applyYear) {
+        payload.year = year ? parseInt(year) : null;
       }
 
       const res = (await API.updateTracksBatch(selectedIds, payload)) as any;
@@ -311,7 +323,7 @@ export const BatchTrackEditModal = ({ selectedIds, onTracksUpdated, onClose }: B
             <button
               type="submit"
               className="btn btn-primary gap-2"
-              disabled={loading || (!applyArtist && !applyAlbum && !applyOwner && !applyPricing && !applyArtwork)}
+              disabled={loading || (!applyArtist && !applyAlbum && !applyOwner && !applyPricing && !applyArtwork && !applyGenre && !applyYear)}
             >
               <Save size={18} /> {loading ? "Updating..." : `Update ${selectedIds.length} Tracks`}
             </button>

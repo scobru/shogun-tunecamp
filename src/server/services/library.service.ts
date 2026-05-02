@@ -196,7 +196,7 @@ export class LibraryService {
         const track = this.db.getTrack(trackId);
         if (!track) throw new Error("Track not found");
 
-        const { title, artistId, artist, albumId, album, ownerId, trackNumber, genre, price, priceUsdc, currency, lyrics, externalArtwork, fileName, duration } = data;
+        const { title, artistId, artist, albumId, album, ownerId, trackNumber, genre, year, price, priceUsdc, currency, lyrics, externalArtwork, fileName, duration } = data;
 
         let finalArtistId = artistId !== undefined ? artistId : undefined;
         if (finalArtistId === null && typeof artist === 'string' && artist.trim() !== "") {
@@ -271,6 +271,8 @@ export class LibraryService {
             this.db.updateTrackPrice(trackId, price ?? track.price, priceUsdc ?? track.price_usdc, currency ?? track.currency);
         }
         if (lyrics !== undefined) this.db.updateTrackLyrics(trackId, lyrics);
+        if (genre !== undefined) this.db.updateTrackGenre(trackId, genre);
+        if (year !== undefined) this.db.updateTrackYear(trackId, year ? Number(year) : null);
         if (externalArtwork !== undefined) this.db.updateTrackExternalArtwork(trackId, externalArtwork);
 
         const updatedTrack = this.db.getTrack(trackId);

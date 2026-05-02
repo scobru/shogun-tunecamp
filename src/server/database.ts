@@ -1431,6 +1431,8 @@ export function createDatabase(dbPath: string): DatabaseService {
         updateTrackLosslessPath(id: number, losslessPath: string | null): void { db.prepare("UPDATE tracks SET lossless_path = ? WHERE id = ?").run(losslessPath, id); },
         updateTrackExternalArtwork(id: number, artworkPath: string | null): void { db.prepare("UPDATE tracks SET external_artwork = ? WHERE id = ?").run(artworkPath, id); },
         updateTrackLyrics(id: number, lyrics: string | null): void { db.prepare("UPDATE tracks SET lyrics = ? WHERE id = ?").run(lyrics, id); },
+        updateTrackGenre(id: number, genre: string | null): void { db.prepare("UPDATE tracks SET genre = ? WHERE id = ?").run(genre, id); },
+        updateTrackYear(id: number, year: number | null): void { db.prepare("UPDATE tracks SET year = ? WHERE id = ?").run(year, id); },
         updateTrackPathsPrefix(oldPrefix: string, newPrefix: string): void {
             db.prepare("UPDATE tracks SET file_path = ? || SUBSTR(file_path, LENGTH(?) + 1) WHERE file_path = ? OR file_path LIKE ? || '/%'").run(newPrefix, oldPrefix, oldPrefix, oldPrefix);
             db.prepare("UPDATE tracks SET lossless_path = ? || SUBSTR(lossless_path, LENGTH(?) + 1) WHERE lossless_path = ? OR lossless_path LIKE ? || '/%'").run(newPrefix, oldPrefix, oldPrefix, oldPrefix);

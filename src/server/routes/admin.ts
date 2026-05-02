@@ -532,8 +532,9 @@ export function createAdminRoutes(
             if (body.currency) updates.currency = body.currency;            if (body.use_nft !== undefined) {
                 updates.use_nft = body.use_nft ? 1 : 0;
             }
-            if (body.genres) {
-                const genreStr = Array.isArray(body.genres) ? body.genres.join(", ") : body.genres;
+            const genreToUse = body.genre || body.genres;
+            if (genreToUse) {
+                const genreStr = Array.isArray(genreToUse) ? genreToUse.join(", ") : genreToUse;
                 updates.genre = genreStr;
             }
             if (body.externalLinks) updates.external_links = JSON.stringify(body.externalLinks);
@@ -560,6 +561,7 @@ export function createAdminRoutes(
                     // Legacy album update - map generic fields to specific update methods or a generic one if available
                     if (updates.title) database.updateAlbumTitle(id, updates.title);
                     if (updates.genre) database.updateAlbumGenre(id, updates.genre);
+                    if (updates.year) database.updateAlbumYear(id, updates.year);
                     if (updates.visibility) database.updateAlbumVisibility(id, updates.visibility);
                     if (updates.download !== undefined) database.updateAlbumDownload(id, updates.download);
                     if (updates.price !== undefined || updates.price_usdc !== undefined) {

@@ -19,6 +19,8 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
   const [currentTrackData, setCurrentTrackData] = useState<any>(null);
   const [hasCustomArtwork, setHasCustomArtwork] = useState(false);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
+  const [genre, setGenre] = useState("");
+  const [year, setYear] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingArtwork, setUploadingArtwork] = useState(false);
@@ -42,6 +44,8 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
         setTrackNum(e.detail.track_num ? String(e.detail.track_num) : "");
         setArtworkUrl(e.detail.coverUrl || null);
         setHasCustomArtwork(!!e.detail.external_artwork);
+        setGenre(e.detail.genre || "");
+        setYear(e.detail.year ? String(e.detail.year) : "");
         setCurrentTrackData(e.detail);
 
         loadData();
@@ -136,6 +140,8 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
       const payload: any = {
         title,
         trackNumber: trackNum ? parseInt(trackNum) : undefined,
+        genre,
+        year: year ? parseInt(year) : null,
       };
 
       if (matchedArtist) {
@@ -248,6 +254,33 @@ export const AdminTrackModal = ({ onTrackUpdated }: AdminTrackModalProps) => {
               onChange={(e) => setTitle(e.target.value)}
               required
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text">Genre</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered w-full"
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+                placeholder="e.g. Techno"
+              />
+            </div>
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text">Year</span>
+              </label>
+              <input
+                type="number"
+                className="input input-bordered w-full"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                placeholder="e.g. 2024"
+              />
+            </div>
           </div>
 
           <div className="form-control">
