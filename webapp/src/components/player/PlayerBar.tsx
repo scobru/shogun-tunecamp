@@ -83,11 +83,10 @@ export const PlayerBar = () => {
     // 1. Determine Source URL
     const isLosslessFormat =
       currentTrack.format &&
-      ["wav", "flac", "lossless"].includes(currentTrack.format.toLowerCase());
+      ["wav", "lossless"].includes(currentTrack.format.toLowerCase());
     const isLosslessExt =
       currentTrack.filename &&
-      (currentTrack.filename.toLowerCase().endsWith(".wav") ||
-        currentTrack.filename.toLowerCase().endsWith(".flac"));
+      currentTrack.filename.toLowerCase().endsWith(".wav");
     const forceMp3 =
       !currentTrack.streamUrl && (isLosslessFormat || isLosslessExt);
 

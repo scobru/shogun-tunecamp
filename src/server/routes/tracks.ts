@@ -439,13 +439,25 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         const stat = await fs.promises.stat(trackPath);
         const ext = path.extname(trackPath).toLowerCase();
         let targetFormat = req.query.format as string;
-        if (!targetFormat && ((ext === '.wav' || ext === '.flac') || usingLosslessFallback)) targetFormat = 'mp3';
+        
+        // Only force MP3 transcoding for WAV (heavy/poorly supported) or when using a lossless fallback
+        // FLAC is well-supported natively and should be served as-is for better seeking/quality
+        if (!targetFormat && (ext === '.wav' || usingLosslessFallback)) targetFormat = 'mp3';
 
         if (targetFormat && (targetFormat !== ext.substring(1) || usingLosslessFallback)) {
             const contentTypeMap: any = { 'mp3': 'audio/mpeg', 'aac': 'audio/aac', 'ogg': 'audio/ogg', 'opus': 'audio/opus' };
             res.setHeader("Content-Type", contentTypeMap[targetFormat] || 'audio/mpeg');
-            ffmpeg(trackPath).format(targetFormat).audioBitrate((req.query.bitrate as string) || '128k')
-                .on('error', (err) => { if (!err.message.includes("Output stream closed")) console.error('Transcoding error:', err.message); })
+            
+            ffmpeg(trackPath)
+                .format(targetFormat)
+                .audioCodec(targetFormat === 'mp3' ? 'libmp3lame' : 'copy')
+                .audioChannels(2)
+                .audioBitrate((req.query.bitrate as string) || '192k')
+                .on('error', (err) => { 
+                    if (!err.message.includes("Output stream closed")) {
+                        console.error('Transcoding error:', err.message);
+                    }
+                })
                 .pipe(res, { end: true });
             return;
         }
