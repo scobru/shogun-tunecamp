@@ -53,55 +53,12 @@ export class TelegramBotService {
                 return next();
             });
 
-            // Handle both messages and channel posts
-            const handleUpdate = async (ctx: any) => {
-                try {
-                    const msg = ctx.message || ctx.channelPost;
-                    if (!msg) return;
-
-                    const chatId = ctx.chat.id.toString();
-
-                    // If it's a photo, store it as context for the next audio file
-                    if (msg.photo) {
-                        // Only store photo context if it's from an authorized source/admin
-                        if (this.isAuthorized(ctx)) {
-                            const photoId = msg.photo[msg.photo.length - 1].file_id;
-                            this.recentContext.set(chatId, {
-                                photoId,
-                                caption: msg.caption,
-                                timestamp: Date.now()
-                            });
-                            console.log(`[TelegramBot] Photo context saved for chat ${chatId}`);
-                        }
-                        return;
-                    }
-
-                    if (msg.audio) {
-                        await this.handleAudio(ctx, msg.audio);
-                    } else if (msg.document) {
-                        const doc = msg.document;
-                        if (doc.mime_type?.startsWith('audio/') || 
-                            ['.mp3', '.flac', '.wav', '.ogg', '.m4a'].some((ext: string) => doc.file_name?.toLowerCase().endsWith(ext))) {
-                            await this.handleAudio(ctx, doc);
-                        }
-                    }
-                } catch (err) {
-                    console.error('[TelegramBot] Error in update loop:', err);
-                }
-            };
-
-            this.bot.on('photo', handleUpdate);
-            this.bot.on('audio', handleUpdate);
-            this.bot.on('document', handleUpdate);
-            this.bot.on('channel_post', handleUpdate);
-
-            // Welcome/Info helper
+            // 1. Define command handlers
             const handleStatus = (ctx: any) => {
                 const chatId = ctx.chat.id;
                 this.safeReply(ctx, `Tunecamp Music Ingester Bot is active!\nChat ID: ${chatId}`);
             };
 
-            // Command handlers
             const commands: Record<string, (ctx: any) => Promise<any> | any> = {
                 'start': handleStatus,
                 'status': handleStatus,
@@ -176,25 +133,60 @@ The bot will automatically associate the photo as the cover and use the hashtags
                 }
             };
 
-            // Register commands for private messages
-            for (const [cmd, handler] of Object.entries(commands)) {
-                this.bot.command(cmd, handler);
-            }
-            
-            // Explicitly handle commands in channel posts
-            this.bot.on('channel_post', async (ctx, next) => {
-                const post = ctx.channelPost as any;
-                if (post && post.text && post.text.startsWith('/')) {
-                    const parts = post.text.split(' ');
-                    const cmdWithBot = parts[0].substring(1);
-                    const cmd = cmdWithBot.split('@')[0];
-                    
-                    if (commands[cmd]) {
-                        return commands[cmd](ctx);
+            // 2. Define the main update handler
+            const handleUpdate = async (ctx: any) => {
+                try {
+                    const msg = ctx.message || ctx.channelPost;
+                    if (!msg) return;
+
+                    const chatId = ctx.chat.id.toString();
+                    const chatType = ctx.chat.type;
+
+                    // Handle Commands
+                    const text = msg.text || msg.caption;
+                    if (text && text.startsWith('/')) {
+                        const parts = text.split(' ');
+                        const cmdWithBot = parts[0].substring(1);
+                        const cmd = cmdWithBot.split('@')[0];
+                        
+                        if (commands[cmd]) {
+                            console.log(`[TelegramBot] Command received in ${chatType} ${chatId}: ${cmd}`);
+                            return await commands[cmd](ctx);
+                        }
                     }
+
+                    // Handle Photo context
+                    if (msg.photo) {
+                        if (this.isAuthorized(ctx)) {
+                            const photoId = msg.photo[msg.photo.length - 1].file_id;
+                            this.recentContext.set(chatId, {
+                                photoId,
+                                caption: msg.caption,
+                                timestamp: Date.now()
+                            });
+                            console.log(`[TelegramBot] Photo context saved for chat ${chatId}`);
+                        }
+                        return;
+                    }
+
+                    // Handle Audio files
+                    if (msg.audio) {
+                        await this.handleAudio(ctx, msg.audio);
+                    } else if (msg.document) {
+                        const doc = msg.document;
+                        if (doc.mime_type?.startsWith('audio/') || 
+                            ['.mp3', '.flac', '.wav', '.ogg', '.m4a'].some((ext: string) => doc.file_name?.toLowerCase().endsWith(ext))) {
+                            await this.handleAudio(ctx, doc);
+                        }
+                    }
+                } catch (err) {
+                    console.error('[TelegramBot] Error in update loop:', err);
                 }
-                return next();
-            });
+            };
+
+            // 3. Register handlers
+            this.bot.on('message', handleUpdate);
+            this.bot.on('channel_post', handleUpdate);
 
             await this.bot.launch();
             this.isRunning = true;
@@ -238,11 +230,14 @@ The bot will automatically associate the photo as the cover and use the hashtags
         const allowed = allowedChannelsSetting.split(',').map(s => s.trim());
         
         if (chatType === 'channel') {
+            // In a channel, if the channel itself is whitelisted, we allow commands
             return allowed.includes(chatId);
         } else if (chatType === 'private') {
             return !!(senderId && allowed.includes(senderId));
         } else if (chatType === 'group' || chatType === 'supergroup') {
-            // Only admins are authorized to trigger ingestion or sensitive commands in groups
+            // If the chat itself is whitelisted (e.g. linked group), allow anyone in the group
+            if (allowed.includes(chatId)) return true;
+            // Otherwise, check if the sender is whitelisted
             return !!(senderId && allowed.includes(senderId));
         }
         
