@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { ListMusic, Globe, Lock, Music, LayoutGrid, List, AlignJustify } from "lucide-react";
 import type { Playlist } from "../types";
 import { ZenPlaylists } from "../services/zen";
+import clsx from "clsx";
 
 // Extended interface to handle both types
 interface UnifiedPlaylist extends Playlist {
