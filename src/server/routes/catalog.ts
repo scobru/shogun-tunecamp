@@ -17,6 +17,19 @@ export function createCatalogRoutes(catalogService: CatalogService): Router {
             res.status(500).json({ error: "Failed to get catalog" });
         }
     });
+    
+    /**
+     * GET /api/catalog/genres
+     * Get list of all unique genres
+     */
+    router.get("/genres", (req: any, res) => {
+        try {
+            const genres = catalogService.getGenres(req.isAdmin);
+            res.json(genres);
+        } catch (error) {
+            res.status(500).json({ error: "Failed to get genres" });
+        }
+    });
 
 
     /**

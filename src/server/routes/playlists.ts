@@ -12,8 +12,22 @@ export function createPlaylistsRoutes(database: DatabaseService, zendbService?: 
      */
     router.get("/", (req: AuthenticatedRequest, res) => {
         try {
+            const genres = database.getGenres(!req.isAdmin);
+            const genreCounts = database.getGenreTrackCounts(!req.isAdmin);
+            
+            const dynamicPlaylists = genres.map(genre => ({
+                id: `genre:${genre}`,
+                name: `${genre.charAt(0).toUpperCase() + genre.slice(1)} Mix`,
+                username: "system",
+                description: `Dynamic playlist for ${genre}`,
+                isPublic: true,
+                coverPath: null,
+                created_at: new Date().toISOString(),
+                trackCount: genreCounts.get(genre.toLowerCase()) || 0 
+            }));
+
             if (req.isAdmin) {
-                res.json(database.getPlaylists());
+                res.json([...database.getPlaylists(), ...dynamicPlaylists]);
             } else if (req.username) {
                 const myPlaylists = database.getPlaylists(req.username, false);
                 const publicPlaylists = database.getPlaylists(undefined, true);
@@ -25,9 +39,9 @@ export function createPlaylistsRoutes(database: DatabaseService, zendbService?: 
                         combined.push(p);
                     }
                 }
-                res.json(combined);
+                res.json([...combined, ...dynamicPlaylists]);
             } else {
-                res.json(database.getPlaylists(undefined, true));
+                res.json([...database.getPlaylists(undefined, true), ...dynamicPlaylists]);
             }
         } catch (error) {
             console.error("Error getting playlists:", error);
@@ -68,9 +82,14 @@ export function createPlaylistsRoutes(database: DatabaseService, zendbService?: 
     router.put("/:id", (req: AuthenticatedRequest, res) => {
         if (!req.isAdmin && !req.username) return res.status(401).json({ error: "Unauthorized" });
         if (!req.isAdmin && !req.isActive) return res.status(403).json({ error: "Account not active" });
+        
+        const idStr = req.params.id as string;
+        if (idStr.startsWith("genre:")) {
+            return res.status(403).json({ error: "Cannot modify dynamic genre playlists" });
+        }
+
         try {
-            const id = parseInt(req.params.id as string, 10);
-            
+            const id = parseInt(idStr, 10);
             const playlist = database.getPlaylist(id);
             if (!playlist) return res.status(404).json({ error: "Playlist not found" });
             
@@ -102,7 +121,28 @@ export function createPlaylistsRoutes(database: DatabaseService, zendbService?: 
      */
     router.get("/:id", (req: AuthenticatedRequest, res) => {
         try {
-            const id = parseInt(req.params.id as string, 10);
+            const idStr = req.params.id as string;
+            
+            // Handle dynamic genre playlists
+            if (idStr.startsWith("genre:")) {
+                const genre = idStr.replace("genre:", "");
+                const tracks = database.getTracksByGenre(genre, !req.isAdmin);
+                const genreCounts = database.getGenreTrackCounts(!req.isAdmin);
+                
+                return res.json({
+                    id: idStr,
+                    name: `${genre.charAt(0).toUpperCase() + genre.slice(1)} Mix`,
+                    username: "system",
+                    description: `Dynamic playlist for ${genre}`,
+                    isPublic: true,
+                    coverPath: null,
+                    created_at: new Date().toISOString(),
+                    trackCount: genreCounts.get(genre.toLowerCase()) || tracks.length,
+                    tracks,
+                });
+            }
+
+            const id = parseInt(idStr, 10);
             const playlist = database.getPlaylist(id);
 
             if (!playlist) {

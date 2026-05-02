@@ -443,6 +443,9 @@ export interface DatabaseService {
     // Stats
     getStats(artistId?: number, ownerId?: number): Promise<{ artists: number; albums: number; tracks: number; publicAlbums: number; totalUsers: number; storageUsed: number; networkSites: number; totalTracks: number; genresCount: number }>;
     getPublicTracksCount(): number;
+    getGenres(publicOnly?: boolean): string[];
+    getTracksByGenre(genre: string, publicOnly?: boolean): Track[];
+    getGenreTrackCounts(publicOnly?: boolean): Map<string, number>;
     // Play History
     recordPlay(trackId: number, playedAt?: string): void;
     getRecentPlays(limit?: number): PlayHistoryEntry[];

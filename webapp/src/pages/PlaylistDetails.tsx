@@ -103,7 +103,7 @@ export const PlaylistDetails = () => {
           ) : (
             <Music size={64} />
           )}
-          {isAdminAuthenticated && (
+          {isAdminAuthenticated && !id?.startsWith("genre:") && (
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
               <button
                 className="btn btn-sm btn-circle btn-ghost text-white"
@@ -140,7 +140,7 @@ export const PlaylistDetails = () => {
             </div>
           </div>
 
-          {isAdminAuthenticated && (
+          {isAdminAuthenticated && !id?.startsWith("genre:") && (
             <div className="mt-6 flex gap-2">
               <button
                 className={`btn btn-sm btn-outline gap-2 ${playlist.isPublic ? "btn-secondary" : "btn-ghost"}`}
@@ -230,7 +230,7 @@ export const PlaylistDetails = () => {
                       : "-"}
                   </td>
                   <td>
-                    {isAdminAuthenticated && (
+                    {isAdminAuthenticated && !id?.startsWith("genre:") && (
                       <div className="dropdown dropdown-end dropdown-hover opacity-0 group-hover:opacity-100">
                         <label
                           tabIndex={0}

@@ -149,6 +149,26 @@ export const MyMusic = () => {
               </button>
             </div>
             <div className="divider"></div>
+            
+            {stats.genres && stats.genres.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-lg flex items-center gap-2">
+                  <BarChart2 size={20} className="text-accent" /> Library Genres
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {stats.genres.map((genre: string) => (
+                    <button
+                      key={genre}
+                      className="btn btn-sm btn-outline btn-accent rounded-full lowercase"
+                      onClick={() => navigate(`/search?q=${encodeURIComponent(genre)}`)}
+                    >
+                      {genre}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="text-center opacity-50 py-8">
               <BarChart2 size={48} className="mx-auto mb-4" />
               <p>Personal analytics and sales data coming soon.</p>

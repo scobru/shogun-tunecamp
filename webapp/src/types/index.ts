@@ -273,6 +273,7 @@ export interface AdminStats {
     storageUsed: number;
     networkSites: number;
     genresCount?: number;
+    genres?: string[];
 }
 
 export interface ZenProfile {

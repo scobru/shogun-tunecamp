@@ -25,6 +25,8 @@ export class CatalogService {
             publicStats.albums = allAlbums.length;
             publicStats.tracks = this.database.getPublicTracksCount();
             publicStats.totalTracks = publicStats.tracks;
+            publicStats.genres = this.database.getGenres(true);
+            publicStats.genresCount = publicStats.genres.length;
         }
 
         return {
@@ -33,6 +35,10 @@ export class CatalogService {
             recentReleases,
             recentAlbums
         };
+    }
+
+    getGenres(isAdmin: boolean) {
+        return this.database.getGenres(!isAdmin);
     }
 
     async search(query: string, isAdmin: boolean) {

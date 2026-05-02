@@ -153,6 +153,23 @@ export const Home = () => {
         </div>
       </div>
 
+      {/* Genres Section */}
+      {stats.genres && stats.genres.length > 0 && (
+        <div className="px-2">
+          <div className="flex flex-wrap gap-2 justify-center py-6 px-4 rounded-3xl bg-base-200/20 border border-white/5">
+            {stats.genres.map((genre: string) => (
+              <button
+                key={genre}
+                className="btn btn-xs md:btn-sm btn-ghost border border-white/10 hover:bg-primary hover:text-primary-content hover:border-primary transition-all rounded-full lowercase"
+                onClick={() => navigate(`/search?q=${encodeURIComponent(genre)}`)}
+              >
+                {genre}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Recent Releases */}
       <div className="space-y-6">
         <div id="recent-releases" className="flex items-end justify-between px-2">

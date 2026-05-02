@@ -1548,15 +1548,53 @@ export function createDatabase(dbPath: string): DatabaseService {
             const totalUsers = (artistId || ownerId) ? 0 : (db.prepare("SELECT COUNT(*) as count FROM admin").get() as any)?.count || 0;
             const storage = db.prepare(`SELECT SUM(duration) as total FROM tracks ${filter}`).get() as any;
             const allGenres = db.prepare(`SELECT genre FROM albums ${filter ? filter + ' AND' : 'WHERE'} genre IS NOT NULL AND genre != ''`).all() as { genre: string }[];
-            const genreSet = new Set<string>(); allGenres.forEach(r => r.genre.split(',').forEach(g => genreSet.add(g.trim().toLowerCase())));
-            return { artists, albums, tracks, totalTracks: tracks, publicAlbums, totalUsers, storageUsed: (storage.total || 0) * 40 * 1024, networkSites: (artistId || ownerId) ? 0 : (db.prepare("SELECT COUNT(*) as count FROM remote_actors WHERE type = 'Service'").get() as any).count, genresCount: genreSet.size };
+            const allTrackGenres = db.prepare(`SELECT genre FROM tracks ${filter ? filter + ' AND' : 'WHERE'} genre IS NOT NULL AND genre != ''`).all() as { genre: string }[];
+            const genreSet = new Set<string>(); 
+            allGenres.forEach(r => r.genre.split(',').forEach(g => genreSet.add(g.trim().toLowerCase())));
+            allTrackGenres.forEach(r => r.genre.split(',').forEach(g => genreSet.add(g.trim().toLowerCase())));
+            return { artists, albums, tracks, totalTracks: tracks, publicAlbums, totalUsers, storageUsed: (storage.total || 0) * 40 * 1024, networkSites: (artistId || ownerId) ? 0 : (db.prepare("SELECT COUNT(*) as count FROM remote_actors WHERE type = 'Service'").get() as any).count, genresCount: genreSet.size, genres: Array.from(genreSet).sort() };
         },
         getPublicTracksCount(): number { return (db.prepare("SELECT COUNT(t.id) as count FROM tracks t JOIN albums a ON t.album_id = a.id WHERE a.visibility = 'public'").get() as any).count; },
+        getGenres(publicOnly = false): string[] {
+            const genreSet = new Set<string>();
+            const albumGenres = db.prepare(publicOnly ? "SELECT genre FROM albums WHERE is_release = 1 AND visibility IN ('public', 'unlisted') AND genre IS NOT NULL AND genre != ''" : "SELECT genre FROM albums WHERE genre IS NOT NULL AND genre != ''").all() as { genre: string }[];
+            albumGenres.forEach(r => r.genre.split(',').forEach(g => genreSet.add(g.trim().toLowerCase())));
+            
+            const trackGenres = db.prepare(publicOnly ? "SELECT t.genre FROM tracks t JOIN albums a ON t.album_id = a.id WHERE a.is_release = 1 AND a.visibility IN ('public', 'unlisted') AND t.genre IS NOT NULL AND t.genre != ''" : "SELECT genre FROM tracks WHERE genre IS NOT NULL AND genre != ''").all() as { genre: string }[];
+            trackGenres.forEach(r => r.genre.split(',').forEach(g => genreSet.add(g.trim().toLowerCase())));
+            
+            return Array.from(genreSet).sort();
+        },
+        getTracksByGenre(genre: string, publicOnly = false): Track[] {
+            const lq = `%${genre}%`;
+            const sql = publicOnly ? 
+                "SELECT t.*, a.title as album_title, COALESCE(ar_t.name, ar_a.name) as artist_name, COALESCE(ar_t.id, ar_a.id) as artist_id FROM tracks t LEFT JOIN albums a ON t.album_id = a.id LEFT JOIN artists ar_t ON t.artist_id = ar_t.id LEFT JOIN artists ar_a ON a.artist_id = ar_a.id WHERE a.is_release = 1 AND a.visibility IN ('public', 'unlisted') AND (t.genre LIKE ? OR a.genre LIKE ?)" :
+                "SELECT t.*, a.title as album_title, COALESCE(ar_t.name, ar_a.name) as artist_name, COALESCE(ar_t.id, ar_a.id) as artist_id FROM tracks t LEFT JOIN albums a ON t.album_id = a.id LEFT JOIN artists ar_t ON t.artist_id = ar_t.id LEFT JOIN artists ar_a ON a.artist_id = ar_a.id WHERE t.genre LIKE ? OR a.genre LIKE ?";
+            return db.prepare(sql).all(lq, lq) as Track[];
+        },
+        getGenreTrackCounts(publicOnly = false): Map<string, number> {
+            const sql = publicOnly ? 
+                "SELECT t.genre FROM tracks t JOIN albums a ON t.album_id = a.id WHERE a.is_release = 1 AND a.visibility IN ('public', 'unlisted') AND t.genre IS NOT NULL AND t.genre != ''" :
+                "SELECT genre FROM tracks WHERE genre IS NOT NULL AND genre != ''";
+            const rows = db.prepare(sql).all() as { genre: string }[];
+            const counts = new Map<string, number>();
+            rows.forEach(r => {
+                r.genre.split(',').forEach(g => {
+                    const name = g.trim().toLowerCase();
+                    counts.set(name, (counts.get(name) || 0) + 1);
+                });
+            });
+            return counts;
+        },
         search(query: string, publicOnly = false) {
             const lq = `%${query}%`;
             const artists = db.prepare("SELECT * FROM artists WHERE name LIKE ?").all(lq) as Artist[];
-            const albums = db.prepare(publicOnly ? "SELECT a.*, ar.name as artist_name FROM albums a LEFT JOIN artists ar ON a.artist_id = ar.id WHERE a.is_release = 1 AND a.visibility IN ('public', 'unlisted') AND (a.title LIKE ? OR ar.name LIKE ?)" : "SELECT a.*, ar.name as artist_name FROM albums a LEFT JOIN artists ar ON a.artist_id = ar.id WHERE a.title LIKE ? OR ar.name LIKE ?").all(lq, lq) as Album[];
-            const tracks = db.prepare(publicOnly ? "SELECT t.*, a.title as album_title, COALESCE(ar_t.name, ar_a.name) as artist_name, COALESCE(ar_t.id, ar_a.id) as artist_id FROM tracks t LEFT JOIN albums a ON t.album_id = a.id LEFT JOIN artists ar_t ON t.artist_id = ar_t.id LEFT JOIN artists ar_a ON a.artist_id = ar_a.id WHERE a.is_release = 1 AND a.visibility IN ('public', 'unlisted') AND (t.title LIKE ? OR ar_t.name LIKE ? OR ar_a.name LIKE ?)" : "SELECT t.*, a.title as album_title, COALESCE(ar_t.name, ar_a.name) as artist_name, COALESCE(ar_t.id, ar_a.id) as artist_id FROM tracks t LEFT JOIN albums a ON t.album_id = a.id LEFT JOIN artists ar_t ON t.artist_id = ar_t.id LEFT JOIN artists ar_a ON a.artist_id = ar_a.id WHERE t.title LIKE ? OR ar_t.name LIKE ? OR ar_a.name LIKE ?").all(lq, lq, lq) as Track[];
+            const albums = db.prepare(publicOnly ? 
+                "SELECT a.*, ar.name as artist_name FROM albums a LEFT JOIN artists ar ON a.artist_id = ar.id WHERE a.is_release = 1 AND a.visibility IN ('public', 'unlisted') AND (a.title LIKE ? OR ar.name LIKE ? OR a.genre LIKE ?)" : 
+                "SELECT a.*, ar.name as artist_name FROM albums a LEFT JOIN artists ar ON a.artist_id = ar.id WHERE a.title LIKE ? OR ar.name LIKE ? OR a.genre LIKE ?").all(lq, lq, lq) as Album[];
+            const tracks = db.prepare(publicOnly ? 
+                "SELECT t.*, a.title as album_title, COALESCE(ar_t.name, ar_a.name) as artist_name, COALESCE(ar_t.id, ar_a.id) as artist_id FROM tracks t LEFT JOIN albums a ON t.album_id = a.id LEFT JOIN artists ar_t ON t.artist_id = ar_t.id LEFT JOIN artists ar_a ON a.artist_id = ar_a.id WHERE a.is_release = 1 AND a.visibility IN ('public', 'unlisted') AND (t.title LIKE ? OR ar_t.name LIKE ? OR ar_a.name LIKE ? OR t.genre LIKE ?)" : 
+                "SELECT t.*, a.title as album_title, COALESCE(ar_t.name, ar_a.name) as artist_name, COALESCE(ar_t.id, ar_a.id) as artist_id FROM tracks t LEFT JOIN albums a ON t.album_id = a.id LEFT JOIN artists ar_t ON t.artist_id = ar_t.id LEFT JOIN artists ar_a ON a.artist_id = ar_a.id WHERE t.title LIKE ? OR ar_t.name LIKE ? OR ar_a.name LIKE ? OR t.genre LIKE ?").all(lq, lq, lq, lq) as Track[];
             return { artists, albums, tracks };
         },
         // Settings
