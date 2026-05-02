@@ -89,6 +89,7 @@ describe('Admin Routes Vulnerability Check', () => {
         // Simple auth middleware mock
         app.use((req: any, res, next) => {
             req.username = req.headers['x-username'] || 'admin';
+            req.role = req.headers['x-role'] || 'admin'; // Allow setting role via header
             req.isRootAdmin = mockAuthService.isRootAdmin(req.username);
             next();
         });
@@ -101,6 +102,7 @@ describe('Admin Routes Vulnerability Check', () => {
             mockConfig,
             mockAuthService,
             mockPublishingService as any,
+            {} as any,
             {} as any,
             {} as any
         );
@@ -187,5 +189,51 @@ describe('Admin Routes Vulnerability Check', () => {
         expect(response.status).toBe(200);
         expect(mockDatabase.setSetting).toHaveBeenCalledWith('mode', 'personal');
         expect(mockDatabase.setSetting).toHaveBeenCalledWith('siteName', 'My Library');
+    });
+
+    describe('Super User Restriction', () => {
+        test('Super user CAN perform GET requests', async () => {
+            (mockDatabase.getStats as jest.Mock).mockReturnValue({ artists: 0, albums: 0, tracks: 0 });
+            
+            const response = await request(app)
+                .get('/admin/stats')
+                .set('x-username', 'readonly')
+                .set('x-role', 'super_user');
+
+            expect(response.status).toBe(200);
+        });
+
+        test('Super user CANNOT perform PUT requests', async () => {
+            const response = await request(app)
+                .put('/admin/settings')
+                .set('x-username', 'readonly')
+                .set('x-role', 'super_user')
+                .send({ siteName: 'Hacked' });
+
+            expect(response.status).toBe(403);
+            expect(response.body.error).toMatch(/Super User is read-only/i);
+            expect(mockDatabase.setSetting).not.toHaveBeenCalled();
+        });
+
+        test('Super user CANNOT perform POST requests', async () => {
+            const response = await request(app)
+                .post('/admin/system/users')
+                .set('x-username', 'readonly')
+                .set('x-role', 'super_user')
+                .send({ username: 'attacker', password: 'password123' });
+
+            expect(response.status).toBe(403);
+            expect(mockAuthService.createAdmin).not.toHaveBeenCalled();
+        });
+
+        test('Super user CANNOT perform DELETE requests', async () => {
+            const response = await request(app)
+                .delete('/admin/system/users/2')
+                .set('x-username', 'readonly')
+                .set('x-role', 'super_user');
+
+            expect(response.status).toBe(403);
+            expect(mockAuthService.deleteAdmin).not.toHaveBeenCalled();
+        });
     });
 });

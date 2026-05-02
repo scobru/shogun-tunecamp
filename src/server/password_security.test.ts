@@ -40,7 +40,7 @@ const adminMiddleware = (req: any, res: any, next: any) => {
     next();
 };
 
-app.use('/api/admin', adminMiddleware, createAdminRoutes(mockDatabase, mockScanner, '/tmp', mockGunDB, mockConfig, mockAuthService, {} as any, mockApService as any, {} as any));
+app.use('/api/admin', adminMiddleware, createAdminRoutes(mockDatabase, mockScanner, '/tmp', mockGunDB, mockConfig, mockAuthService, {} as any, mockApService as any, {} as any, {} as any));
 
 
 describe('Password Security', () => {

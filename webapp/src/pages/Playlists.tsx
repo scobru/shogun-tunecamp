@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import API from "../services/api";
 import { Link } from "react-router-dom";
-import { ListMusic, Globe, Lock, Music } from "lucide-react";
+import { ListMusic, Globe, Lock, Music, LayoutGrid, List, AlignJustify } from "lucide-react";
 import type { Playlist } from "../types";
 import { ZenPlaylists } from "../services/zen";
 
@@ -13,6 +13,7 @@ interface UnifiedPlaylist extends Playlist {
 export const Playlists = () => {
   const [playlists, setPlaylists] = useState<UnifiedPlaylist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'minimal'>('minimal');
 
   useEffect(() => {
     loadPlaylists();
@@ -69,6 +70,32 @@ export const Playlists = () => {
         <h1 className="text-4xl font-bold flex items-center gap-3">
           <ListMusic size={40} className="text-secondary" /> Playlists
         </h1>
+
+        <div className="flex items-center gap-4">
+          <div className="join bg-base-200">
+            <button
+              className={clsx("btn btn-sm join-item", viewMode === 'grid' && "btn-active")}
+              onClick={() => setViewMode('grid')}
+              title="Grid View"
+            >
+              <LayoutGrid size={16} />
+            </button>
+            <button
+              className={clsx("btn btn-sm join-item", viewMode === 'list' && "btn-active")}
+              onClick={() => setViewMode('list')}
+              title="List View"
+            >
+              <List size={16} />
+            </button>
+            <button
+              className={clsx("btn btn-sm join-item", viewMode === 'minimal' && "btn-active")}
+              onClick={() => setViewMode('minimal')}
+              title="Minimal View"
+            >
+              <AlignJustify size={16} />
+            </button>
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -79,16 +106,63 @@ export const Playlists = () => {
           <p className="text-lg">No playlists found.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className={clsx(
+          "grid gap-6",
+          viewMode === 'grid' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : 
+          viewMode === 'list' ? "grid-cols-1 md:grid-cols-2" : 
+          "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2"
+        )}>
           {playlists.map((p) => (
             <Link
               to={p.isUserPlaylist ? `/my-playlists/${p.id}` : `/playlists/${p.id}`}
               key={p.id}
-              className="card bg-base-200 border border-white/5 hover:bg-base-300 transition-all hover:-translate-y-1 group"
+              className={clsx(
+                "group transition-all duration-300 shadow-xl border border-white/5 overflow-hidden",
+                viewMode === 'grid' && "card bg-base-200 hover:bg-base-300 hover:-translate-y-1",
+                viewMode === 'list' && "flex items-center gap-4 bg-base-200 p-4 rounded-xl hover:bg-base-300",
+                viewMode === 'minimal' && "flex items-center gap-3 bg-base-200/40 p-2 px-3 rounded-lg hover:bg-base-200"
+              )}
             >
-              <div className="card-body">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center overflow-hidden shrink-0">
+              {viewMode === 'grid' ? (
+                <div className="card-body">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center overflow-hidden shrink-0">
+                      {p.coverPath ? (
+                        <img
+                          src={p.coverPath}
+                          className="w-full h-full object-cover"
+                          alt=""
+                        />
+                      ) : (
+                        <Music size={20} className="text-secondary" />
+                      )}
+                    </div>
+                    <h2 className="card-title text-xl group-hover:text-primary transition-colors truncate">
+                      {p.name}
+                    </h2>
+                  </div>
+                  {p.description && (
+                    <p className="opacity-70 line-clamp-2 text-sm">
+                      {p.description}
+                    </p>
+                  )}
+
+                  <div className="card-actions justify-end mt-4 items-center gap-3">
+                    <div className="badge badge-ghost gap-1">
+                      {p.isPublic ? <Globe size={12} /> : <Lock size={12} />}
+                      {p.isPublic ? "Public" : "Private"}
+                    </div>
+                    <span className="text-xs opacity-50">
+                      {p.trackCount} tracks
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className={clsx(
+                    "rounded-lg bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center overflow-hidden shrink-0",
+                    viewMode === 'list' ? "w-12 h-12" : "w-8 h-8"
+                  )}>
                     {p.coverPath ? (
                       <img
                         src={p.coverPath}
@@ -96,29 +170,33 @@ export const Playlists = () => {
                         alt=""
                       />
                     ) : (
-                      <Music size={20} className="text-secondary" />
+                      <Music size={viewMode === 'list' ? 20 : 14} className="text-secondary" />
                     )}
                   </div>
-                  <h2 className="card-title text-xl group-hover:text-primary transition-colors truncate">
-                    {p.name}
-                  </h2>
-                </div>
-                {p.description && (
-                  <p className="opacity-70 line-clamp-2 text-sm">
-                    {p.description}
-                  </p>
-                )}
-
-                <div className="card-actions justify-end mt-4 items-center gap-3">
-                  <div className="badge badge-ghost gap-1">
-                    {p.isPublic ? <Globe size={12} /> : <Lock size={12} />}
-                    {p.isPublic ? "Public" : "Private"}
+                  <div className="flex-1 min-w-0">
+                    <h2 className={clsx(
+                      "font-bold group-hover:text-primary transition-colors truncate",
+                      viewMode === 'list' ? "text-lg" : "text-sm"
+                    )}>
+                      {p.name}
+                    </h2>
+                    {viewMode === 'list' && p.description && (
+                      <p className="opacity-60 text-xs truncate">{p.description}</p>
+                    )}
                   </div>
-                  <span className="text-xs opacity-50">
-                    {p.trackCount} tracks
-                  </span>
-                </div>
-              </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs opacity-40 tabular-nums">
+                      {p.trackCount} tracks
+                    </span>
+                    {viewMode === 'list' && (
+                       <div className="badge badge-ghost badge-sm gap-1 opacity-50">
+                        {p.isPublic ? <Globe size={10} /> : <Lock size={10} />}
+                        {p.isPublic ? "Public" : "Private"}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </Link>
           ))}
         </div>

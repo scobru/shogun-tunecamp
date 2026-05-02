@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../stores/useAuthStore";
 import { Link } from "react-router-dom";
-import { ListMusic, Plus, Music, Lock, Unlock, Heart } from "lucide-react";
+import { ListMusic, Plus, Music, Lock, Unlock, Heart, LayoutGrid, List, AlignJustify } from "lucide-react";
+import clsx from "clsx";
 import type { Playlist, UserPlaylist } from "../types";
 import { API } from "../services/api";
 import { CreateUserPlaylistModal } from "../components/modals/CreateUserPlaylistModal";
@@ -9,6 +10,7 @@ import { CreateUserPlaylistModal } from "../components/modals/CreateUserPlaylist
 export const MyPlaylists = () => {
   const [playlists, setPlaylists] = useState<(Playlist | UserPlaylist)[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'minimal'>('minimal');
   const { isAuthenticated, user } = useAuthStore();
 
   useEffect(() => {
@@ -73,16 +75,41 @@ export const MyPlaylists = () => {
           </div>
         </div>
 
-        <button
-          className="btn btn-primary gap-2"
-          onClick={() =>
-            document.dispatchEvent(
-              new CustomEvent("open-create-user-playlist-modal"),
-            )
-          }
-        >
-          <Plus size={20} /> New Playlist
-        </button>
+        <div className="flex items-center gap-4">
+          <div className="join bg-base-200">
+            <button
+              className={clsx("btn btn-sm join-item", viewMode === 'grid' && "btn-active")}
+              onClick={() => setViewMode('grid')}
+              title="Grid View"
+            >
+              <LayoutGrid size={16} />
+            </button>
+            <button
+              className={clsx("btn btn-sm join-item", viewMode === 'list' && "btn-active")}
+              onClick={() => setViewMode('list')}
+              title="List View"
+            >
+              <List size={16} />
+            </button>
+            <button
+              className={clsx("btn btn-sm join-item", viewMode === 'minimal' && "btn-active")}
+              onClick={() => setViewMode('minimal')}
+              title="Minimal View"
+            >
+              <AlignJustify size={16} />
+            </button>
+          </div>
+          <button
+            className="btn btn-primary gap-2"
+            onClick={() =>
+              document.dispatchEvent(
+                new CustomEvent("open-create-user-playlist-modal"),
+              )
+            }
+          >
+            <Plus size={20} /> New Playlist
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -109,16 +136,71 @@ export const MyPlaylists = () => {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className={clsx(
+          "grid gap-6",
+          viewMode === 'grid' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : 
+          viewMode === 'list' ? "grid-cols-1 md:grid-cols-2" : 
+          "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2"
+        )}>
           {playlists.map((p) => (
             <Link
               to={`/my-playlists/${p.id}`}
               key={p.id}
-              className="card bg-base-200 border border-white/5 hover:bg-base-300 transition-all hover:-translate-y-1 group"
+              className={clsx(
+                "group transition-all duration-300 shadow-xl border border-white/5 overflow-hidden",
+                viewMode === 'grid' && "card bg-base-200 hover:bg-base-300 hover:-translate-y-1",
+                viewMode === 'list' && "flex items-center gap-4 bg-base-200 p-4 rounded-xl hover:bg-base-300",
+                viewMode === 'minimal' && "flex items-center gap-3 bg-base-200/40 p-2 px-3 rounded-lg hover:bg-base-200"
+              )}
             >
-              <div className="card-body">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center overflow-hidden">
+              {viewMode === 'grid' ? (
+                <div className="card-body">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center overflow-hidden">
+                      {(p as any).coverUrl || (p as any).coverPath ? (
+                        <img
+                          src={(p as any).coverUrl || (p as any).coverPath}
+                          className="w-full h-full object-cover"
+                          alt=""
+                        />
+                      ) : (
+                        <Music size={20} className="text-pink-300" />
+                      )}
+                    </div>
+                    <h2 className="card-title text-lg group-hover:text-primary transition-colors flex-1 truncate">
+                      {p.name}
+                    </h2>
+                  </div>
+                  {p.description && (
+                    <p className="opacity-70 line-clamp-2 text-sm">
+                      {p.description}
+                    </p>
+                  )}
+
+                  <div className="card-actions justify-between mt-4 items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs opacity-50">
+                        {p.trackCount} tracks
+                      </span>
+                      <span className="opacity-30">•</span>
+                      <span className="text-xs opacity-50 flex items-center gap-1">
+                        {p.isPublic ? <Unlock size={12} /> : <Lock size={12} />}
+                        {p.isPublic ? "Public" : "Private"}
+                      </span>
+                    </div>
+                    <span className="text-xs opacity-40">
+                      {p.updatedAt || p.createdAt
+                        ? new Date(p.updatedAt || p.createdAt).toLocaleDateString()
+                        : ""}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className={clsx(
+                    "rounded-lg bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center overflow-hidden shrink-0",
+                    viewMode === 'list' ? "w-12 h-12" : "w-8 h-8"
+                  )}>
                     {(p as any).coverUrl || (p as any).coverPath ? (
                       <img
                         src={(p as any).coverUrl || (p as any).coverPath}
@@ -126,37 +208,33 @@ export const MyPlaylists = () => {
                         alt=""
                       />
                     ) : (
-                      <Music size={20} className="text-pink-300" />
+                      <Music size={viewMode === 'list' ? 20 : 14} className="text-pink-300" />
                     )}
                   </div>
-                  <h2 className="card-title text-lg group-hover:text-primary transition-colors flex-1 truncate">
-                    {p.name}
-                  </h2>
-                </div>
-                {p.description && (
-                  <p className="opacity-70 line-clamp-2 text-sm">
-                    {p.description}
-                  </p>
-                )}
-
-                <div className="card-actions justify-between mt-4 items-center">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs opacity-50">
+                  <div className="flex-1 min-w-0">
+                    <h2 className={clsx(
+                      "font-bold group-hover:text-primary transition-colors truncate",
+                      viewMode === 'list' ? "text-lg" : "text-sm"
+                    )}>
+                      {p.name}
+                    </h2>
+                    {viewMode === 'list' && p.description && (
+                      <p className="opacity-60 text-xs truncate">{p.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs opacity-40 tabular-nums">
                       {p.trackCount} tracks
                     </span>
-                    <span className="opacity-30">•</span>
-                    <span className="text-xs opacity-50 flex items-center gap-1">
-                      {p.isPublic ? <Unlock size={12} /> : <Lock size={12} />}
-                      {p.isPublic ? "Public" : "Private"}
-                    </span>
+                    {viewMode === 'list' && (
+                       <div className="badge badge-ghost badge-sm gap-1 opacity-50">
+                        {p.isPublic ? <Unlock size={10} /> : <Lock size={10} />}
+                        {p.isPublic ? "Public" : "Private"}
+                      </div>
+                    )}
                   </div>
-                  <span className="text-xs opacity-40">
-                    {p.updatedAt || p.createdAt
-                      ? new Date(p.updatedAt || p.createdAt).toLocaleDateString()
-                      : ""}
-                  </span>
-                </div>
-              </div>
+                </>
+              )}
             </Link>
           ))}
         </div>

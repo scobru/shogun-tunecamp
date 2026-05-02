@@ -159,7 +159,7 @@ export const Tracks = () => {
             return (
               <div
                 key={track.id}
-                className="list-row items-center hover:bg-white/5 transition-colors px-4 py-3 group border-b border-white/5 last:border-0"
+                className="list-row items-center hover:bg-white/5 transition-colors px-4 py-2 group border-b border-white/5 last:border-0"
               >
                 <div className="text-xs font-black opacity-20 w-8 tabular-nums group-hover:opacity-0 transition-opacity">
                    {String(i + 1).padStart(2, '0')}
