@@ -1621,6 +1621,17 @@ export function createDatabase(dbPath: string): DatabaseService {
             const admin = db.prepare("SELECT id FROM admin WHERE role = 'admin' ORDER BY id ASC LIMIT 1").get() as { id: number } | undefined;
             return admin ? admin.id : null;
         },
+        getTracksMissingMetadata(filter: 'genre' | 'year' | 'cover'): Track[] {
+            let query = "";
+            if (filter === 'genre') {
+                query = "SELECT t.*, al.title as album_title, ar.name as artist_name FROM tracks t LEFT JOIN albums al ON t.album_id = al.id LEFT JOIN artists ar ON t.artist_id = ar.id WHERE t.genre IS NULL OR t.genre = '' OR t.genre = 'Library'";
+            } else if (filter === 'year') {
+                query = "SELECT t.*, al.title as album_title, ar.name as artist_name FROM tracks t LEFT JOIN albums al ON t.album_id = al.id LEFT JOIN artists ar ON t.artist_id = ar.id WHERE t.year IS NULL OR t.year = 0";
+            } else if (filter === 'cover') {
+                query = "SELECT t.*, al.title as album_title, ar.name as artist_name FROM tracks t LEFT JOIN albums al ON t.album_id = al.id LEFT JOIN artists ar ON t.artist_id = ar.id WHERE (t.external_artwork IS NULL OR t.external_artwork = '') AND (al.cover_path IS NULL OR al.cover_path = '')";
+            }
+            return db.prepare(query).all() as Track[];
+        },
         getListeningStats(): ListeningStats {
             const now = new Date(); const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
             const week = new Date(now.getTime() - 7*24*3600000).toISOString(); const month = new Date(now.getTime() - 30*24*3600000).toISOString();

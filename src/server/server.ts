@@ -79,6 +79,7 @@ import { securityHeaders } from "./middleware/security.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { SoulseekService } from "./soulseek.js";
 import { TelegramBotService } from "./services/telegram-bot.js";
+import { MaintenanceService } from "./services/maintenance.service.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { runStartupMaintenance } from "./maintenance.js";
 import { errorHandler } from "./middleware/error-handling.js";
@@ -159,6 +160,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
 
     // Initialize Library Service
     const libraryService = new LibraryService(database, publishingService, zendbService, storage, config.musicDir);
+
+    // Initialize Maintenance Service
+    const maintenanceService = new MaintenanceService(database, libraryService);
 
     // Initialize Content Search Services
     const soulseekService = new SoulseekService(config.musicDir, config.downloadDir || path.join(config.musicDir, "downloads"));
@@ -283,7 +287,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/stats", createStatsRoutes(zendbService, database, config));
     app.use("/api/stats/library", createLibraryStatsRoutes(database));
     app.use("/api/browser", authMiddleware.requireRootAdmin, createBrowserRoutes(config.musicDir, database));
-    app.use("/api/metadata", authMiddleware.requireRootAdmin, createMetadataRoutes(database, config.musicDir));
+    app.use("/api/metadata", authMiddleware.requireRootAdmin, createMetadataRoutes(database, config.musicDir, maintenanceService));
     app.use("/api/users", createUsersRoutes(zendbService, database, authService, apService));
     app.use("/api/comments", createCommentsRoutes(zendbService));
     app.use("/api/unlock", createUnlockRoutes(database, authMiddleware));

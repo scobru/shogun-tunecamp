@@ -7,8 +7,9 @@ import { drainResponse } from "../utils.js";
 import { metadataService } from "../metadata.js";
 import type { DatabaseService } from "../database.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
+import type { MaintenanceService } from "../services/maintenance.service.js";
 
-export function createMetadataRoutes(database: DatabaseService, musicDir: string): Router {
+export function createMetadataRoutes(database: DatabaseService, musicDir: string, maintenance: MaintenanceService): Router {
     const router = Router();
 
     router.get("/search", async (req: AuthenticatedRequest, res) => {
@@ -138,6 +139,66 @@ export function createMetadataRoutes(database: DatabaseService, musicDir: string
         } catch (error) {
             console.error("Error applying metadata:", error);
             res.status(500).json({ error: "Failed to apply metadata" });
+        }
+    });
+
+    /**
+     * GET /api/metadata/maintenance/missing
+     * List tracks with missing metadata
+     */
+    router.get("/maintenance/missing", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(403).json({ error: "Admin only" });
+        const filter = (req.query.filter as 'genre' | 'year' | 'cover') || 'genre';
+        const tracks = maintenance.getTracksWithMissingMetadata(filter);
+        res.json(tracks);
+    });
+
+    /**
+     * POST /api/metadata/maintenance/autofill
+     * Autofill metadata for selected tracks
+     */
+    router.post("/maintenance/autofill", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(403).json({ error: "Admin only" });
+        const { trackIds, fields, force } = req.body;
+        if (!Array.isArray(trackIds)) return res.status(400).json({ error: "trackIds array required" });
+
+        const results = await maintenance.autofillMetadata(trackIds, {
+            fields: fields || ['genre', 'year'],
+            force: !!force
+        });
+
+        res.json(results);
+    });
+
+    /**
+     * GET /api/metadata/maintenance/candidates/:trackId
+     * Get metadata candidates for manual selection
+     */
+    router.get("/maintenance/candidates/:trackId", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(403).json({ error: "Admin only" });
+        const trackId = parseInt(req.params.trackId);
+        try {
+            const candidates = await maintenance.getMetadataCandidates(trackId);
+            res.json(candidates);
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    /**
+     * POST /api/metadata/maintenance/apply-track
+     * Apply specific metadata to a track
+     */
+    router.post("/maintenance/apply-track", async (req: AuthenticatedRequest, res) => {
+        if (!req.isAdmin) return res.status(403).json({ error: "Admin only" });
+        const { trackId, metadata } = req.body;
+        if (!trackId || !metadata) return res.status(400).json({ error: "trackId and metadata required" });
+
+        try {
+            await maintenance.applyMetadataToTrack(trackId, metadata);
+            res.json({ success: true });
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
         }
     });
 

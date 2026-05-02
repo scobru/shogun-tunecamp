@@ -452,6 +452,7 @@ export interface DatabaseService {
     getTopTracks(limit?: number, days?: number, filter?: 'all' | 'library' | 'releases'): TrackWithPlayCount[];
     getTopArtists(limit?: number, days?: number, filter?: 'all' | 'library' | 'releases'): ArtistWithPlayCount[];
     getPrimaryAdminId(): number | null;
+    getTracksMissingMetadata(filter: 'genre' | 'year' | 'cover'): Track[];
     getListeningStats(): ListeningStats;
     // Search
     search(query: string, publicOnly?: boolean): { artists: Artist[]; albums: Album[]; tracks: Track[] };

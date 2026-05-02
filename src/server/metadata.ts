@@ -11,6 +11,8 @@ export interface MetadataMatch {
     title: string;
     artist: string;
     date: string;
+    year?: number;
+    genre?: string;
     coverUrl?: string;
     albumTitle?: string;
     source: "musicbrainz" | "discogs" | "theaudiodb";
@@ -59,6 +61,8 @@ class MusicBrainzProvider implements MetadataProvider {
                 title: r.title,
                 artist: r["artist-credit"]?.[0]?.name || "Unknown",
                 date: r.date || "",
+                year: r.date ? parseInt(r.date.substring(0, 4)) : undefined,
+                genre: r.genres?.[0]?.name || r.tags?.[0]?.name || undefined,
                 coverUrl: `https://coverartarchive.org/release/${r.id}/front-250`,
                 source: "musicbrainz"
             }));
@@ -92,6 +96,8 @@ class MusicBrainzProvider implements MetadataProvider {
                     title: r.title,
                     artist: r["artist-credit"]?.[0]?.name || "Unknown",
                     date: "",
+                    year: release?.date ? parseInt(release.date.substring(0, 4)) : undefined,
+                    genre: r.genres?.[0]?.name || r.tags?.[0]?.name || undefined,
                     coverUrl: release ? `https://coverartarchive.org/release/${release.id}/front-250` : undefined,
                     albumTitle: release?.title,
                     source: "musicbrainz"
@@ -132,6 +138,8 @@ class DiscogsProvider implements MetadataProvider {
                 title: r.title.split(' - ')[1] || r.title,
                 artist: r.title.split(' - ')[0] || "Unknown",
                 date: r.year || "",
+                year: r.year ? parseInt(r.year) : undefined,
+                genre: r.genre?.[0] || r.style?.[0] || undefined,
                 coverUrl: r.cover_image || r.thumb,
                 source: "discogs"
             }));

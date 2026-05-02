@@ -12,6 +12,7 @@ import { AdminUserModal } from "../components/modals/AdminUserModal";
 import { AdminSettingsPanel } from "../components/admin/AdminSettingsPanel";
 import { AdminUsersList } from "../components/admin/AdminUsersList";
 import { AdminReleasesList } from "../components/admin/AdminReleasesList";
+import { AdminMaintenancePanel } from "../components/admin/AdminMaintenancePanel";
 
 import { IdentityPanel } from "../components/admin/IdentityPanel";
 import { ActivityPubPanel } from "../components/admin/ActivityPubPanel";
@@ -32,6 +33,7 @@ export const Admin = () => {
     | "identity"
     | "activitypub"
     | "backup"
+    | "maintenance"
   >(isRootAdmin ? "users" : "releases");
   const [stats, setStats] = useState<any>(null);
 
@@ -175,6 +177,13 @@ export const Admin = () => {
             >
               Backup
             </a>
+            <a
+              role="tab"
+              className={`tab ${activeTab === "maintenance" ? "tab-active" : ""}`}
+              onClick={() => setActiveTab("maintenance")}
+            >
+              Maintenance
+            </a>
           </>
         )}
       </div>
@@ -266,6 +275,7 @@ export const Admin = () => {
         {activeTab === "identity" && isAdmin && <IdentityPanel isRootAdmin={isRootAdmin} />}
         {activeTab === "activitypub" && isAdmin && <ActivityPubPanel />}
         {activeTab === "backup" && isAdmin && <BackupPanel />}
+        {activeTab === "maintenance" && isAdmin && <AdminMaintenancePanel />}
       </div>
 
       <AdminUserModal
