@@ -420,10 +420,18 @@ export const MyPlaylistDetails = () => {
       </div>
 
       {/* Add Track Modal */}
-      {id && (
+      {id && playlist && (
         <AddTrackToUserPlaylistModal
           playlistId={id}
           onAdded={() => id && loadPlaylist(id)}
+          existingTrackIds={playlist.tracks?.map(t => {
+            if ('source' in t && (t as any).source === 'network' && (t as any).siteUrl) {
+               // Map network tracks back to their composite IDs if needed
+               // But usually we can just use their ID if it's the composite one
+               return String(t.id);
+            }
+            return String(t.id);
+          }) || []}
         />
       )}
     </div>

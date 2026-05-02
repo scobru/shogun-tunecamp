@@ -8,9 +8,11 @@ import type { Track, UserPlaylistTrack, NetworkTrack } from "../../types";
 export const AddTrackToUserPlaylistModal = ({
   playlistId,
   onAdded,
+  existingTrackIds = [],
 }: {
   playlistId: string;
   onAdded?: () => void;
+  existingTrackIds?: string[];
 }) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const { isAuthenticated } = useAuthStore();
@@ -27,6 +29,7 @@ export const AddTrackToUserPlaylistModal = ({
 
   const [addingId, setAddingId] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
+  const [sessionAddedIds, setSessionAddedIds] = useState<string[]>([]);
 
   useEffect(() => {
     const handleOpen = () => {
@@ -54,6 +57,7 @@ export const AddTrackToUserPlaylistModal = ({
     setSearchResults([]);
     setSuccessId(null);
     setTab("local");
+    setSessionAddedIds([]);
   };
 
   const loadAllTracks = async () => {
@@ -88,9 +92,11 @@ export const AddTrackToUserPlaylistModal = ({
       const q = query.toLowerCase();
       const filtered = allTracks.filter(
         (t) =>
-          t.title.toLowerCase().includes(q) ||
+          (t.title.toLowerCase().includes(q) ||
           (t.artistName && t.artistName.toLowerCase().includes(q)) ||
-          (t.albumName && t.albumName.toLowerCase().includes(q)),
+          (t.albumName && t.albumName.toLowerCase().includes(q))) &&
+          !existingTrackIds.includes(String(t.id)) &&
+          !sessionAddedIds.includes(String(t.id))
       );
       setSearchResults(filtered.slice(0, 30));
     }
@@ -99,6 +105,9 @@ export const AddTrackToUserPlaylistModal = ({
   const filteredNetworkTracks = networkTracks
     .filter((nt) => {
       if (!nt || !nt.track) return false;
+      const uniqueId = `${nt.siteUrl}::${nt.track.id}`;
+      if (existingTrackIds.includes(uniqueId) || sessionAddedIds.includes(uniqueId)) return false;
+
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       const title = nt.track.title || "";
@@ -171,6 +180,7 @@ export const AddTrackToUserPlaylistModal = ({
       }
 
       setSuccessId(id);
+      setSessionAddedIds(prev => [...prev, id]);
       onAdded?.();
       setTimeout(() => setSuccessId(null), 2000);
     } catch (e: any) {
@@ -250,7 +260,9 @@ export const AddTrackToUserPlaylistModal = ({
                   : "No local tracks found"}
               </div>
             ) : (
-              searchResults.map((track) => (
+              searchResults
+                .filter(t => !existingTrackIds.includes(String(t.id)) && !sessionAddedIds.includes(String(t.id)))
+                .map((track) => (
                 <div
                   key={track.id}
                   className="flex items-center gap-3 p-2 rounded-lg hover:bg-base-300 transition-colors group"
