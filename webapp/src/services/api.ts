@@ -147,6 +147,11 @@ export const API = {
         const base = String(url).split('?')[0];
         return queryString ? `${base}?${queryString}` : base;
     },
+    getTrackDownloadUrl: (id: string | number) => {
+        const url = `${API_URL}/tracks/${id}/download`;
+        const token = API.getToken();
+        return token ? `${url}?token=${token}` : url;
+    },
     getLyrics: (trackId: string) => handleResponse(api.get<{ lyrics: string | { text: string }[] }>(`/tracks/${trackId}/lyrics`)),
     recordPlay: (trackId: string | number) => {
         // Only record play for database tracks (numeric IDs)

@@ -457,7 +457,7 @@ export const AlbumDetails = () => {
                            {unlocked ? (
                              <a className="text-success font-bold" onClick={async () => {
                                 if (user?.artistId && (String(track.artistId) === String(user.artistId) || String(album?.artistId) === String(user.artistId))) {
-                                  window.open(`/api/tracks/${track.id}/stream`, "_blank");
+                                  window.open(API.getTrackDownloadUrl(track.id), "_blank");
                                   return;
                                 }
                                 const code = await verifyAndGetCode(track.id);

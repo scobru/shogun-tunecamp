@@ -15,6 +15,7 @@ import {
   MoreHorizontal,
   Unlock,
   Lock,
+  Download,
   Image as ImageIcon,
   Globe
 } from "lucide-react";
@@ -382,6 +383,15 @@ export const MyPlaylistDetails = () => {
                           className="dropdown-content z-[1] menu p-2 shadow bg-base-300 rounded-box w-52 text-sm border border-white/10"
                         >
                           <li>
+                            {isOwner && (
+                              <a
+                                href={API.getTrackDownloadUrl(track.id)}
+                                target="_blank"
+                                className="text-success font-bold"
+                              >
+                                <Download size={16} /> Download
+                              </a>
+                            )}
                             <button
                               className="text-error"
                               onClick={() => handleRemoveTrack(track.id)}

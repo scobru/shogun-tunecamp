@@ -237,6 +237,14 @@ export const AdminTracksList = ({ mine }: { mine?: boolean }) => {
                   : "-"}
               </td>
               <td className="flex gap-2">
+                <a
+                  href={API.getTrackDownloadUrl(t.id)}
+                  target="_blank"
+                  className="btn btn-xs btn-ghost text-success"
+                  title="Download original file"
+                >
+                  Download
+                </a>
                 <button
                   className="btn btn-xs btn-ghost text-primary"
                   onClick={() =>

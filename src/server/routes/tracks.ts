@@ -486,6 +486,42 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         }
     }));
 
+    /**
+     * GET /api/tracks/:id/download
+     * Download original file
+     */
+    router.get("/:id/download", wrapAsync(async (req: AuthenticatedRequest, res: any) => {
+        const id = parseInt(req.params.id as string, 10);
+        const track = database.getTrack(id);
+        if (!track) throw new NotFoundError("Track not found");
+
+        const isOwner = (req.userId !== undefined && track.owner_id === req.userId) || (req.artistId !== undefined && track.artist_id === req.artistId);
+        if (!req.isAdmin && !isOwner) {
+            if (track.album_id) {
+                const album = database.getRelease(track.album_id) || database.getAlbum(track.album_id);
+                if (album && album.visibility === 'private' && !database.isTrackInPublicPlaylist(id)) throw new ForbiddenError("Access denied");
+            } else throw new ForbiddenError("Access denied");
+        }
+
+        if (!track.file_path) throw new NotFoundError("Track file not found");
+        let trackPath = path.join(musicDir, track.file_path);
+
+        if (!await fs.pathExists(trackPath)) {
+            const decoded = decodeURIComponent(trackPath);
+            if (await fs.pathExists(decoded)) trackPath = decoded;
+            else if (track.lossless_path) {
+                let lp = path.join(musicDir, track.lossless_path);
+                if (!await fs.pathExists(lp)) lp = decodeURIComponent(lp);
+                if (await fs.pathExists(lp)) trackPath = lp;
+                else throw new NotFoundError("Audio file not found");
+            } else throw new NotFoundError("Audio file not found");
+        }
+
+        const ext = path.extname(trackPath);
+        const filename = `${track.artist_name || 'Unknown'} - ${track.title || 'Untitled'}${ext}`;
+        
+        res.download(trackPath, filename);
+    }));
 
     return router;
 }

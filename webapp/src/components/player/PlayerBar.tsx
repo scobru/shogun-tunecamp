@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback } from "react";
 import { usePlayerStore } from "../../stores/usePlayerStore";
+import { useAuthStore } from "../../stores/useAuthStore";
 import API from "../../services/api";
 import {
   Play,
@@ -13,6 +14,7 @@ import {
   Repeat,
   Music,
   Radio,
+  Download,
 } from "lucide-react";
 import clsx from "clsx";
 import * as ColorThiefReactModule from "color-thief-react";
@@ -379,6 +381,18 @@ export const PlayerBar = () => {
             />
           </div>
           <div className="flex gap-1 h-10 items-center border-l border-white/5 pl-4 ml-2">
+            {(useAuthStore.getState().user?.isRootAdmin || 
+              (currentTrack.owner_id && String(currentTrack.owner_id) === String(useAuthStore.getState().user?.id)) ||
+              (currentTrack.artistId && String(currentTrack.artistId) === String(useAuthStore.getState().user?.artistId))) && (
+              <a
+                href={API.getTrackDownloadUrl(currentTrack.id)}
+                target="_blank"
+                className="btn btn-ghost btn-sm btn-square opacity-40 hover:opacity-100 text-success"
+                title="Download original file"
+              >
+                <Download size={18} />
+              </a>
+            )}
             <button
               aria-label="Toggle lyrics"
               className={clsx("btn btn-ghost btn-sm btn-square", isShuffled ? "text-primary" : "opacity-40")}
