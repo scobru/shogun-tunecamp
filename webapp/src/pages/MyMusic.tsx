@@ -150,7 +150,7 @@ export const MyMusic = () => {
             </div>
             <div className="divider"></div>
             
-            {stats.genres && stats.genres.length > 0 && (
+            {stats && stats.genres && stats.genres.length > 0 && (
               <div className="space-y-4">
                 <h3 className="font-bold text-lg flex items-center gap-2">
                   <BarChart2 size={20} className="text-accent" /> Library Genres

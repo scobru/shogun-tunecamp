@@ -149,7 +149,7 @@ ${(this.database.db.prepare("SELECT title, artist_name FROM tracks ORDER BY id D
                     return this.safeReply(ctx, debugInfo);
                 },
                 'search': async (ctx) => {
-                    if (!this.isAuthorized(ctx)) return this.safeReply(ctx, "⚠️ Unauthorized.");
+                    // Removed authorization check to make search public
                     
                     const text = (ctx.message?.text || ctx.channelPost?.text || '');
                     const query = text.split(' ').slice(1).join(' ').trim();
@@ -253,7 +253,7 @@ ${(this.database.db.prepare("SELECT title, artist_name FROM tracks ORDER BY id D
                     }
                 },
                 'radio': async (ctx) => {
-                    if (!this.isAuthorized(ctx)) return this.safeReply(ctx, "⚠️ Unauthorized.");
+                    // Removed authorization check to make radio public
                     await this.sendRandomTrack(ctx);
                 },
                 'debug': async (ctx) => {
