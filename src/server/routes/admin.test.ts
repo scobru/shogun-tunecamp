@@ -101,6 +101,7 @@ describe('Admin Routes Vulnerability Check', () => {
             mockConfig,
             mockAuthService,
             mockPublishingService as any,
+            {} as any,
             {} as any
         );
         app.use('/admin', router);
