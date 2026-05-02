@@ -51,8 +51,8 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
                 const hasAlbums = artistIdsWithAlbums.has(a.id);
                 const isLibraryArtist = !!a.isLibraryArtist;
 
-                // Do not show library artists if they have no albums and no releases
-                if (isLibraryArtist && !hasAlbums && !hasReleases) {
+                // Do not show library artists if they have no albums and no releases (unless admin)
+                if (!req.isAdmin && isLibraryArtist && !hasAlbums && !hasReleases) {
                     return acc;
                 }
 
