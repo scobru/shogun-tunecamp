@@ -205,6 +205,8 @@ export interface SiteSettings {
     telegram_allowed_channels?: string;
     adminFeePercentage?: string | number;
     adminTreasuryAddress?: string;
+    soulseek_username?: string;
+    soulseek_password?: string;
 }
 
 export interface Post {

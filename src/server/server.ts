@@ -163,7 +163,9 @@ export async function startServer(config: ServerConfig): Promise<void> {
     // Initialize Content Search Services
     const soulseekService = new SoulseekService(config.musicDir, config.downloadDir || path.join(config.musicDir, "downloads"));
     // Try to connect with system credentials if available
-    soulseekService.connect().catch(err => console.error("Soulseek initial connection failed:", err));
+    const slskUser = database.getSetting("soulseek_username");
+    const slskPass = database.getSetting("soulseek_password");
+    soulseekService.connect(slskUser, slskPass).catch(err => console.error("Soulseek initial connection failed:", err));
 
     // Initialize Telegram Bot
     const telegramBotService = new TelegramBotService(database, scanner, config.musicDir);
@@ -265,7 +267,7 @@ export async function startServer(config: ServerConfig): Promise<void> {
     });
 
     app.use("/api/auth", authMiddleware.optionalAuth, createAuthRoutes(authService, authMiddleware));
-    app.use("/api/admin", authMiddleware.requireUser, createAdminRoutes(database, scanner, config.musicDir, zendbService, config, authService, publishingService, apService, telegramBotService));
+    app.use("/api/admin", authMiddleware.requireUser, createAdminRoutes(database, scanner, config.musicDir, zendbService, config, authService, publishingService, apService, telegramBotService, soulseekService));
     // Backup routes moved earlier
     app.use("/api/catalog", authMiddleware.optionalAuth, createCatalogRoutes(catalogService));
     app.use("/api/artists", authMiddleware.optionalAuth, createArtistsRoutes(database, config.musicDir));

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import API from "../../services/api";
-import { Save, CheckCircle2, Globe, Palette, Cog, Layout, Wallet, Shield, OctagonAlert } from "lucide-react";
+import { Save, CheckCircle2, Globe, Palette, Cog, Layout, Wallet, Shield, OctagonAlert, Activity } from "lucide-react";
 import type { SiteSettings } from "../../types";
 import { useWalletStore } from "../../stores/useWalletStore";
 import { TuneCampFactory } from "shogun-contracts-sdk";
@@ -541,6 +541,46 @@ export const AdminSettingsPanel = () => {
           
           <div className="bg-blue-500/5 border border-blue-500/20 p-4 rounded-xl text-xs opacity-70">
             <p>Once configured, you can send MP3/FLAC files or documents to your bot, and they will be automatically added to your Tunecamp library.</p>
+          </div>
+        </div>
+
+        {/* Soulseek Configuration */}
+        <div className="bg-base-200/40 p-6 rounded-2xl border border-white/5 space-y-4 md:col-span-2">
+          <div className="flex items-center gap-2 mb-2 text-primary">
+            <Activity size={18} />
+            <h4 className="font-bold uppercase text-xs tracking-wider">Soulseek Configuration</h4>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium text-sm">Soulseek Username</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered bg-base-300/50 font-mono text-xs"
+                value={settings.soulseek_username || ""}
+                onChange={(e) => setSettings({ ...settings, soulseek_username: e.target.value })}
+                placeholder="username"
+              />
+            </div>
+
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium text-sm">Soulseek Password</span>
+              </label>
+              <input
+                type="password"
+                className="input input-bordered bg-base-300/50 font-mono text-xs"
+                value={settings.soulseek_password || ""}
+                onChange={(e) => setSettings({ ...settings, soulseek_password: e.target.value })}
+                placeholder="password"
+              />
+            </div>
+          </div>
+          
+          <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl text-xs opacity-70">
+            <p>These credentials allow the server to connect to the Soulseek network for music discovery. Configuration is global for this server instance.</p>
           </div>
         </div>
       </div>

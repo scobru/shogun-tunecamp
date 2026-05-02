@@ -24,8 +24,15 @@ export function createSearchRoutes(
             // Check if user has personal credentials
             if (req.userId) {
                 const creds = database.getUserSoulseekCredentials(req.userId);
-                if (creds) {
+                if (creds && creds.username && creds.password_encrypted) {
                     await soulseek.connect(creds.username, creds.password_encrypted);
+                } else {
+                    // Fallback to global credentials
+                    const globalUser = database.getSetting("soulseek_username");
+                    const globalPass = database.getSetting("soulseek_password");
+                    if (globalUser && globalPass) {
+                        await soulseek.connect(globalUser, globalPass);
+                    }
                 }
             }
 

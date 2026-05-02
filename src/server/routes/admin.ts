@@ -11,6 +11,7 @@ import { createAuthMiddleware } from "../middleware/auth.js";
 import { validatePassword } from "../validators.js";
 import type { PublishingService } from "../publishing.js";
 import type { ActivityPubService } from "../activitypub.js";
+import type { SoulseekService } from "../soulseek.js";
 
 export function createAdminRoutes(
     database: DatabaseService,
@@ -21,7 +22,8 @@ export function createAdminRoutes(
     authService: AuthService,
     publishingService: PublishingService,
     apService: ActivityPubService,
-    telegramBotService: any
+    telegramBotService: any,
+    soulseekService: SoulseekService
 ): Router {
     const router = Router();
     const authMiddleware = createAuthMiddleware(authService);
@@ -176,7 +178,8 @@ export function createAdminRoutes(
                 zenPeers, web3_checkout_address, web3_nft_address,
                 coinbase_cdp_api_key_name, coinbase_cdp_api_key_secret,
                 telegram_bot_token, telegram_allowed_channels,
-                adminFeePercentage, adminTreasuryAddress
+                adminFeePercentage, adminTreasuryAddress,
+                soulseek_username, soulseek_password
             } = req.body;
             let settingsChanged = false;
 
@@ -237,10 +240,25 @@ export function createAdminRoutes(
             if (adminTreasuryAddress !== undefined) {
                 database.setSetting("adminTreasuryAddress", adminTreasuryAddress);
             }
+            if (soulseek_username !== undefined) {
+                database.setSetting("soulseek_username", soulseek_username);
+            }
+            if (soulseek_password !== undefined) {
+                database.setSetting("soulseek_password", soulseek_password);
+            }
 
             // Restart telegram bot if settings changed
             if (telegram_bot_token !== undefined || telegram_allowed_channels !== undefined) {
                 telegramBotService.restart().catch((err: any) => console.error("Failed to restart Telegram bot:", err));
+            }
+
+            // Reconnect Soulseek if credentials changed
+            if (soulseek_username !== undefined || soulseek_password !== undefined) {
+                const sUsername = soulseek_username !== undefined ? soulseek_username : database.getSetting("soulseek_username");
+                const sPassword = soulseek_password !== undefined ? soulseek_password : database.getSetting("soulseek_password");
+                if (sUsername && sPassword) {
+                    soulseekService.connect(sUsername, sPassword).catch((err: any) => console.error("Failed to reconnect Soulseek:", err));
+                }
             }
 
             // Re-register on GunDB if settings changed and publicUrl is available

@@ -10,8 +10,6 @@ export const ContentSearch: React.FC = () => {
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [downloads, setDownloads] = useState<any[]>([]);
-    const [showCreds, setShowCreds] = useState(false);
-    const [creds, setCreds] = useState({ username: '', password: '' });
     const [searchError, setSearchError] = useState<string | null>(null);
     const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
     const navigate = useNavigate();
@@ -102,16 +100,6 @@ export const ContentSearch: React.FC = () => {
         }
     };
 
-    const handleUpdateCreds = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            await API.updateSoulseekCredentials(creds);
-            console.log('Soulseek credentials updated');
-            setShowCreds(false);
-        } catch (err: any) {
-            console.error(`Failed to update credentials: ${err.message}`);
-        }
-    };
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
@@ -120,14 +108,6 @@ export const ContentSearch: React.FC = () => {
                     <h1 className="text-3xl font-bold mb-2">Content Search</h1>
                     <p className="text-base-content/60">Find and download music via decentralised protocols.</p>
                 </div>
-                {activeTab === 'soulseek' && (
-                    <button 
-                        onClick={() => setShowCreds(!showCreds)}
-                        className="btn btn-ghost btn-sm gap-2"
-                    >
-                        <Settings size={16} /> Credentials
-                    </button>
-                )}
                 {activeTab === 'downloads' && downloads.some(d => d.status === 'failed') && (
                     <button 
                         onClick={handleClearFailedSoulseek}
@@ -138,31 +118,6 @@ export const ContentSearch: React.FC = () => {
                 )}
             </header>
 
-            {showCreds && (
-                <div className="card bg-base-200 mb-6 p-4 border border-base-300">
-                    <form onSubmit={handleUpdateCreds} className="flex flex-wrap gap-4 items-end">
-                        <div className="form-control">
-                            <label className="label"><span className="label-text">Soulseek Username</span></label>
-                            <input 
-                                type="text" 
-                                className="input input-bordered" 
-                                value={creds.username}
-                                onChange={e => setCreds({...creds, username: e.target.value})}
-                            />
-                        </div>
-                        <div className="form-control">
-                            <label className="label"><span className="label-text">Password</span></label>
-                            <input 
-                                type="password" 
-                                className="input input-bordered" 
-                                value={creds.password}
-                                onChange={e => setCreds({...creds, password: e.target.value})}
-                            />
-                        </div>
-                        <button type="submit" className="btn btn-primary">Save & Connect</button>
-                    </form>
-                </div>
-            )}
 
             <div className="tabs tabs-boxed mb-6 p-1 bg-base-300">
 
