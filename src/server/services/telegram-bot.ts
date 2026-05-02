@@ -97,10 +97,12 @@ export class TelegramBotService {
                     const helpText = `
 📖 **Tunecamp Bot Help**
 
-This bot automatically ingests music files shared in this channel.
+This bot automatically ingests music files shared in this channel and allows you to search your library.
 
 **Commands:**
 • /status - Check bot status and Chat ID
+• /search <query> - Search and receive music files
+• /play <query> - Alias for search
 • /artists - List artists in your library
 • /albums - List recent library albums
 • /releases - List recent published releases
@@ -119,6 +121,50 @@ The bot will automatically associate the photo as the cover and use the hashtags
                     `;
                     return this.safeReply(ctx, helpText);
                 },
+                'search': async (ctx) => {
+                    if (!this.isAuthorized(ctx)) return this.safeReply(ctx, "⚠️ Unauthorized.");
+                    
+                    const text = (ctx.message?.text || ctx.channelPost?.text || '');
+                    const query = text.split(' ').slice(1).join(' ').trim();
+                    
+                    if (!query) return this.safeReply(ctx, "🔍 Please provide a search query.\nUsage: /search <title or artist>");
+
+                    const results = this.database.db.prepare(`
+                        SELECT t.*, ar.name as artist_name, al.cover_path as album_cover
+                        FROM tracks t 
+                        LEFT JOIN artists ar ON t.artist_id = ar.id 
+                        LEFT JOIN albums al ON t.album_id = al.id
+                        WHERE t.title LIKE ? OR ar.name LIKE ? OR t.artist_name LIKE ?
+                        ORDER BY t.id DESC
+                        LIMIT 5
+                    `).all(`%${query}%`, `%${query}%`, `%${query}%`) as any[];
+
+                    if (results.length === 0) return this.safeReply(ctx, "❌ No results found.");
+
+                    for (const track of results) {
+                        if (!track.file_path || !fs.existsSync(track.file_path)) {
+                            console.warn(`[TelegramBot] File not found for search result: ${track.file_path}`);
+                            continue;
+                        }
+
+                        try {
+                            const extra: any = {
+                                title: track.title,
+                                performer: track.artist_name || 'Unknown Artist',
+                                caption: `🎵 ${track.title} - ${track.artist_name || 'Unknown'}`
+                            };
+
+                            if (track.album_cover && fs.existsSync(track.album_cover)) {
+                                extra.thumb = { source: track.album_cover };
+                            }
+
+                            await ctx.replyWithAudio({ source: track.file_path }, extra);
+                        } catch (err: any) {
+                            console.error(`[TelegramBot] Failed to send audio: ${err.message}`);
+                        }
+                    }
+                },
+                'play': (ctx) => commands['search'](ctx),
                 'rescan': async (ctx) => {
                     if (!this.isAuthorized(ctx)) {
                         return this.safeReply(ctx, "⚠️ Unauthorized. Only admins can trigger a rescan.");
