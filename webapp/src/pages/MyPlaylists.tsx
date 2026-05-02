@@ -22,7 +22,9 @@ export const MyPlaylists = () => {
     setLoading(true);
     try {
       const data = await API.getPlaylists();
-      setPlaylists(data);
+      // Filter out system dynamic playlists (genre mixes)
+      const userOnly = data.filter(p => p.username !== 'system' && !String(p.id).startsWith('genre:'));
+      setPlaylists(userOnly);
     } catch (e) {
       console.error(e);
     } finally {
