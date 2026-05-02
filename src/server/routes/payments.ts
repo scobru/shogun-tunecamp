@@ -121,7 +121,7 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
      */
     router.post("/verify", async (req, res) => {
         try {
-            const { txHash, trackId } = req.body;
+            const { txHash, feeTxHash, trackId } = req.body;
 
             if (!txHash || !trackId) {
                 return res.status(400).json({ error: "Missing required fields" });
@@ -149,11 +149,34 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
 
             const web3CheckoutAddr = database.getSetting("web3_checkout_address");
             const artistWallet = (track as any).walletAddress || process.env.TUNECAMP_OWNER_ADDRESS;
+            const adminFeePct = Number(database.getSetting("adminFeePercentage") || 0);
+            const adminTreasury = database.getSetting("adminTreasuryAddress");
 
             let verificationResult = { success: false, method: "", error: "" };
 
             // 3. IDENTIFY AND VERIFY PAYMENT TYPE
             const toAddress = tx.to?.toLowerCase();
+
+            // Verify Label Fee for Direct Payments if split is enabled
+            const isDirectPayment = !web3CheckoutAddr || toAddress !== web3CheckoutAddr.toLowerCase();
+            if (isDirectPayment && adminFeePct > 0 && adminTreasury) {
+                if (!feeTxHash) {
+                    console.warn(`[Verify] Missing feeTxHash for split payment to artist ${artistWallet}`);
+                    return res.status(400).json({ error: "Label fee transaction hash is required for split payments." });
+                }
+                const [feeTx, feeReceipt] = await Promise.all([
+                    provider.getTransaction(feeTxHash),
+                    provider.getTransactionReceipt(feeTxHash)
+                ]);
+                if (!feeTx || !feeReceipt || feeReceipt.status !== 1) {
+                    return res.status(400).json({ error: "Label fee transaction not found or failed on chain." });
+                }
+                if (feeTx.to?.toLowerCase() !== adminTreasury.toLowerCase()) {
+                    return res.status(400).json({ error: "Label fee transaction recipient mismatch." });
+                }
+                // Optional: verify amount matches expected percentage
+                console.log(`[Verify] Label fee transaction ${feeTxHash} verified for treasury ${adminTreasury}`);
+            }
 
             // Case A: Checkout Contract Call
             if (web3CheckoutAddr && toAddress === web3CheckoutAddr.toLowerCase()) {
@@ -208,7 +231,11 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
                         const decimals = 6; // USDC on Base has 6 decimals
                         const paidAmount = parseFloat(ethers.formatUnits(amount, decimals));
                         
-                        const expectedAmount = track.price_usdc || 0;
+                        let expectedAmount = track.price_usdc || 0;
+                        if (adminFeePct > 0 && adminTreasury) {
+                            // If fee split is active, artist receives total - fee
+                            expectedAmount = expectedAmount * (1 - adminFeePct / 100);
+                        }
 
                         if (artistWallet && recipient !== artistWallet.toLowerCase()) {
                             verificationResult.error = `Recipient mismatch: sent to ${recipient}, expected ${artistWallet}`;
@@ -233,6 +260,11 @@ export function createPaymentsRoutes(database: DatabaseService, musicDir: string
                 if (track.currency === 'USD') {
                     const rate = await getEthUsdRate();
                     expectedEth = (track.price || 0) / rate;
+                }
+                
+                if (adminFeePct > 0 && adminTreasury) {
+                    // If fee split is active, artist receives total - fee
+                    expectedEth = expectedEth * (1 - adminFeePct / 100);
                 }
                 
                 const margin = expectedEth * 0.05;

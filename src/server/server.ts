@@ -519,8 +519,11 @@ export async function startServer(config: ServerConfig): Promise<void> {
                 zenPeers: ${JSON.stringify(zenPeersStr)},
                 web3_checkout_address: ${JSON.stringify(web3CheckoutAddr)},
                 web3_nft_address: ${JSON.stringify(web3NftAddr)},
-                ownerAddress: ${JSON.stringify(ownerAddress)}
+                ownerAddress: ${JSON.stringify(ownerAddress)},
+                adminFeePercentage: ${JSON.stringify(database.getSetting("adminFeePercentage") || "0")},
+                adminTreasuryAddress: ${JSON.stringify(database.getSetting("adminTreasuryAddress") || "")}
             };</script>`;
+
             html = html.replace('<head>', '<head>' + configInject);
 
             res.send(html);
@@ -549,8 +552,11 @@ export async function startServer(config: ServerConfig): Promise<void> {
                 zenPeers: ${JSON.stringify(zenPeersStr)},
                 web3_checkout_address: ${JSON.stringify(web3CheckoutAddr)},
                 web3_nft_address: ${JSON.stringify(web3NftAddr)},
-                ownerAddress: ${JSON.stringify(ownerAddress)}
+                ownerAddress: ${JSON.stringify(ownerAddress)},
+                adminFeePercentage: ${JSON.stringify(database.getSetting("adminFeePercentage") || "0")},
+                adminTreasuryAddress: ${JSON.stringify(database.getSetting("adminTreasuryAddress") || "")}
             };</script>`;
+
             html = html.replace('<head>', '<head>' + configInject);
             res.send(html);
         } catch (e) {

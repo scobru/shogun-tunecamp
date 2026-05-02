@@ -203,6 +203,8 @@ export interface SiteSettings {
     web3_nft_address?: string;
     telegram_bot_token?: string;
     telegram_allowed_channels?: string;
+    adminFeePercentage?: string | number;
+    adminTreasuryAddress?: string;
 }
 
 export interface Post {

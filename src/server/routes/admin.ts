@@ -175,7 +175,8 @@ export function createAdminRoutes(
                 siteName, siteDescription, publicUrl, artistName, coverImage, mode, 
                 zenPeers, web3_checkout_address, web3_nft_address,
                 coinbase_cdp_api_key_name, coinbase_cdp_api_key_secret,
-                telegram_bot_token, telegram_allowed_channels
+                telegram_bot_token, telegram_allowed_channels,
+                adminFeePercentage, adminTreasuryAddress
             } = req.body;
             let settingsChanged = false;
 
@@ -229,6 +230,12 @@ export function createAdminRoutes(
             if (telegram_allowed_channels !== undefined) {
                 database.setSetting("telegram_allowed_channels", telegram_allowed_channels);
                 settingsChanged = true;
+            }
+            if (adminFeePercentage !== undefined) {
+                database.setSetting("adminFeePercentage", adminFeePercentage.toString());
+            }
+            if (adminTreasuryAddress !== undefined) {
+                database.setSetting("adminTreasuryAddress", adminTreasuryAddress);
             }
 
             // Restart telegram bot if settings changed

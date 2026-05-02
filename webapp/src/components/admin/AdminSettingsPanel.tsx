@@ -12,6 +12,7 @@ export const AdminSettingsPanel = () => {
   const [bgFile, setBgFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const { wallet, externalWallet, useExternalWallet, isExternalConnected, isWalletReady } = useWalletStore();
+  const { TuneCampCheckout } = (window as any).TuneCampSDK || {}; // Fallback if not directly importable or through sdk class
   const activeSigner = useExternalWallet ? externalWallet : wallet;
   const isReady = useExternalWallet ? isExternalConnected : isWalletReady;
 
@@ -76,6 +77,35 @@ export const AdminSettingsPanel = () => {
       setLoading(false);
     }
   };
+
+  const handleSyncTreasury = async () => {
+    if (!activeSigner || !isReady || !settings?.web3_checkout_address || !settings?.adminTreasuryAddress) {
+      setMessage("Failed: Wallet not connected or missing treasury configuration (Checkout address and Treasury address are required).");
+      return;
+    }
+    setLoading(true);
+    setMessage("Syncing treasury on-chain... Please confirm transaction in your wallet.");
+
+    try {
+      const network = await activeSigner.provider!.getNetwork();
+      const chainId = Number(network.chainId);
+      
+      // Use SDK class if available, else standard ethers contract
+      const checkout = new TuneCampCheckout(activeSigner.provider as any, activeSigner as any, chainId);
+      checkout.attach(settings.web3_checkout_address);
+      
+      const tx = await checkout.setTreasury(settings.adminTreasuryAddress);
+      setMessage("Transaction sent! Waiting for confirmation...");
+      await tx.wait();
+      setMessage("On-chain treasury address updated successfully!");
+    } catch (e: any) {
+      console.error(e);
+      setMessage(`Failed to sync treasury: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     API.getAdminSettings().then(setSettings).catch(console.error);
@@ -406,6 +436,65 @@ export const AdminSettingsPanel = () => {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+        
+        {/* Revenue & Fees Settings */}
+        <div className="bg-base-200/40 p-6 rounded-2xl border border-white/5 space-y-4 md:col-span-2">
+          <div className="flex items-center gap-2 mb-2 text-green-400">
+            <Save size={18} />
+            <h4 className="font-bold uppercase text-xs tracking-wider">Revenue & Fees (Label Admin)</h4>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium text-sm">Label Admin Fee (%)</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                className="input input-bordered bg-base-300/50"
+                value={settings.adminFeePercentage || 0}
+                onChange={(e) => setSettings({ ...settings, adminFeePercentage: e.target.value })}
+                placeholder="0"
+              />
+              <label className="label">
+                <span className="label-text-alt opacity-40 text-[10px]">Percentage fee taken from direct payments. For smart contracts, this is fixed at 15%.</span>
+              </label>
+            </div>
+
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium text-sm">Admin Treasury Wallet</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered bg-base-300/50 font-mono text-xs"
+                value={settings.adminTreasuryAddress || ""}
+                onChange={(e) => setSettings({ ...settings, adminTreasuryAddress: e.target.value })}
+                placeholder="0x..."
+              />
+              <label className="label">
+                <span className="label-text-alt opacity-40 text-[10px]">Address where label fees are sent.</span>
+              </label>
+            </div>
+          </div>
+          
+          <div className="pt-4 border-t border-white/5 flex flex-col md:flex-row items-center gap-4">
+            <div className="flex-1 opacity-60 text-xs">
+              <p>If you have a deployed Web3 Store, you must sync the treasury address to the blockchain to collect contract fees.</p>
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline btn-success btn-sm rounded-xl px-6"
+              onClick={handleSyncTreasury}
+              disabled={loading || !isReady || !settings.web3_checkout_address}
+            >
+              Sync Treasury On-Chain
+            </button>
           </div>
         </div>
 

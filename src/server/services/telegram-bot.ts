@@ -130,6 +130,23 @@ The bot will automatically associate the photo as the cover and use the hashtags
                     } catch (e) {
                         return this.safeReply(ctx, `❌ Rescan failed: ${e}`);
                     }
+                },
+                'debug': async (ctx) => {
+                    if (!this.isAuthorized(ctx)) {
+                        return this.safeReply(ctx, "⚠️ Unauthorized.");
+                    }
+                    const text = (ctx.message?.text || ctx.channelPost?.text || '').toLowerCase();
+                    let newValue: string;
+                    
+                    if (text.includes('on')) newValue = 'true';
+                    else if (text.includes('off')) newValue = 'false';
+                    else {
+                        const current = this.database.getSetting('telegram_debug') === 'true';
+                        newValue = current ? 'false' : 'true';
+                    }
+
+                    this.database.setSetting('telegram_debug', newValue);
+                    return this.safeReply(ctx, `🔧 Debug mode (verbose logs) is now ${newValue === 'true' ? 'ON' : 'OFF'}`);
                 }
             };
 
@@ -344,7 +361,11 @@ The bot will automatically associate the photo as the cover and use the hashtags
             await fs.ensureDir(importDir);
 
             const filePath = path.join(importDir, fileName);
-            await this.safeReply(ctx, `📥 Downloading ${fileName}...`);
+            const isVerbose = this.database.getSetting('telegram_debug') !== 'false'; // Default to verbose if not set or set to 'true'
+
+            if (isVerbose) {
+                await this.safeReply(ctx, `📥 Downloading ${fileName}...`);
+            }
             
             const response = await axios({ url: fileLink.href, method: 'GET', responseType: 'stream' });
             const writer = fs.createWriteStream(filePath);
@@ -355,7 +376,9 @@ The bot will automatically associate the photo as the cover and use the hashtags
                 writer.on('error', (err) => reject(err));
             });
 
-            await this.safeReply(ctx, `⚙️ Processing ${fileName}...`);
+            if (isVerbose) {
+                await this.safeReply(ctx, `⚙️ Processing ${fileName}...`);
+            }
             const result = await this.scanner.processAudioFile(filePath, this.musicDir, undefined, undefined, undefined, suggestedCoverPath, metadataHints);
 
             if (result?.success) {

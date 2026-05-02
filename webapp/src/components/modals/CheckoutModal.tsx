@@ -137,6 +137,7 @@ export const CheckoutModal = () => {
     
     try {
       let receipt: any;
+      let feeReceipt: any;
       let finalPriceEth = track.priceEth;
       
       const useNft = track.use_nft !== undefined ? track.use_nft : (track.useNft !== undefined ? track.useNft : true);
@@ -172,9 +173,26 @@ export const CheckoutModal = () => {
 
         if (isDirectPayment) {
           if (!artistWallet) throw new Error(`Artist wallet address is not configured for direct ${tokenSymbol} payments.`);
-          setError(`Executing direct ${tokenSymbol} transfer... Please confirm in your wallet.`);
-          const tx = await tokenContract.transfer(artistWallet, stableAmount);
-          receipt = await tx.wait();
+          
+          const adminFeePct = Number((window as any).TUNECAMP_CONFIG?.adminFeePercentage || 0);
+          const adminTreasury = (window as any).TUNECAMP_CONFIG?.adminTreasuryAddress;
+          
+          if (adminFeePct > 0 && adminTreasury) {
+            const adminAmount = (stableAmount * BigInt(Math.floor(adminFeePct * 10))) / 1000n;
+            const artistAmount = stableAmount - adminAmount;
+            
+            setError(`Sending ${ethers.formatUnits(adminAmount, 6)} ${tokenSymbol} fee to Label...`);
+            const txAdmin = await tokenContract.transfer(adminTreasury, adminAmount);
+            feeReceipt = await txAdmin.wait();
+            
+            setError(`Sending remaining ${ethers.formatUnits(artistAmount, 6)} ${tokenSymbol} to Artist...`);
+            const txArtist = await tokenContract.transfer(artistWallet, artistAmount);
+            receipt = await txArtist.wait();
+          } else {
+            setError(`Executing direct ${tokenSymbol} transfer... Please confirm in your wallet.`);
+            const tx = await tokenContract.transfer(artistWallet, stableAmount);
+            receipt = await tx.wait();
+          }
         } else {
           // USDC + SMART CONTRACT flow
           const ownerAddr = await activeSigner.getAddress();
@@ -225,9 +243,27 @@ export const CheckoutModal = () => {
           if (!artistWallet) {
             throw new Error("No recipient address configured for this track. Contact the artist system admin.");
           }
-          setError(`Sending ${finalPriceEth} ETH to artist... Please confirm in your wallet.`);
-          const tx = await activeSigner.sendTransaction({ to: artistWallet, value });
-          receipt = await tx.wait();
+
+          const adminFeePct = Number((window as any).TUNECAMP_CONFIG?.adminFeePercentage || 0);
+          const adminTreasury = (window as any).TUNECAMP_CONFIG?.adminTreasuryAddress;
+
+          if (adminFeePct > 0 && adminTreasury) {
+            // Split ETH
+            const adminAmount = (value * BigInt(Math.floor(adminFeePct * 10))) / 1000n;
+            const artistAmount = value - adminAmount;
+
+            setError(`Sending fee to Label (${adminFeePct}%)...`);
+            const txAdmin = await activeSigner.sendTransaction({ to: adminTreasury, value: adminAmount });
+            feeReceipt = await txAdmin.wait();
+
+            setError(`Sending ${ethers.formatEther(artistAmount)} ETH to artist...`);
+            const txArtist = await activeSigner.sendTransaction({ to: artistWallet, value: artistAmount });
+            receipt = await txArtist.wait();
+          } else {
+            setError(`Sending ${finalPriceEth} ETH to artist... Please confirm in your wallet.`);
+            const tx = await activeSigner.sendTransaction({ to: artistWallet, value });
+            receipt = await tx.wait();
+          }
         }
       } // End ETH/USDC/USDT toggle
 
@@ -242,6 +278,7 @@ export const CheckoutModal = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             txHash: receipt.hash,
+            feeTxHash: feeReceipt?.hash,
             trackId: track.id,
           }),
         });
