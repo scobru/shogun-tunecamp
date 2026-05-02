@@ -108,5 +108,42 @@ export function createAuthMiddleware(authService: AuthService) {
 
             next();
         },
+        /**
+         * Middleware that prevents write access for super_user role
+         */
+        requireWriteAccess(
+            req: AuthenticatedRequest,
+            res: Response,
+            next: NextFunction
+        ) {
+            if (req.role === 'super_user') {
+                return res.status(403).json({ error: "Access denied: Super User is read-only" });
+            }
+            next();
+        },
+
+        /**
+         * Middleware that requires root admin access
+         */
+        requireRootAdmin(
+            req: AuthenticatedRequest,
+            res: Response,
+            next: NextFunction
+        ) {
+            const payload = extractPayload(req);
+
+            if (!payload || !authService.isRootAdmin(payload.username)) {
+                return res.status(403).json({ error: "Access denied: Root Admin only" });
+            }
+
+            req.isAdmin = true;
+            req.isRootAdmin = true;
+            req.username = payload.username;
+            req.artistId = payload.artistId;
+            req.role = payload.role;
+            req.isActive = payload.isActive;
+            req.userId = payload.userId;
+            next();
+        },
     };
 }

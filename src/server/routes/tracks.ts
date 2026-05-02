@@ -48,7 +48,7 @@ export function createTracksRoutes(database: DatabaseService, publishingService:
         const showMine = req.query.mine === 'true';
         const username = req.username;
 
-        if (req.isAdmin) {
+        if (req.isRootAdmin && !showMine) {
             return res.json(database.getTracks().map(t => mapTrack(t, username)));
         }
         

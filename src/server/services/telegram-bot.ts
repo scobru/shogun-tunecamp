@@ -267,6 +267,8 @@ The bot will automatically associate the photo as the cover and use the hashtags
             return;
         }
 
+        const chatId = ctx.chat.id.toString();
+        
         try {
             // Check for recent context (photo/caption)
             let suggestedCoverPath: string | undefined;

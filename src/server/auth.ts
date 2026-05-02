@@ -18,7 +18,7 @@ if (typeof global !== 'undefined' && !global.crypto) {
 const SALT_ROUNDS = 10;
 const JWT_EXPIRES_IN = "7d";
 
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'admin' | 'user' | 'super_user';
 
 export enum AuthProvider {
     MASTODON = "mastodon"
@@ -233,7 +233,7 @@ export function createAuthService(
             try {
                 const decoded = jwt.verify(token, jwtSecret) as TokenPayload;
                 return {
-                    isAdmin: decoded.isAdmin ?? (decoded.role === 'admin'),
+                    isAdmin: decoded.isAdmin ?? (decoded.role === 'admin' || decoded.role === 'super_user'),
                     username: decoded.username,
                     artistId: decoded.artistId ?? null,
                     role: decoded.role || (decoded.isAdmin ? 'admin' : 'user'), // backward compat
@@ -396,7 +396,7 @@ export function createAuthService(
             return {
                 success: true,
                 id: user.id,
-                isAdmin: userRole === 'admin',
+                isAdmin: userRole === 'admin' || userRole === 'super_user',
                 artistId: artistId,
                 role: userRole,
                 isActive: user.is_active === 1,

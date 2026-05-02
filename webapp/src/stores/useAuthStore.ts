@@ -4,7 +4,7 @@ import { ZenAuth, type ZenProfile } from '../services/zen';
 import type { User } from '../types';
 import { useWalletStore } from './useWalletStore';
 
-type UserRole = 'admin' | 'user' | null;
+type UserRole = 'admin' | 'user' | 'super_user' | null;
 
 interface AuthState {
     user: (User & { zenProfile?: ZenProfile | null }) | null;
@@ -62,7 +62,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: true });
         try {
             const status = await API.getAuthStatus();
-            const isAdmin = status.authenticated && status.role === 'admin';
+            const isAdmin = status.authenticated && (status.role === 'admin' || status.role === 'super_user');
 
             let zenProfile: ZenProfile | null = null;
             if (status.pair) {
@@ -103,7 +103,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             const transformedUser = status.user || (status.username ? {
                 username: status.username,
-                isAdmin: status.role === 'admin',
+                isAdmin: status.role === 'admin' || status.role === 'super_user',
                 isRootAdmin: !!status.isRootAdmin,
                 id: String(status.artistId ?? '0'),
                 artistId: status.artistId != null ? String(status.artistId) : undefined,

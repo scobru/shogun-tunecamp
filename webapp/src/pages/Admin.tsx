@@ -20,7 +20,8 @@ import { BackupPanel } from "../components/admin/BackupPanel";
 export const Admin = () => {
   const { isAuthenticated, isLoading, role, user } = useAuthStore();
   const navigate = useNavigate();
-  const isAdmin = role === 'admin';
+  const isAdmin = role === 'admin' || role === 'super_user';
+  const isSuperUser = role === 'super_user';
   const isRootAdmin = !!user?.isRootAdmin;
   
   const [activeTab, setActiveTab] = useState<
@@ -36,11 +37,11 @@ export const Admin = () => {
 
   useEffect(() => {
     if (isLoading) return;
-    if (!isAuthenticated || role !== 'admin') {
+    if (!isAuthenticated || (role !== 'admin' && role !== 'super_user')) {
       navigate("/");
       return;
     }
-    if (isAdmin) {
+    if (isAdmin || isSuperUser) {
         loadStats();
     }
   }, [isAuthenticated, role, isLoading]);
@@ -81,7 +82,7 @@ export const Admin = () => {
     }
   };
 
-  if (!isAuthenticated || role !== 'admin') return null;
+  if (!isAuthenticated || (role !== 'admin' && role !== 'super_user')) return null;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -122,7 +123,7 @@ export const Admin = () => {
         >
           {isAdmin ? "All Releases" : "My Releases"}
         </a>
-        {isAdmin && (
+        {isRootAdmin && (
           <>
             <a
               role="tab"
@@ -131,6 +132,10 @@ export const Admin = () => {
             >
               Users
             </a>
+          </>
+        )}
+        {isAdmin && !isSuperUser && (
+          <>
             <a
               role="tab"
               className={`tab ${activeTab === "settings" ? "tab-active" : ""}`}
@@ -138,6 +143,10 @@ export const Admin = () => {
             >
               Settings
             </a>
+          </>
+        )}
+        {isRootAdmin && (
+          <>
             <a
               role="tab"
               className={`tab ${activeTab === "system" ? "tab-active" : ""}`}
@@ -175,12 +184,14 @@ export const Admin = () => {
            <div className="space-y-4">
            <div className="flex justify-between items-center">
              <h3 className="font-bold text-lg">{isAdmin ? "All Releases" : "My Releases"}</h3>
-             <button
-               className="btn btn-sm btn-primary"
-               onClick={() => navigate("/admin/release/new")}
-             >
-               New Release
-             </button>
+             {!isSuperUser && (
+               <button
+                 className="btn btn-sm btn-primary"
+                 onClick={() => navigate("/admin/release/new")}
+               >
+                 New Release
+               </button>
+             )}
            </div>
            <AdminReleasesList mine={!isAdmin} />
          </div>

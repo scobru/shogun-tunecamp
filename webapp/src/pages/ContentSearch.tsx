@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { API } from '../services/api';
+import { useAuthStore } from '../stores/useAuthStore';
+import { useNavigate } from 'react-router-dom';
 import { Search, Download, Settings, Activity, RefreshCw, Trash2, AlertCircle } from 'lucide-react';
 
 export const ContentSearch: React.FC = () => {
@@ -11,6 +13,16 @@ export const ContentSearch: React.FC = () => {
     const [showCreds, setShowCreds] = useState(false);
     const [creds, setCreds] = useState({ username: '', password: '' });
     const [searchError, setSearchError] = useState<string | null>(null);
+    const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (!authLoading) {
+            if (!isAuthenticated || !user?.isRootAdmin) {
+                navigate('/');
+            }
+        }
+    }, [authLoading, isAuthenticated, user, navigate]);
 
 
 

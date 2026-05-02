@@ -280,15 +280,15 @@ export async function startServer(config: ServerConfig): Promise<void> {
     app.use("/api/admin/releases", authMiddleware.requireUser, releaseRouter);
     app.use("/api/stats", createStatsRoutes(zendbService, database, config));
     app.use("/api/stats/library", createLibraryStatsRoutes(database));
-    app.use("/api/browser", authMiddleware.requireAdmin, createBrowserRoutes(config.musicDir, database));
-    app.use("/api/metadata", authMiddleware.requireAdmin, createMetadataRoutes(database, config.musicDir));
+    app.use("/api/browser", authMiddleware.requireRootAdmin, createBrowserRoutes(config.musicDir, database));
+    app.use("/api/metadata", authMiddleware.requireRootAdmin, createMetadataRoutes(database, config.musicDir));
     app.use("/api/users", createUsersRoutes(zendbService, database, authService, apService));
     app.use("/api/comments", createCommentsRoutes(zendbService));
     app.use("/api/unlock", createUnlockRoutes(database, authMiddleware));
     app.use("/api/payments", createPaymentsRoutes(database, config.musicDir, config));
     app.use("/api/ap", createActivityPubRoutes(apService, database, authMiddleware));
     app.use("/api/proxy", createProxyRoutes());
-    app.use("/api/search/content", authMiddleware.requireAdmin, createSearchRoutes(database, soulseekService, scanner));
+    app.use("/api/search/content", authMiddleware.requireRootAdmin, createSearchRoutes(database, soulseekService, scanner));
     // app.use("/.well-known", createWebFingerRoute(apService)); // Legacy, handled by Fedify
 
     // Funkwhale-compatible federation libraries endpoint

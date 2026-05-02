@@ -28,6 +28,7 @@ export const Sidebar = () => {
   const [siteName, setSiteName] = useState("TuneCamp");
  
   const isAdmin = role === 'admin';
+  const isSuperUser = role === 'super_user';
   const isUser = role === 'user';
  
   useEffect(() => {
@@ -109,7 +110,7 @@ export const Sidebar = () => {
           </ul>
         </div>
 
-        {isAuthenticated && (user?.isRootAdmin || isAdmin || isUser) && (
+        {isAuthenticated && (user?.isRootAdmin || isAdmin || isSuperUser || isUser) && (
           <div>
             <h3 className="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-base-content/40 mb-3">Management</h3>
             <ul className="menu menu-sm p-0 gap-1">
@@ -117,11 +118,13 @@ export const Sidebar = () => {
                 <NavItem to="/browser" icon={Folder} label="Files" />
               )}
               {(user?.isRootAdmin || isAdmin) && (
-                <>
-                  <NavItem to="/my-music" icon={Upload} label="My Music" />
-                  <NavItem to="/social" icon={Globe} label="Social" />
-                  <NavItem to="/search/content" icon={Globe} label="Search Content" />
-                </>
+                <NavItem to="/my-music" icon={Upload} label="My Music" />
+              )}
+              {(user?.isRootAdmin || isAdmin || isSuperUser) && user?.artistId && (
+                <NavItem to="/social" icon={Globe} label="Social" />
+              )}
+              {user?.isRootAdmin && (
+                <NavItem to="/search/content" icon={Globe} label="Search Content" />
               )}
             </ul>
           </div>

@@ -10,6 +10,7 @@ import type { AuthService } from "../auth.js";
 import type { PublishingService } from "../publishing.js";
 import { sanitizeFilename } from "../../utils/audioUtils.js";
 import type { StorageEngine } from "../modules/storage/storage.engine.js";
+import { createAuthMiddleware } from "../middleware/auth.js";
 
 const AUDIO_EXTENSIONS = [".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus"];
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
@@ -83,6 +84,11 @@ export function createUploadRoutes(
     authService?: AuthService
 ): Router {
     const router = Router();
+
+    if (authService) {
+        const authMiddleware = createAuthMiddleware(authService);
+        router.use(authMiddleware.requireWriteAccess);
+    }
 
     const upload = multer({
         storage: createTempStorage(),

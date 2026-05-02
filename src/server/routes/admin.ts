@@ -6,7 +6,8 @@ import type { DatabaseService } from "../database.js";
 import type { ScannerService } from "../scanner.js";
 import type { ZenDBService } from "../zendb.js";
 import type { ServerConfig } from "../config.js";
-import type { AuthService } from "../auth.js";
+import type { AuthService, UserRole } from "../auth.js";
+import { createAuthMiddleware } from "../middleware/auth.js";
 import { validatePassword } from "../validators.js";
 import type { PublishingService } from "../publishing.js";
 import type { ActivityPubService } from "../activitypub.js";
@@ -23,6 +24,17 @@ export function createAdminRoutes(
     telegramBotService: any
 ): Router {
     const router = Router();
+    const authMiddleware = createAuthMiddleware(authService);
+
+    /**
+     * Restriction middleware: prevent super_user from making any changes via admin routes
+     */
+    router.use((req: AuthenticatedRequest, res, next) => {
+        if (req.method !== 'GET' && req.role === 'super_user') {
+            return res.status(403).json({ error: "Access denied: Super User is read-only" });
+        }
+        next();
+    });
 
     /**
      * GET /api/admin/releases
@@ -35,7 +47,7 @@ export function createAdminRoutes(
             const isRoot = req.isRootAdmin;
             let releases: any[] = [];
             
-            if (isAdmin && !showMine) {
+            if (isRoot && !showMine) {
                 releases = database.getReleases(false).map(r => ({ ...r, is_formal_release: true }));
             } else if (req.userId) {
                 releases = database.getReleasesByOwner(req.userId, false).map(r => ({ ...r, is_formal_release: true }));
@@ -87,7 +99,7 @@ export function createAdminRoutes(
 
             // Permission Check
             const ownerId = release ? release.owner_id : album?.owner_id;
-            if (req.userId !== undefined && !req.isAdmin && ownerId !== req.userId) {
+            if (req.userId !== undefined && !req.isRootAdmin && ownerId !== req.userId) {
                 return res.status(403).json({ error: "Access denied: You can only manage your own content" });
             }
 
@@ -122,8 +134,8 @@ export function createAdminRoutes(
             const showMine = req.query.mine === 'true';
             const isAdmin = req.isAdmin;
             const isRoot = req.isRootAdmin;
-            const artistId = (isAdmin && !showMine) ? undefined : (req.artistId || undefined);
-            const ownerId = showMine ? req.userId : undefined;
+            const artistId = (isRoot && !showMine) ? undefined : (req.artistId || undefined);
+            const ownerId = (isRoot && !showMine) ? undefined : req.userId;
             
             const stats = await database.getStats(artistId, ownerId);
             res.json(stats);
@@ -450,7 +462,7 @@ export function createAdminRoutes(
             const id = parseInt(req.params.id, 10);
             const body = req.body;
 
-            if (!req.isAdmin && !req.isActive) {
+            if (!req.isRootAdmin && !req.isActive) {
                 return res.status(403).json({ error: "Access denied: Account must be activated by admin to modify releases" });
             }
 
@@ -459,6 +471,7 @@ export function createAdminRoutes(
                 track_ids: body.track_ids,
                 track_ids_count: body.track_ids?.length
             });
+
 
             // Check both releases and albums
             const release = database.getRelease(id);
@@ -472,7 +485,7 @@ export function createAdminRoutes(
 
             // Permission Check
             const ownerId = release ? release.owner_id : album?.owner_id;
-            if (req.userId !== undefined && !req.isAdmin && ownerId !== req.userId) {
+            if (req.userId !== undefined && !req.isRootAdmin && ownerId !== req.userId) {
                 console.warn(`⛔ [Debug] Access Denied for user ${req.username} on item ${id}. Owner: ${ownerId}, Request UserId: ${req.userId}`);
                 return res.status(403).json({ error: "Access denied" });
             }
@@ -787,9 +800,9 @@ export function createAdminRoutes(
      */
     router.get("/system/users", (req: AuthenticatedRequest, res: any) => {
         try {
-            // Only admin can list users
-            if (!req.isAdmin) {
-                return res.status(403).json({ error: "Only admin can list users" });
+            // Only root admin can list users
+            if (!req.isRootAdmin) {
+                return res.status(403).json({ error: "Only Root Admin can list users" });
             }
             const admins = authService.listAdmins();
             res.json(admins);
@@ -808,7 +821,7 @@ export function createAdminRoutes(
             if (!req.isRootAdmin) {
                 return res.status(403).json({ error: "Only the primary admin can create new admins" });
             }
-            const { username, password, artistId, isAdmin } = req.body;
+            const { username, password, artistId, isAdmin, role } = req.body;
             if (!username) {
                 return res.status(400).json({ error: "Username is required" });
             }
@@ -818,8 +831,14 @@ export function createAdminRoutes(
                 return res.status(400).json({ error: passwordValidation.error });
             }
 
-            if (isAdmin) {
+            const targetRole: UserRole = role || (isAdmin ? 'admin' : 'user');
+
+            if (targetRole === 'admin') {
                 await authService.createAdmin(username, password, artistId);
+            } else if (targetRole === 'super_user') {
+                // We don't have createSuperUser but we can createAdmin and then update role
+                const { id } = await authService.createAdmin(username, password, artistId);
+                authService.updateAdmin(id, artistId, 'super_user');
             } else {
                 await authService.createUser(username, password, artistId || null as any, 1024 * 1024 * 1024);
             }
@@ -843,10 +862,10 @@ export function createAdminRoutes(
                 return res.status(403).json({ error: "Only the primary admin can manage users" });
             }
             const id = parseInt(req.params.id, 10);
-            const { artistId, isAdmin } = req.body;
+            const { artistId, isAdmin, role } = req.body;
 
-            const role = isAdmin === undefined ? undefined : (isAdmin ? 'admin' : 'user');
-            authService.updateAdmin(id, artistId, role);
+            const targetRole = role || (isAdmin === undefined ? undefined : (isAdmin ? 'admin' : 'user'));
+            authService.updateAdmin(id, artistId, targetRole as UserRole);
             res.json({ message: "Admin user updated" });
         } catch (error) {
             console.error("Error updating admin:", error);

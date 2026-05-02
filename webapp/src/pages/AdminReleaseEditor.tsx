@@ -74,6 +74,7 @@ export default function AdminReleaseEditor() {
   const { user, role, isAuthenticated, isLoading } = useAuthStore();
   const isNew = !id;
   const isAdmin = role === 'admin';
+  const isSuperUser = role === 'super_user';
 
 
   const [loading, setLoading] = useState(false);
@@ -607,7 +608,7 @@ export default function AdminReleaseEditor() {
           </h1>
         </div>
         <div className="flex-none gap-2">
-          {!isNew && (
+          {!isNew && !isSuperUser && (
             <button
               className="btn btn-ghost btn-sm text-error hidden sm:flex"
               id="delete-release-btn"
@@ -618,26 +619,30 @@ export default function AdminReleaseEditor() {
               Delete
             </button>
           )}
-          <button
-            className="btn btn-ghost btn-sm"
-            id="save-release-btn"
-            onClick={() => handleSave(false)}
-            disabled={saving}
-          >
-            Save
-          </button>
-          <button
-            className="btn btn-primary btn-sm px-6"
-            id="publish-release-btn"
-            onClick={() => handleSave(true)}
-            disabled={saving}
-          >
-            {saving
-              ? "..."
-              : metadata.visibility === "public"
-                ? "Publish"
-                : "Save & Close"}
-          </button>
+          {!isSuperUser && (
+            <>
+              <button
+                className="btn btn-ghost btn-sm"
+                id="save-release-btn"
+                onClick={() => handleSave(false)}
+                disabled={saving}
+              >
+                Save
+              </button>
+              <button
+                className="btn btn-primary btn-sm px-6"
+                id="publish-release-btn"
+                onClick={() => handleSave(true)}
+                disabled={saving}
+              >
+                {saving
+                  ? "..."
+                  : metadata.visibility === "public"
+                    ? "Publish"
+                    : "Save & Close"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -649,10 +654,10 @@ export default function AdminReleaseEditor() {
               {/* Cover Art */}
               <div className="card bg-base-100 shadow-xl overflow-hidden border border-white/5">
                 <div
-                  className="aspect-square bg-base-200 flex flex-col items-center justify-center relative group cursor-pointer"
+                  className={`aspect-square bg-base-200 flex flex-col items-center justify-center relative group ${!isSuperUser ? 'cursor-pointer' : ''}`}
                   onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleDropCover}
-                  onClick={() => document.getElementById("cover-upload-large")?.click()}
+                  onDrop={!isSuperUser ? handleDropCover : undefined}
+                  onClick={() => !isSuperUser && document.getElementById("cover-upload-large")?.click()}
                 >
                   {coverPreview ? (
                     <img
@@ -666,11 +671,13 @@ export default function AdminReleaseEditor() {
                       <span className="text-sm font-bold tracking-widest uppercase">Select Cover</span>
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center text-white p-4 text-center">
-                    <Download className="w-8 h-8 mb-2" />
-                    <span className="font-bold uppercase tracking-widest text-sm">Change Cover Image</span>
-                    <p className="text-[10px] opacity-70 mt-2">Square JPEG or PNG, min 1400px</p>
-                  </div>
+                  {!isSuperUser && (
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center text-white p-4 text-center">
+                      <Download className="w-8 h-8 mb-2" />
+                      <span className="font-bold uppercase tracking-widest text-sm">Change Cover Image</span>
+                      <p className="text-[10px] opacity-70 mt-2">Square JPEG or PNG, min 1400px</p>
+                    </div>
+                  )}
                   <input
                     id="cover-upload-large"
                     type="file"
@@ -688,25 +695,27 @@ export default function AdminReleaseEditor() {
 
               {/* Album Primary Info */}
               <div className="card bg-base-100 shadow-xl border border-white/5 p-6 space-y-6">
-                <div className="form-control">
-                  <label className="label text-xs font-bold uppercase tracking-widest opacity-50">Import from Bandcamp</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      className="input input-bordered input-sm flex-1 font-mono text-xs"
-                      placeholder="https://artist.bandcamp.com/album/..."
-                      value={bandcampUrl}
-                      onChange={(e) => setBandcampUrl(e.target.value)}
-                    />
-                    <button 
-                      className="btn btn-sm btn-primary"
-                      onClick={handleBandcampImport}
-                      disabled={isImporting || !bandcampUrl}
-                    >
-                      {isImporting ? <span className="loading loading-spinner loading-xs"></span> : "Import"}
-                    </button>
+                {!isSuperUser && (
+                  <div className="form-control">
+                    <label className="label text-xs font-bold uppercase tracking-widest opacity-50">Import from Bandcamp</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className="input input-bordered input-sm flex-1 font-mono text-xs"
+                        placeholder="https://artist.bandcamp.com/album/..."
+                        value={bandcampUrl}
+                        onChange={(e) => setBandcampUrl(e.target.value)}
+                      />
+                      <button 
+                        className="btn btn-sm btn-primary"
+                        onClick={handleBandcampImport}
+                        disabled={isImporting || !bandcampUrl}
+                      >
+                        {isImporting ? <span className="loading loading-spinner loading-xs"></span> : "Import"}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="form-control">
                   <label className="label text-xs font-bold uppercase tracking-widest opacity-50">Album Title</label>
@@ -716,6 +725,7 @@ export default function AdminReleaseEditor() {
                     value={metadata.title}
                     onChange={(e) => setMetadata((prev) => ({ ...prev, title: e.target.value }))}
                     placeholder="Release Title"
+                    disabled={isSuperUser}
                   />
                 </div>
 
