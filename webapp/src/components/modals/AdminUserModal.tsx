@@ -34,6 +34,10 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
              }
         };
         loadData();
+        
+        const refreshListener = () => loadData();
+        window.addEventListener('refresh-admin-artists', refreshListener);
+        return () => window.removeEventListener('refresh-admin-artists', refreshListener);
     }, []);
 
     useEffect(() => {
@@ -156,18 +160,28 @@ export const AdminUserModal = ({ onUserUpdated, user }: AdminUserModalProps) => 
                          <label className="label">
                             <span className="label-text">Link to Artist</span>
                         </label>
-                        <select 
-                            className="select select-bordered w-full"
-                            value={artistId}
-                            onChange={e => setArtistId(e.target.value)}
-                        >
-                            <option value="">None (Admin/Listener only)</option>
-                            {artists.map(artist => (
-                                <option key={artist.id} value={artist.id}>
-                                    {artist.name}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="flex gap-2">
+                            <select 
+                                className="select select-bordered w-full"
+                                value={artistId}
+                                onChange={e => setArtistId(e.target.value)}
+                            >
+                                <option value="">None (Admin/Listener only)</option>
+                                {artists.map(artist => (
+                                    <option key={artist.id} value={artist.id}>
+                                        {artist.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <button 
+                                type="button" 
+                                className="btn btn-square btn-outline btn-primary"
+                                title="Create New Artist"
+                                onClick={() => document.dispatchEvent(new CustomEvent('open-admin-artist-modal'))}
+                            >
+                                +
+                            </button>
+                        </div>
                          <label className="label">
                             <span className="label-text-alt opacity-50">Linking to an artist allows this user to manage that artist's profile.</span>
                         </label>

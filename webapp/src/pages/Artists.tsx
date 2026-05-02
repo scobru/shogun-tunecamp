@@ -51,6 +51,14 @@ export const Artists = () => {
                 </h1>
 
                 <div className="flex items-center gap-4">
+                    {currentUser?.isRootAdmin && (
+                        <button 
+                            className="btn btn-sm btn-primary"
+                            onClick={() => document.dispatchEvent(new CustomEvent('open-admin-artist-modal'))}
+                        >
+                            New Artist
+                        </button>
+                    )}
                     <span className="opacity-50 font-mono text-sm">{artists.length} items</span>
                     <div className="join bg-base-200">
                         <button

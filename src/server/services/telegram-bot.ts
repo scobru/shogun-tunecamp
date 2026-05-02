@@ -141,6 +141,9 @@ The bot will automatically associate the photo as the cover and use the hashtags
 • **Tracks:** ${stats.tracks?.count || 0}
 • **Albums:** ${stats.albums?.count || 0}
 • **Releases:** ${stats.releases?.count || 0}
+
+🎵 **Recent Tracks:**
+${(this.database.db.prepare("SELECT title, artist_name FROM tracks ORDER BY id DESC LIMIT 5").all() as any[]).map(t => `• ${t.artist_name || 'Unknown'} - ${t.title}`).join('\n') || 'None'}
 `;
                     return this.safeReply(ctx, debugInfo);
                 },
@@ -154,8 +157,8 @@ The bot will automatically associate the photo as the cover and use the hashtags
 
                     console.log(`[TelegramBot] Searching for: "${query}"`);
 
-                    // Try a broad search first
-                    const results = this.database.db.prepare(`
+                    // 1. Search in Tracks (Library)
+                    let results = this.database.db.prepare(`
                         SELECT t.*, ar.name as artist_name, al.cover_path as album_cover
                         FROM tracks t 
                         LEFT JOIN artists ar ON t.artist_id = ar.id 
@@ -168,23 +171,26 @@ The bot will automatically associate the photo as the cover and use the hashtags
                         LIMIT 10
                     `).all(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`) as any[];
 
-                    if (results.length === 0) {
-                        // If no tracks found, try to find the artist first and then their tracks
-                        const artistMatch = this.database.db.prepare("SELECT id, name FROM artists WHERE name LIKE ?").get(`%${query}%`) as any;
-                        if (artistMatch) {
-                            const artistTracks = this.database.db.prepare(`
-                                SELECT t.*, ar.name as artist_name, al.cover_path as album_cover
-                                FROM tracks t 
-                                LEFT JOIN artists ar ON t.artist_id = ar.id 
-                                LEFT JOIN albums al ON t.album_id = al.id
-                                WHERE t.artist_id = ? OR t.artist_name LIKE ?
-                                ORDER BY t.id DESC
-                                LIMIT 5
-                            `).all(artistMatch.id, `%${query}%`) as any[];
-                            
-                            if (artistTracks.length > 0) {
-                                results.push(...artistTracks);
-                            }
+                    // 2. Search in Release Tracks (Published Releases)
+                    const releaseResults = this.database.db.prepare(`
+                        SELECT rt.*, r.title as album_title, ar.name as artist_name, r.cover_path as album_cover
+                        FROM release_tracks rt
+                        JOIN releases r ON rt.release_id = r.id
+                        LEFT JOIN artists ar ON r.artist_id = ar.id
+                        WHERE rt.title LIKE ? 
+                           OR ar.name LIKE ? 
+                           OR rt.artist_name LIKE ?
+                           OR r.title LIKE ?
+                        ORDER BY rt.id DESC
+                        LIMIT 10
+                    `).all(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`) as any[];
+
+                    // Merge and deduplicate (by file_path)
+                    const seenPaths = new Set(results.map(r => r.file_path));
+                    for (const rr of releaseResults) {
+                        if (rr.file_path && !seenPaths.has(rr.file_path)) {
+                            results.push(rr);
+                            seenPaths.add(rr.file_path);
                         }
                     }
 
@@ -195,9 +201,18 @@ The bot will automatically associate the photo as the cover and use the hashtags
 
                     console.log(`[TelegramBot] Found ${results.length} results for "${query}"`);
 
+                    let sentCount = 0;
+                    let missingCount = 0;
+
                     for (const track of results) {
-                        if (!track.file_path || !fs.existsSync(track.file_path)) {
-                            console.warn(`[TelegramBot] File not found for search result: ${track.file_path}`);
+                        let fullPath = track.file_path;
+                        if (fullPath && !path.isAbsolute(fullPath)) {
+                            fullPath = path.join(this.musicDir, fullPath);
+                        }
+
+                        if (!fullPath || !fs.existsSync(fullPath)) {
+                            console.warn(`[TelegramBot] File not found for search result: ${fullPath}`);
+                            missingCount++;
                             continue;
                         }
 
@@ -212,10 +227,15 @@ The bot will automatically associate the photo as the cover and use the hashtags
                                 extra.thumb = { source: track.album_cover };
                             }
 
-                            await ctx.replyWithAudio({ source: track.file_path }, extra);
+                            await ctx.replyWithAudio({ source: fullPath }, extra);
+                            sentCount++;
                         } catch (err: any) {
                             console.error(`[TelegramBot] Failed to send audio: ${err.message}`);
                         }
+                    }
+
+                    if (sentCount === 0 && missingCount > 0) {
+                        return this.safeReply(ctx, `⚠️ Found ${missingCount} matches, but the physical files are missing from the server library.`);
                     }
                 },
                 'play': (ctx) => commands['search'](ctx),
