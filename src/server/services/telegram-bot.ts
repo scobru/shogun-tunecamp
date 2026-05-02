@@ -106,6 +106,7 @@ This bot automatically ingests music files shared in this channel and allows you
 • /artists - List artists in your library
 • /albums - List recent library albums
 • /releases - List recent published releases
+• /debug_db - Admin: Debug database paths and stats
 • /rescan - Consolidate library and repair paths
 • /help - Show this help message
 
@@ -121,6 +122,28 @@ The bot will automatically associate the photo as the cover and use the hashtags
                     `;
                     return this.safeReply(ctx, helpText);
                 },
+                'debug_db': async (ctx) => {
+                    if (!this.isAuthorized(ctx)) return this.safeReply(ctx, "⚠️ Unauthorized.");
+                    
+                    const dbPath = this.database.db.name;
+                    const stats = {
+                        artists: this.database.db.prepare("SELECT COUNT(*) as count FROM artists").get() as any,
+                        tracks: this.database.db.prepare("SELECT COUNT(*) as count FROM tracks").get() as any,
+                        albums: this.database.db.prepare("SELECT COUNT(*) as count FROM albums").get() as any,
+                        releases: this.database.db.prepare("SELECT COUNT(*) as count FROM releases").get() as any,
+                    };
+
+                    const debugInfo = `
+🔧 **Database Debug Info**
+• **CWD:** ${process.cwd()}
+• **DB Path:** ${dbPath}
+• **Artists:** ${stats.artists?.count || 0}
+• **Tracks:** ${stats.tracks?.count || 0}
+• **Albums:** ${stats.albums?.count || 0}
+• **Releases:** ${stats.releases?.count || 0}
+`;
+                    return this.safeReply(ctx, debugInfo);
+                },
                 'search': async (ctx) => {
                     if (!this.isAuthorized(ctx)) return this.safeReply(ctx, "⚠️ Unauthorized.");
                     
@@ -129,17 +152,48 @@ The bot will automatically associate the photo as the cover and use the hashtags
                     
                     if (!query) return this.safeReply(ctx, "🔍 Please provide a search query.\nUsage: /search <title or artist>");
 
+                    console.log(`[TelegramBot] Searching for: "${query}"`);
+
+                    // Try a broad search first
                     const results = this.database.db.prepare(`
                         SELECT t.*, ar.name as artist_name, al.cover_path as album_cover
                         FROM tracks t 
                         LEFT JOIN artists ar ON t.artist_id = ar.id 
                         LEFT JOIN albums al ON t.album_id = al.id
-                        WHERE t.title LIKE ? OR ar.name LIKE ? OR t.artist_name LIKE ?
+                        WHERE t.title LIKE ? 
+                           OR ar.name LIKE ? 
+                           OR t.artist_name LIKE ?
+                           OR al.title LIKE ?
                         ORDER BY t.id DESC
-                        LIMIT 5
-                    `).all(`%${query}%`, `%${query}%`, `%${query}%`) as any[];
+                        LIMIT 10
+                    `).all(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`) as any[];
 
-                    if (results.length === 0) return this.safeReply(ctx, "❌ No results found.");
+                    if (results.length === 0) {
+                        // If no tracks found, try to find the artist first and then their tracks
+                        const artistMatch = this.database.db.prepare("SELECT id, name FROM artists WHERE name LIKE ?").get(`%${query}%`) as any;
+                        if (artistMatch) {
+                            const artistTracks = this.database.db.prepare(`
+                                SELECT t.*, ar.name as artist_name, al.cover_path as album_cover
+                                FROM tracks t 
+                                LEFT JOIN artists ar ON t.artist_id = ar.id 
+                                LEFT JOIN albums al ON t.album_id = al.id
+                                WHERE t.artist_id = ? OR t.artist_name LIKE ?
+                                ORDER BY t.id DESC
+                                LIMIT 5
+                            `).all(artistMatch.id, `%${query}%`) as any[];
+                            
+                            if (artistTracks.length > 0) {
+                                results.push(...artistTracks);
+                            }
+                        }
+                    }
+
+                    if (results.length === 0) {
+                        console.log(`[TelegramBot] No results found for query: ${query}`);
+                        return this.safeReply(ctx, `❌ No results found for "${query}". Try /artists to see available names.`);
+                    }
+
+                    console.log(`[TelegramBot] Found ${results.length} results for "${query}"`);
 
                     for (const track of results) {
                         if (!track.file_path || !fs.existsSync(track.file_path)) {
