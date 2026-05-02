@@ -453,6 +453,7 @@ export class Scanner implements ScannerService {
         const normalizedPath = this.normalizePath(currentFilePath, musicDir);
         let existing: any = this.database.getTrackByPath(normalizedPath);
         let albumId: number | null = overrideAlbumId || this.folderToAlbumMap.get(dir) || null;
+        let artistId: number | null = overrideArtistId || null;
 
         try {
             try {
@@ -473,36 +474,91 @@ export class Scanner implements ScannerService {
                 }
             } catch (e) {}
 
+            // 1. Get Metadata if needed for hints/tags
+            if (!metadata) {
+                try {
+                    metadata = await parseFileWithRetry(currentFilePath);
+                } catch (e) {}
+            }
+            const common = metadata?.common || {};
+            const format = metadata?.format || {};
+
+            // 2. Resolve Artist (Priority: override > hint > tag > unknown)
+            if (!artistId) {
+                const artName = metadataHints?.artist || common.artist || "Unknown Artist";
+                const existArt = this.database.getArtistByName(artName);
+                artistId = existArt ? existArt.id : this.database.createArtist(artName);
+            }
+
+            // 3. Resolve Album (Priority: override > hint > folder)
+            if (!albumId && metadataHints?.album) {
+                const albumName = metadataHints.album;
+                // Use a slug that includes artistId to avoid collisions across different artists with same album name
+                const albumSlug = slugify("hint-" + artistId + "-" + albumName);
+                let album = this.database.getAlbumBySlug(albumSlug);
+                
+                if (!album) {
+                    albumId = this.database.createAlbum({
+                        title: albumName,
+                        slug: albumSlug,
+                        artist_id: artistId,
+                        owner_id: ownerId || this.primaryAdminId,
+                        date: metadataHints.year ? `${metadataHints.year}-01-01` : null,
+                        year: metadataHints.year || null,
+                        cover_path: suggestedCoverPath ? this.normalizePath(suggestedCoverPath, musicDir) : null,
+                        genre: "Imported",
+                        description: `Imported via Telegram`,
+                        type: 'album',
+                        download: null,
+                        price: 0,
+                        price_usdc: 0,
+                        currency: 'ETH',
+                        external_links: null,
+                        is_public: true,
+                        visibility: 'public',
+                        is_release: false,
+                        published_at: new Date().toISOString(),
+                        published_to_gundb: false,
+                        published_to_ap: false,
+                        license: null
+                    });
+                } else {
+                    albumId = album.id;
+                    // Update cover if hint provided a new one and album has none
+                    if (suggestedCoverPath && !album.cover_path) {
+                        this.database.updateAlbumCover(albumId, this.normalizePath(suggestedCoverPath, musicDir));
+                    }
+                    // Update artist if it was missing or different (though slug includes artistId now)
+                    if (artistId && album.artist_id !== artistId) {
+                        this.database.updateAlbumArtist(albumId, artistId);
+                    }
+                }
+            }
+
+            // Fallback to folder-based album
             if (albumId === null && dir.startsWith(musicDir)) {
                 albumId = await this.getOrCreateLibraryAlbum(dir, musicDir, suggestedCoverPath);
             }
 
+            // 4. Handle Existing Track by Path or Metadata
             if (!existing) {
-                const baseName = path.basename(currentFilePath, ext);
-                const siblingExts = ['.wav', '.flac', '.mp3', '.m4a', '.ogg'];
-                for (const sExt of siblingExts) {
-                    if (sExt === ext) continue;
-                    const siblingPath = this.normalizePath(path.join(dir, baseName + sExt), musicDir);
-                    const sibling = this.database.getTrackByPath(siblingPath);
-                    if (sibling) {
-                        existing = sibling;
-                        break;
-                    }
-                }
+                // Try finding by metadata if title/artist/album are known
+                const title = metadataHints?.title || common.title || path.basename(currentFilePath, ext);
+                existing = this.database.getTrackByMetadata(title, artistId, albumId);
+                
                 if (!existing) {
-                    try {
-                        metadata = await parseFileWithRetry(currentFilePath);
-                        if (metadata) {
-                            const title = metadata.common.title || path.basename(currentFilePath, ext);
-                            const artistName = metadata.common.artist;
-                            let artistId: number | null = overrideArtistId || null;
-                            if (!artistId && artistName) {
-                                const existArt = this.database.getArtistByName(artistName);
-                                artistId = existArt ? existArt.id : null;
-                            }
-                            existing = this.database.getTrackByMetadata(title, artistId, albumId);
+                    // Try finding by path siblings
+                    const baseName = path.basename(currentFilePath, ext);
+                    const siblingExts = ['.wav', '.flac', '.mp3', '.m4a', '.ogg'];
+                    for (const sExt of siblingExts) {
+                        if (sExt === ext) continue;
+                        const siblingPath = this.normalizePath(path.join(dir, baseName + sExt), musicDir);
+                        const sibling = this.database.getTrackByPath(siblingPath);
+                        if (sibling) {
+                            existing = sibling;
+                            break;
                         }
-                    } catch (e) {}
+                    }
                 }
             }
 
@@ -519,6 +575,7 @@ export class Scanner implements ScannerService {
                 }
                 this.database.updateTrackPath(existing.id, mp3Path, albumId);
                 if (existing.album_id !== albumId) this.database.updateTrackAlbum(existing.id, albumId);
+                if (artistId && existing.artist_id !== artistId) this.database.updateTrackArtist(existing.id, artistId);
                 
                 if (!existing.waveform) {
                     processQueueWaveform(currentFilePath, existing.id, existing.duration, this.processQueue, this.database);
@@ -526,59 +583,7 @@ export class Scanner implements ScannerService {
                 return { originalPath: filePath, success: true, message: "Track updated.", trackId: existing.id };
             }
 
-            if (!metadata) {
-                try {
-                    metadata = await parseFileWithRetry(currentFilePath);
-                } catch (e) {
-                    console.warn(`[Scanner] Ignored metadata parsing error for ${currentFilePath}:`, String(e));
-                }
-            }
-            const common = metadata?.common || {};
-            const format = metadata?.format || {};
-
-            let artistId: number | null = overrideArtistId || null;
-            if (!artistId) {
-                const artName = metadataHints?.artist || common.artist || "Unknown Artist";
-                const existArt = this.database.getArtistByName(artName);
-                artistId = existArt ? existArt.id : this.database.createArtist(artName);
-            }
-
-            // Use hint for album if provided and no albumId yet
-            if (!albumId && metadataHints?.album) {
-                const albumName = metadataHints.album;
-                const albumSlug = slugify("hint-" + albumName);
-                let album = this.database.getAlbumBySlug(albumSlug);
-                if (!album) {
-                    albumId = this.database.createRelease({
-                        title: albumName,
-                        slug: albumSlug,
-                        artist_id: artistId,
-                        owner_id: ownerId || this.primaryAdminId,
-                        date: metadataHints.year ? `${metadataHints.year}-01-01` : null,
-                        year: metadataHints.year || null,
-                        cover_path: suggestedCoverPath ? this.normalizePath(suggestedCoverPath, musicDir) : null,
-                        genre: null,
-                        description: null,
-                        type: 'album',
-                        download: null,
-                        price: 0,
-                        price_usdc: 0,
-                        currency: 'ETH',
-                        external_links: null,
-                        visibility: 'public',
-                        published_at: null,
-                        published_to_gundb: false,
-                        published_to_ap: false,
-                        license: null
-                    });
-                } else {
-                    albumId = album.id;
-                    if (suggestedCoverPath && !album.cover_path) {
-                        this.database.db.prepare("UPDATE releases SET cover_path = ? WHERE id = ?").run(this.normalizePath(suggestedCoverPath, musicDir), albumId);
-                    }
-                }
-            }
-
+            // 5. Create New Track
             let duration: number | null = await getDurationFromFfmpeg(currentFilePath);
             if (duration == null) duration = format.duration || null;
 

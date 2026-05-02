@@ -109,11 +109,30 @@ export class TelegramBotService {
                     return this.safeReply(ctx, `🎨 Artists in Library:\n\n${list}`);
                 },
                 'albums': (ctx) => {
-                    const albums = this.database.db.prepare("SELECT title FROM releases ORDER BY id DESC LIMIT 50").all() as { title: string }[];
+                    const albums = this.database.db.prepare(`
+                        SELECT a.title, ar.name as artist_name 
+                        FROM albums a 
+                        LEFT JOIN artists ar ON a.artist_id = ar.id 
+                        WHERE a.is_release = 0 
+                        ORDER BY a.id DESC LIMIT 50
+                    `).all() as { title: string, artist_name: string }[];
                     if (albums.length === 0) return this.safeReply(ctx, "No albums found in library.");
-                    const list = albums.map(a => `• ${a.title}`).join('\n');
-                    return this.safeReply(ctx, `💿 Recent Albums:\n\n${list}`);
+                    const list = albums.map(a => `• ${a.artist_name ? a.artist_name + ' - ' : ''}${a.title}`).join('\n');
+                    return this.safeReply(ctx, `💿 Recent Library Albums:\n\n${list}`);
                 },
+                'album': (ctx) => commands['albums'](ctx),
+                'releases': (ctx) => {
+                    const releases = this.database.db.prepare(`
+                        SELECT r.title, ar.name as artist_name 
+                        FROM releases r 
+                        LEFT JOIN artists ar ON r.artist_id = ar.id 
+                        ORDER BY r.id DESC LIMIT 50
+                    `).all() as { title: string, artist_name: string }[];
+                    if (releases.length === 0) return this.safeReply(ctx, "No releases found.");
+                    const list = releases.map(r => `• ${r.artist_name ? r.artist_name + ' - ' : ''}${r.title}`).join('\n');
+                    return this.safeReply(ctx, `🚀 Recent Published Releases:\n\n${list}`);
+                },
+                'release': (ctx) => commands['releases'](ctx),
                 'help': (ctx) => {
                     const helpText = `
 📖 **Tunecamp Bot Help**
@@ -123,7 +142,8 @@ This bot automatically ingests music files shared in this channel.
 **Commands:**
 • /status - Check bot status and Chat ID
 • /artists - List artists in your library
-• /albums - List recent albums
+• /albums - List recent library albums
+• /releases - List recent published releases
 • /rescan - Consolidate library and repair paths
 • /help - Show this help message
 
@@ -238,25 +258,26 @@ The bot will automatically associate the photo as the cover and use the hashtags
                 if (context.caption) {
                     const caption = context.caption;
                     
-                    // Look for hashtags like #artist: Name or #album: Name
-                    const artistMatch = caption.match(/#artist[:\s]+([^\n#]+)/i);
-                    const albumMatch = caption.match(/#album[:\s]+([^\n#]+)/i);
-                    const yearMatch = caption.match(/#year[:\s]+(\d{4})/i);
+                    // Improved regex for metadata tags
+                    // Matches #tag: value, #tag - value, #tag = value, or #tag value
+                    const artistMatch = caption.match(/#artist[:\s\-=]+([^\n#]+)/i);
+                    const albumMatch = caption.match(/#album[:\s\-=]+([^\n#]+)/i);
+                    const yearMatch = caption.match(/#year[:\s\-=]+(\d{4})/i);
+                    const titleMatch = caption.match(/#title[:\s\-=]+([^\n#]+)/i);
 
                     if (artistMatch) metadataHints.artist = artistMatch[1].trim();
                     if (albumMatch) metadataHints.album = albumMatch[1].trim();
                     if (yearMatch) metadataHints.year = parseInt(yearMatch[1]);
+                    if (titleMatch) metadataHints.title = titleMatch[1].trim();
 
-                    // Fallback to line-based if no hashtags found
-                    if (!metadataHints.artist || !metadataHints.album) {
+                    // Fallback to line-based parsing if no hashtags were found
+                    if (!metadataHints.artist && !metadataHints.album) {
                         const lines = caption.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('#'));
-                        if (!metadataHints.artist && lines.length >= 1) metadataHints.artist = lines[0];
-                        if (!metadataHints.album && lines.length >= 2) metadataHints.album = lines[1];
-                        if (!metadataHints.year && lines.length >= 3) {
-                            const yMatch = lines[2].match(/\d{4}/);
-                            if (yMatch) metadataHints.year = parseInt(yMatch[0]);
-                        }
+                        if (lines.length >= 1) metadataHints.artist = lines[0];
+                        if (lines.length >= 2) metadataHints.album = lines[1];
                     }
+
+                    console.log(`[TelegramBot] Extracted hints:`, metadataHints);
                 }
 
                 // 2. Download Photo as Cover
