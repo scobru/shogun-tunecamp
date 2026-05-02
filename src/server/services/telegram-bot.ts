@@ -278,106 +278,94 @@ The bot will automatically associate the photo as the cover and use the hashtags
             return;
         }
 
-            const chatId = ctx.chat.id.toString();
+        const chatId = ctx.chat.id.toString();
+        
+        try {
+            // Check for recent context (photo/caption/text)
+            let suggestedCoverPath: string | undefined;
+            let metadataHints: any = {};
+            const context = this.recentContext.get(chatId);
             
-            try {
-                // Check for recent context (photo/caption/text)
-                let suggestedCoverPath: string | undefined;
-                let metadataHints: any = {};
-                const context = this.recentContext.get(chatId);
+            // Get caption from current message or recent context
+            const msg = ctx.message || ctx.channelPost;
+            const currentCaption = msg?.caption || '';
+            const contextCaption = (context && (Date.now() - context.timestamp < 60 * 60 * 1000)) ? (context.caption || '') : '';
+            
+            // Combine captions for parsing (current message takes precedence if we parse sequentially)
+            const caption = (currentCaption + '\n' + contextCaption).trim();
+            
+            if (caption) {
+                console.log(`[TelegramBot] Parsing caption for metadata: ${caption.substring(0, 50)}...`);
                 
-                // Get caption from current message or recent context
-                const msg = ctx.message || ctx.channelPost;
-                const currentCaption = msg?.caption || '';
-                const contextCaption = (context && (Date.now() - context.timestamp < 60 * 60 * 1000)) ? (context.caption || '') : '';
-                
-                // Combine captions for parsing (current message takes precedence if we parse sequentially)
-                const caption = (currentCaption + '\n' + contextCaption).trim();
-                
-                if (caption) {
-                    console.log(`[TelegramBot] Parsing caption for metadata: ${caption.substring(0, 50)}...`);
-                    
-                    // Improved regex for metadata tags
-                    // Matches #tag: value, #tag - value, #tag = value, or #tag value
-                    const artistMatch = caption.match(/#artist[:\s\-=]+([^\n#\r]+)/i);
-                    const albumMatch = caption.match(/#album[:\s\-=]+([^\n#\r]+)/i);
-                    const yearMatch = caption.match(/#year[:\s\-=]+(\d{4})/i);
-                    const titleMatch = caption.match(/#title[:\s\-=]+([^\n#\r]+)/i);
-                    const genreMatch = caption.match(/#genre[:\s\-=]+([^\n#\r]+)/i);
+                const artistMatch = caption.match(/#artist[:\s\-=]+([^\n#\r]+)/i);
+                const albumMatch = caption.match(/#album[:\s\-=]+([^\n#\r]+)/i);
+                const yearMatch = caption.match(/#year[:\s\-=]+(\d{4})/i);
+                const titleMatch = caption.match(/#title[:\s\-=]+([^\n#\r]+)/i);
+                const genreMatch = caption.match(/#genre[:\s\-=]+([^\n#\r]+)/i);
 
-                    if (artistMatch) metadataHints.artist = artistMatch[1].trim();
-                    if (albumMatch) metadataHints.album = albumMatch[1].trim();
-                    if (yearMatch) metadataHints.year = parseInt(yearMatch[1]);
-                    if (titleMatch) metadataHints.title = titleMatch[1].trim();
-                    if (genreMatch) metadataHints.genre = genreMatch[1].trim();
+                if (artistMatch) metadataHints.artist = artistMatch[1].trim();
+                if (albumMatch) metadataHints.album = albumMatch[1].trim();
+                if (yearMatch) metadataHints.year = parseInt(yearMatch[1]);
+                if (titleMatch) metadataHints.title = titleMatch[1].trim();
+                if (genreMatch) metadataHints.genre = genreMatch[1].trim();
 
-                    // Fallback to line-based parsing if no hashtags were found
-                    if (!metadataHints.artist && !metadataHints.album) {
-                        const lines = caption.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('#'));
-                        if (lines.length >= 1) metadataHints.artist = lines[0];
-                        if (lines.length >= 2) metadataHints.album = lines[1];
-                    }
-
-                    console.log(`[TelegramBot] Extracted metadata hints from caption:`, metadataHints);
+                if (!metadataHints.artist && !metadataHints.album) {
+                    const lines = caption.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('#'));
+                    if (lines.length >= 1) metadataHints.artist = lines[0];
+                    if (lines.length >= 2) metadataHints.album = lines[1];
                 }
 
-                // 2. Download Photo as Cover
-                if (context?.photoId) {
-                    try {
-                        const photoLink = await ctx.telegram.getFileLink(context.photoId);
-                        const importDir = path.join(this.musicDir, 'imports', 'telegram');
-                        await fs.ensureDir(importDir);
-                        const coverPath = path.join(importDir, `cover_${context.photoId}.jpg`);
-                        
-                        const photoResponse = await axios({ url: photoLink.href, responseType: 'stream', method: 'GET' });
-                        const photoWriter = fs.createWriteStream(coverPath);
-                        photoResponse.data.pipe(photoWriter);
-                        await new Promise<void>((resolve, reject) => {
-                            photoWriter.on('finish', () => resolve());
-                            photoWriter.on('error', (err) => reject(err));
-                        });
-                        suggestedCoverPath = coverPath;
-                    } catch (e) {
-                        console.error('[TelegramBot] Failed to download cover:', e);
-                    }
-                }
-
-                // 3. Download and Process Audio
-                const fileLink = await ctx.telegram.getFileLink(audio.file_id);
-                const fileName = audio.file_name || `${audio.file_unique_id}.mp3`;
-                const importDir = path.join(this.musicDir, 'imports', 'telegram');
-                await fs.ensureDir(importDir);
-
-                const filePath = path.join(importDir, fileName);
-                
-                await this.safeReply(ctx, `📥 Downloading ${fileName}...`);
-                
-                const response = await axios({
-                    url: fileLink.href,
-                    method: 'GET',
-                    responseType: 'stream'
-                });
-
-                const writer = fs.createWriteStream(filePath);
-                response.data.pipe(writer);
-
-                await new Promise<void>((resolve, reject) => {
-                    writer.on('finish', () => resolve());
-                    writer.on('error', (err) => reject(err));
-                });
-
-                await this.safeReply(ctx, `⚙️ Processing ${fileName}...`);
-                const result = await this.scanner.processAudioFile(filePath, this.musicDir, undefined, undefined, undefined, suggestedCoverPath, metadataHints);
-
-                if (result?.success) {
-                    await this.safeReply(ctx, `✅ UPLOADED TO TUNECAMP!\n\n${result.message}`);
-                } else {
-                    await this.safeReply(ctx, `❌ Import failed: ${result?.message || 'Unknown error'}`);
-                }
-            } catch (err) {
-                console.error('[TelegramBot] Error handling audio:', err);
-                await this.safeReply(ctx, '❌ Error processing audio file. Please check server logs.');
+                console.log(`[TelegramBot] Extracted metadata hints from caption:`, metadataHints);
             }
+
+            if (context?.photoId) {
+                try {
+                    const photoLink = await ctx.telegram.getFileLink(context.photoId);
+                    const importDir = path.join(this.musicDir, 'imports', 'telegram');
+                    await fs.ensureDir(importDir);
+                    const coverPath = path.join(importDir, `cover_${context.photoId}.jpg`);
+                    
+                    const photoResponse = await axios({ url: photoLink.href, responseType: 'stream', method: 'GET' });
+                    const photoWriter = fs.createWriteStream(coverPath);
+                    photoResponse.data.pipe(photoWriter);
+                    await new Promise<void>((resolve, reject) => {
+                        photoWriter.on('finish', () => resolve());
+                        photoWriter.on('error', (err) => reject(err));
+                    });
+                    suggestedCoverPath = coverPath;
+                } catch (e) {
+                    console.error('[TelegramBot] Failed to download cover:', e);
+                }
+            }
+
+            const fileLink = await ctx.telegram.getFileLink(audio.file_id);
+            const fileName = audio.file_name || `${audio.file_unique_id}.mp3`;
+            const importDir = path.join(this.musicDir, 'imports', 'telegram');
+            await fs.ensureDir(importDir);
+
+            const filePath = path.join(importDir, fileName);
+            await this.safeReply(ctx, `📥 Downloading ${fileName}...`);
+            
+            const response = await axios({ url: fileLink.href, method: 'GET', responseType: 'stream' });
+            const writer = fs.createWriteStream(filePath);
+            response.data.pipe(writer);
+
+            await new Promise<void>((resolve, reject) => {
+                writer.on('finish', () => resolve());
+                writer.on('error', (err) => reject(err));
+            });
+
+            await this.safeReply(ctx, `⚙️ Processing ${fileName}...`);
+            const result = await this.scanner.processAudioFile(filePath, this.musicDir, undefined, undefined, undefined, suggestedCoverPath, metadataHints);
+
+            if (result?.success) {
+                await this.safeReply(ctx, `✅ UPLOADED TO TUNECAMP!\n\n${result.message}`);
+            } else {
+                await this.safeReply(ctx, `❌ Import failed: ${result?.message || 'Unknown error'}`);
+            }
+        } catch (err) {
+            console.error('[TelegramBot] Error handling audio:', err);
+            await this.safeReply(ctx, '❌ Error processing audio file. Please check server logs.');
         }
     }
 }
