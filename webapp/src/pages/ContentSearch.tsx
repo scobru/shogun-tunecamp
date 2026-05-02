@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { API } from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useNavigate } from 'react-router-dom';
-import { Search, Download, Settings, Activity, RefreshCw, Trash2, AlertCircle } from 'lucide-react';
+import { Search, Download, Activity, RefreshCw, Trash2, AlertCircle } from 'lucide-react';
 
 export const ContentSearch: React.FC = () => {
     const [query, setQuery] = useState('');

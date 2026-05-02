@@ -188,7 +188,7 @@ export default function AdminReleaseEditor() {
         priceUsdc: data.price_usdc || data.priceUsdc || 0,
         currency: data.currency || "ETH",
         download: data.download || "none",
-        tags: data.genre || "",
+        genre: data.genre || "",
         license: data.license || "copyright",
         use_nft: data.use_nft !== undefined ? !!data.use_nft : true,
       });
