@@ -215,6 +215,15 @@ The bot will automatically associate the photo as the cover and use the hashtags
             }
         }
 
+        // Check for file size limit (20MB for standard Bot API)
+        if (audio.file_size && audio.file_size > 20 * 1024 * 1024) {
+            const fileName = audio.file_name || audio.title || 'audio file';
+            const sizeMB = (audio.file_size / (1024 * 1024)).toFixed(1);
+            console.warn(`[TelegramBot] File ${fileName} is too big (${sizeMB}MB)`);
+            await this.safeReply(ctx, `⚠️ "${fileName}" is too large (${sizeMB}MB).\n\nTelegram Bots are limited to 20MB per file by the default API. To import larger files, please use the web interface or a local scanner.`);
+            return;
+        }
+
         try {
             // Check for recent context (photo/caption)
             let suggestedCoverPath: string | undefined;
