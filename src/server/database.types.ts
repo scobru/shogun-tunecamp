@@ -366,6 +366,7 @@ export interface DatabaseService {
     updateAlbumTitle(id: number, title: string): void;
     updateAlbumCover(id: number, coverPath: string): void;
     updateAlbumGenre(id: number, genre: string | null): void;
+    updateAlbumYear(id: number, year: number | string | null): void;
     updateAlbumDownload(id: number, download: string | null): void;
     updateAlbumPrice(id: number, price: number | null, price_usdc: number | null, currency?: 'ETH' | 'USD'): void;
     updateAlbumLinks(id: number, links: string | null): void;

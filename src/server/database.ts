@@ -1314,6 +1314,7 @@ export function createDatabase(dbPath: string): DatabaseService {
         },
         updateAlbumCover(id: number, coverPath: string): void { db.prepare("UPDATE albums SET cover_path = ? WHERE id = ?").run(coverPath, id); },
         updateAlbumGenre(id: number, genre: string | null): void { db.prepare("UPDATE albums SET genre = ? WHERE id = ?").run(genre, id); },
+        updateAlbumYear(id: number, year: number | string | null): void { db.prepare("UPDATE albums SET year = ? WHERE id = ?").run(year, id); },
         updateAlbumDownload(id: number, download: string | null): void { db.prepare("UPDATE albums SET download = ? WHERE id = ?").run(download, id); },
         updateAlbumPrice(id: number, price: number | null, price_usdc: number | null, currency: 'ETH' | 'USD' = 'ETH'): void {
             db.prepare("UPDATE albums SET price = ?, price_usdc = ?, currency = ? WHERE id = ?").run(price || 0, price_usdc || 0, currency, id);
