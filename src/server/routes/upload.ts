@@ -123,9 +123,9 @@ export function createUploadRoutes(
         }
     ) {
         try {
-            if (!req.isAdmin) {
+            if (!req.isRootAdmin) {
                 if (req.file) await storage.remove(req.file.path);
-                return res.status(403).json({ error: `Restricted admins cannot change ${options.errorLabel}` });
+                return res.status(403).json({ error: "Only root admin can change site settings" });
             }
             const file = req.file;
             if (!file) {

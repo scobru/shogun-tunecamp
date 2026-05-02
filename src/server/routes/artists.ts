@@ -153,8 +153,8 @@ export function createArtistsRoutes(database: DatabaseService, musicDir: string)
             return res.status(401).json({ error: "Unauthorized" });
         }
 
-        // Only Root Admin can create new artists
-        if (req.artistId) {
+        // Restricted admins cannot create new artists
+        if (req.artistId && !req.isRootAdmin) {
             return res.status(403).json({ error: "Restricted admins cannot create new artists" });
         }
 
